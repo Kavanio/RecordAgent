@@ -99,3 +99,48 @@ test('普通提醒提交真实正文，原生失败不能回报已提交', async
     globalThis.isTauri = false; delete window.__TAURI_INTERNALS__; window.Notification = originalNotification;
   }
 });
+
+test('开发模式待确认提醒会发声并打开可见提醒窗口', async () => {
+  const { AutomationProvider } = await server.ssrLoadModule('/src/context/AutomationContext.tsx');
+  const calls = [];
+  const sources = [];
+  const oldEventSource = globalThis.EventSource;
+  globalThis.isTauri = true;
+  window.__TAURI_INTERNALS__ = {
+    invoke: async (command, args) => {
+      calls.push({ command, args });
+      if (command === 'task_notification_status') return { mode: 'DEV_FALLBACK', authorized: true, alertEnabled: true, soundEnabled: true };
+      if (command === 'task_activity_status') return { supported: false, locked: false, idleSeconds: 0 };
+      if (command.includes('claim')) return { code: 200, data: true };
+      if (command === 'plugin:event|listen') return 1;
+    },
+    transformCallback: () => 1,
+  };
+  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} };
+  globalThis.EventSource = class {
+    constructor() { sources.push(this); this.listeners = new Map(); }
+    addEventListener(name, callback) { this.listeners.set(name, callback); }
+    close() {}
+    emit(name, data) { this.listeners.get(name)?.({ data: JSON.stringify(data) }); }
+  };
+  const providerRoot = createRoot(document.createElement('div'));
+  try {
+    await React.act(async () => providerRoot.render(React.createElement(MessageProvider, null,
+      React.createElement(AutomationProvider, null, React.createElement('span', null, 'ready')))));
+    assert.equal(sources.length, 1);
+    const run = { id: 'sedentary-run', title: '久坐提醒', content: '起来活动一下',
+      desktopStatus: 'PENDING', confirmation: 'WAITING', sound: true };
+    await React.act(async () => {
+      sources[0].emit('snapshot', { tasks: [], pending: [run] });
+      await new Promise(resolve => setTimeout(resolve, 10));
+    });
+    assert.ok(calls.some(call => call.command === 'sync_task_reminder' && call.args.visible === true));
+    assert.ok(calls.some(call => call.command === 'send_task_notification' && call.args.sound === true));
+  } finally {
+    await React.act(async () => providerRoot.unmount());
+    globalThis.EventSource = oldEventSource;
+    globalThis.isTauri = false;
+    delete window.__TAURI_INTERNALS__;
+    delete window.__TAURI_EVENT_PLUGIN_INTERNALS__;
+  }
+});

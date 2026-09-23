@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, type ReactNode } from 'react';
 import type { AutomationSnapshot, ComputerActivity } from '../types/automation';
 import { AutomationStateContext } from './automationState';
 import { subscribeAutomations, claimAutomation, automationReceipt, reportComputerActivity } from '../services/automationApi';
-import { deliverTaskNotification, isTaskDesktop, listenTaskActivity, taskActivityStatus } from '../services/taskDesktop';
+import { deliverTaskNotification, isTaskDesktop, listenTaskActivity, syncTaskReminder, taskActivityStatus, taskNotificationStatus } from '../services/taskDesktop';
 import { useMessage } from '../components/common/Message';
 
 /** 主窗口只订阅一次；辅助提醒窗口只读快照，不负责投递和采样。 */
@@ -44,13 +44,22 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
           try {
             status = await deliverTaskNotification(run);
             if (!isTaskDesktop() && run.confirmation !== 'WAITING') showMessage('info', `${run.title}：${run.content.slice(0,100)}`);
+            if (isTaskDesktop() && run.confirmation !== 'WAITING') {
+              const notification = await taskNotificationStatus();
+              if (notification.mode === 'DEV_FALLBACK') showMessage('info', `${run.title}：${run.content.slice(0,100)}`);
+            }
           } catch (e) { showMessage('error', e instanceof Error ? e.message : '桌面通知失败，请查看任务历史'); }
           await automationReceipt(run.id, status);
         } catch { setConnected(false); }
         finally { inFlight.current.delete(run.id); }
       })();
     }
-    // 原生通知中心展示提醒，待确认状态保留在任务页，不自动打开置顶窗口。
+    // 开发可执行文件无稳定通知包身份；待确认任务用可见窗口，安装版用系统横幅。
+    if (isTaskDesktop()) void taskNotificationStatus().then(value => {
+      if (value.mode === 'DEV_FALLBACK') {
+        return syncTaskReminder(snapshot.pending.some(run => run.confirmation === 'WAITING'));
+      }
+    }).catch(() => showMessage('error', '任务提醒窗口无法同步，请在任务页处理待确认提醒'));
   }, [snapshot, connected, isReminder, isStudyWidget, showMessage]);
   return <AutomationStateContext.Provider value={{ snapshot, connected, activity }}>{children}</AutomationStateContext.Provider>;
 }

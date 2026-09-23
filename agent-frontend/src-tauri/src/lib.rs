@@ -51,6 +51,8 @@ pub fn run() {
     system_settings::open_location_settings,
     task_desktop::task_activity_status,
     task_desktop::send_task_notification,
+    task_desktop::task_notification_status,
+    task_desktop::request_task_notification_permission,
     task_desktop::sync_task_reminder,
     task_desktop::task_background_enabled,
     task_desktop::set_task_background,

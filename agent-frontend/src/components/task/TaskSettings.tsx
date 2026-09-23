@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import type { SaveTaskMailSettings } from '../../types/automation';
 import { fetchTaskMailSettings, saveTaskMailSettings, testTaskMail } from '../../services/automationApi';
 import {
-  checkTaskNotificationPermission,
   getTaskBackground,
   isTaskDesktop,
   requestTaskNotificationPermission,
+  taskNotificationStatus,
   setTaskBackground,
 } from '../../services/taskDesktop';
 import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
@@ -22,6 +22,8 @@ export function TaskSettings() {
   const [recipient, setRecipient] = useState<string | null>(null);
   const [background, setBackground] = useState(false);
   const [notificationGranted, setNotificationGranted] = useState(false);
+  const [notificationMode, setNotificationMode] = useState('NATIVE');
+  const [notificationDetails, setNotificationDetails] = useState('');
   const [binding, setBinding] = useState(false);
   const [mailModalOpen, setMailModalOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -44,7 +46,11 @@ export function TaskSettings() {
       });
       setRecipient(value.maskedRecipient);
       setBackground(await getTaskBackground());
-      setNotificationGranted(await checkTaskNotificationPermission());
+      const notification = await taskNotificationStatus();
+      setNotificationGranted(notification.authorized);
+      setNotificationMode(notification.mode);
+      setNotificationDetails(notification.mode === 'DEV_FALLBACK' ? '开发模式以提醒窗口和系统提示音呈现；安装版使用 macOS 通知中心'
+        : notification.authorized ? `横幅${notification.alertEnabled ? '已开启' : '未开启'}，声音${notification.soundEnabled ? '已开启' : '未开启'}` : '请允许本应用显示通知');
     } catch (e) {
       setError(e instanceof Error ? e.message : '配置读取失败');
     }
@@ -76,19 +82,23 @@ export function TaskSettings() {
       <div className={styles.body}>
         <SettingsGroup title="桌面提醒" description="应用完全退出后，定时任务与邮件发送停止。">
           <SettingsRow
-            label="系统通知权限"
-            description="由你主动授权，系统专注模式仍可能抑制通知"
+            label={notificationMode === 'DEV_FALLBACK' ? '开发模式提醒' : '系统通知权限'}
+            description={notificationDetails || '由你主动授权，系统专注模式仍可能抑制通知'}
             control={
               <LeverSwitch
                 checked={notificationGranted}
-                disabled={busy || !isTaskDesktop()}
-                label="系统通知权限"
+                disabled={busy || !isTaskDesktop() || notificationMode === 'DEV_FALLBACK'}
+                label={notificationMode === 'DEV_FALLBACK' ? '开发模式提醒' : '系统通知权限'}
                 showLabel={false}
                 onChange={async (checked) => {
                   if (checked) {
                     await action(async () => {
                       const granted = await requestTaskNotificationPermission();
                       setNotificationGranted(granted);
+                      const notification = await taskNotificationStatus();
+                      setNotificationDetails(granted
+                        ? `横幅${notification.alertEnabled ? '已开启' : '未开启'}，声音${notification.soundEnabled ? '已开启' : '未开启'}`
+                        : '请在系统设置中允许本应用显示通知');
                       showMessage(
                         granted ? 'success' : 'info',
                         granted ? '系统通知已允许' : '通知尚未允许，请在系统设置中授权'
