@@ -711,6 +711,26 @@
   margin-top: 20px;
 }
 
+.modalActions button:not([class*="danger"]):not([class*="primary"]) {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f2f3f5;
+  color: #1f2329;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.modalActions button:not([class*="danger"]):not([class*="primary"]):hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
 @media (max-width: 900px) {
   .configContainer {
     flex-direction: column;

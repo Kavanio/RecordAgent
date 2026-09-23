@@ -21,3 +21,27 @@
 .track span { display: block; height: 100%; background: #8a9eae; border-radius: inherit; }
 .meta { color: var(--text-secondary); font-size: 10px; line-height: 1.5; }
 .meta > span:first-child { overflow-wrap: anywhere; }
+
+.section button {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f2f3f5;
+  color: #1f2329;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.section button:hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #111827;
+}

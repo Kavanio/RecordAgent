@@ -28,9 +28,9 @@
   width: 100%;
   min-width: 0;
   appearance: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background-color: transparent;
+  border: 1px solid #dcdfe4;
+  border-radius: 9999px;
+  background-color: #ffffff;
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 12px;
@@ -38,29 +38,34 @@
   line-height: 1;
   outline: none;
   cursor: pointer;
+  box-sizing: border-box;
   transition: border-color var(--transition-fast), background-color var(--transition-fast);
 }
 
 .outline {
-  border-color: var(--border-medium);
-  background-color: var(--bg-app);
+  border-color: #dcdfe4;
+  background-color: #ffffff;
 }
 
 .sm {
-  height: 32px;
-  padding: 0 30px 0 10px;
+  height: 28px;
+  padding: 0 28px 0 12px;
+  border-radius: 9999px;
+  font-size: 12px;
 }
 
 .md {
-  height: 36px;
-  padding: 0 32px 0 10px;
+  height: 32px;
+  padding: 0 30px 0 14px;
+  border-radius: 9999px;
+  font-size: 12px;
 }
 
 .lg {
-  height: 46px;
-  padding: 0 34px 0 14px;
-  border-radius: var(--radius-lg);
-  font-size: 14px;
+  height: 40px;
+  padding: 0 34px 0 16px;
+  border-radius: 9999px;
+  font-size: 13px;
 }
 
 .select.withIcon {
@@ -68,12 +73,19 @@
 }
 
 .outline:hover:not(:disabled) {
-  border-color: #94a3b8;
-  background-color: var(--bg-surface);
+  border-color: #cbd5e1;
+  background-color: #fafbfc;
 }
 
 .outline:focus-visible {
   border-color: var(--accent-blue);
+  outline: 2px solid rgba(37, 99, 235, 0.2);
+  outline-offset: 1px;
+}
+
+.ghost {
+  border-color: transparent;
+  background-color: transparent;
 }
 
 .ghost:focus-visible {

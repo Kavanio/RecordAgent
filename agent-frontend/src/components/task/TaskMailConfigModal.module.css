@@ -33,6 +33,39 @@
   gap: 8px;
 }
 
+.actions button:not([type="submit"]) {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f2f3f5;
+  color: #1f2329;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.actions button:not([type="submit"]):hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+.actions button[type="submit"] {
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+}
+
 @media (max-width: 540px) {
   .grid2 {
     grid-template-columns: 1fr;

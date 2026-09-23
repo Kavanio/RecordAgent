@@ -11,6 +11,36 @@
 .statusActive.statusBlue { background: #eef4ff; color: var(--accent-blue); }
 .statusInactive { background: var(--bg-surface); color: var(--text-muted); }
 .providerActions { display: flex; align-items: center; gap: 14px; flex: 0 0 auto; }
+.providerActions button:not([role="switch"]),
+.consoleHeading button {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f2f3f5;
+  color: #1f2329;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.providerActions button:not([role="switch"]):hover:not(:disabled),
+.consoleHeading button:hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+.providerActions button:not([role="switch"]):active:not(:disabled),
+.consoleHeading button:active:not(:disabled) {
+  background-color: #dadde2;
+}
 .consolePanel { padding-bottom: 8px; }
 .consoleHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
 .consoleHeading h3 { color: var(--text-primary); font-size: 13px; font-weight: 650; line-height: 1.4; }

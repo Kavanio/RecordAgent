@@ -58,6 +58,49 @@
 .confirm p { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
 .confirm > div { display: flex; justify-content: flex-end; gap: 8px; }
 
+.actions button,
+.proposalActions button,
+.maintenanceHeader button,
+.confirm button {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f2f3f5;
+  color: #1f2329;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.actions button:hover:not(:disabled),
+.proposalActions button:hover:not(:disabled),
+.maintenanceHeader button:hover:not(:disabled),
+.confirm button:hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+.actions button:global(.primary),
+.proposalActions button:global(.primary) {
+  background-color: var(--accent-blue);
+  color: #ffffff;
+}
+
+.confirm button:global(.danger) {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
 @media (max-width: 720px) {
   .switchRow, .editorHeading, .editorFooter, .maintenanceHeader { align-items: stretch; flex-direction: column; }
   .budgets { grid-template-columns: 1fr; }
