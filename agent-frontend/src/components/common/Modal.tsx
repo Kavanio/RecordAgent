@@ -13,7 +13,10 @@ export interface ModalProps {
   /** 是否在应用窗口中垂直居中；默认保持顶部对齐 */
   centered?: boolean;
   className?: string;
+  /** 标题栏图标（可选） */
+  icon?: React.ReactNode;
 }
+
 
 const FOCUSABLE =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -31,7 +34,9 @@ export const Modal: React.FC<ModalProps> = ({
   width = 520,
   centered = false,
   className = '',
+  icon,
 }) => {
+
   const panelRef = useRef<HTMLDivElement>(null);
   const modalIdRef = useRef(0);
   if (modalIdRef.current === 0) modalIdRef.current = ++nextModalId;
@@ -100,7 +105,10 @@ export const Modal: React.FC<ModalProps> = ({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className={styles.header}>
-          <h3 className={styles.title}>{title}</h3>
+          <div className={styles.titleWrapper}>
+            {icon && <span className={styles.headerIcon}>{icon}</span>}
+            <h3 className={styles.title}>{title}</h3>
+          </div>
           <button
             type="button"
             className={styles.closeBtn}
@@ -111,6 +119,7 @@ export const Modal: React.FC<ModalProps> = ({
             <X size={16} />
           </button>
         </div>
+
         {children}
       </div>
     </div>,

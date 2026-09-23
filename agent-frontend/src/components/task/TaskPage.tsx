@@ -8,10 +8,12 @@ import { TopBar } from '../common/TopBar';
 import { TopBarAction } from '../common/TopBarAction';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { useMessage } from '../common/Message';
 import { TaskEditor } from './TaskEditor';
 import { TaskRunConfirmModal } from './TaskRunConfirmModal';
 import styles from './TaskPage.module.css';
+
 
 export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { snapshot, connected, activity } = useAutomations();
@@ -155,11 +157,18 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
     </div></div>
     {editor && <TaskEditor key={editorKey} {...editor} onDirtyChange={setEditorDirty} onBusyChange={setEditorBusy} activitySupported={activity?.supported ?? false} onClose={() => switchEditor(null)} onSaved={() => applyEditor(null)} />}
     </div>
-    <Modal open={Boolean(editorSwitch)} title="放弃未保存的修改？" onClose={() => setEditorSwitch(null)}>
-      <p>当前任务有未保存的修改，切换后将丢弃这些内容。</p>
-      <Button variant="outline" onClick={() => setEditorSwitch(null)}>继续编辑</Button>
-      <Button variant="primary" onClick={() => { if (editorSwitch) applyEditor(editorSwitch.next); }}>放弃并继续</Button>
-    </Modal>
+    <ConfirmDialog
+      open={Boolean(editorSwitch)}
+      title="放弃未保存的修改？"
+      tone="warning"
+      description="当前任务有未保存的修改，切换后将丢弃这些内容。"
+      cancelText="继续编辑"
+      confirmText="放弃并继续"
+      onClose={() => setEditorSwitch(null)}
+      onConfirm={() => {
+        if (editorSwitch) applyEditor(editorSwitch.next);
+      }}
+    />
     <TaskRunConfirmModal
       open={confirm?.action === 'run'}
       task={confirm?.action === 'run' ? confirm.task : null}
@@ -173,13 +182,20 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
         }
       }}
     />
-    <Modal
+    <ConfirmDialog
       open={confirm?.action === 'delete'}
       title="删除任务"
-      width={440}
-      centered
+      tone="danger"
+      confirmText="确认删除"
+      confirmVariant="danger"
+      busy={busy}
       onClose={() => {
         if (!busy) setConfirm(null);
+      }}
+      onConfirm={() => {
+        if (confirm?.action === 'delete') {
+          void act(() => deleteAutomation(confirm.task), '任务已删除');
+        }
       }}
     >
       <div className={styles.deleteConfirmBody}>
@@ -189,24 +205,9 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
         <p className={styles.deleteConfirmHint}>
           停止该任务并撤回未开始的通知，已有执行历史将保留。
         </p>
-        <div className={styles.modalActions}>
-          <Button variant="outline" disabled={busy} onClick={() => setConfirm(null)}>
-            取消
-          </Button>
-          <Button
-            variant="danger"
-            disabled={busy}
-            onClick={() => {
-              if (confirm?.action === 'delete') {
-                void act(() => deleteAutomation(confirm.task), '任务已删除');
-              }
-            }}
-          >
-            {busy ? '正在删除…' : '确认删除'}
-          </Button>
-        </div>
       </div>
-    </Modal>
+    </ConfirmDialog>
+
     <Modal open={Boolean(historyTask)} title={`${historyTask?.spec.title ?? ''} · 执行历史`} width={720} onClose={() => setHistoryTask(null)}><div className={styles.history}>
       {historyError && <p role="alert">{historyError}<Button variant="ghost" onClick={() => setHistoryRefresh(value => value + 1)}>重试</Button></p>}
       {historyLoading && <p role="status">正在同步执行记录…</p>}
@@ -214,9 +215,28 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
       {history.map(run => <section key={run.id} className={styles.record}><div className={styles.heading}><strong>{new Date(run.createdAt).toLocaleString('zh-CN')}</strong><span>{runStatus[run.status] ?? run.status}</span></div><p className={styles.meta}>桌面：{runStatus[run.desktopStatus]} · 邮件：{runStatus[run.emailStatus]} · {runStatus[run.confirmation]}</p>{run.error && <p role="status">{run.error}</p>}<pre>{run.content}</pre>{(run.emailStatus === 'FAILED' || run.emailStatus === 'UNKNOWN') &&
         <Button size="sm" variant="outline" disabled={busy} onClick={() => setRetryRun(run)}>重发原邮件</Button>}</section>)}
     </div></Modal>
-    <Modal open={Boolean(retryRun)} title="重发邮件" onClose={() => setRetryRun(null)}>
-      <p>{retryRun?.emailStatus === 'UNKNOWN' ? '上次发送结果未知，邮件可能已经送达。再次发送可能产生重复邮件。' : '将复用这次执行已保存的内容，不重新生成日报。'}</p>
-      <Button variant="primary" disabled={busy} onClick={() => { if (retryRun) void act(async () => { await retryAutomationEmail(retryRun.id, retryRun.emailStatus === 'UNKNOWN'); if (historyTask) setHistory(await fetchAutomationHistory(historyTask.id)); setRetryRun(null); }, '邮件已加入发送队列'); }}>确认重发</Button>
-    </Modal>
+    <ConfirmDialog
+      open={Boolean(retryRun)}
+      title="重发邮件"
+      tone="info"
+      confirmText="确认重发"
+      busy={busy}
+      description={
+        retryRun?.emailStatus === 'UNKNOWN'
+          ? '上次发送结果未知，邮件可能已经送达。再次发送可能产生重复邮件。'
+          : '将复用这次执行已保存的内容，不重新生成日报。'
+      }
+      onClose={() => setRetryRun(null)}
+      onConfirm={() => {
+        if (retryRun) {
+          void act(async () => {
+            await retryAutomationEmail(retryRun.id, retryRun.emailStatus === 'UNKNOWN');
+            if (historyTask) setHistory(await fetchAutomationHistory(historyTask.id));
+            setRetryRun(null);
+          }, '邮件已加入发送队列');
+        }
+      }}
+    />
+
   </main>;
 }
