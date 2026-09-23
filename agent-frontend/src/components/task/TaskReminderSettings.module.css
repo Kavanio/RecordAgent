@@ -1,0 +1,8 @@
+.sounds { display:flex; flex-direction:column; gap:10px; width:290px; max-width:100%; }
+.actions { display:flex; gap:8px; }
+.file { display:none; }
+.hint { color:#7c8797; font-size:12px; line-height:1.5; }
+.interval { display:flex; align-items:center; gap:8px; width:150px; font-size:13px; color:#667184; }
+.interval > div { min-width:0; }
+.save { display:flex; justify-content:flex-end; padding:14px 18px; }
+.error { color:#b3261e; font-size:13px; padding:0 18px; }

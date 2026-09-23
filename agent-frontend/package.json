@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test:tasks": "node --test src/components/task/TaskPage.test.mjs",
+    "test:tasks": "node --test src/components/task/TaskPage.test.mjs src/services/taskReminderAudio.test.mjs",
     "preview": "vite preview",
     "version:check": "node ../scripts/sync-version.mjs --check",
     "version:sync": "node ../scripts/sync-version.mjs"

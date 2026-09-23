@@ -39,12 +39,6 @@ export async function requestTaskNotificationPermission(): Promise<boolean> {
 export async function syncTaskReminder(visible: boolean): Promise<void> {
   if (isTauri()) await invoke('sync_task_reminder', { visible });
 }
-export async function playTaskReminderSound(): Promise<void> {
-  if (isTauri()) await invoke('play_task_reminder_sound');
-}
-export async function stopTaskReminderSound(): Promise<void> {
-  if (isTauri()) await invoke('stop_task_reminder_sound');
-}
 export const getTaskBackground = () => isTauri() ? invoke<boolean>('task_background_enabled') : Promise.resolve(false);
 export const setTaskBackground = (enabled: boolean) => invoke<void>('set_task_background', { enabled });
 export const openTaskMain = () => invoke<void>('open_task_main');

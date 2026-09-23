@@ -16,6 +16,7 @@ import { useMessage } from '../common/Message';
 import { EmailBindingModal } from '../account/EmailBindingModal';
 import { TaskMailConfigModal } from './TaskMailConfigModal';
 import styles from './TaskSettings.module.css';
+import { TaskReminderSettings } from './TaskReminderSettings';
 
 export function TaskSettings() {
   const [form, setForm] = useState<SaveTaskMailSettings | null>(null);
@@ -131,6 +132,8 @@ export function TaskSettings() {
             }
           />
         </SettingsGroup>
+
+        <TaskReminderSettings />
 
         <SettingsGroup title="收件邮箱" description="第一版仅向当前已验证邮箱发送。">
           <SettingsRow
