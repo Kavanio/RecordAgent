@@ -88,7 +88,7 @@ test('任务页不重复展示待确认黄色提醒', async () => {
   assert.doesNotMatch(container.textContent, /久坐提醒 · 待确认/);
 });
 
-test('久坐弹框确认后停止声音，倒计时结束才提交后端确认', async () => {
+test('久坐弹框确认后停止声音，倒计时结束确认并播放提示音', async () => {
   const reminder = document.createElement('div'); document.body.append(reminder);
   const reminderRoot = createRoot(reminder);
   const run = { id: 'rest-run', taskId: 'A', title: '久坐提醒', content: '起来活动', confirmation: 'WAITING', sound: true, createdAt: Date.now() };
@@ -109,9 +109,11 @@ test('久坐弹框确认后停止声音，倒计时结束才提交后端确认',
     assert.ok(calls.includes('stop_task_reminder_sound'));
     assert.match(reminder.textContent, /休息中/);
     assert.equal(requests.filter(value => value.url.endsWith('/rest-run/confirm')).length, 0);
+    assert.equal(calls.filter(value => value === 'play_task_reminder_sound').length, 1);
     clock += 61_000;
     await React.act(async () => { await new Promise(resolve => setTimeout(resolve, 300)); });
     assert.equal(requests.filter(value => value.url.endsWith('/rest-run/confirm')).length, 1);
+    assert.equal(calls.filter(value => value === 'play_task_reminder_sound').length, 2);
   } finally {
     await React.act(async () => reminderRoot.unmount()); reminder.remove();
     localStorage.removeItem('task-reminder-rest:rest-run');

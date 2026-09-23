@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useAutomations } from '../../context/automationState';
 import { confirmAutomation } from '../../services/automationApi';
@@ -9,7 +9,7 @@ import styles from './TaskReminderWindow.module.css';
 const startedKey = (id: string) => `task-reminder-rest:${id}`;
 const readStarted = (id: string) => Number(localStorage.getItem(startedKey(id))) || null;
 
-/** 久坐提醒先停止提示音并开始休息；休息完成后才通知后端确认，窗口随权威快照关闭。 */
+/** 久坐提醒先停止提示音并开始休息；休息完成后确认并播放结束提示音，窗口随权威快照关闭。 */
 export function TaskReminderWindow() {
   const { snapshot, connected } = useAutomations();
   const [now, setNow] = useState(Date.now());
@@ -35,11 +35,17 @@ export function TaskReminderWindow() {
     return () => window.clearInterval(timer);
   }, [ringing, connected]);
 
-  async function finish(id: string) {
+  const finish = useCallback(async (id: string) => {
     if (finishing.current.has(id) || completed.current.has(id)) return;
     finishing.current.add(id); setBusy(id); setError('');
     try {
       await confirmAutomation(id);
+      const run = pending.find(value => value.id === id);
+      const sedentary = snapshot.tasks.some(value => value.id === run?.taskId && value.spec.kind === 'SEDENTARY');
+      if (sedentary && run?.sound) {
+        try { await playTaskReminderSound(); }
+        catch (e) { console.warn('休息结束提示音播放失败', e); }
+      }
       completed.current.add(id);
       localStorage.removeItem(startedKey(id));
     } catch (e) {
@@ -47,7 +53,7 @@ export function TaskReminderWindow() {
     } finally {
       finishing.current.delete(id); setBusy(null);
     }
-  }
+  }, [pending, snapshot.tasks]);
 
   useEffect(() => {
     for (const run of pending) {
@@ -56,7 +62,7 @@ export function TaskReminderWindow() {
       const start = started[run.id] || readStarted(run.id);
       if (start && now >= start + task.spec.breakMinutes * 60_000 && !error && !completed.current.has(run.id)) void finish(run.id);
     }
-  }, [pending, snapshot.tasks, started, now, error]);
+  }, [pending, snapshot.tasks, started, now, error, finish]);
 
   function acknowledge(id: string, sedentary: boolean) {
     void stopTaskReminderSound().catch(() => setError('提示音无法停止，请检查系统声音设置'));
