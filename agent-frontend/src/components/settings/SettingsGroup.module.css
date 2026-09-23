@@ -81,6 +81,46 @@
   justify-content: flex-end;
 }
 
+.control button:not([role="switch"]):not([data-input-stepper]) {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f2f3f5;
+  color: #1f2329;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.control button:not([role="switch"]):not([data-input-stepper]):hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+.control button:not([role="switch"]):not([data-input-stepper]):active:not(:disabled) {
+  background-color: #dadde2;
+}
+
+.control button:not([role="switch"]):not([data-input-stepper]):focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.control button:not([role="switch"]):not([data-input-stepper]):disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media (max-width: 720px) {
   .row {
     min-height: 0;

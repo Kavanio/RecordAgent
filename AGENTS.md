@@ -18,6 +18,7 @@
 | 目录 | 职责与约束 |
 | --- | --- |
 | `agent-frontend/` | React、TypeScript、Vite 与 Tauri 桌面端代码；仅放置前端构建、展示和桌面壳层相关内容。 |
+| `RecordAgent APP/IOS APP/RecordAgent/` | 独立 Swift/SwiftUI iOS App 的规划文档与后续原生工程；通过服务器 API 承载日历、财务、资料、记录和任务能力，不混入 Agent 编排或桌面端构建产物。 |
 | `agent-frontend/src/components/` | 可复用视图组件；按业务域建立目录，例如 `chat/`、`model/`、`layout/`、`common/`。 |
 | `agent-frontend/src/services/` | HTTP、SSE、存储与第三方调用等基础设施适配；不得承载页面状态或 JSX。 |
 | `agent-frontend/src/context/` | 跨页面共享状态与领域上下文；不得把一次性局部状态提升到此处。 |
@@ -34,6 +35,7 @@
 | `agent-backend/server-feishu/` | 飞书等即时通讯渠道集成：长连接事件接收、消息收发与渠道适配；仅依赖 `server-agents`，不承载 Agent 编排逻辑。 |
 | `agent-backend/*/src/main/resources/` | 仅保存不含密钥的默认配置和资源；真实用户配置不得硬编码于 yml。 |
 | `.agentscope/` | AgentScope 运行态工作区；不得手工提交会话、日志、缓存或临时任务数据。 |
+| `UI COMPONENTS.md` | 前端全量统一封装 UI 组件契约清单（表格形式）；任何 UI 组件的新增、修改、重构或废弃均需同步维护此文档。 |
 | `docs/`（新增时） | 架构、接口、决策记录和操作文档；文档应使用中文，专业术语可保留英文。 |
 
 ### 目录与文件管理
@@ -88,7 +90,7 @@
 - 聊天轮次 Token 用量随 assistant 消息写入 `~/.butvan-agent/transcripts/*.jsonl`；标题等非聊天模型调用写入 `~/.butvan-agent/usage/system-usage.jsonl`；未结束轮次仅暂存在 `~/.butvan-agent/runs/*.json`，终态落盘或重启恢复后必须清理。供应商 Usage 是实际总量，System、History、Current User、Tool Schema、Tool Result、Profile Context、Memory Recall、RAG 与 Other 是携带计数器版本的本地归因估算，两者不得混淆或互相补齐。SQLite 中的 Token 用量表仅作为可从上述文件重建的统计读模型，不得取代原始记录。
 - AgentScope 工作区、工具权限、文件与网络访问必须按最小权限设计；任何可能执行本机操作的能力都应具备明确的审批、范围和错误反馈。
 - 系统设置跳转只能通过参数固定的 Tauri 命令暴露，禁止允许前端传入任意 URL 或本机命令；不支持直达的平台必须提供可执行的手工路径说明。
-- 自动任务以 `server-network/automation` 的配置、执行和通知记录为权威事实；桌面端只提供原生使用状态采集、系统通知与确认窗口。预览不得发送，邮件只能投递到已验证的绑定邮箱；每次执行的邮件、桌面和确认状态分别持久化，进程中断后的未知投递不可自动重发。
+- 自动任务以 `server-network/automation` 的配置、执行和通知记录为权威事实；桌面端提供原生使用状态采集与系统通知。需确认的提醒统一使用固定尺寸的全局提醒窗口：到点播放提示音，用户确认后停止声音；久坐提醒继续倒计时至配置的休息时长，结束且后端确认成功时再播放一次提示音并关闭窗口。休息遮罩默认关闭，仅在用户确认休息后的有效倒计时期间覆盖所有显示器，结束、断连或原生续约超时必须释放，保留系统快捷键；不得在等待确认时锁定。提醒窗口音色、播放结束后的重复间隔及用户上传音频属于本机桌面偏好，统一由 Tauri 应用配置目录的 `task-reminder/` 管理，上传须校验格式、可播放性和大小，试听与正式提醒隔离。无需确认的任务继续使用系统通知。预览不得发送，邮件只能投递到已验证的绑定邮箱；每次执行的邮件、桌面和确认状态分别持久化，进程中断后的未知投递不可自动重发。
 
 ## 四、前端工程与 UI 组件规范
 
@@ -102,6 +104,7 @@
 - 组件对应样式使用 CSS Modules，与组件同目录同名保存；禁止在业务页面持续扩张大段内联样式。仅一次性的动态数值可使用内联样式。
 - 引入或调整组件时，必须检查已有组件能否复用；若发现重复实现，应在本次改动中合并或记录明确的后续重构任务。
 - 日历、财务、资料、记录及后续同级工作区统一使用 `common/TopBar`：左侧为图标、页面名称与可选副标题，搜索通过 `search` 插槽接入，操作通过 `actions` 接入。顶部按钮统一使用 `TopBarAction`：主要操作用 `primary`、次要操作用 `outline`、轻量操作用 `ghost`；纯图标操作设置 `iconOnly` 和中文 `aria-label`。尺寸、颜色、圆角、间距、焦点与窗口安全内边距由公共组件维护，页面通过属性扩展，不覆盖按钮外观。
+- 根目录 `UI COMPONENTS.md` 为全量统一封装 UI 组件的权威表格清单与长期维护契约；凡新增、修改、重构、移动或废弃公共 UI 组件及领域统一复用组件，必须同步更新 `UI COMPONENTS.md` 中的表格记录（包含组件名称、源码路径、样式/依赖、核心职责、接口契约、状态变体与应用场景），确保契约与实现严格对齐。
 
 ### 前端分层与状态
 
@@ -130,6 +133,7 @@
 
 - 已建立子级 `AGENTS.md`：`agent-backend/server-feishu/`（渠道集成模块职责与配置约束）。
 - 已建立子级 `AGENTS.md`：`agent-backend/server-network/`（HTTP 接口与本地 SQLite 持久化约束）。
+- 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/RecordAgent/`（原生 iOS 技术栈、API 数据边界与工程约束）。
 - 自动任务的细节约束见 `agent-backend/server-network/AGENTS.md` 的“自动任务”节；产品行为见 `docs/任务模块产品需求与操作说明.md`。
 - 根目录负责项目级工程规范、目录边界、架构契约与根文档。
 - 当 `agent-frontend/` 或 `agent-backend/` 出现独立且稳定的局部规则时，应分别建立中文 `AGENTS.md`，并在本节登记其职责范围。

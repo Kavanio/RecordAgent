@@ -1,0 +1,89 @@
+//! 休息倒计时的多屏遮罩。仅拦截普通窗口点击，不接管系统快捷键。
+use std::{sync::Mutex, time::{Duration, Instant}};
+use tauri::Manager;
+
+static LEASE: Mutex<Option<Instant>> = Mutex::new(None);
+
+/// 断连、倒计时结束或前端停止续约后销毁全部遮罩。
+pub fn clear(app: &tauri::AppHandle) -> Result<(), String> {
+    *LEASE.lock().map_err(|e| e.to_string())? = None;
+    let mut error = None;
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("task-rest-shield-") {
+            if let Err(e) = window.destroy() { error = Some(e.to_string()); }
+        }
+    }
+    if let Some(reminder) = app.get_webview_window("task-reminder") {
+        if let Err(e) = set_macos_level(&reminder, 3) { error = Some(e); }
+    }
+    if error.is_some() {
+        *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now());
+    }
+    error.map_or(Ok(()), Err)
+}
+
+/// 只允许提醒窗口按一秒心跳续约；原生四秒看门狗避免脚本失效后永久遮挡。
+#[tauri::command]
+pub fn sync_task_rest_lock(app: tauri::AppHandle, window: tauri::WebviewWindow, remaining_seconds: u32) -> Result<(), String> {
+    if window.label() != "task-reminder" { return Err("仅提醒窗口可以控制休息遮罩".into()); }
+    if remaining_seconds == 0 { return clear(&app); }
+    let result = show(&app, &window);
+    if result.is_err() { if let Err(e) = clear(&app) { log::error!("休息遮罩清理失败：{e}"); } }
+    result?;
+    *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now() + Duration::from_secs(u64::from(remaining_seconds.min(4))));
+    Ok(())
+}
+fn show(app: &tauri::AppHandle, reminder: &tauri::WebviewWindow) -> Result<(), String> {
+    let monitors = app.available_monitors().map_err(|e| e.to_string())?;
+    if monitors.is_empty() { return Err("无法获取显示器，未开启休息遮罩".into()); }
+    let mut created = false;
+    for (index, monitor) in monitors.iter().enumerate() {
+        let label = format!("task-rest-shield-{index}");
+        let shield = if let Some(window) = app.get_webview_window(&label) { window } else {
+            created = true;
+            tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::App("task-rest-shield.html".into()))
+                .title("正在休息").decorations(false).resizable(false).maximizable(false).minimizable(false)
+                .always_on_top(true).visible_on_all_workspaces(true).skip_taskbar(true).focused(false).focusable(false).visible(false)
+                .build().map_err(|e| e.to_string())?
+        };
+        // macOS 状态栏层覆盖菜单栏与 Dock；提醒窗口高一层，点击遮罩不会挡住倒计时。
+        set_macos_level(&shield, 25)?;
+        shield.set_position(*monitor.position()).map_err(|e| e.to_string())?;
+        shield.set_size(*monitor.size()).map_err(|e| e.to_string())?;
+        if !shield.is_visible().map_err(|e| e.to_string())? { shield.show().map_err(|e| e.to_string())?; }
+    }
+    // 拔除屏幕后及时移除不再对应显示器的遮罩。
+    for (label, window) in app.webview_windows() {
+        if label.strip_prefix("task-rest-shield-").and_then(|v| v.parse::<usize>().ok()).is_some_and(|index| index >= monitors.len()) {
+            window.destroy().map_err(|e| e.to_string())?;
+        }
+    }
+    set_macos_level(reminder, 26)?;
+    if created {
+        reminder.show().and_then(|_| reminder.set_focus()).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+fn set_macos_level(window: &tauri::WebviewWindow, level: isize) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let ptr = window.ns_window().map_err(|e| e.to_string())?;
+        // 指针来自存活的 Tauri 窗口，仅在主线程的命令或看门狗回调中使用。
+        let native = unsafe { &*ptr.cast::<objc2_app_kit::NSWindow>() };
+        native.setLevel(level);
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window, level);
+    Ok(())
+}
+pub fn setup(app: &tauri::AppHandle) {
+    let handle = app.clone();
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(1));
+        let app = handle.clone();
+        if let Err(e) = handle.run_on_main_thread(move || {
+            let expired = LEASE.lock().map(|lease| lease.is_some_and(|until| Instant::now() >= until)).unwrap_or(true);
+            if expired { if let Err(e) = clear(&app) { log::error!("休息遮罩超时清理失败：{e}"); } }
+        }) { log::warn!("休息遮罩看门狗停止：{e}"); break; }
+    });
+}

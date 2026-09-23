@@ -84,7 +84,8 @@ public class AutomationService {
     public synchronized Preview preview(String owner, Spec input) {
         if (input == null) throw new IllegalArgumentException("任务配置不能为空");
         var s = input.domain(); s.validate(); var now = automationClock.instant();
-        return new Preview(s.title(), reports.build(owner, s, now, now).text(), TaskSchedule.next(s, now));
+        var report = reports.build(owner, s, now, now);
+        return new Preview(s.title(), report.text(), TaskSchedule.next(s, now), TaskMailTemplateRenderer.render(s, report));
     }
     /** 手动执行仅允许启用任务，不改变下一次计划时间。 */
     public synchronized RunView runNow(String owner, String id) {
@@ -121,10 +122,10 @@ public class AutomationService {
     }
     private TaskRun execute(AutomationTask task, long planned, String source) {
         var s = task.spec(); var now = automationClock.instant();
-        String text, status, error = "";
+        String text, status, error = "", html = "";
         try {
             var report = reports.build(task.ownerId(), s, Instant.ofEpochMilli(planned), now);
-            text = report.text(); status = report.partial() ? "PARTIAL" : "SUCCESS";
+            text = report.text(); html = TaskMailTemplateRenderer.render(s, report); status = report.partial() ? "PARTIAL" : "SUCCESS";
         } catch (RuntimeException e) {
             text = ""; status = "FAILED"; error = "任务内容生成失败，请检查数据来源后重试";
         }
@@ -133,7 +134,7 @@ public class AutomationService {
         var run = new TaskRun(UUID.randomUUID().toString(), task.id(), task.ownerId(), s.title(), text,
                 planned, now.toEpochMilli(), source, status, s.desktop() && !failed ? "PENDING" : "SKIPPED",
                 s.email() && !failed && recipient != null ? "PENDING" : "SKIPPED", recipient,
-                s.confirm() && !failed ? "WAITING" : "NONE", s.sound(), error);
+                s.confirm() && !failed ? "WAITING" : "NONE", s.sound(), error, html, now.toEpochMilli());
         repository.insertRun(run);
         if ("ACTIVITY".equals(s.trigger())) repository.progress(task.id(), null, 0, task.status());
         return run;
@@ -169,7 +170,7 @@ public class AutomationService {
         if (repository.find(owner, run.taskId()).map(t -> !"DELETED".equals(t.status())).orElse(false) == false)
             throw new IllegalArgumentException("任务已删除，不能重发邮件");
         transaction(owner, () -> {
-            if (!repository.retryMail(owner, runId, run.emailStatus()))
+            if (!repository.retryMail(owner, runId, run.emailStatus(), automationClock.millis()))
                 throw new IllegalArgumentException("邮件状态已变化，请刷新后重试");
             return null;
         });
@@ -207,7 +208,7 @@ public class AutomationService {
     /** 邮件线程领取单次投递；网络操作在事务和领域锁外执行。 */
     public synchronized TaskRun claimMail() {
         for (var run : repository.pendingMail()) {
-            if (automationClock.millis()-run.createdAt() > 86_400_000) {
+            if (automationClock.millis()-run.emailQueuedAt() > 86_400_000) {
                 transaction(run.ownerId(), () -> { repository.mailResult(run.id(), "SKIPPED", "邮件排队已超过 24 小时"); return null; });
                 continue;
             }

@@ -8,7 +8,7 @@ import {
 import type { PersonalContextSettings, ProfileMaintenanceStatus } from '../../types/personalContext';
 import { Button } from '../common/Button';
 import { useMessage } from '../common/Message';
-import { Modal } from '../common/Modal';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { LeverSwitch } from '../common/LeverSwitch';
 import { formatTokenCount } from '../chat/tokenUsageFormat';
 import { SettingsPageLayout } from './SettingsPageLayout';
@@ -173,8 +173,21 @@ export function PersonalContextSettingsPage() {
       <p className={styles.privacy}>画像、开关、提案与最近 20 个历史版本均保存在本机。敏感片段不会进入自动提案；暂停不会删除任何数据。</p>
     </div>
 
-    <Modal open={confirmingClear} title="清空个人画像" onClose={() => setConfirmingClear(false)}>
-      <div className={styles.confirm}><p>清空后，Agent 将不再自动使用当前画像。历史记忆文件不会被删除。</p><div><Button variant="outline" onClick={() => setConfirmingClear(false)}>取消</Button><Button variant="danger" disabled={saving} onClick={() => void mutateSettings(clearPersonalContextProfile, '个人画像已清空').then((ok) => { if (ok) setConfirmingClear(false); })}>确认清空</Button></div></div>
-    </Modal>
+    <ConfirmDialog
+      open={confirmingClear}
+      title="清空个人画像"
+      tone="danger"
+      confirmText="确认清空"
+      confirmVariant="danger"
+      busy={saving}
+      description="清空后，Agent 将不再自动使用当前画像。历史记忆文件不会被删除。"
+      onClose={() => setConfirmingClear(false)}
+      onConfirm={() => {
+        void mutateSettings(clearPersonalContextProfile, '个人画像已清空').then((ok) => {
+          if (ok) setConfirmingClear(false);
+        });
+      }}
+    />
+
   </SettingsPageLayout>;
 }

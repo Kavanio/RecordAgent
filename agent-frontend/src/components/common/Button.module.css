@@ -41,11 +41,18 @@
   background-color: var(--accent-blue);
   color: #ffffff;
   border-color: var(--accent-blue);
+  box-shadow: 0 12px 30px rgba(16, 24, 40, 0.06);
 }
 
 .primary:hover:not(:disabled) {
-  background-color: #1d4ed8;
-  border-color: #1d4ed8;
+  background-color: var(--accent-blue-hover, #69aff7);
+  border-color: var(--accent-blue-hover, #69aff7);
+  box-shadow: 0 14px 32px rgba(16, 24, 40, 0.1);
+}
+
+.primary:active:not(:disabled) {
+  background-color: var(--accent-blue-active, #54a0f3);
+  border-color: var(--accent-blue-active, #54a0f3);
 }
 
 .secondary {
@@ -94,7 +101,25 @@
 }
 
 /* 页面顶栏共用固定高度，避免各业务页覆盖按钮外观。 */
-.toolbar { height: 30px; padding: 0 10px; font-size: 12px; border-radius: var(--radius-md); }
-.iconOnly { width: 30px; padding: 0; flex-shrink: 0; }
-.icon { display: inline-flex; align-items: center; }
-.btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.toolbar {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: var(--radius-md);
+}
+
+.iconOnly {
+  width: 30px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}

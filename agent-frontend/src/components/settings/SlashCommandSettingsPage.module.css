@@ -83,6 +83,42 @@
   gap: 4px;
 }
 
+.commandActions button,
+.editActions button:not([type="submit"]) {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f2f3f5;
+  color: #1f2329;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.commandActions button:hover:not(:disabled),
+.editActions button:not([type="submit"]):hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+.primaryActions button[type="submit"] {
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+}
+
 .editForm {
   display: flex;
   flex-direction: column;

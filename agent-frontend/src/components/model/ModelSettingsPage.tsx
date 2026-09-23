@@ -503,7 +503,6 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                 </div>
                 <Button
                   variant="primary"
-                  className={styles.addBtn}
                   icon={<Plus size={15} />}
                   onClick={handleStartAdd}
                 >
@@ -787,7 +786,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                         <Button variant="outline" onClick={handleCancel}>
                           取消
                         </Button>
-                        <Button variant="primary" className={styles.saveBtn} onClick={handleSave}>
+                        <Button variant="primary" onClick={handleSave}>
                           保存并创建
                         </Button>
                       </div>
@@ -1009,7 +1008,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                         <Button type="button" variant="outline" onClick={handleCancel}>
                           取消
                         </Button>
-                        <Button type="button" variant="primary" className={styles.saveBtn} onClick={handleSave}>
+                        <Button type="button" variant="primary" onClick={handleSave}>
                           保存更改
                         </Button>
                       </div>

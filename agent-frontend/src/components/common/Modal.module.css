@@ -36,12 +36,31 @@
   gap: 12px;
 }
 
+.titleWrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.headerIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .title {
   font-size: 15px;
   font-weight: 700;
   color: #0f172a;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
 
 .closeBtn {
   display: inline-flex;

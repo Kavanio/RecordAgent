@@ -56,25 +56,103 @@ pub fn task_activity_status() -> Activity { activity() }
 /// 固定路由提醒窗口，不接受任意 URL 或脚本。
 #[tauri::command]
 pub fn sync_task_reminder(app: tauri::AppHandle, visible: bool) -> Result<(), String> {
+    if !visible { crate::task_rest_lock::clear(&app)?; }
     if let Some(window) = app.get_webview_window("task-reminder") {
-        return if visible { window.show() } else { window.hide() }.map_err(|e| e.to_string());
+        return if visible { window.show().and_then(|_| window.set_focus()) } else { window.hide() }.map_err(|e| e.to_string());
     }
     if visible {
         tauri::WebviewWindowBuilder::new(&app, "task-reminder", tauri::WebviewUrl::App("index.html?view=task-reminder".into()))
-            .title("任务提醒").inner_size(440.0, 440.0).min_inner_size(360.0, 300.0)
-            .always_on_top(true).resizable(true).build().map_err(|e| e.to_string())?;
+            .title("任务提醒").inner_size(440.0, 400.0)
+            .always_on_top(true).resizable(false).maximizable(false).minimizable(false).build().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
 
-/// 仅在用户开启声音的提醒中播放系统提示音，macOS 静音设置仍生效。
+/// 当前通知能力；开发可执行文件没有稳定包身份，改用可见的提醒窗口。
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskNotificationStatus {
+    mode: &'static str,
+    authorized: bool,
+    alert_enabled: bool,
+    sound_enabled: bool,
+}
+
 #[tauri::command]
-pub fn play_task_sound() {
+pub fn task_notification_status() -> TaskNotificationStatus {
     #[cfg(target_os = "macos")]
-    unsafe {
-        #[link(name = "AppKit", kind = "framework")]
-        extern "C" { fn NSBeep(); }
-        NSBeep();
+    {
+        use mac_usernotifications::{AuthorizationStatus, NotificationSettingStatus};
+        if tauri::is_dev() || mac_usernotifications::check_bundle().is_err() {
+            return TaskNotificationStatus { mode: "DEV_FALLBACK", authorized: true, alert_enabled: true, sound_enabled: true };
+        }
+        if let Ok(settings) = mac_usernotifications::blocking::get_notification_settings() {
+            return TaskNotificationStatus {
+                mode: "NATIVE",
+                authorized: settings.authorization_status == AuthorizationStatus::Authorized,
+                alert_enabled: settings.alert_enabled == NotificationSettingStatus::Enabled,
+                sound_enabled: settings.sound_enabled == NotificationSettingStatus::Enabled,
+            };
+        }
+        return TaskNotificationStatus { mode: "NATIVE", authorized: false, alert_enabled: false, sound_enabled: false };
+    }
+    #[cfg(not(target_os = "macos"))]
+    TaskNotificationStatus { mode: "OTHER", authorized: true, alert_enabled: true, sound_enabled: true }
+}
+
+/// 用户主动在设置页请求横幅与声音权限。
+#[tauri::command]
+pub fn request_task_notification_permission() -> Result<TaskNotificationStatus, String> {
+    #[cfg(target_os = "macos")]
+    if !tauri::is_dev() && mac_usernotifications::check_bundle().is_ok() {
+        mac_usernotifications::blocking::request_auth()
+            .map_err(|e| { log::warn!("通知授权失败：{}", e); "系统通知授权失败".to_string() })?;
+    }
+    Ok(task_notification_status())
+}
+
+/// 安装版等待系统接纳通知；开发版以提醒窗和系统提示音及时提示。
+#[tauri::command]
+pub fn send_task_notification(app: tauri::AppHandle, title: String, body: String, sound: bool) -> Result<(), String> {
+    if title.chars().count() > 100 || body.chars().count() > 400 {
+        return Err("通知内容过长".into());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        if task_notification_status().mode == "DEV_FALLBACK" {
+            if sound {
+                app.run_on_main_thread(|| {
+                    use objc2_app_kit::NSSound;
+                    use objc2_foundation::NSString;
+                    let played = NSSound::soundNamed(&NSString::from_str("Ping"))
+                        .is_some_and(|tone| tone.play());
+                    if !played {
+                        unsafe {
+                            #[link(name = "AppKit", kind = "framework")]
+                            extern "C" { fn NSBeep(); }
+                            NSBeep();
+                        }
+                    }
+                }).map_err(|e| format!("提醒声音无法播放：{}", e))?;
+            }
+            return Ok(());
+        }
+        let settings = task_notification_status();
+        if !settings.authorized || !settings.alert_enabled {
+            return Err("请在系统设置 → 通知 → ButvanAgent 开启通知横幅".into());
+        }
+        let mut notification = mac_usernotifications::Notification::new().title(title).message(body);
+        if sound { notification = notification.default_sound(); }
+        return notification.send_blocking()
+            .map(|_| ())
+            .map_err(|e| { log::warn!("任务原生通知提交失败：{}", e); "系统通知提交失败，请检查系统通知设置".into() });
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        use tauri_plugin_notification::NotificationExt;
+        let mut notification = app.notification().builder().title(title).body(body);
+        if sound { notification = notification.sound("default"); }
+        notification.show().map_err(|e| { log::warn!("任务系统通知提交失败：{}", e); "系统通知提交失败".into() })
     }
 }
 

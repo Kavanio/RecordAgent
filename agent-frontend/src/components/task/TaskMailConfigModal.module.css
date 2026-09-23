@@ -1,0 +1,81 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.description {
+  margin: -4px 0 2px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.submitActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actions button:not([type="submit"]) {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f2f3f5;
+  color: #1f2329;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.actions button:not([type="submit"]):hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+.actions button[type="submit"] {
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+}
+
+@media (max-width: 540px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .submitActions {
+    justify-content: flex-end;
+  }
+}

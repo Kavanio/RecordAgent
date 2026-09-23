@@ -3,6 +3,37 @@
 .header h1 { margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 700; line-height: 1.25; }
 .header p { margin: 6px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
 .actions { display: flex; align-items: center; gap: 12px; }
+.actions button {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f2f3f5;
+  color: #1f2329;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.actions button:hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+.actions button:active:not(:disabled) {
+  background-color: #dadde2;
+}
+.actions button:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
 .content { width: 100%; }
 
 .compact .header { gap: 16px; margin-bottom: 18px; }

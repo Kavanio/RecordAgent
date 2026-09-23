@@ -149,21 +149,6 @@
   line-height: 1.4;
 }
 
-.addBtn {
-  background-color: #18181b !important;
-  color: #ffffff !important;
-  border-color: #18181b !important;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 13px;
-  padding: 7px 16px;
-}
-
-.addBtn:hover {
-  background-color: #27272a !important;
-  border-color: #27272a !important;
-}
-
 /* 表格主体 */
 .tableContainer {
   width: 100%;
@@ -641,17 +626,6 @@
   gap: 10px;
 }
 
-.saveBtn {
-  background-color: #18181b !important;
-  border-color: #18181b !important;
-  color: #ffffff !important;
-}
-
-.saveBtn:hover {
-  background-color: #27272a !important;
-  border-color: #27272a !important;
-}
-
 /* 空状态 */
 .emptyState {
   display: flex;
@@ -711,6 +685,26 @@
   margin-top: 20px;
 }
 
+.modalActions button:not([class*="danger"]):not([class*="primary"]) {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f2f3f5;
+  color: #1f2329;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.modalActions button:not([class*="danger"]):not([class*="primary"]):hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
 @media (max-width: 900px) {
   .configContainer {
     flex-direction: column;
@@ -723,3 +717,15 @@
   }
 }
 
+
+/* 所有设置页（包括嵌套列表）保留滚动能力，统一隐藏滚动条。 */
+.pageContainer,
+.pageContainer * {
+  scrollbar-width: none;
+}
+.pageContainer::-webkit-scrollbar,
+.pageContainer *::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}

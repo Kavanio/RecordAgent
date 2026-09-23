@@ -5,6 +5,41 @@
 .locationAction { display: flex; align-items: center; gap: 10px; color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
 .actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 2px; }
 
+.locationAction button,
+.actions button:not([type="submit"]) {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f2f3f5;
+  color: #1f2329;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.locationAction button:hover:not(:disabled),
+.actions button:not([type="submit"]):hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+.actions button[type="submit"] {
+  height: 28px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+}
+
 @media (max-width: 600px) {
   .fieldGrid, .coordinateGrid { grid-template-columns: 1fr; }
   .locationAction { align-items: flex-start; flex-direction: column; gap: 7px; }

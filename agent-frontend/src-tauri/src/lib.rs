@@ -4,6 +4,12 @@ mod backend;
 mod system_settings;
 #[cfg(desktop)]
 mod task_desktop;
+#[cfg(desktop)]
+mod task_reminder_settings;
+#[cfg(desktop)]
+mod task_rest_lock;
+#[cfg(desktop)]
+mod task_reminder_audio;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -25,6 +31,8 @@ pub fn run() {
       }
       #[cfg(desktop)]
       task_desktop::setup(app.handle())?;
+      #[cfg(desktop)]
+      task_rest_lock::setup(app.handle());
       #[cfg(target_os = "macos")]
       {
         use objc2::AnyThread;
@@ -50,11 +58,19 @@ pub fn run() {
     backend::get_backend_port,
     system_settings::open_location_settings,
     task_desktop::task_activity_status,
-    task_desktop::play_task_sound,
+    task_desktop::send_task_notification,
+    task_desktop::task_notification_status,
+    task_desktop::request_task_notification_permission,
     task_desktop::sync_task_reminder,
     task_desktop::task_background_enabled,
     task_desktop::set_task_background,
-    task_desktop::open_task_main
+    task_desktop::open_task_main,
+    task_reminder_audio::task_reminder_audio,
+    task_reminder_settings::task_reminder_configuration,
+    task_reminder_settings::save_task_reminder_preferences,
+    task_reminder_settings::import_task_reminder_audio,
+    task_reminder_settings::read_task_reminder_audio,
+    task_rest_lock::sync_task_rest_lock
   ]);
 
   let app = builder
@@ -64,7 +80,7 @@ pub fn run() {
         use tauri::Manager;
         let background = window.app_handle().state::<task_desktop::TaskDesktopState>()
           .background.load(std::sync::atomic::Ordering::Relaxed);
-        if window.label() == "task-reminder" {
+        if window.label() == "task-reminder" || window.label().starts_with("task-rest-shield-") {
           api.prevent_close();
         } else if window.label() == "main" {
           api.prevent_close();
