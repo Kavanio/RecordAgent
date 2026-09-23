@@ -11,7 +11,7 @@
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', sans-serif;
 }
 .header { display: flex; align-items: center; gap:9px; height:28px; flex:none; }
-.mark { display:grid; place-items:center; width:24px; height:24px; border-radius:8px; background:#eaf2ff; color:#3176d5; font-size:15px; }
+.mark { flex:none; color:#6a7b96; }
 .appName { font-size:13px; font-weight:600; color:#485468; }
 .status { margin-left:auto; padding:5px 9px; border-radius:999px; background:#f2f5f9; color:#738096; font-size:11px; font-weight:600; }
 .content { display:flex; flex-direction:column; flex:1; min-height:0; padding-top:27px; }

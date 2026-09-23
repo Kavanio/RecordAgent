@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Bell } from 'lucide-react';
 import { useAutomations } from '../../context/automationState';
 import { confirmAutomation } from '../../services/automationApi';
 import { openTaskMain, playTaskReminderSound, stopTaskReminderSound } from '../../services/taskDesktop';
@@ -75,7 +76,7 @@ export function TaskReminderWindow() {
 
   return <main className={styles.window}>
     <header className={styles.header}>
-      <span className={styles.mark} aria-hidden="true">✦</span>
+      <Bell className={styles.mark} size={18} strokeWidth={1.9} aria-hidden="true" />
       <span className={styles.appName}>任务提醒</span>
       <span className={styles.status}>{remaining !== null ? '休息中' : '等待确认'}</span>
     </header>
