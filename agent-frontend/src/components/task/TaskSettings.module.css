@@ -1,3 +1,4 @@
-.body { display:flex; flex-direction:column; gap:22px; max-height:72vh; overflow:auto; padding:4px 2px 18px; }
+.body { display:flex; flex-direction:column; padding:4px 2px 18px; }
+.status { color:var(--text-secondary); font-size:13px; white-space:nowrap; }
 .actions { display:flex; justify-content:flex-end; gap:10px; }
 .error { color:#b3261e; font-size:13px; }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { TaskReminderConfiguration } from '../../types/taskReminder';
+import type { TaskReminderConfiguration, TaskReminderPreferences } from '../../types/taskReminder';
 import { getTaskReminderConfiguration, importTaskReminderAudio, saveTaskReminderPreferences } from '../../services/taskReminderPreferences';
 import { playReminderAudio } from '../../services/taskReminderAudio';
 import { isTaskDesktop } from '../../services/taskDesktop';
@@ -11,10 +11,9 @@ import { Button } from '../common/Button';
 import { useMessage } from '../common/Message';
 import styles from './TaskReminderSettings.module.css';
 
-/** 全局提醒窗口的本机设置；草稿显式保存，试听在离开页面时停止。 */
+/** 全局提醒窗口的本机设置；修改自动保存，试听在离开页面时停止。 */
 export function TaskReminderSettings() {
   const [config, setConfig] = useState<TaskReminderConfiguration | null>(null);
-  const [search, setSearch] = useState('');
   const [interval, setInterval] = useState('4');
   const [busy, setBusy] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -33,8 +32,8 @@ export function TaskReminderSettings() {
   useEffect(() => { void load(); return () => preview.current?.abort(); }, []);
   const disabled = !desktop || busy || !config;
   const validInterval = /^\d+$/.test(interval) && Number(interval) >= 1 && Number(interval) <= 3600;
-  const options = config?.sounds.filter(sound => sound.id === config.preferences.soundId || sound.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))
-    .map(sound => ({ value: sound.id, label: `${sound.name} · ${{ builtin: '内置', system: '系统', custom: '上传' }[sound.source]}` })) ?? [];
+  const options = config?.sounds.map(sound => ({ value: sound.id, label: `${sound.name} · ${{ builtin: '内置', system: '系统', custom: '上传' }[sound.source]}` })) ?? [];
+  const saving = useRef(false);
 
   function stopPreview() { preview.current?.abort(); preview.current = null; setPlaying(false); }
   async function listen() {
@@ -49,31 +48,38 @@ export function TaskReminderSettings() {
     stopPreview(); setBusy(true);
     try {
       const value = await importTaskReminderAudio(file);
-      setConfig(current => ({ ...value, preferences: { ...(current?.preferences ?? value.preferences), soundId: 'custom' } }));
-      setSearch(''); showMessage('success', '音频已上传并设为提示音');
+      setConfig(value); showMessage('success', '音频已上传并设为提示音');
     } catch (e) { showMessage('error', e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
-  async function save() {
-    if (!config || !validInterval) return;
+  async function save(patch: Partial<TaskReminderPreferences>) {
+    if (!config || saving.current) return;
+    const previous = config.preferences;
+    const preferences = { ...previous, ...patch };
+    if (JSON.stringify(previous) === JSON.stringify(preferences)) return;
+    saving.current = true;
     setBusy(true);
+    setConfig({ ...config, preferences });
     try {
-      const preferences = { ...config.preferences, repeatSeconds: Number(interval) };
       await saveTaskReminderPreferences(preferences);
-      setConfig({ ...config, preferences }); showMessage('success', '提醒设置已保存，下次提醒生效');
-    } catch (e) { showMessage('error', e instanceof Error ? e.message : String(e)); }
-    finally { setBusy(false); }
+    } catch (e) {
+      setConfig({ ...config, preferences: previous });
+      setInterval(String(previous.repeatSeconds));
+      showMessage('error', `自动保存失败，请重试：${e instanceof Error ? e.message : String(e)}`);
+    } finally { saving.current = false; setBusy(false); }
+  }
+  function saveInterval() {
+    if (validInterval) void save({ repeatSeconds: Number(interval) });
   }
 
-  return <SettingsGroup title="提醒窗口" description="设置保存在本机，下次提醒生效；系统通知横幅继续使用系统声音设置。">
+  return <SettingsGroup title="提醒窗口" description="修改自动保存在本机，下次提醒生效；系统通知横幅继续使用系统声音设置。">
     <SettingsRow label="休息时锁定桌面" description="仅在确认休息后的倒计时期间遮罩所有屏幕；结束后恢复。保留系统快捷键，不会锁定系统账户。"
       control={<LeverSwitch checked={config?.preferences.restLock ?? false} disabled={disabled} label="休息时锁定桌面" showLabel={false}
-        onChange={restLock => setConfig(current => current && ({ ...current, preferences: { ...current.preferences, restLock } }))} />} />
+        onChange={restLock => void save({ restLock })} />} />
     <SettingsRow label="提示音" description="内置音色、当前电脑的系统提示音或上传的音频；任务自身须开启声音。"
       control={<div className={styles.sounds}>
-        <TextInput aria-label="搜索提示音" placeholder="搜索提示音" value={search} disabled={disabled} onChange={event => setSearch(event.target.value)} />
-        <Select aria-label="选择提示音" options={options} value={config?.preferences.soundId ?? ''} disabled={disabled} fullWidth
-          onChange={event => { stopPreview(); const soundId = event.target.value; setConfig(current => current && ({ ...current, preferences: { ...current.preferences, soundId } })); }} />
+        <Select aria-label="选择提示音" options={options} value={config?.preferences.soundId ?? ''} disabled={disabled} fieldSize="md" fullWidth
+          onChange={event => { stopPreview(); const soundId = event.target.value; void save({ soundId }); }} />
         <div className={styles.actions}>
           <Button size="sm" disabled={disabled} onClick={() => playing ? stopPreview() : void listen()}>{playing ? '停止试听' : '试听'}</Button>
           <Button size="sm" disabled={disabled} onClick={() => fileInput.current?.click()}>上传音频</Button>
@@ -84,10 +90,10 @@ export function TaskReminderSettings() {
       </div>} />
     <SettingsRow label="重复播放间隔" description="每段音频完整播放结束后，再等待指定秒数播放下一次；确认休息后停止。"
       control={<div className={styles.interval}><TextInput type="number" aria-label="重复播放间隔（秒）" min={1} max={3600} step={1} value={interval}
-        disabled={disabled} invalid={!validInterval} onChange={event => setInterval(event.target.value)} /><span>秒</span></div>} />
+        disabled={disabled} invalid={!validInterval} onChange={event => setInterval(event.target.value)} onBlur={saveInterval}
+        onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} /><span>秒</span></div>} />
     {!validInterval && <p className={styles.error} role="alert">请输入 1 至 3600 的整数秒数</p>}
     {error && <p className={styles.error} role="alert">{error}<Button variant="ghost" onClick={() => void load()}>重新读取</Button></p>}
     {!desktop && <p className={styles.hint}>请在桌面应用中配置提醒窗口。</p>}
-    <div className={styles.save}><Button variant="primary" disabled={disabled || !validInterval} onClick={() => void save()}>{busy ? '处理中…' : '保存提醒设置'}</Button></div>
   </SettingsGroup>;
 }

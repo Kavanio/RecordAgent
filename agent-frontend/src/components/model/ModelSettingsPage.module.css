@@ -717,3 +717,15 @@
   }
 }
 
+
+/* 所有设置页（包括嵌套列表）保留滚动能力，统一隐藏滚动条。 */
+.pageContainer,
+.pageContainer * {
+  scrollbar-width: none;
+}
+.pageContainer::-webkit-scrollbar,
+.pageContainer *::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}

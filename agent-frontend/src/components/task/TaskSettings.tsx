@@ -86,7 +86,7 @@ export function TaskSettings() {
             label={notificationMode === 'DEV_FALLBACK' ? '开发模式提醒' : '系统通知权限'}
             description={notificationDetails || '由你主动授权，系统专注模式仍可能抑制通知'}
             control={
-              <LeverSwitch
+              notificationMode === 'DEV_FALLBACK' ? <span className={styles.status}>已启用</span> : <LeverSwitch
                 checked={notificationGranted}
                 disabled={busy || !isTaskDesktop() || notificationMode === 'DEV_FALLBACK'}
                 label={notificationMode === 'DEV_FALLBACK' ? '开发模式提醒' : '系统通知权限'}

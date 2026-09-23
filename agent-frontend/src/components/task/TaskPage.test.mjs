@@ -224,3 +224,60 @@ test('待确认提醒打开全局窗口且不重复提交系统通知', async ()
     delete window.__TAURI_EVENT_PLUGIN_INTERNALS__;
   }
 });
+
+test('提醒设置自动保存、失败回退；数字微调同步受控值并在失焦保存', async () => {
+  const { TaskReminderSettings } = await server.ssrLoadModule('/src/components/task/TaskReminderSettings.tsx');
+  const previousInternals = window.__TAURI_INTERNALS__;
+  const previousTauri = globalThis.isTauri;
+  let preferences = { restLock: false, soundId: 'builtin:bell', repeatSeconds: 4 };
+  const saved = [];
+  let fail = false;
+  globalThis.isTauri = true;
+  window.__TAURI_INTERNALS__ = { invoke: async (command, payload) => {
+    if (command === 'task_reminder_configuration') return {
+      preferences,
+      sounds: [{ id: 'builtin:bell', name: '铃声', source: 'builtin' }, { id: 'builtin:soft', name: '柔和', source: 'builtin' }],
+    };
+    if (command === 'save_task_reminder_preferences') {
+      if (fail) throw new Error('模拟写入失败');
+      preferences = { ...payload.preferences };
+      saved.push(preferences);
+    }
+  } };
+  try {
+    await React.act(async () => root.render(React.createElement(MessageProvider, null, React.createElement(TaskReminderSettings))));
+    assert.doesNotMatch(container.textContent, /保存提醒设置/);
+    assert.equal(saved.length, 0, '加载不应触发保存');
+    await React.act(async () => container.querySelector('[role="switch"]').click());
+    assert.equal(preferences.restLock, true);
+    const select = container.querySelector('select');
+    await React.act(async () => {
+      select.value = 'builtin:soft';
+      select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    });
+    assert.equal(preferences.soundId, 'builtin:soft');
+    const number = container.querySelector('input[type="number"]');
+    await React.act(async () => number.focus());
+    await React.act(async () => container.querySelector('[aria-label="增加"]').click());
+    assert.equal(number.value, '5');
+    await React.act(async () => number.blur());
+    assert.equal(preferences.repeatSeconds, 5);
+    assert.equal(preferences.restLock, true);
+    fail = true;
+    await React.act(async () => container.querySelector('[role="switch"]').click());
+    assert.equal(container.querySelector('[role="switch"]').getAttribute('aria-checked'), 'true');
+    assert.match(container.textContent, /自动保存失败/);
+    const count = saved.length;
+    await React.act(async () => {
+      number.focus();
+      Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set.call(number, '0');
+      number.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    });
+    await React.act(async () => number.blur());
+    assert.equal(saved.length, count);
+    assert.match(container.textContent, /请输入 1 至 3600/);
+  } finally {
+    window.__TAURI_INTERNALS__ = previousInternals;
+    globalThis.isTauri = previousTauri;
+  }
+});
