@@ -7,7 +7,6 @@ import type { AutomationTask, AutomationRun } from '../../types/automation';
 import { TopBar } from '../common/TopBar';
 import { TopBarAction } from '../common/TopBarAction';
 import { Button } from '../common/Button';
-import { TextInput } from '../common/TextInput';
 import { Modal } from '../common/Modal';
 import { useMessage } from '../common/Message';
 import { TaskEditor } from './TaskEditor';
@@ -41,14 +40,56 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
   }
   const tasks = snapshot.tasks.filter(t => (showDeleted ? t.status === 'DELETED' : filter === 'ALL' ? t.status !== 'DELETED' : t.status === filter) && t.spec.title.toLowerCase().includes(search.toLowerCase()));
   return <main className={styles.page}>
-    <TopBar icon={<Bell size={19} />} title="任务" subtitle="自动提醒与每日汇总"
-      actions={<div className={styles.headerActions}><TopBarAction variant="ghost" onClick={() => setShowDeleted(value => !value)}>{showDeleted ? '返回任务' : '已删除'}</TopBarAction><TopBarAction variant="ghost" iconOnly aria-label="任务设置" icon={<Settings2 size={18} />} onClick={onOpenSettings}><span className={styles.visuallyHidden}>任务设置</span></TopBarAction><TopBarAction variant="primary" icon={<Plus size={15} />} onClick={() => setEditor({})}>新建任务</TopBarAction></div>} />
+    <TopBar
+      icon={<Bell size={19} />}
+      title="任务"
+      subtitle="自动提醒与每日汇总"
+      search={
+        <div className={styles.search}>
+          <Search size={14} />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            aria-label="搜索任务"
+            placeholder="搜索任务"
+          />
+        </div>
+      }
+      actions={
+        <div className={styles.headerActions}>
+          <TopBarAction variant="ghost" onClick={() => setShowDeleted(value => !value)}>
+            {showDeleted ? '返回任务' : '已删除'}
+          </TopBarAction>
+          <TopBarAction variant="ghost" iconOnly aria-label="任务设置" icon={<Settings2 size={18} />} onClick={onOpenSettings}>
+            <span className={styles.visuallyHidden}>任务设置</span>
+          </TopBarAction>
+          <TopBarAction variant="primary" icon={<Plus size={15} />} onClick={() => setEditor({})}>
+            新建任务
+          </TopBarAction>
+        </div>
+      }
+    />
     <div className={styles.workspace}><div className={styles.content}><div className={styles.contentInner}>
-      <div className={styles.toolbar}><div className={styles.tabs} role="tablist" aria-label="任务状态">{(['ALL','ENABLED','DISABLED'] as const).map(value => <button key={value} type="button" role="tab" aria-selected={filter === value && !showDeleted} className={filter === value && !showDeleted ? styles.activeTab : ''} onClick={() => { setShowDeleted(false); setFilter(value); }}>{value === 'ALL' ? '全部' : value === 'ENABLED' ? '已开启' : '已暂停'}</button>)}</div><div className={styles.search}><Search size={17} /><TextInput aria-label="搜索任务" placeholder="搜索任务" value={search} onChange={e => setSearch(e.target.value)} /></div></div>
+      <div className={styles.toolbar}>
+        <div className={styles.tabs} role="tablist" aria-label="任务状态">
+          {(['ALL','ENABLED','DISABLED'] as const).map(value => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={filter === value && !showDeleted}
+              className={filter === value && !showDeleted ? styles.activeTab : ''}
+              onClick={() => { setShowDeleted(false); setFilter(value); }}
+            >
+              {value === 'ALL' ? '全部' : value === 'ENABLED' ? '已开启' : '已暂停'}
+            </button>
+          ))}
+        </div>
+      </div>
       {!connected && <p role="status" className={styles.notice}>任务连接暂未就绪，正在自动重连。操作前请等待同步完成。</p>}
 
       {snapshot.pending.filter(r => r.confirmation === 'WAITING').map(run => <section key={run.id} className={styles.pending}><div><strong>{run.title} · 待确认</strong><p>{run.content}</p></div><Button variant="primary" disabled={busy || !connected} onClick={() => void act(() => confirmAutomation(run.id),'提醒已确认，开始下一轮计时')}>确认提醒</Button></section>)}
-      {tasks.length === 0 ? <section className={styles.empty}><Search size={28} /><h2>{search ? '没有找到匹配任务' : showDeleted ? '没有已删除任务' : '让提醒按计划发生'}</h2><p>创建日报、久坐提醒或自定义通知，选择桌面或邮件接收。</p>{!showDeleted && <Button onClick={() => setEditor({})}>创建第一个任务</Button>}</section>
+      {tasks.length === 0 ? <section className={styles.empty}><Search size={28} /><h2>{search ? '没有找到匹配任务' : showDeleted ? '没有已删除任务' : '让提醒按计划发生'}</h2><p>创建日报、久坐提醒或自定义通知，选择桌面或邮件接收。</p>{!showDeleted && <button type="button" className={styles.emptyAction} onClick={() => setEditor({})}>创建第一个任务</button>}</section>
         : <div className={styles.list}>{tasks.map(task => <article key={task.id} className={styles.card}>
           <div className={styles.heading}><h2>{task.spec.title}</h2><span className={styles.badge}>{taskStatus[task.status] ?? task.status}</span></div>
           <p className={styles.rule}>{scheduleText(task.spec)}</p>
