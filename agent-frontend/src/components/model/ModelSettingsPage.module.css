@@ -149,21 +149,6 @@
   line-height: 1.4;
 }
 
-.addBtn {
-  background-color: #18181b !important;
-  color: #ffffff !important;
-  border-color: #18181b !important;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 13px;
-  padding: 7px 16px;
-}
-
-.addBtn:hover {
-  background-color: #27272a !important;
-  border-color: #27272a !important;
-}
-
 /* 表格主体 */
 .tableContainer {
   width: 100%;
@@ -639,17 +624,6 @@
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.saveBtn {
-  background-color: #18181b !important;
-  border-color: #18181b !important;
-  color: #ffffff !important;
-}
-
-.saveBtn:hover {
-  background-color: #27272a !important;
-  border-color: #27272a !important;
 }
 
 /* 空状态 */
