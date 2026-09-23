@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bell, Plus, Search, Settings2 } from 'lucide-react';
+import { Bell, Copy, History, Pause, Pencil, Play, Plus, Search, Settings2, Trash2, Zap } from 'lucide-react';
 import { useAutomations } from '../../context/automationState';
 import { deleteAutomation, fetchAutomationHistory, retryAutomationEmail, runAutomation, setAutomationEnabled } from '../../services/automationApi';
 import { runStatus, scheduleText, taskStatus } from '../../features/automation/presentation';
@@ -110,7 +110,36 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
           <div className={styles.heading}><h2>{task.spec.title}</h2><span className={styles.badge}>{taskStatus[task.status] ?? task.status}</span></div>
           <p className={styles.rule}>{scheduleText(task.spec)}</p>
           <div className={styles.meta}><span>{task.spec.desktop ? '桌面通知' : ''}{task.spec.desktop && task.spec.email ? ' · ' : ''}{task.spec.email ? '邮件通知' : ''}{task.spec.confirm ? ' · 需确认' : ''}</span><span>{task.nextAt ? `下次：${new Date(task.nextAt).toLocaleString('zh-CN')}` : task.spec.kind === 'SEDENTARY' && task.status === 'ENABLED' ? (activity?.supported ? `累计 ${Math.floor(task.activeSeconds/60)} 分钟` : '当前环境不支持使用状态检测') : '暂无计划时间'}</span></div>
-          <div className={styles.actions}><Button size="sm" variant="ghost" onClick={() => { setHistory([]); setHistoryTask(task); }}>执行历史</Button>{task.status !== 'DELETED' && <><Button size="sm" variant="outline" onClick={() => switchEditor({task})}>编辑</Button><Button size="sm" variant="ghost" onClick={() => switchEditor({task,copy:true})}>复制</Button><Button size="sm" variant="ghost" disabled={busy || !connected || task.status !== 'ENABLED'} onClick={() => setConfirm({task,action:'run'})}>立即执行</Button><Button size="sm" variant="ghost" disabled={busy || !connected} onClick={() => void act(() => setAutomationEnabled(task,task.status !== 'ENABLED'),'任务状态已更新')}>{task.status === 'ENABLED' ? '暂停' : '启用'}</Button><Button size="sm" variant="ghost" disabled={busy || !connected} onClick={() => setConfirm({task,action:'delete'})}>删除</Button></>}</div>
+          <div className={styles.actions} role="group" aria-label={`${task.spec.title}的操作`}>
+            <Button size="toolbar" variant="ghost" iconOnly aria-label="执行历史" title="执行历史"
+              onClick={() => { setHistory([]); setHistoryTask(task); }}>
+              <History size={16} aria-hidden="true" />
+            </Button>
+            {task.status !== 'DELETED' && <>
+              <Button size="toolbar" variant="ghost" iconOnly aria-label="编辑" title="编辑"
+                onClick={() => switchEditor({task})}>
+                <Pencil size={16} aria-hidden="true" />
+              </Button>
+              <Button size="toolbar" variant="ghost" iconOnly aria-label="复制" title="复制"
+                onClick={() => switchEditor({task,copy:true})}>
+                <Copy size={16} aria-hidden="true" />
+              </Button>
+              <Button size="toolbar" variant="ghost" iconOnly aria-label="立即执行"
+                title={task.status !== 'ENABLED' ? '启用任务后可立即执行' : '立即执行'}
+                disabled={busy || !connected || task.status !== 'ENABLED'} onClick={() => setConfirm({task,action:'run'})}>
+                <Zap size={16} aria-hidden="true" />
+              </Button>
+              <Button size="toolbar" variant="ghost" iconOnly
+                aria-label={task.status === 'ENABLED' ? '暂停' : '启用'} title={task.status === 'ENABLED' ? '暂停' : '启用'}
+                disabled={busy || !connected} onClick={() => void act(() => setAutomationEnabled(task,task.status !== 'ENABLED'),'任务状态已更新')}>
+                {task.status === 'ENABLED' ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
+              </Button>
+              <Button size="toolbar" variant="ghost" iconOnly aria-label="删除" title="删除"
+                disabled={busy || !connected} onClick={() => setConfirm({task,action:'delete'})}>
+                <Trash2 size={16} aria-hidden="true" />
+              </Button>
+            </>}
+          </div>
         </article>)}</div>}
     </div></div>
     {editor && <TaskEditor key={editorKey} {...editor} onDirtyChange={setEditorDirty} onBusyChange={setEditorBusy} activitySupported={activity?.supported ?? false} onClose={() => switchEditor(null)} onSaved={() => applyEditor(null)} />}

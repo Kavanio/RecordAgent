@@ -42,7 +42,7 @@ async function render() {
       React.createElement(TaskPage, { onOpenSettings() {} })))));
 }
 async function click(text, index = 0) {
-  const button = [...document.querySelectorAll('button')].filter(b => b.textContent === text)[index];
+  const button = [...document.querySelectorAll('button')].filter(b => (b.getAttribute('aria-label') || b.textContent) === text)[index];
   assert.ok(button, `找不到按钮 ${text}`);
   await React.act(async () => button.click());
 }

@@ -106,7 +106,7 @@
 
 | 组件名称 | 源码路径 | 样式 / 依赖 | 核心职责 | 接口契约 | 状态变体与应用场景 |
 | --- | --- | --- | --- | --- | --- |
-| TaskPage | `agent-frontend/src/components/task/TaskPage.tsx` | `TaskPage.module.css`、TopBar、Modal、AutomationContext | 任务列表、编辑切换及执行历史；确认只在全局提醒窗口处理 | `onOpenSettings()`；每次切换重建编辑器，未保存修改需确认；SSE 快照驱动历史刷新 | 全部、ENABLED、PAUSED、FINISHED、DELETED；历史加载、失败重试 |
+| TaskPage | `agent-frontend/src/components/task/TaskPage.tsx` | `TaskPage.module.css`、TopBar、Modal、AutomationContext | 任务列表、编辑切换及执行历史；卡片底部复用 Button 的 toolbar/iconOnly 图标按钮，统一中文悬浮提示与无障碍标签；暂停/启用随状态切换图标；确认只在全局提醒窗口处理 | `onOpenSettings()`；每次切换重建编辑器，未保存修改需确认；SSE 快照驱动历史刷新 | 全部、ENABLED、PAUSED、FINISHED、DELETED；历史加载、失败重试 |
 | TaskEditor | `agent-frontend/src/components/task/TaskEditor.tsx` | `TaskEditor.module.css`、FormField、Select、TaskMailTemplateEditor | 单个任务草稿及预览 | `task?`、`copy?`、`activitySupported`、`onDirtyChange`、`onBusyChange`、`onClose`、`onSaved`；成功保存与取消关闭分离 | 新建、编辑、复制、忙碌、校验失败；日报 HTML 使用空权限 sandbox iframe 预览 |
 | TaskMailTemplateEditor | `agent-frontend/src/components/task/TaskMailTemplateEditor.tsx` | `TaskMailTemplateEditor.module.css`、Select、FormField、TextInput | 邮件样式及自定义内容编辑 | 受控 `value: MailTemplate`、`onChange(value)`、`disabled`；仅编辑配置，保存随任务提交 | CARDS、MINIMAL、LETTER、CUSTOM；自定义配色、标题、开场语、正文占位符、页脚 |
 | TaskReadiness | `agent-frontend/src/components/task/TaskReadiness.tsx` | `TaskReadiness.module.css`、Button、taskDesktop、automationApi | 集中展示后台、系统通知、邮箱运行条件 | `onOpenSettings()`；首次与窗口聚焦时独立读取各项，展示原生横幅、声音及开发模式，不阻断任务列表 | 读取中、可用、未就绪、读取失败、浏览器模式；原生权限实际效果由系统设置决定 |

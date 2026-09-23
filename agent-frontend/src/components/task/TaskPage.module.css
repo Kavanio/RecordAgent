@@ -49,7 +49,7 @@
 .badge { background:#f2f3f4; color:#62646a; font-size:11px; padding:4px 8px; border-radius:20px; white-space:nowrap; }
 .rule { font-size:13px; color:#74777d; line-height:1.6; margin:5px 0; }
 .meta { display:flex; flex-wrap:wrap; gap:6px 16px; color:#8b8e93; font-size:12px; line-height:1.6; }
-.actions { display:flex; flex-wrap:wrap; gap:3px; margin-top:10px; }
+.actions { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:12px; }
 .empty { display:flex; flex:1; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:60px 24px; color:#777780; text-align:center; }
 .empty h2 { font-size:18px; color:#303038; margin:0; }
 .empty p { font-size:13px; }
