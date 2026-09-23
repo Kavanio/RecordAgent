@@ -18,6 +18,7 @@
 | 目录 | 职责与约束 |
 | --- | --- |
 | `agent-frontend/` | React、TypeScript、Vite 与 Tauri 桌面端代码；仅放置前端构建、展示和桌面壳层相关内容。 |
+| `RecordAgent APP/IOS APP/RecordAgent/` | 独立 iOS App 的规划文档与后续原生工程；首版仅承载日历、财务、资料、记录和任务能力，不混入 Agent 编排或桌面端构建产物。 |
 | `agent-frontend/src/components/` | 可复用视图组件；按业务域建立目录，例如 `chat/`、`model/`、`layout/`、`common/`。 |
 | `agent-frontend/src/services/` | HTTP、SSE、存储与第三方调用等基础设施适配；不得承载页面状态或 JSX。 |
 | `agent-frontend/src/context/` | 跨页面共享状态与领域上下文；不得把一次性局部状态提升到此处。 |
