@@ -11,6 +11,7 @@ import { Modal } from '../common/Modal';
 import { useMessage } from '../common/Message';
 import { TaskReadiness } from './TaskReadiness';
 import { TaskEditor } from './TaskEditor';
+import { TaskRunConfirmModal } from './TaskRunConfirmModal';
 import styles from './TaskPage.module.css';
 
 export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
@@ -119,7 +120,53 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
       <Button variant="outline" onClick={() => setEditorSwitch(null)}>继续编辑</Button>
       <Button variant="primary" onClick={() => { if (editorSwitch) applyEditor(editorSwitch.next); }}>放弃并继续</Button>
     </Modal>
-    <Modal open={Boolean(confirm)} title={confirm?.action === 'delete' ? '删除任务' : '立即执行任务'} onClose={() => { if (!busy) setConfirm(null); }}><p>{confirm?.action === 'delete' ? '停止该任务并撤回未开始的通知，已有执行历史保留。' : '将通过已选择的渠道发送真实通知或邮件，不影响下一次计划执行。'}</p><Button variant="primary" disabled={busy} onClick={() => { if (confirm) void act(() => confirm.action === 'delete' ? deleteAutomation(confirm.task) : runAutomation(confirm.task.id), confirm.action === 'delete' ? '任务已删除' : '任务已执行'); }}>{busy ? '处理中…' : '确认'}</Button></Modal>
+    <TaskRunConfirmModal
+      open={confirm?.action === 'run'}
+      task={confirm?.action === 'run' ? confirm.task : null}
+      busy={busy}
+      onClose={() => {
+        if (!busy) setConfirm(null);
+      }}
+      onConfirm={() => {
+        if (confirm?.action === 'run') {
+          void act(() => runAutomation(confirm.task.id), '任务已执行');
+        }
+      }}
+    />
+    <Modal
+      open={confirm?.action === 'delete'}
+      title="删除任务"
+      width={440}
+      centered
+      onClose={() => {
+        if (!busy) setConfirm(null);
+      }}
+    >
+      <div className={styles.deleteConfirmBody}>
+        <p className={styles.deleteConfirmText}>
+          确定要删除任务<strong>「{confirm?.task.spec.title}」</strong>吗？
+        </p>
+        <p className={styles.deleteConfirmHint}>
+          停止该任务并撤回未开始的通知，已有执行历史将保留。
+        </p>
+        <div className={styles.modalActions}>
+          <Button variant="outline" disabled={busy} onClick={() => setConfirm(null)}>
+            取消
+          </Button>
+          <Button
+            variant="danger"
+            disabled={busy}
+            onClick={() => {
+              if (confirm?.action === 'delete') {
+                void act(() => deleteAutomation(confirm.task), '任务已删除');
+              }
+            }}
+          >
+            {busy ? '正在删除…' : '确认删除'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
     <Modal open={Boolean(historyTask)} title={`${historyTask?.spec.title ?? ''} · 执行历史`} width={720} onClose={() => setHistoryTask(null)}><div className={styles.history}>
       {historyError && <p role="alert">{historyError}<Button variant="ghost" onClick={() => setHistoryRefresh(value => value + 1)}>重试</Button></p>}
       {historyLoading && <p role="status">正在同步执行记录…</p>}

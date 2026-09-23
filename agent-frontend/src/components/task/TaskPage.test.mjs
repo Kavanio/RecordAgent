@@ -88,6 +88,27 @@ test('任务页不重复展示待确认黄色提醒', async () => {
   assert.doesNotMatch(container.textContent, /久坐提醒 · 待确认/);
 });
 
+test('立即执行确认弹框展示任务详情与渠道，支持取消与确认执行', async () => {
+  await click('立即执行', 0);
+  assert.match(document.body.textContent, /立即执行任务/);
+  assert.match(document.body.textContent, /任务A/);
+  assert.match(document.body.textContent, /触发渠道/);
+  assert.match(document.body.textContent, /将通过上述已开启的渠道发送真实通知或邮件/);
+
+  await click('取消');
+  assert.equal(requests.some(r => r.method === 'POST' && r.url.endsWith('/A/run')), false);
+
+  await click('立即执行', 0);
+  await click('确认执行');
+  await React.act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 20));
+  });
+  assert.ok(requests.some(r => r.method === 'POST' && r.url.endsWith('/A/run')));
+});
+
+
+
+
 test('久坐弹框确认后停止声音，倒计时结束确认并播放提示音', async () => {
   const reminder = document.createElement('div'); document.body.append(reminder);
   const reminderRoot = createRoot(reminder);
