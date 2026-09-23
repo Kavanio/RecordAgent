@@ -17,6 +17,14 @@ export async function deliverTaskNotification(run: AutomationRun): Promise<'SUBM
   sendNotification({ title: run.title, body: run.confirmation === 'WAITING' ? run.content.slice(0, 150) : '任务已完成，请在任务历史中查看完整内容。' });
   return 'SUBMITTED';
 }
+export async function checkTaskNotificationPermission(): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    return await isPermissionGranted();
+  } catch {
+    return false;
+  }
+}
 export async function requestTaskNotificationPermission(): Promise<boolean> {
   if (!isTauri()) return false;
   return await isPermissionGranted() || await requestPermission() === 'granted';
