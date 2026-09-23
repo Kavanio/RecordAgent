@@ -29,7 +29,7 @@
   min-width: 0;
   appearance: none;
   border: 1px solid #dcdfe4;
-  border-radius: 9999px;
+  border-radius: 12px;
   background-color: #ffffff;
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -50,21 +50,21 @@
 .sm {
   height: 28px;
   padding: 0 28px 0 12px;
-  border-radius: 9999px;
+  border-radius: 12px;
   font-size: 12px;
 }
 
 .md {
   height: 32px;
   padding: 0 30px 0 14px;
-  border-radius: 9999px;
+  border-radius: 12px;
   font-size: 12px;
 }
 
 .lg {
   height: 40px;
   padding: 0 34px 0 16px;
-  border-radius: 9999px;
+  border-radius: 12px;
   font-size: 13px;
 }
 
