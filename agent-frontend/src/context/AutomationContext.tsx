@@ -42,7 +42,8 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
           if (!await claimAutomation(run.id)) return;
           let status = 'FAILED';
           try {
-            status = await deliverTaskNotification(run);
+            status = isTaskDesktop() && run.confirmation === 'WAITING'
+              ? 'SUBMITTED' : await deliverTaskNotification(run);
             if (!isTaskDesktop() && run.confirmation !== 'WAITING') showMessage('info', `${run.title}：${run.content.slice(0,100)}`);
             if (isTaskDesktop() && run.confirmation !== 'WAITING') {
               const notification = await taskNotificationStatus();
@@ -54,12 +55,8 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
         finally { inFlight.current.delete(run.id); }
       })();
     }
-    // 开发可执行文件无稳定通知包身份；待确认任务用可见窗口，安装版用系统横幅。
-    if (isTaskDesktop()) void taskNotificationStatus().then(value => {
-      if (value.mode === 'DEV_FALLBACK') {
-        return syncTaskReminder(snapshot.pending.some(run => run.confirmation === 'WAITING'));
-      }
-    }).catch(() => showMessage('error', '任务提醒窗口无法同步，请在任务页处理待确认提醒'));
+    if (isTaskDesktop()) void syncTaskReminder(snapshot.pending.some(run => run.confirmation === 'WAITING'))
+      .catch(() => showMessage('error', '任务提醒窗口无法同步，请检查任务执行历史'));
   }, [snapshot, connected, isReminder, isStudyWidget, showMessage]);
   return <AutomationStateContext.Provider value={{ snapshot, connected, activity }}>{children}</AutomationStateContext.Provider>;
 }

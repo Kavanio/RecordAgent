@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom';
 import { createServer } from 'vite';
 
 // 真实 React 组件与内存 DOM；HTTP 全部拦截，不访问用户后端。
-let server, dom, React, createRoot, TaskPage, StateContext, MessageProvider, newAutomation;
+let server, dom, React, createRoot, TaskPage, TaskReminderWindow, StateContext, MessageProvider, newAutomation;
 let root, container, snapshot, requests, historyStatus;
 const originalFetch = globalThis.fetch;
 before(async () => {
@@ -15,6 +15,7 @@ before(async () => {
   ({ createRoot } = await import('react-dom/client'));
   server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
   ({ TaskPage } = await server.ssrLoadModule('/src/components/task/TaskPage.tsx'));
+  ({ TaskReminderWindow } = await server.ssrLoadModule('/src/components/task/TaskReminderWindow.tsx'));
   ({ AutomationStateContext: StateContext } = await server.ssrLoadModule('/src/context/automationState.ts'));
   ({ MessageProvider } = await server.ssrLoadModule('/src/components/common/Message.tsx'));
   ({ newAutomation } = await server.ssrLoadModule('/src/features/automation/presentation.ts'));
@@ -81,6 +82,44 @@ test('执行状态 SSE 快照变化刷新已打开的历史', async () => {
   historyStatus = 'SUBMITTED'; snapshot = { ...snapshot }; await render();
   assert.match(document.body.textContent, /邮件：已提交/);
 });
+test('任务页不重复展示待确认黄色提醒', async () => {
+  snapshot = { ...snapshot, pending: [{ id: 'r', title: '久坐提醒', content: '起来活动', confirmation: 'WAITING' }] };
+  await render();
+  assert.doesNotMatch(container.textContent, /久坐提醒 · 待确认/);
+});
+
+test('久坐弹框确认后停止声音，倒计时结束才提交后端确认', async () => {
+  const reminder = document.createElement('div'); document.body.append(reminder);
+  const reminderRoot = createRoot(reminder);
+  const run = { id: 'rest-run', taskId: 'A', title: '久坐提醒', content: '起来活动', confirmation: 'WAITING', sound: true, createdAt: Date.now() };
+  const reminderSnapshot = { tasks: [{ ...snapshot.tasks[0], spec: { ...snapshot.tasks[0].spec, kind: 'SEDENTARY', breakMinutes: 1 } }], pending: [run] };
+  const calls = [];
+  const previousStorage = globalThis.localStorage;
+  const previousNow = Date.now;
+  let clock = previousNow();
+  Date.now = () => clock;
+  globalThis.localStorage = window.localStorage;
+  globalThis.isTauri = true;
+  window.__TAURI_INTERNALS__ = { invoke: async command => { calls.push(command); } };
+  try {
+    await React.act(async () => reminderRoot.render(React.createElement(StateContext.Provider, { value: { snapshot: reminderSnapshot, connected: true, activity: null } }, React.createElement(TaskReminderWindow))));
+    assert.ok(calls.includes('play_task_reminder_sound'));
+    const button = [...reminder.querySelectorAll('button')].find(value => value.textContent === '确认并开始休息');
+    await React.act(async () => button.click());
+    assert.ok(calls.includes('stop_task_reminder_sound'));
+    assert.match(reminder.textContent, /休息中/);
+    assert.equal(requests.filter(value => value.url.endsWith('/rest-run/confirm')).length, 0);
+    clock += 61_000;
+    await React.act(async () => { await new Promise(resolve => setTimeout(resolve, 300)); });
+    assert.equal(requests.filter(value => value.url.endsWith('/rest-run/confirm')).length, 1);
+  } finally {
+    await React.act(async () => reminderRoot.unmount()); reminder.remove();
+    localStorage.removeItem('task-reminder-rest:rest-run');
+    globalThis.localStorage = previousStorage;
+    Date.now = previousNow;
+    globalThis.isTauri = false; delete window.__TAURI_INTERNALS__;
+  }
+});
 
 test('普通提醒提交真实正文，原生失败不能回报已提交', async () => {
   const { deliverTaskNotification } = await server.ssrLoadModule('/src/services/taskDesktop.ts');
@@ -100,7 +139,7 @@ test('普通提醒提交真实正文，原生失败不能回报已提交', async
   }
 });
 
-test('开发模式待确认提醒会发声并打开可见提醒窗口', async () => {
+test('待确认提醒打开全局窗口且不重复提交系统通知', async () => {
   const { AutomationProvider } = await server.ssrLoadModule('/src/context/AutomationContext.tsx');
   const calls = [];
   const sources = [];
@@ -135,7 +174,7 @@ test('开发模式待确认提醒会发声并打开可见提醒窗口', async ()
       await new Promise(resolve => setTimeout(resolve, 10));
     });
     assert.ok(calls.some(call => call.command === 'sync_task_reminder' && call.args.visible === true));
-    assert.ok(calls.some(call => call.command === 'send_task_notification' && call.args.sound === true));
+    assert.ok(!calls.some(call => call.command === 'send_task_notification'));
   } finally {
     await React.act(async () => providerRoot.unmount());
     globalThis.EventSource = oldEventSource;

@@ -1,7 +1,12 @@
-.window { box-sizing:border-box; padding:36px 24px 24px; min-height:100vh; background:#fafaf9; color:#262629; }
-.window h1 { font-size:23px; margin:0 0 12px; }
-.hint { font-size:13px; color:#74747e; line-height:1.7; }
-.card { display:flex; flex-direction:column; align-items:flex-start; gap:12px; padding:20px; background:white; border:1px solid #e6e6e8; border-radius:16px; margin:20px 0; }
-.card h2 { margin:0; font-size:17px; }
-.card p { font-size:14px; white-space:pre-wrap; line-height:1.7; }
-.card small { color:#777; }
+.window { box-sizing:border-box; width:100vw; height:100vh; padding:32px 28px 20px; display:flex; flex-direction:column; gap:16px; overflow:hidden; background:#fafaf9; color:#262629; }
+.heading h1 { font-size:25px; margin:8px 0 0; }
+.eyebrow { color:#7a7c83; font-size:12px; font-weight:600; letter-spacing:.08em; }
+.hint { font-size:13px; color:#74747e; line-height:1.6; }
+.list { min-height:0; flex:1; overflow-y:auto; }
+.card { display:flex; flex-direction:column; align-items:flex-start; gap:14px; padding:22px; background:white; border:1px solid #e6e6e8; border-radius:18px; }
+.card + .card { margin-top:12px; }
+.card h2 { margin:0; font-size:18px; }
+.card p { margin:0; font-size:14px; white-space:pre-wrap; line-height:1.7; overflow-wrap:anywhere; }
+.countdown { align-self:stretch; text-align:center; color:#2977ce; font-size:48px; line-height:1.2; font-variant-numeric:tabular-nums; font-weight:700; }
+.countdown span { display:block; margin-top:6px; color:#74747e; font-size:12px; font-weight:400; }
+.error { margin:0; color:#b42318; font-size:13px; }

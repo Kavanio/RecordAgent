@@ -54,6 +54,8 @@ pub fn run() {
     task_desktop::task_notification_status,
     task_desktop::request_task_notification_permission,
     task_desktop::sync_task_reminder,
+    task_desktop::play_task_reminder_sound,
+    task_desktop::stop_task_reminder_sound,
     task_desktop::task_background_enabled,
     task_desktop::set_task_background,
     task_desktop::open_task_main

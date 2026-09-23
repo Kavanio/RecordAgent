@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Bell, Plus, Search, Settings2 } from 'lucide-react';
 import { useAutomations } from '../../context/automationState';
-import { confirmAutomation, deleteAutomation, fetchAutomationHistory, retryAutomationEmail, runAutomation, setAutomationEnabled } from '../../services/automationApi';
+import { deleteAutomation, fetchAutomationHistory, retryAutomationEmail, runAutomation, setAutomationEnabled } from '../../services/automationApi';
 import { runStatus, scheduleText, taskStatus } from '../../features/automation/presentation';
 import type { AutomationTask, AutomationRun } from '../../types/automation';
 import { TopBar } from '../common/TopBar';
@@ -104,7 +104,6 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
       <TaskReadiness onOpenSettings={onOpenSettings} />
       {!connected && <p role="status" className={styles.notice}>任务连接暂未就绪，正在自动重连。操作前请等待同步完成。</p>}
 
-      {snapshot.pending.filter(r => r.confirmation === 'WAITING').map(run => <section key={run.id} className={styles.pending}><div><strong>{run.title} · 待确认</strong><p>{run.content}</p></div><Button variant="primary" disabled={busy || !connected} onClick={() => void act(() => confirmAutomation(run.id),'提醒已确认')}>确认提醒</Button></section>)}
       {tasks.length === 0 ? <section className={styles.empty}><Search size={28} /><h2>{search ? '没有找到匹配任务' : showDeleted ? '没有已删除任务' : '让提醒按计划发生'}</h2><p>创建日报、久坐提醒或自定义通知，选择桌面或邮件接收。</p>{!showDeleted && <button type="button" className={styles.emptyAction} onClick={() => switchEditor({})}>创建第一个任务</button>}</section>
         : <div className={styles.list}>{tasks.map(task => <article key={task.id} className={styles.card}>
           <div className={styles.heading}><h2>{task.spec.title}</h2><span className={styles.badge}>{taskStatus[task.status] ?? task.status}</span></div>

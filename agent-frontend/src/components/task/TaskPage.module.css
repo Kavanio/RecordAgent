@@ -73,8 +73,6 @@
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
-.pending { display:flex; align-items:center; justify-content:space-between; gap:18px; background:#fff8ee; border:1px solid #f2e0c4; border-radius:14px; padding:18px; margin-bottom:16px; }
-.pending p { white-space:pre-wrap; font-size:13px; line-height:1.7; }
 .history { max-height:70vh; overflow:auto; }
 .record { padding:18px 0; border-bottom:1px solid #eee; font-size:13px; }
 .record pre { font:inherit; white-space:pre-wrap; line-height:1.8; word-break:break-word; }

@@ -4,6 +4,12 @@ use std::time::Duration;
 use tauri::{Emitter, Manager};
 use serde::Serialize;
 
+#[cfg(target_os = "macos")]
+thread_local! {
+    static REMINDER_TONE: std::cell::RefCell<Option<objc2::rc::Retained<objc2_app_kit::NSSound>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 pub struct TaskDesktopState { pub background: AtomicBool }
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,13 +63,50 @@ pub fn task_activity_status() -> Activity { activity() }
 #[tauri::command]
 pub fn sync_task_reminder(app: tauri::AppHandle, visible: bool) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("task-reminder") {
-        return if visible { window.show() } else { window.hide() }.map_err(|e| e.to_string());
+        return if visible { window.show().and_then(|_| window.set_focus()) } else { window.hide() }.map_err(|e| e.to_string());
     }
     if visible {
         tauri::WebviewWindowBuilder::new(&app, "task-reminder", tauri::WebviewUrl::App("index.html?view=task-reminder".into()))
-            .title("任务提醒").inner_size(440.0, 440.0).min_inner_size(360.0, 300.0)
-            .always_on_top(true).resizable(true).build().map_err(|e| e.to_string())?;
+            .title("任务提醒").inner_size(440.0, 400.0)
+            .always_on_top(true).resizable(false).maximizable(false).minimizable(false).build().map_err(|e| e.to_string())?;
     }
+    Ok(())
+}
+
+/// 提醒窗口在用户确认前按间隔请求一次提示音；停止请求即停止后续播放。
+#[tauri::command]
+pub fn play_task_reminder_sound(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    app.run_on_main_thread(|| {
+        use objc2_app_kit::NSSound;
+        use objc2_foundation::NSString;
+        let played = REMINDER_TONE.with(|cell| {
+            let mut tone = cell.borrow_mut();
+            if tone.is_none() { *tone = NSSound::soundNamed(&NSString::from_str("Ping")); }
+            tone.as_ref().is_some_and(|sound| sound.isPlaying() || sound.play())
+        });
+        if !played {
+            unsafe {
+                #[link(name = "AppKit", kind = "framework")]
+                extern "C" { fn NSBeep(); }
+                NSBeep();
+            }
+        }
+    }).map_err(|e| format!("提醒声音无法播放：{}", e))?;
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
+    Ok(())
+}
+
+/// 用户确认提醒后立即停止正在播放的声音。
+#[tauri::command]
+pub fn stop_task_reminder_sound(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    app.run_on_main_thread(|| REMINDER_TONE.with(|cell| {
+        if let Some(tone) = cell.borrow().as_ref() { tone.stop(); }
+    })).map_err(|e| format!("提醒声音无法停止：{}", e))?;
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
     Ok(())
 }
 
