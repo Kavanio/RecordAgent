@@ -7,4 +7,4 @@
 .secondaryButton:disabled, .primaryButton:disabled { cursor: not-allowed; opacity: .6; }
 .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .cancelButton { border: 1px solid #cbd5e1; background: #fff; color: #334155; }
-.primaryButton { border: 1px solid #2563eb; background: #2563eb; color: #fff; font-weight: 600; }
+.primaryButton { border: 1px solid #7ebefb; background: #7ebefb; color: #fff; font-weight: 600; box-shadow: 0 12px 30px rgba(16, 24, 40, 0.06); }
