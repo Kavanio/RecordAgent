@@ -296,3 +296,64 @@ test('任务同步异常使用全局 Message，同次异常不重复提示，恢
   await render(true);
   assert.match(container.textContent, /任务同步已恢复/);
 });
+
+test('日报预览仅在点击后弹窗展示，返回编辑保留草稿，再打开使用最新草稿', async () => {
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({ url: String(url), ...options });
+    const spec = JSON.parse(options.body);
+    return { ok: true, json: async () => ({ code: 200, data: { title: spec.title, content: '日报内容', html: '<h1>邮件排版</h1>', nextAt: null } }) };
+  };
+  await click('新建任务');
+  const template = container.querySelector('select');
+  await React.act(async () => {
+    template.value = 'DAILY_REPORT';
+    template.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  });
+  assert.equal(document.querySelector('iframe'), null);
+  assert.equal(requests.length, 0);
+  await click('预览（不发送）');
+  const modal = document.querySelector('[aria-label="日报邮件预览"]');
+  assert.ok(modal);
+  assert.equal(modal.querySelector('iframe').getAttribute('sandbox'), '');
+  assert.equal(modal.querySelector('iframe').getAttribute('srcdoc'), '<h1>邮件排版</h1>');
+  assert.equal(container.querySelector('form iframe'), null);
+  await click('返回编辑');
+  assert.equal(document.querySelector('iframe'), null);
+  assert.equal(document.getElementById('task-title').value, '每日日报');
+  await input('task-title', '新的日报');
+  await click('预览（不发送）');
+  assert.equal(JSON.parse(requests.at(-1).body).title, '新的日报');
+  assert.ok(requests.every(request => request.url.endsWith('/preview')));
+});
+
+test('预览失败可重试，加载期间关闭后迟到响应不会重新打开弹窗', async () => {
+  await click('编辑', 0);
+  globalThis.fetch = async () => { throw new Error('模拟预览失败'); };
+  await click('预览（不发送）');
+  assert.match(document.body.textContent, /模拟预览失败/);
+  let finish;
+  globalThis.fetch = () => new Promise(resolve => { finish = resolve; });
+  await click('重新预览');
+  assert.match(document.body.textContent, /正在生成预览/);
+  await click('返回编辑');
+  await React.act(async () => finish({ ok: true, json: async () => ({ code: 200, data: { title: '旧预览', content: '旧内容', nextAt: null, html: '' } }) }));
+  assert.equal(document.querySelector('[aria-label="任务预览"]'), null);
+  assert.equal(document.getElementById('task-title').value, '任务A');
+});
+
+test('预览先校验必填，关闭桌面通知同时清除声音和确认并阻止无渠道提交', async () => {
+  await click('新建任务');
+  await click('预览（不发送）');
+  assert.equal(requests.length, 0);
+  await input('task-title', '测试提醒');
+  const checkbox = text => [...container.querySelectorAll('label')].find(label => label.textContent === text).querySelector('input');
+  await React.act(async () => checkbox('需要手动确认').click());
+  await React.act(async () => checkbox('桌面通知').click());
+  for (const label of ['提醒声音', '需要手动确认']) {
+    assert.equal(checkbox(label).checked, false);
+    assert.equal(checkbox(label).disabled, true);
+  }
+  await click('预览（不发送）');
+  assert.match(container.textContent, /至少选择一种通知方式/);
+  assert.equal(requests.length, 0);
+});

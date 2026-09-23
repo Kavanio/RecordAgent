@@ -29,6 +29,6 @@ export function TaskMailTemplateEditor({ value, disabled, onChange }: {
       <p className={styles.hint}>{'{{expense}} 支出 · {{todo}} 待办 · {{study}} 学习 · {{date}} 日期 · {{generatedAt}} 生成时间 · {{title}} 任务标题 · {{content}} 完整报告。未勾选的栏目留空。'}</p>
       <FormField label="页脚" htmlFor="mail-footer"><TextInput id="mail-footer" maxLength={200} value={value.footer} onChange={e => update('footer', e.target.value)} /></FormField>
     </>}
-    <p className={styles.hint}>点击下方“预览”查看真实邮件排版，不会发送邮件。模板与本任务一起保存，复制任务时一并复制。</p>
+    <p className={styles.hint}>点击下方“预览”在弹窗中查看真实邮件排版，不会发送邮件。模板与本任务一起保存，复制任务时一并复制。</p>
   </fieldset>;
 }
