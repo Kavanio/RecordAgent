@@ -5,7 +5,7 @@ export function newAutomation(kind: AutomationSpec['kind'] = 'REMINDER'): Automa
     trigger: kind === 'SEDENTARY' ? 'ACTIVITY' : 'DAILY', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     atTime: '20:30', onceAt: null, weekdays: 127, minutes: 45, breakMinutes: 5,
     windowStart: '00:00', windowEnd: '00:00', desktop: true, email: false, confirm: kind === 'SEDENTARY',
-    sound: true, expense: true, todo: true, study: false };
+    sound: true, expense: true, todo: true, study: false, mailTemplate: { style: 'CARDS', accent: '#39756b', heading: '今日生活简报', introduction: '把一天的点滴，整理成值得回看的记录。', footer: '来自 ButvanAgent · 为每一天留下一点记录', body: '{{expense}}\n\n{{todo}}\n\n{{study}}' } };
 }
 export const taskStatus: Record<string, string> = { ENABLED: '已启用', PAUSED: '已暂停', FINISHED: '已结束', DELETED: '已删除' };
 export const runStatus: Record<string, string> = { SUCCESS: '内容已生成', PARTIAL: '内容不完整', FAILED: '失败', SKIPPED: '已跳过', PENDING: '等待投递', CLAIMED: '正在提交', SENDING: '正在提交', SUBMITTED: '已提交', UNKNOWN: '结果未知', WAITING: '待确认', CONFIRMED: '已确认', WITHDRAWN: '已撤回', NONE: '无需确认' };

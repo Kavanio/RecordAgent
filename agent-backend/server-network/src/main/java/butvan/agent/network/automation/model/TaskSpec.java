@@ -8,9 +8,20 @@ public record TaskSpec(String title, String content, String kind, String trigger
         String timezone, String atTime, String onceAt, int weekdays, int minutes,
         int breakMinutes, String windowStart, String windowEnd,
         boolean desktop, boolean email, boolean confirm, boolean sound,
-        boolean expense, boolean todo, boolean study) {
+        boolean expense, boolean todo, boolean study, MailTemplate mailTemplate) {
+    public TaskSpec { mailTemplate = mailTemplate == null ? MailTemplate.defaults() : mailTemplate; }
+    /** 兼容未配置邮件模板的已有调用。 */
+    public TaskSpec(String title, String content, String kind, String trigger, String timezone,
+            String atTime, String onceAt, int weekdays, int minutes, int breakMinutes,
+            String windowStart, String windowEnd, boolean desktop, boolean email, boolean confirm,
+            boolean sound, boolean expense, boolean todo, boolean study) {
+        this(title, content, kind, trigger, timezone, atTime, onceAt, weekdays, minutes, breakMinutes,
+                windowStart, windowEnd, desktop, email, confirm, sound, expense, todo, study, MailTemplate.defaults());
+    }
+
     /** 在领域入口校验配置，避免非法规则写入后无法恢复。 */
     public void validate() {
+        mailTemplate.validate();
         if (title == null || title.isBlank() || title.length() > 100) invalid("标题须为 1 至 100 字");
         if (content == null || content.length() > 4000) invalid("提醒内容不能超过 4000 字");
         if (!Set.of("REMINDER", "DAILY_REPORT", "SEDENTARY").contains(kind == null ? "" : kind)) invalid("任务类型不支持");

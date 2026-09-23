@@ -74,7 +74,7 @@ public class TaskMailService {
         return settings();
     }
     /** 发送已保存结果，发送前再次检查收件地址与全局开关；不抛出底层 SMTP 消息。 */
-    public Outcome send(String target, String id, String title, String text) {
+    public Outcome send(String target, String id, String title, String text, String html) {
         if (target == null || !target.equals(recipient())) return new Outcome("SKIPPED", "收件地址或邮件通知授权已变更");
         var m = mail();
         if (!m.isReady() || !m.starttls() || (m.auth() && (m.password() == null || m.password().isBlank()))) return new Outcome("FAILED", "请完成启用 STARTTLS 的 SMTP 配置");
@@ -88,7 +88,7 @@ public class TaskMailService {
             var message = sender.createMimeMessage();
             var helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(m.from()); helper.setTo(target); helper.setSubject(title);
-            helper.setText(text, "<html><body><h2>" + HtmlUtils.htmlEscape(title) + "</h2><pre style='white-space:pre-wrap'>" + HtmlUtils.htmlEscape(text) + "</pre></body></html>");
+            helper.setText(text, html != null && !html.isBlank() ? html : "<html><body><h2>" + HtmlUtils.htmlEscape(title) + "</h2><pre style='white-space:pre-wrap'>" + HtmlUtils.htmlEscape(text) + "</pre></body></html>");
             message.setHeader("X-Butvan-Run", id);
             sender.send(message);
             return new Outcome("SUBMITTED", "");
@@ -101,5 +101,5 @@ public class TaskMailService {
         }
     }
     /** 仅在用户主动点击时向绑定邮箱发送无业务数据的测试内容。 */
-    public Outcome test() { return send(recipient(), java.util.UUID.randomUUID().toString(), "ButvanAgent 测试邮件", "邮件通知配置测试。此邮件不包含业务数据。"); }
+    public Outcome test() { return send(recipient(), java.util.UUID.randomUUID().toString(), "ButvanAgent 测试邮件", "邮件通知配置测试。此邮件不包含业务数据。", ""); }
 }

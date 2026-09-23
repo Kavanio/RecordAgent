@@ -28,7 +28,7 @@ public class AutomationRuntime {
         workers.scheduleWithFixedDelay(() -> {
             try {
                 var run = tasks.claimMail();
-                if (run != null) tasks.mailResult(run, mail.send(run.recipient(), run.id(), run.title(), run.content()));
+                if (run != null) tasks.mailResult(run, mail.send(run.recipient(), run.id(), run.title(), run.content(), run.emailHtml()));
             } catch (RuntimeException e) { log.error("自动任务邮件处理失败：{}", e.getClass().getSimpleName()); }
         }, 2, 3, TimeUnit.SECONDS);
     }

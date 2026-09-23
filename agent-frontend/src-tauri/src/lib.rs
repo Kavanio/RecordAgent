@@ -50,7 +50,7 @@ pub fn run() {
     backend::get_backend_port,
     system_settings::open_location_settings,
     task_desktop::task_activity_status,
-    task_desktop::play_task_sound,
+    task_desktop::send_task_notification,
     task_desktop::sync_task_reminder,
     task_desktop::task_background_enabled,
     task_desktop::set_task_background,

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test:tasks": "node --test src/components/task/TaskPage.test.mjs",
     "preview": "vite preview",
     "version:check": "node ../scripts/sync-version.mjs --check",
     "version:sync": "node ../scripts/sync-version.mjs"
@@ -45,6 +46,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
+    "jsdom": "^30.1.1",
     "oxlint": "^1.75.0",
     "typescript": "~6.0.2",
     "vite": "^8.2.0"

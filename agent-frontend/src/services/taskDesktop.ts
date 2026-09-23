@@ -1,6 +1,6 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
+import { isPermissionGranted, requestPermission } from '@tauri-apps/plugin-notification';
 import type { AutomationRun, ComputerActivity } from '../types/automation';
 export const isTaskDesktop = () => isTauri();
 export async function taskActivityStatus(): Promise<ComputerActivity> {
@@ -13,8 +13,7 @@ export async function listenTaskActivity(receive: (sample: ComputerActivity) => 
 export async function deliverTaskNotification(run: AutomationRun): Promise<'SUBMITTED' | 'SKIPPED'> {
   if (!isTauri()) return 'SKIPPED';
   if (!await isPermissionGranted()) throw new Error('请在任务设置中开启系统通知权限');
-  if (run.sound) await invoke('play_task_sound');
-  sendNotification({ title: run.title, body: run.confirmation === 'WAITING' ? run.content.slice(0, 150) : '任务已完成，请在任务历史中查看完整内容。' });
+  await invoke('send_task_notification', { title: run.title, body: run.content.slice(0, 300) || '任务已完成，请在任务页查看。', sound: run.sound });
   return 'SUBMITTED';
 }
 export async function checkTaskNotificationPermission(): Promise<boolean> {

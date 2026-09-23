@@ -67,15 +67,16 @@ pub fn sync_task_reminder(app: tauri::AppHandle, visible: bool) -> Result<(), St
     Ok(())
 }
 
-/// 仅在用户开启声音的提醒中播放系统提示音，macOS 静音设置仍生效。
+/// 通过系统通知服务提交，macOS 使用通知中心；返回实际提交错误供后端回执记录。
 #[tauri::command]
-pub fn play_task_sound() {
-    #[cfg(target_os = "macos")]
-    unsafe {
-        #[link(name = "AppKit", kind = "framework")]
-        extern "C" { fn NSBeep(); }
-        NSBeep();
+pub fn send_task_notification(app: tauri::AppHandle, title: String, body: String, sound: bool) -> Result<(), String> {
+    use tauri_plugin_notification::NotificationExt;
+    if title.chars().count() > 100 || body.chars().count() > 400 {
+        return Err("通知内容过长".into());
     }
+    let mut notification = app.notification().builder().title(title).body(body);
+    if sound { notification = notification.sound(if cfg!(target_os = "macos") { "Ping" } else { "default" }); }
+    notification.show().map_err(|e| { log::warn!("任务原生通知提交失败：{}", e); "系统通知提交失败，请检查系统通知设置".into() })
 }
 
 /// 返回持久化后台偏好；不默认改变关闭窗口行为。

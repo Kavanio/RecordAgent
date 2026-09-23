@@ -133,4 +133,46 @@ class AutomationServiceIntegrationTest {
         assertEquals(0,service.snapshot("owner-lock").tasks().getFirst().activeSeconds());
         assertTrue(service.history("owner-lock",task.id()).isEmpty());
     }
+    @Test void explicitRetryAfterOneDayUsesNewQueueTimeAndFrozenHtml() {
+        TIME.set(Instant.parse("2026-09-23T10:00:00Z").toEpochMilli());
+        when(mail.settings()).thenReturn(new TaskMailDtos.Settings("smtp.example.test", 587, "sender", "sender@example.test",
+                true, true, true, true, "t***@example.test", true));
+        when(mail.recipient()).thenReturn("test@example.test");
+        when(reports.build(anyString(), any(TaskSpec.class), any(Instant.class), any(Instant.class)))
+                .thenReturn(new TaskReportBuilder.Report("原报告", false));
+        var base = reminder("DAILY", false);
+        var template = new MailTemplateView("CUSTOM", "#123456", "原邮件标题", "你好", "落款", "{{content}}");
+        var spec = new Spec("日报", "", "DAILY_REPORT", "DAILY", base.timezone(), base.atTime(), null,
+                127, 45, 5, "00:00", "00:00", false, true, false, false, true, true, false, template);
+        var task = service.save("owner-retry-day", null, new SaveRequest(spec, true, 0));
+        assertEquals(template, service.snapshot("owner-retry-day").tasks().getFirst().spec().mailTemplate());
+        var preview = service.preview("owner-retry-day", spec);
+        assertTrue(preview.html().contains("原邮件标题"));
+        assertTrue(service.history("owner-retry-day", task.id()).isEmpty());
+        // 其他用例可能留下已明确重试的队列，先完成它们，避免共享时钟影响本例。
+        butvan.agent.network.automation.model.TaskRun pending;
+        while ((pending = service.claimMail()) != null) service.mailResult(pending, new TaskMailService.Outcome("SUBMITTED", ""));
+        var run = service.runNow("owner-retry-day", task.id());
+        var first = service.claimMail();
+        assertEquals(run.id(), first.id());
+        service.mailResult(first, new TaskMailService.Outcome("FAILED", "测试失败"));
+        var changed = new Spec(spec.title(), spec.content(), spec.kind(), spec.trigger(), spec.timezone(), spec.atTime(), null,
+                127, 45, 5, "00:00", "00:00", false, true, false, false, true, true, false,
+                new MailTemplateView("CUSTOM", "#654321", "新邮件标题", "", "", "全新正文"));
+        service.save("owner-retry-day", task.id(), new SaveRequest(changed, true, task.version()));
+        TIME.addAndGet(2 * 86_400_000L);
+        service.retryMail("owner-retry-day", run.id(), false);
+        var retry = service.claimMail();
+        assertNotNull(retry);
+        assertEquals(run.id(), retry.id());
+        assertEquals(first.content(), retry.content());
+        assertEquals(first.emailHtml(), retry.emailHtml());
+        assertTrue(retry.emailHtml().contains("原邮件标题"));
+        assertFalse(retry.emailHtml().contains("新邮件标题"));
+        assertEquals(TIME.get(), retry.emailQueuedAt());
+        service.mailResult(retry, new TaskMailService.Outcome("SUBMITTED", ""));
+        assertEquals("SUBMITTED", service.history("owner-retry-day", task.id()).getFirst().emailStatus());
+        verify(reports, times(2)).build(anyString(), any(TaskSpec.class), any(Instant.class), any(Instant.class));
+    }
+
 }

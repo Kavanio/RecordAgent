@@ -13,6 +13,15 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AutomationRepository {
     private final JdbcTemplate jdbc;
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
+    private static String encodeTemplate(MailTemplate template) {
+        try { return JSON.writeValueAsString(template); }
+        catch (com.fasterxml.jackson.core.JsonProcessingException e) { throw new IllegalStateException("邮件模板无法保存", e); }
+    }
+    private static MailTemplate decodeTemplate(String json) {
+        try { return JSON.readValue(json, MailTemplate.class); }
+        catch (com.fasterxml.jackson.core.JsonProcessingException e) { throw new IllegalStateException("邮件模板无法读取", e); }
+    }
     private static final RowMapper<AutomationTask> TASK = (rs, row) -> new AutomationTask(
             rs.getString("id"), rs.getString("owner_id"), new TaskSpec(
                 rs.getString("rule_title"),
@@ -33,12 +42,12 @@ public class AutomationRepository {
                 rs.getBoolean("rule_sound"),
                 rs.getBoolean("rule_expense"),
                 rs.getBoolean("rule_todo"),
-                rs.getBoolean("rule_study")), rs.getString("status"), rs.getInt("version"),
+                rs.getBoolean("rule_study"), decodeTemplate(rs.getString("mail_template"))), rs.getString("status"), rs.getInt("version"),
             rs.getObject("next_at") == null ? null : rs.getLong("next_at"), rs.getLong("active_seconds"), rs.getLong("updated_at"));
     private static final RowMapper<TaskRun> RUN = (rs, row) -> new TaskRun(rs.getString("id"), rs.getString("task_id"),
             rs.getString("owner_id"), rs.getString("title"), rs.getString("content"), rs.getLong("planned_at"),
             rs.getLong("created_at"), rs.getString("source"), rs.getString("status"), rs.getString("desktop_status"),
-            rs.getString("email_status"), rs.getString("recipient"), rs.getString("confirmation"), rs.getBoolean("sound"), rs.getString("error"));
+            rs.getString("email_status"), rs.getString("recipient"), rs.getString("confirmation"), rs.getBoolean("sound"), rs.getString("error"), rs.getString("email_html"), rs.getLong("email_queued_at"));
 
     /** 查询当前用户可见配置。 */
     public List<AutomationTask> list(String owner) {
@@ -55,6 +64,7 @@ public class AutomationRepository {
         TaskSpec s = task.spec();
         jdbc.update("INSERT INTO automation_task(id,owner_id,rule_title,rule_content,rule_kind,rule_trigger,rule_timezone,rule_at_time,rule_once_at,rule_weekdays,rule_minutes,rule_break_minutes,rule_window_start,rule_window_end,rule_desktop,rule_email,rule_confirm,rule_sound,rule_expense,rule_todo,rule_study,status,version,next_at,active_seconds,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 task.id(), task.ownerId(), s.title(), s.content(), s.kind(), s.trigger(), s.timezone(), s.atTime(), s.onceAt(), s.weekdays(), s.minutes(), s.breakMinutes(), s.windowStart(), s.windowEnd(), s.desktop(), s.email(), s.confirm(), s.sound(), s.expense(), s.todo(), s.study(), task.status(), task.version(), task.nextAt(), task.activeSeconds(), task.updatedAt());
+        saveTemplate(task);
     }
     /** 乐观锁修改，避免多窗口覆盖。 */
     public void update(AutomationTask task, int expectedVersion) {
@@ -62,6 +72,11 @@ public class AutomationRepository {
         int count = jdbc.update("UPDATE automation_task SET rule_title=?,rule_content=?,rule_kind=?,rule_trigger=?,rule_timezone=?,rule_at_time=?,rule_once_at=?,rule_weekdays=?,rule_minutes=?,rule_break_minutes=?,rule_window_start=?,rule_window_end=?,rule_desktop=?,rule_email=?,rule_confirm=?,rule_sound=?,rule_expense=?,rule_todo=?,rule_study=?,status=?,version=?,next_at=?,active_seconds=?,updated_at=? WHERE id=? AND owner_id=? AND version=?",
                 s.title(), s.content(), s.kind(), s.trigger(), s.timezone(), s.atTime(), s.onceAt(), s.weekdays(), s.minutes(), s.breakMinutes(), s.windowStart(), s.windowEnd(), s.desktop(), s.email(), s.confirm(), s.sound(), s.expense(), s.todo(), s.study(), task.status(), task.version(), task.nextAt(), task.activeSeconds(), task.updatedAt(), task.id(), task.ownerId(), expectedVersion);
         if (count != 1) throw new IllegalArgumentException("任务已被修改，请刷新后重试");
+        saveTemplate(task);
+    }
+    private void saveTemplate(AutomationTask task) {
+        jdbc.update("UPDATE automation_task SET mail_template=? WHERE id=?",
+                encodeTemplate(task.spec().mailTemplate()), task.id());
     }
     /** 调度推进不修改用户配置版本。 */
     public void progress(String id, Long nextAt, long seconds, String status) {
@@ -69,9 +84,9 @@ public class AutomationRepository {
     }
     /** 保存一次执行；数据库唯一约束抵御重复计划实例。 */
     public void insertRun(TaskRun r) {
-        jdbc.update("INSERT INTO automation_run VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", r.id(), r.taskId(), r.ownerId(),
+        jdbc.update("INSERT INTO automation_run(id,task_id,owner_id,title,content,planned_at,created_at,source,status,desktop_status,email_status,recipient,confirmation,sound,error,email_html,email_queued_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", r.id(), r.taskId(), r.ownerId(),
                 r.title(), r.content(), r.plannedAt(), r.createdAt(), r.source(), r.status(), r.desktopStatus(),
-                r.emailStatus(), r.recipient(), r.confirmation(), r.sound(), r.error());
+                r.emailStatus(), r.recipient(), r.confirmation(), r.sound(), r.error(), r.emailHtml(), r.emailQueuedAt());
     }
     /** 有界读取历史，包含软删除任务的结果。 */
     public List<TaskRun> history(String owner, String taskId) {
@@ -113,9 +128,9 @@ public class AutomationRepository {
     /** 邮件结果不覆盖报告正文和桌面渠道状态。 */
     public void mailResult(String id, String status, String error) { jdbc.update("UPDATE automation_run SET email_status=?,error=? WHERE id=?", status, error, id); }
     /** 用户显式重发失败或不确定投递，重新进入单次投递队列。 */
-    public boolean retryMail(String owner, String id, String currentStatus) {
-        return jdbc.update("UPDATE automation_run SET email_status='PENDING',error='' WHERE owner_id=? AND id=? AND email_status=?",
-                owner, id, currentStatus) == 1;
+    public boolean retryMail(String owner, String id, String currentStatus, long queuedAt) {
+        return jdbc.update("UPDATE automation_run SET email_status='PENDING',error='',email_queued_at=? WHERE owner_id=? AND id=? AND email_status=?",
+                queuedAt, owner, id, currentStatus) == 1;
     }
     /** 恢复不确定投递，并重置无法观察的离线使用时长。 */
     public void recover() {

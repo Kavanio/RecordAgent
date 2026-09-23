@@ -9,13 +9,28 @@ public final class AutomationDtos {
     public record Spec(String title, String content, String kind, String trigger, String timezone,
             String atTime, String onceAt, int weekdays, int minutes, int breakMinutes,
             String windowStart, String windowEnd, boolean desktop, boolean email, boolean confirm,
-            boolean sound, boolean expense, boolean todo, boolean study) {
+            boolean sound, boolean expense, boolean todo, boolean study, MailTemplateView mailTemplate) {
+        public Spec { mailTemplate = mailTemplate == null ? MailTemplateView.from(MailTemplate.defaults()) : mailTemplate; }
+        /** 兼容未配置邮件模板的已有调用。 */
+        public Spec(String title, String content, String kind, String trigger, String timezone,
+                String atTime, String onceAt, int weekdays, int minutes, int breakMinutes,
+                String windowStart, String windowEnd, boolean desktop, boolean email, boolean confirm,
+                boolean sound, boolean expense, boolean todo, boolean study) {
+            this(title, content, kind, trigger, timezone, atTime, onceAt, weekdays, minutes, breakMinutes,
+                    windowStart, windowEnd, desktop, email, confirm, sound, expense, todo, study, MailTemplateView.from(MailTemplate.defaults()));
+        }
+
         public TaskSpec domain() { return new TaskSpec(title, content, kind, trigger, timezone, atTime,
                 onceAt, weekdays, minutes, breakMinutes, windowStart, windowEnd, desktop, email,
-                confirm, sound, expense, todo, study); }
+                confirm, sound, expense, todo, study, mailTemplate.domain()); }
         public static Spec from(TaskSpec s) { return new Spec(s.title(), s.content(), s.kind(), s.trigger(),
                 s.timezone(), s.atTime(), s.onceAt(), s.weekdays(), s.minutes(), s.breakMinutes(),
-                s.windowStart(), s.windowEnd(), s.desktop(), s.email(), s.confirm(), s.sound(), s.expense(), s.todo(), s.study()); }
+                s.windowStart(), s.windowEnd(), s.desktop(), s.email(), s.confirm(), s.sound(), s.expense(), s.todo(), s.study(), MailTemplateView.from(s.mailTemplate())); }
+    }
+    /** 模板 HTTP 字段与内部持久化模型分离，空字段由领域模型补全。 */
+    public record MailTemplateView(String style, String accent, String heading, String introduction, String footer, String body) {
+        public MailTemplate domain() { return new MailTemplate(style, accent, heading, introduction, footer, body); }
+        public static MailTemplateView from(MailTemplate t) { return new MailTemplateView(t.style(), t.accent(), t.heading(), t.introduction(), t.footer(), t.body()); }
     }
     public record SaveRequest(Spec spec, boolean enabled, int version) {}
     public record StateRequest(boolean enabled, int version) {}
@@ -30,7 +45,7 @@ public final class AutomationDtos {
                 r.confirmation(), r.sound(), r.error()); }
     }
     public record Snapshot(List<TaskView> tasks, List<RunView> pending) {}
-    public record Preview(String title, String content, Long nextAt) {}
+    public record Preview(String title, String content, Long nextAt, String html) {}
     public record DesktopReceipt(String status) {}
     public record RetryEmailRequest(boolean allowUnknown) {}
     public record ActivitySample(long idleSeconds, boolean locked, boolean supported) {}

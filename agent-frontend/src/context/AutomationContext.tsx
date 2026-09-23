@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, type ReactNode } from 'react';
 import type { AutomationSnapshot, ComputerActivity } from '../types/automation';
 import { AutomationStateContext } from './automationState';
 import { subscribeAutomations, claimAutomation, automationReceipt, reportComputerActivity } from '../services/automationApi';
-import { deliverTaskNotification, isTaskDesktop, listenTaskActivity, syncTaskReminder, taskActivityStatus } from '../services/taskDesktop';
+import { deliverTaskNotification, isTaskDesktop, listenTaskActivity, taskActivityStatus } from '../services/taskDesktop';
 import { useMessage } from '../components/common/Message';
 
 /** 主窗口只订阅一次；辅助提醒窗口只读快照，不负责投递和采样。 */
@@ -50,8 +50,7 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
         finally { inFlight.current.delete(run.id); }
       })();
     }
-    void syncTaskReminder(snapshot.pending.some(r => r.confirmation === 'WAITING'))
-      .catch(() => showMessage('error', '提醒窗口未能打开，请在任务页确认提醒'));
+    // 原生通知中心展示提醒，待确认状态保留在任务页，不自动打开置顶窗口。
   }, [snapshot, connected, isReminder, isStudyWidget, showMessage]);
   return <AutomationStateContext.Provider value={{ snapshot, connected, activity }}>{children}</AutomationStateContext.Provider>;
 }

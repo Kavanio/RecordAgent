@@ -17,9 +17,9 @@ export function TaskReminderWindow() {
   }
   const pending = snapshot.pending.filter(r => r.confirmation === 'WAITING');
   return <main className={styles.window}>
-    <h1>该休息一下了</h1><p className={styles.hint}>确认后开始下一轮计时，也可以在主窗口暂停任务。</p>
+    <h1>待确认提醒</h1><p className={styles.hint}>确认表示已处理此提醒；久坐任务确认后重新计时。</p>
     {!connected && <p role="status">正在连接任务服务…</p>}
-    {pending.map(run => <section key={run.id} className={styles.card}><h2>{run.title}</h2><p>{run.content}</p><small>{new Date(run.createdAt).toLocaleString('zh-CN')}</small><Button variant="primary" disabled={Boolean(busy) || !connected} onClick={() => void confirm(run.id)}>{busy === run.id ? '正在确认…' : '确认并重新计时'}</Button></section>)}
+    {pending.map(run => <section key={run.id} className={styles.card}><h2>{run.title}</h2><p>{run.content}</p><small>{new Date(run.createdAt).toLocaleString('zh-CN')}</small><Button variant="primary" disabled={Boolean(busy) || !connected} onClick={() => void confirm(run.id)}>{busy === run.id ? '正在确认…' : '确认提醒'}</Button></section>)}
     {connected && pending.length === 0 && <p>当前没有待确认提醒。</p>}
     {error && <p role="alert">{error}</p>}
     <Button variant="ghost" onClick={() => void openTaskMain().catch(() => setError('无法打开主窗口'))}>打开主窗口管理任务</Button>
