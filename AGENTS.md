@@ -18,7 +18,7 @@
 | 目录 | 职责与约束 |
 | --- | --- |
 | `agent-frontend/` | React、TypeScript、Vite 与 Tauri 桌面端代码；仅放置前端构建、展示和桌面壳层相关内容。 |
-| `RecordAgent APP/IOS APP/RecordAgent/` | 独立 iOS App 的规划文档与后续原生工程；首版仅承载日历、财务、资料、记录和任务能力，不混入 Agent 编排或桌面端构建产物。 |
+| `RecordAgent APP/IOS APP/RecordAgent/` | 独立 Swift/SwiftUI iOS App 的规划文档与后续原生工程；通过服务器 API 承载日历、财务、资料、记录和任务能力，不混入 Agent 编排或桌面端构建产物。 |
 | `agent-frontend/src/components/` | 可复用视图组件；按业务域建立目录，例如 `chat/`、`model/`、`layout/`、`common/`。 |
 | `agent-frontend/src/services/` | HTTP、SSE、存储与第三方调用等基础设施适配；不得承载页面状态或 JSX。 |
 | `agent-frontend/src/context/` | 跨页面共享状态与领域上下文；不得把一次性局部状态提升到此处。 |
@@ -133,6 +133,7 @@
 
 - 已建立子级 `AGENTS.md`：`agent-backend/server-feishu/`（渠道集成模块职责与配置约束）。
 - 已建立子级 `AGENTS.md`：`agent-backend/server-network/`（HTTP 接口与本地 SQLite 持久化约束）。
+- 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/RecordAgent/`（原生 iOS 技术栈、API 数据边界与工程约束）。
 - 自动任务的细节约束见 `agent-backend/server-network/AGENTS.md` 的“自动任务”节；产品行为见 `docs/任务模块产品需求与操作说明.md`。
 - 根目录负责项目级工程规范、目录边界、架构契约与根文档。
 - 当 `agent-frontend/` 或 `agent-backend/` 出现独立且稳定的局部规则时，应分别建立中文 `AGENTS.md`，并在本节登记其职责范围。
