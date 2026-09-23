@@ -26,7 +26,10 @@
   /* Accents */
   --accent-purple: #9333EA;
   --accent-purple-bg: #F3E8FF;
-  --accent-blue: #2563EB;
+  --accent-blue: #7EBEFB;
+  --accent-blue-hover: #69AFF7;
+  --accent-blue-active: #54A0F3;
+  --accent-blue-subtle: #F0F7FF;
   --accent-dark: #111827;
 
   /* Fonts */

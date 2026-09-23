@@ -38,21 +38,21 @@
 
 /* Variants */
 .primary {
-  background-color: #7ebefb;
+  background-color: var(--accent-blue);
   color: #ffffff;
-  border-color: #7ebefb;
+  border-color: var(--accent-blue);
   box-shadow: 0 12px 30px rgba(16, 24, 40, 0.06);
 }
 
 .primary:hover:not(:disabled) {
-  background-color: #6bb3f7;
-  border-color: #6bb3f7;
+  background-color: var(--accent-blue-hover, #69aff7);
+  border-color: var(--accent-blue-hover, #69aff7);
   box-shadow: 0 14px 32px rgba(16, 24, 40, 0.1);
 }
 
 .primary:active:not(:disabled) {
-  background-color: #5aa6f3;
-  border-color: #5aa6f3;
+  background-color: var(--accent-blue-active, #54a0f3);
+  border-color: var(--accent-blue-active, #54a0f3);
 }
 
 .secondary {
