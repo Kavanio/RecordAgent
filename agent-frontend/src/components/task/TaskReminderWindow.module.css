@@ -1,12 +1,33 @@
-.window { box-sizing:border-box; width:100vw; height:100vh; padding:32px 28px 20px; display:flex; flex-direction:column; gap:16px; overflow:hidden; background:#fafaf9; color:#262629; }
-.heading h1 { font-size:25px; margin:8px 0 0; }
-.eyebrow { color:#7a7c83; font-size:12px; font-weight:600; letter-spacing:.08em; }
-.hint { font-size:13px; color:#74747e; line-height:1.6; }
-.list { min-height:0; flex:1; overflow-y:auto; }
-.card { display:flex; flex-direction:column; align-items:flex-start; gap:14px; padding:22px; background:white; border:1px solid #e6e6e8; border-radius:18px; }
-.card + .card { margin-top:12px; }
-.card h2 { margin:0; font-size:18px; }
-.card p { margin:0; font-size:14px; white-space:pre-wrap; line-height:1.7; overflow-wrap:anywhere; }
-.countdown { align-self:stretch; text-align:center; color:#2977ce; font-size:48px; line-height:1.2; font-variant-numeric:tabular-nums; font-weight:700; }
-.countdown span { display:block; margin-top:6px; color:#74747e; font-size:12px; font-weight:400; }
-.error { margin:0; color:#b42318; font-size:13px; }
+.window {
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100vh;
+  padding: 34px 32px 22px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  color: #202734;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', sans-serif;
+}
+.header { display: flex; align-items: center; gap:9px; height:28px; flex:none; }
+.mark { display:grid; place-items:center; width:24px; height:24px; border-radius:8px; background:#eaf2ff; color:#3176d5; font-size:15px; }
+.appName { font-size:13px; font-weight:600; color:#485468; }
+.status { margin-left:auto; padding:5px 9px; border-radius:999px; background:#f2f5f9; color:#738096; font-size:11px; font-weight:600; }
+.content { display:flex; flex-direction:column; flex:1; min-height:0; padding-top:27px; }
+.copy { min-height:0; }
+.overline { font-size:12px; color:#6d8cbb; font-weight:600; }
+.copy h1 { margin:9px 0 10px; font-size:28px; line-height:1.25; letter-spacing:-.025em; font-weight:700; color:#202734; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.description { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; margin:0; color:#667184; font-size:14px; line-height:1.6; overflow-wrap:anywhere; }
+.prompt { margin:auto 0 15px; padding:12px 14px; border-radius:10px; background:#f6f8fb; color:#647185; font-size:12px; line-height:1.5; }
+.timerBlock { margin:auto 0 14px; text-align:center; }
+.time { color:#2c72d3; font-size:54px; line-height:1.1; font-weight:700; letter-spacing:.005em; font-variant-numeric:tabular-nums; }
+.progress { height:5px; margin:17px 12px 0; border-radius:999px; overflow:hidden; background:#e8eef7; }
+.progress span { display:block; height:100%; border-radius:inherit; background:#5c94e5; transition:width .25s linear; }
+.timerHint { margin:10px 0 0; color:#8590a1; font-size:12px; }
+.empty { flex:1; display:grid; place-items:center; color:#8590a1; font-size:13px; }
+.footer { display:flex; flex-direction:column; align-items:stretch; gap:8px; flex:none; }
+.primaryAction { width:100%; min-height:43px; border-radius:10px; font-weight:600; }
+.manageAction { align-self:center; color:#7c8797; font-size:12px; }
+.error { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0; color:#b42318; font-size:12px; }
+.error button { border:0; background:none; color:#3176d5; cursor:pointer; }
