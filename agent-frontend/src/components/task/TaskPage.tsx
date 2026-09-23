@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Bell, Copy, History, Pause, Pencil, Play, Plus, Search, Settings2, Trash2, Zap } from 'lucide-react';
 import { useAutomations } from '../../context/automationState';
 import { deleteAutomation, fetchAutomationHistory, retryAutomationEmail, runAutomation, setAutomationEnabled } from '../../services/automationApi';
@@ -9,7 +9,6 @@ import { TopBarAction } from '../common/TopBarAction';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
 import { useMessage } from '../common/Message';
-import { TaskReadiness } from './TaskReadiness';
 import { TaskEditor } from './TaskEditor';
 import { TaskRunConfirmModal } from './TaskRunConfirmModal';
 import styles from './TaskPage.module.css';
@@ -33,6 +32,20 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [confirm, setConfirm] = useState<{task:AutomationTask;action:'delete'|'run'} | null>(null);
   const [busy, setBusy] = useState(false);
   const { showMessage } = useMessage();
+  const connectionNoticeShown = useRef(false);
+  useEffect(() => {
+    if (connected) {
+      if (connectionNoticeShown.current) showMessage('success', '任务同步已恢复');
+      connectionNoticeShown.current = false;
+      return;
+    }
+    // 短暂首次加载不弹提示；同一次未就绪期间仅提示一次。
+    const timer = window.setTimeout(() => {
+      connectionNoticeShown.current = true;
+      showMessage('info', '任务同步暂未就绪，请稍后再操作');
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [connected, showMessage]);
   useEffect(() => {
     if (!historyTask) return;
     let stopped = false;
@@ -102,8 +115,6 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
           ))}
         </div>
       </div>
-      <TaskReadiness onOpenSettings={onOpenSettings} />
-      {!connected && <p role="status" className={styles.notice}>任务连接暂未就绪，正在自动重连。操作前请等待同步完成。</p>}
 
       {tasks.length === 0 ? <section className={styles.empty}><Search size={28} /><h2>{search ? '没有找到匹配任务' : showDeleted ? '没有已删除任务' : '让提醒按计划发生'}</h2><p>创建日报、久坐提醒或自定义通知，选择桌面或邮件接收。</p>{!showDeleted && <button type="button" className={styles.emptyAction} onClick={() => switchEditor({})}>创建第一个任务</button>}</section>
         : <div className={styles.list}>{tasks.map(task => <article key={task.id} className={styles.card}>

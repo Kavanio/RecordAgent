@@ -36,9 +36,9 @@ beforeEach(async () => {
   await render();
 });
 afterEach(async () => { await React.act(async () => root?.unmount()); container?.remove(); });
-async function render() {
+async function render(connected = true) {
   await React.act(async () => root.render(React.createElement(MessageProvider, null,
-    React.createElement(StateContext.Provider, { value: { snapshot, connected: true, activity: null } },
+    React.createElement(StateContext.Provider, { value: { snapshot, connected, activity: null } },
       React.createElement(TaskPage, { onOpenSettings() {} })))));
 }
 async function click(text, index = 0) {
@@ -280,4 +280,19 @@ test('提醒设置自动保存、失败回退；数字微调同步受控值并�
     window.__TAURI_INTERNALS__ = previousInternals;
     globalThis.isTauri = previousTauri;
   }
+});
+
+
+test('任务同步异常使用全局 Message，同次异常不重复提示，恢复后更新提示', async () => {
+  assert.equal(container.querySelector('[aria-label="任务运行条件"]'), null);
+  await render(false);
+  assert.doesNotMatch(container.textContent, /任务同步暂未就绪/);
+  await React.act(async () => { await new Promise(resolve => setTimeout(resolve, 1550)); });
+  assert.match(container.textContent, /任务同步暂未就绪/);
+  assert.doesNotMatch(container.querySelector('main').textContent, /任务同步暂未就绪/);
+  await click('关闭提示');
+  await render(false);
+  assert.doesNotMatch(container.textContent, /任务同步暂未就绪/);
+  await render(true);
+  assert.match(container.textContent, /任务同步已恢复/);
 });
