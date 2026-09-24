@@ -104,7 +104,13 @@ export function TaskSettings() {
                 onChange={async (checked) => {
                   if (checked) {
                     await action(async () => {
-                      const granted = await requestTaskNotificationPermission();
+                      let granted: boolean;
+                      try {
+                        granted = await requestTaskNotificationPermission();
+                      } catch (e) {
+                        showMessage('error', e instanceof Error ? e.message : String(e));
+                        return;
+                      }
                       setNotificationGranted(granted);
                       const notification = await taskNotificationStatus();
                       setNotificationDetails(granted

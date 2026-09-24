@@ -137,6 +137,18 @@ else
   PROFILE_DIR="$PROFILE_DIR/release"
 fi
 
+APP_SOURCE="$PROFILE_DIR/bundle/macos/$PRODUCT_NAME.app"
+if [[ "$(uname -s)" = Darwin && -d "$APP_SOURCE" ]]; then
+  # 通知服务校验代码签名身份；链接器临时签名不能代替完整 App 签名。
+  codesign --verify --deep --strict "$APP_SOURCE"
+  SIGNATURE_ID="$(codesign -dv "$APP_SOURCE" 2>&1 | sed -n 's/^Identifier=//p')"
+  if [[ "$SIGNATURE_ID" != "$BUNDLE_ID" ]]; then
+    echo "应用签名标识与 bundle ID 不一致，系统通知授权将失败：$SIGNATURE_ID / $BUNDLE_ID" >&2
+    exit 1
+  fi
+  echo "macOS 应用签名校验通过：$SIGNATURE_ID"
+fi
+
 echo ""
 echo "打包完成，产物："
 find "$PROFILE_DIR/bundle" \
@@ -150,7 +162,6 @@ if [[ "$INSTALL_APP" != 1 ]]; then
   exit 0
 fi
 
-APP_SOURCE="$PROFILE_DIR/bundle/macos/$PRODUCT_NAME.app"
 PLIST="$APP_SOURCE/Contents/Info.plist"
 if [[ ! -f "$PLIST" ]] || [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")" != "$BUNDLE_ID" ]]; then
   echo "未找到本次构建的有效 .app：$APP_SOURCE，未执行安装。" >&2

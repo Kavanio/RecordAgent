@@ -6,11 +6,13 @@ version = 3
 name = "RecordAgent"
 version = "0.1.0"
 dependencies = [
+ "block2",
  "log",
  "mac-usernotifications",
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
+ "objc2-user-notifications",
  "serde",
  "serde_json",
  "tauri",
