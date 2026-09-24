@@ -21,7 +21,7 @@ public record MailTemplate(String style, String accent, String heading, String i
     public static MailTemplate defaults() { return new MailTemplate(null, null, null, null, null, null); }
     /** 限制布局、颜色、长度和占位符，保证安全且可预期的渲染。 */
     public void validate() {
-        if (!Set.of("DIGEST", "EDITORIAL", "LEDGER", "CUSTOM").contains(style)) throw new IllegalArgumentException("邮件模板不支持");
+        if (!Set.of("DIGEST", "EDITORIAL", "LEDGER", "RECEIPT", "CUSTOM").contains(style)) throw new IllegalArgumentException("邮件模板不支持");
         if (!accent.matches("#[0-9a-fA-F]{6}")) throw new IllegalArgumentException("主题色须为六位十六进制颜色");
         if (heading.length() > 100 || introduction.length() > 500 || footer.length() > 200 || body.length() > 8000)
             throw new IllegalArgumentException("邮件模板内容过长");

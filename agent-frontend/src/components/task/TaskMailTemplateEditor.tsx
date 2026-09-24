@@ -17,6 +17,7 @@ export function TaskMailTemplateEditor({ value, disabled, onChange }: {
       { value: 'DIGEST', label: '蓝调摘要 · 数据卡片' },
       { value: 'EDITORIAL', label: '观察手记 · 简洁排版' },
       { value: 'LEDGER', label: '暖纸账本 · 周期记录' },
+      { value: 'RECEIPT', label: '完成回执 · 票据清单' },
       { value: 'CUSTOM', label: '自定义 · 配色与正文' },
     ]} onChange={e => update('style', e.target.value as MailTemplate['style'])} />
     {value.style === 'CUSTOM' && <>
@@ -31,4 +32,3 @@ export function TaskMailTemplateEditor({ value, disabled, onChange }: {
     </>}
   </fieldset>;
 }
-
