@@ -4,7 +4,7 @@ import { FormField } from '../common/FormField';
 import { TextInput } from '../common/TextInput';
 import styles from './TaskMailTemplateEditor.module.css';
 
-/** 每个日报保存独立模板；纯文本占位符由后端安全渲染。 */
+/** 每份报告保存独立模板；纯文本占位符由后端安全渲染。 */
 export function TaskMailTemplateEditor({ value, disabled, onChange }: {
   value: MailTemplate; disabled: boolean; onChange: (value: MailTemplate) => void;
 }) {
@@ -12,11 +12,11 @@ export function TaskMailTemplateEditor({ value, disabled, onChange }: {
     onChange({ ...value, [key]: next });
   }
   return <fieldset disabled={disabled} className={styles.group}>
-    <legend>日报邮件模板</legend>
+    <legend>报告邮件模板</legend>
     <Select label="邮件样式" value={value.style} options={[
-      { value: 'CARDS', label: '清爽卡片 · 分栏汇总' },
-      { value: 'MINIMAL', label: '极简白纸 · 简洁阅读' },
-      { value: 'LETTER', label: '暖色信笺 · 温暖记录' },
+      { value: 'DIGEST', label: '蓝调摘要 · 数据卡片' },
+      { value: 'EDITORIAL', label: '观察手记 · 简洁排版' },
+      { value: 'LEDGER', label: '暖纸账本 · 周期记录' },
       { value: 'CUSTOM', label: '自定义 · 配色与正文' },
     ]} onChange={e => update('style', e.target.value as MailTemplate['style'])} />
     {value.style === 'CUSTOM' && <>

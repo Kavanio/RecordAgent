@@ -98,7 +98,7 @@ public class AutomationService {
     public synchronized List<RunView> history(String owner, String id) {
         return repository.history(owner, id).stream().map(RunView::from).toList();
     }
-    /** 到期调度，离线只补当天最近的日报，普通提醒不连续补发。 */
+    /** 到期调度，离线只补当天最近的报告，普通提醒不连续补发。 */
     public synchronized void tick() {
         var now = automationClock.instant();
         for (var task : repository.enabled()) {
@@ -106,8 +106,8 @@ public class AutomationService {
             transaction(task.ownerId(), () -> {
                 long planned = task.nextAt();
                 boolean due = now.toEpochMilli() - planned <= 60_000;
-                if ("DAILY_REPORT".equals(task.spec().kind())) {
-                    Long latest = TaskSchedule.next(task.spec(), now.minusSeconds(86400));
+                if (task.spec().isReport()) {
+                    Long latest = TaskSchedule.next(task.spec(), now.atZone(ZoneId.of(task.spec().timezone())).toLocalDate().atStartOfDay(ZoneId.of(task.spec().timezone())).toInstant().minusNanos(1));
                     if (latest != null && latest <= now.toEpochMilli()) planned = latest;
                     due = Instant.ofEpochMilli(planned).atZone(ZoneId.of(task.spec().timezone())).toLocalDate()
                             .equals(now.atZone(ZoneId.of(task.spec().timezone())).toLocalDate());

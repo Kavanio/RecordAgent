@@ -312,7 +312,7 @@ test('日报预览仅在点击后弹窗展示，返回编辑保留草稿，再�
   assert.equal(document.querySelector('iframe'), null);
   assert.equal(requests.length, 0);
   await click('预览（不发送）');
-  const modal = document.querySelector('[aria-label="日报邮件预览"]');
+  const modal = document.querySelector('[aria-label="报告邮件预览"]');
   assert.ok(modal);
   assert.equal(modal.querySelector('iframe').getAttribute('sandbox'), '');
   assert.equal(modal.querySelector('iframe').getAttribute('srcdoc'), '<h1>邮件排版</h1>');

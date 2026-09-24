@@ -1,12 +1,12 @@
 /** 用户配置的自动任务，与聊天子 Agent TaskDto 独立。 */
 export interface MailTemplate {
-  style: 'CARDS' | 'MINIMAL' | 'LETTER' | 'CUSTOM';
+  style: 'DIGEST' | 'EDITORIAL' | 'LEDGER' | 'CUSTOM';
   accent: string; heading: string; introduction: string; footer: string; body: string;
 }
 export type AutomationTaskStatus = 'ENABLED' | 'PAUSED' | 'FINISHED' | 'DELETED';
 export interface AutomationSpec {
-  title: string; content: string; kind: 'REMINDER' | 'DAILY_REPORT' | 'SEDENTARY';
-  trigger: 'ONCE' | 'DAILY' | 'WEEKLY' | 'INTERVAL' | 'ACTIVITY';
+  title: string; content: string; kind: 'REMINDER' | 'DAILY_REPORT' | 'WEEKLY_REPORT' | 'MONTHLY_REPORT' | 'SEDENTARY';
+  trigger: 'ONCE' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'INTERVAL' | 'ACTIVITY';
   timezone: string; atTime: string; onceAt: string | null; weekdays: number;
   minutes: number; breakMinutes: number; windowStart: string; windowEnd: string;
   desktop: boolean; email: boolean; confirm: boolean; sound: boolean;

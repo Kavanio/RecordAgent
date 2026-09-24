@@ -29,7 +29,7 @@ export function TaskEditor({ task, copy, onClose, onSaved, activitySupported, on
     const message = !spec.title.trim() ? '请输入任务标题'
       : !spec.desktop && !spec.email ? '至少选择一种通知方式'
       : !spec.weekdays ? '至少选择一个生效星期'
-      : spec.kind === 'DAILY_REPORT' && !spec.expense && !spec.todo && !spec.study ? '至少选择一个日报栏目' : '';
+      : spec.kind.endsWith('_REPORT') && !spec.expense && !spec.todo && !spec.study ? '至少选择一个报告栏目' : '';
     setError(message);
     return !message;
   }
@@ -52,10 +52,11 @@ export function TaskEditor({ task, copy, onClose, onSaved, activitySupported, on
       <fieldset disabled={busy} className={styles.group}><legend>基本信息</legend>
         <Select label="任务模板" value={spec.kind} disabled={Boolean(task && !copy)} options={[
           { value: 'REMINDER', label: '自定义提醒' }, { value: 'DAILY_REPORT', label: '每日日报' },
+          { value: 'WEEKLY_REPORT', label: '每周周报' }, { value: 'MONTHLY_REPORT', label: '每月月报' },
           { value: 'SEDENTARY', label: '久坐提醒（macOS）', disabled: !activitySupported },
         ]} onChange={e => { onDirtyChange(true); setSpec(newAutomation(e.target.value as AutomationSpec['kind'])); setPreviewOpen(false); }} />
         <FormField label="任务标题" htmlFor="task-title" required><TextInput id="task-title" value={spec.title} maxLength={100} required onChange={e => update('title', e.target.value)} /></FormField>
-        {spec.kind !== 'DAILY_REPORT' && <FormField label="提醒内容" htmlFor="task-content"><textarea id="task-content" value={spec.content} maxLength={4000} rows={3} onChange={e => update('content', e.target.value)} /></FormField>}
+        {!spec.kind.endsWith('_REPORT') && <FormField label="提醒内容" htmlFor="task-content"><textarea id="task-content" value={spec.content} maxLength={4000} rows={3} onChange={e => update('content', e.target.value)} /></FormField>}
       </fieldset>
       <fieldset disabled={busy} className={styles.group}><legend>触发规则</legend>
         {spec.kind === 'REMINDER' && <Select label="触发方式" value={spec.trigger} options={[
@@ -65,12 +66,14 @@ export function TaskEditor({ task, copy, onClose, onSaved, activitySupported, on
           : spec.trigger === 'INTERVAL' || spec.trigger === 'ACTIVITY' ? <FormField label={spec.trigger === 'ACTIVITY' ? '连续使用分钟数' : '间隔分钟数'} htmlFor="task-minutes"><TextInput id="task-minutes" type="number" required min={1} max={1440} value={spec.minutes} onChange={e => update('minutes', Number(e.target.value))} /></FormField>
           : <FormField label="执行时间" htmlFor="task-time"><TextInput id="task-time" type="time" required value={spec.atTime} onChange={e => update('atTime', e.target.value)} /></FormField>}
         <FormField label="时区" htmlFor="task-zone"><TextInput id="task-zone" required value={spec.timezone} onChange={e => update('timezone', e.target.value)} /></FormField>
-        <div className={styles.checks} aria-label="生效星期">{['一','二','三','四','五','六','日'].map((day, i) => <label key={day} className={styles.check}><input type="checkbox" checked={Boolean(spec.weekdays & (1 << i))} onChange={() => update('weekdays', spec.weekdays ^ (1 << i))} />周{day}</label>)}</div>
+        {spec.trigger === 'MONTHLY' && <p className={styles.hint}>每月 1 日发送上一个完整自然月的月报。</p>}
+        {spec.trigger === 'WEEKLY' && spec.kind === 'WEEKLY_REPORT' && <p className={styles.hint}>选择一个发送星期；报告统计上一个完整周一至周日。</p>}
+        {spec.trigger !== 'MONTHLY' && <div className={styles.checks} aria-label="生效星期">{['一','二','三','四','五','六','日'].map((day, i) => <label key={day} className={styles.check}><input type="checkbox" checked={Boolean(spec.weekdays & (1 << i))} onChange={() => update('weekdays', spec.kind === 'WEEKLY_REPORT' ? (1 << i) : spec.weekdays ^ (1 << i))} />周{day}</label>)}</div>}
         <div className={styles.columns}><FormField label="生效开始" htmlFor="task-start"><TextInput id="task-start" type="time" required value={spec.windowStart} onChange={e => update('windowStart', e.target.value)} /></FormField><FormField label="生效结束" htmlFor="task-end" hint="开始与结束相同表示全天"><TextInput id="task-end" type="time" required value={spec.windowEnd} onChange={e => update('windowEnd', e.target.value)} /></FormField></div>
         {spec.kind === 'SEDENTARY' && <FormField label="空闲多少分钟视为休息" htmlFor="task-break"><TextInput id="task-break" type="number" required min={1} max={120} value={spec.breakMinutes} onChange={e => update('breakMinutes', Number(e.target.value))} /></FormField>}
       </fieldset>
-      {spec.kind === 'DAILY_REPORT' && <fieldset disabled={busy} className={styles.group}><legend>日报栏目</legend><div className={styles.checks}>{checkbox('expense','支出')}{checkbox('todo','待办')}{checkbox('study','学习记录')}</div></fieldset>}
-      {spec.kind === 'DAILY_REPORT' && <TaskMailTemplateEditor value={spec.mailTemplate} disabled={busy} onChange={value => update('mailTemplate', value)} />}
+      {spec.kind.endsWith('_REPORT') && <fieldset disabled={busy} className={styles.group}><legend>报告栏目</legend><div className={styles.checks}>{checkbox('expense','支出')}{checkbox('todo','待办')}{checkbox('study','学习记录')}</div></fieldset>}
+      {spec.kind.endsWith('_REPORT') && <TaskMailTemplateEditor value={spec.mailTemplate} disabled={busy} onChange={value => update('mailTemplate', value)} />}
       <fieldset disabled={busy} className={styles.group}><legend>通知方式</legend><div className={styles.checks}>{checkbox('desktop','桌面通知',spec.kind === 'SEDENTARY')}{checkbox('email','发送邮件')}{checkbox('sound','提醒声音',!spec.desktop)}{checkbox('confirm','需要手动确认',spec.kind === 'SEDENTARY' || !spec.desktop)}</div></fieldset>
 
       <label className={styles.check}><input type="checkbox" checked={enabled} disabled={busy} onChange={e => { onDirtyChange(true); setEnabled(e.target.checked); }} />保存后启用任务</label>

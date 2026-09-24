@@ -118,7 +118,7 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
         </div>
       </div>
 
-      {tasks.length === 0 ? <section className={styles.empty}><Search size={28} /><h2>{search ? '没有找到匹配任务' : showDeleted ? '没有已删除任务' : '让提醒按计划发生'}</h2><p>创建日报、久坐提醒或自定义通知，选择桌面或邮件接收。</p>{!showDeleted && <button type="button" className={styles.emptyAction} onClick={() => switchEditor({})}>创建第一个任务</button>}</section>
+      {tasks.length === 0 ? <section className={styles.empty}><Search size={28} /><h2>{search ? '没有找到匹配任务' : showDeleted ? '没有已删除任务' : '让提醒按计划发生'}</h2><p>创建日报、周报、月报、久坐提醒或自定义通知，选择桌面或邮件接收。</p>{!showDeleted && <button type="button" className={styles.emptyAction} onClick={() => switchEditor({})}>创建第一个任务</button>}</section>
         : <div className={styles.list}>{tasks.map(task => <article key={task.id} className={styles.card}>
           <div className={styles.heading}><h2>{task.spec.title}</h2><span className={styles.badge}>{taskStatus[task.status] ?? task.status}</span></div>
           <p className={styles.rule}>{scheduleText(task.spec)}</p>
@@ -224,7 +224,7 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
       description={
         retryRun?.emailStatus === 'UNKNOWN'
           ? '上次发送结果未知，邮件可能已经送达。再次发送可能产生重复邮件。'
-          : '将复用这次执行已保存的内容，不重新生成日报。'
+          : '将复用这次执行已保存的内容，不重新生成报告。'
       }
       onClose={() => setRetryRun(null)}
       onConfirm={() => {

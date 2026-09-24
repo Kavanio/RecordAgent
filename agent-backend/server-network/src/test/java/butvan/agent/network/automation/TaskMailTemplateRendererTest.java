@@ -20,7 +20,7 @@ class TaskMailTemplateRendererTest {
             "2026-09-23", "2026-09-23 18:00（Asia/Shanghai）");
 
     @Test void presetsHaveDifferentLayoutsAndReadableValues() {
-        var outputs = Set.of("CARDS", "MINIMAL", "LETTER").stream().map(style ->
+        var outputs = Set.of("DIGEST", "EDITORIAL", "LEDGER").stream().map(style ->
                 TaskMailTemplateRenderer.render(spec(new MailTemplate(style, null, null, null, null, null)), report))
                 .collect(Collectors.toSet());
         assertEquals(3, outputs.size());
@@ -40,6 +40,17 @@ class TaskMailTemplateRendererTest {
         assertTrue(html.contains("{{study}}")); // 业务数据中的标记不展开。
         assertTrue(html.indexOf("待办进度") < html.indexOf("今日支出"));
         assertFalse(html.contains("<img"));
+    }
+    @Test void presetRendersCurrentPreviousAndChangeAsColumns() {
+        var compared = new TaskReportBuilder.Report("报告", false,
+                List.of(new TaskReportBuilder.Section("expense", "支出概览", "CNY：本期 12.68 · 上期 8.00 · +4.68",
+                        List.of(new TaskReportBuilder.Metric("CNY", "12.68", "8.00", "+4.68（+58.5%）")), "按币种分别统计。")),
+                "2026-09-23 · 对比 2026-09-22", "2026-09-24 08:30（Asia/Shanghai）");
+        var html = TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), compared);
+        assertTrue(html.contains("<th align='right'>本期</th>"));
+        assertTrue(html.contains("<th align='right'>上期</th>"));
+        assertTrue(html.contains("+58.5%"));
+        assertTrue(html.contains("按币种分别统计"));
     }
     @Test void invalidColorAndUnknownPlaceholdersAreRejected() {
         assertThrows(IllegalArgumentException.class, () -> new MailTemplate("CUSTOM", "red;background:url(x)", null, null, null, "正文").validate());

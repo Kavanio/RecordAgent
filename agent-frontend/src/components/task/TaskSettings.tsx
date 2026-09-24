@@ -195,7 +195,7 @@ export function TaskSettings() {
               description={
                 form.host
                   ? `端口 ${form.port} · 发信邮箱 ${form.from || '未设置'}`
-                  : '配置后可通过邮件接收每日提醒与任务日报'
+                  : '配置后可通过邮件接收任务提醒和日、周、月报告'
               }
               control={
                 <Button

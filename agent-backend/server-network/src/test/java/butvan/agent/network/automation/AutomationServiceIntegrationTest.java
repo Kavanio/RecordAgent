@@ -47,6 +47,21 @@ class AutomationServiceIntegrationTest {
         return new Spec("喝水提醒", "起来喝水", "REMINDER", trigger, "Asia/Shanghai", "18:01", "2026-09-23T10:01:00Z",
                 127, 1, 5, "00:00", "00:00", true, false, confirm, true, false, false, false);
     }
+    @Test void weeklyAndMonthlyReportsPersistTheirScheduleAndTemplate() {
+        TIME.set(Instant.parse("2026-09-23T10:00:00Z").toEpochMilli());
+        var weekly = new Spec("周报", "", "WEEKLY_REPORT", "WEEKLY", "Asia/Shanghai", "08:30", null,
+                1, 45, 5, "00:00", "00:00", true, false, false, false, true, true, true);
+        var monthly = new Spec("月报", "", "MONTHLY_REPORT", "MONTHLY", "Asia/Shanghai", "08:30", null,
+                127, 45, 5, "00:00", "00:00", true, false, false, false, true, false, true);
+        var weekTask = service.save("owner-periods", null, new SaveRequest(weekly, true, 0));
+        var monthTask = service.save("owner-periods", null, new SaveRequest(monthly, true, 0));
+        var saved = service.snapshot("owner-periods").tasks();
+        assertEquals(2, saved.size());
+        assertEquals("DIGEST", saved.stream().filter(task -> task.id().equals(weekTask.id())).findFirst().orElseThrow().spec().mailTemplate().style());
+        assertEquals("WEEKLY", saved.stream().filter(task -> task.id().equals(weekTask.id())).findFirst().orElseThrow().spec().trigger());
+        assertEquals("MONTHLY", saved.stream().filter(task -> task.id().equals(monthTask.id())).findFirst().orElseThrow().spec().trigger());
+        assertNotNull(monthTask.nextAt());
+    }
     @Test void scheduledRunIsUniqueAndConfirmationIsIdempotent() {
         TIME.set(Instant.parse("2026-09-23T10:00:00Z").toEpochMilli());
         when(reports.build(anyString(), any(TaskSpec.class), any(Instant.class), any(Instant.class)))
