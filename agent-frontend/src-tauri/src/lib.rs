@@ -57,7 +57,6 @@ pub fn run() {
     backend::get_backend_mode,
     backend::get_backend_port,
     system_settings::open_location_settings,
-    system_settings::open_notification_settings,
     task_desktop::task_activity_status,
     task_desktop::send_task_notification,
     task_desktop::task_notification_status,

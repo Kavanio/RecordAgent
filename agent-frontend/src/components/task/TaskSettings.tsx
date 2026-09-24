@@ -15,7 +15,6 @@ import { Button } from '../common/Button';
 import { useMessage } from '../common/Message';
 import { EmailBindingModal } from '../account/EmailBindingModal';
 import { TaskMailConfigModal } from './TaskMailConfigModal';
-import { openNotificationSettings } from '../../services/systemSettings';
 import styles from './TaskSettings.module.css';
 import { TaskReminderSettings } from './TaskReminderSettings';
 
@@ -92,7 +91,7 @@ export function TaskSettings() {
   return (
     <SettingsPageLayout title="任务设置" description="管理任务通知、邮箱与后台运行。">
       <div className={styles.body}>
-        <SettingsGroup title="桌面提醒" description="开启系统通知时会先请求授权；若 macOS 已拒绝过请求，将自动打开通知设置供你手动开启。应用完全退出后，定时任务与邮件发送停止。">
+        <SettingsGroup title="桌面提醒" description="开启系统通知时会请求 macOS 原生授权；如果此前已拒绝，请在系统设置中手动允许。应用完全退出后，定时任务与邮件发送停止。">
           <SettingsRow
             label={notificationMode === 'DEV_FALLBACK' ? '开发模式提醒' : '系统通知权限'}
             description={notificationDetails || '由你主动授权，系统专注模式仍可能抑制通知'}
@@ -111,17 +110,9 @@ export function TaskSettings() {
                       setNotificationDetails(granted
                         ? `横幅${notification.alertEnabled ? '已开启' : '未开启'}，声音${notification.soundEnabled ? '已开启' : '未开启'}`
                         : '请在系统设置中允许本应用显示通知');
-                      if (!granted) {
-                        try {
-                          await openNotificationSettings();
-                        } catch (e) {
-                          showMessage('info', e instanceof Error ? e.message : '请在系统设置的通知页面中手动允许本应用');
-                          return;
-                        }
-                      }
                       showMessage(
                         granted ? 'success' : 'info',
-                        granted ? '系统通知已允许' : '已打开系统通知设置，请找到 ButvanAgent 并手动开启通知'
+                        granted ? '系统通知已允许' : '通知尚未允许；如果之前拒绝过，请在系统设置 → 通知中手动开启'
                       );
                     });
                   } else {
