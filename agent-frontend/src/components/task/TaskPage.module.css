@@ -72,13 +72,9 @@
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
-.history { max-height:70vh; overflow:auto; }
-.record { padding:18px 0; border-bottom:1px solid #eee; font-size:13px; }
-.record pre { font:inherit; white-space:pre-wrap; line-height:1.8; word-break:break-word; }
 .deleteConfirmBody { display: flex; flex-direction: column; gap: 12px; }
 .deleteConfirmText { font-size: 14px; color: var(--text-primary); line-height: 1.5; margin: 0; }
 .deleteConfirmText strong { font-weight: 600; color: #0f172a; }
 .deleteConfirmHint { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin: 0; }
 .modalActions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 8px; }
 @media (max-width:900px) { .content { padding:16px; } }
-
