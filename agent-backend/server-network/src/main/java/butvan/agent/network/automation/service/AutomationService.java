@@ -80,6 +80,22 @@ public class AutomationService {
             repository.withdraw(id); return null;
         });
     }
+    /** 从回收站恢复为暂停状态，避免立即触发已过期的计划。 */
+    public synchronized TaskView restore(String owner, String id, int version) {
+        return transaction(owner, () -> {
+            var old = repository.find(owner, id).filter(task -> "DELETED".equals(task.status()))
+                    .orElseThrow(() -> new IllegalArgumentException("已删除任务不存在"));
+            if (repository.list(owner).stream().filter(task -> !"DELETED".equals(task.status())).count() >= 200)
+                throw new IllegalArgumentException("最多保留 200 个任务，请先删除其他任务");
+            var restored = new AutomationTask(id, owner, old.spec(), "PAUSED", old.version() + 1, null, 0, automationClock.millis());
+            repository.update(restored, version);
+            return TaskView.from(restored);
+        });
+    }
+    /** 用户确认后永久删除当前用户全部已删除任务及其执行历史。 */
+    public synchronized int purgeDeleted(String owner) {
+        return transaction(owner, () -> repository.purgeDeleted(owner));
+    }
     /** 预览只生成内容与下次时间，不写执行记录也不发送。 */
     public synchronized Preview preview(String owner, Spec input) {
         if (input == null) throw new IllegalArgumentException("任务配置不能为空");

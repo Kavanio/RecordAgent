@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, Copy, History, Pause, Pencil, Play, Plus, Search, Settings2, Trash2, Zap } from 'lucide-react';
+import { Bell, Copy, History, Pause, Pencil, Play, Plus, RotateCcw, Search, Settings2, Trash2, Zap } from 'lucide-react';
 import { useAutomations } from '../../context/automationState';
-import { deleteAutomation, fetchAutomationHistory, retryAutomationEmail, runAutomation, setAutomationEnabled } from '../../services/automationApi';
+import { deleteAutomation, fetchAutomationHistory, purgeDeletedAutomations, restoreAutomation, retryAutomationEmail, runAutomation, setAutomationEnabled } from '../../services/automationApi';
 import { scheduleText, taskStatus } from '../../features/automation/presentation';
 import type { AutomationTask, AutomationRun } from '../../types/automation';
 import { TopBar } from '../common/TopBar';
@@ -31,6 +31,7 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [historyError, setHistoryError] = useState('');
   const [retryRun, setRetryRun] = useState<AutomationRun | null>(null);
+  const [purgeConfirm, setPurgeConfirm] = useState(false);
   const [confirm, setConfirm] = useState<{task:AutomationTask;action:'delete'|'run'} | null>(null);
   const [busy, setBusy] = useState(false);
   const { showMessage } = useMessage();
@@ -73,22 +74,12 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
     finally { setBusy(false); }
   }
   const tasks = snapshot.tasks.filter(t => (showDeleted ? t.status === 'DELETED' : filter === 'ALL' ? t.status !== 'DELETED' : t.status === filter) && t.spec.title.toLowerCase().includes(search.toLowerCase()));
+  const deletedCount = snapshot.tasks.filter(task => task.status === 'DELETED').length;
   return <main className={styles.page}>
     <TopBar
       icon={<Bell size={19} />}
       title="任务"
       subtitle="自动提醒与每日汇总"
-      search={
-        <div className={styles.search}>
-          <Search size={14} />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            aria-label="搜索任务"
-            placeholder="搜索任务"
-          />
-        </div>
-      }
       actions={
         <div className={styles.headerActions}>
           <TopBarAction variant="ghost" onClick={() => setShowDeleted(value => !value)}>
@@ -105,7 +96,7 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
     />
     <div className={styles.workspace}><div className={styles.content}><div className={styles.contentInner}>
       <div className={styles.toolbar}>
-        <div className={styles.tabs} role="tablist" aria-label="任务状态">
+        {showDeleted ? <span className={styles.deletedTitle}>已删除任务</span> : <div className={styles.tabs} role="tablist" aria-label="任务状态">
           {(['ALL','ENABLED','PAUSED','FINISHED'] as const).map(value => (
             <button
               key={value}
@@ -118,6 +109,16 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
               {value === 'ALL' ? '全部' : value === 'ENABLED' ? '已开启' : value === 'PAUSED' ? '已暂停' : '已结束'}
             </button>
           ))}
+        </div>}
+        <div className={styles.toolbarActions}>
+          <label className={styles.search}>
+            <Search size={16} aria-hidden="true" />
+            <input value={search} onChange={e => setSearch(e.target.value)} aria-label="搜索任务" placeholder="搜索任务" />
+          </label>
+          {showDeleted && <Button size="sm" variant="ghost" icon={<Trash2 size={15} />}
+            disabled={busy || !connected || deletedCount === 0} onClick={() => setPurgeConfirm(true)}>
+            清空
+          </Button>}
         </div>
       </div>
 
@@ -131,7 +132,10 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
               onClick={() => openHistory(task)}>
               <History size={16} aria-hidden="true" />
             </Button>
-            {task.status !== 'DELETED' && <>
+            {task.status === 'DELETED' ? <Button size="sm" variant="ghost" icon={<RotateCcw size={15} />}
+              disabled={busy || !connected} onClick={() => void act(() => restoreAutomation(task), '任务已恢复为暂停状态')}>
+              恢复
+            </Button> : <>
               <Button size="toolbar" variant="ghost" iconOnly aria-label="编辑" title="编辑"
                 onClick={() => switchEditor({task})}>
                 <Pencil size={16} aria-hidden="true" />
@@ -162,6 +166,19 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
     {historyTask && <TaskHistoryDrawer task={historyTask} runs={history} loading={historyLoading} error={historyError} busy={busy}
       onClose={() => setHistoryTask(null)} onReload={() => setHistoryRefresh(value => value + 1)} onRetryEmail={setRetryRun} />}
     </div>
+    <ConfirmDialog
+      open={purgeConfirm}
+      title="清空已删除任务"
+      tone="danger"
+      confirmText="永久清空"
+      confirmVariant="danger"
+      busy={busy}
+      description={`将永久删除 ${deletedCount} 个任务及其全部执行历史，无法恢复。`}
+      onClose={() => { if (!busy) setPurgeConfirm(false); }}
+      onConfirm={() => {
+        void act(async () => { await purgeDeletedAutomations(); setPurgeConfirm(false); }, '已清空已删除任务');
+      }}
+    />
     <ConfirmDialog
       open={Boolean(editorSwitch)}
       title="放弃未保存的修改？"

@@ -15,6 +15,8 @@ export const saveAutomation = (spec: AutomationSpec, enabled: boolean, task?: Au
   request<AutomationTask>(task ? `/${task.id}` : '', task ? 'PUT' : 'POST', { spec, enabled, version: task?.version ?? 0 });
 export const setAutomationEnabled = (task: AutomationTask, enabled: boolean) => request<AutomationTask>(`/${task.id}/state`, 'POST', { enabled, version: task.version });
 export const deleteAutomation = (task: AutomationTask) => request<void>(`/${task.id}?version=${task.version}`, 'DELETE');
+export const restoreAutomation = (task: AutomationTask) => request<AutomationTask>(`/${task.id}/restore?version=${task.version}`, 'POST');
+export const purgeDeletedAutomations = () => request<number>('/deleted/purge', 'DELETE');
 export const previewAutomation = (spec: AutomationSpec) => request<AutomationPreview>('/preview', 'POST', spec);
 export const runAutomation = (id: string) => request<AutomationRun>(`/${id}/run`, 'POST');
 export const fetchAutomationHistory = (id: string) => request<AutomationRun[]>(`/${id}/runs`);
