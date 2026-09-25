@@ -1,17 +1,17 @@
 {
   "images": [
     {
-      "filename": "RecordBetterYou.png",
+      "filename": "LoginPageBanner.png",
       "idiom": "universal",
       "scale": "1x"
     },
     {
-      "filename": "RecordBetterYou@2x.png",
+      "filename": "LoginPageBanner@2x.png",
       "idiom": "universal",
       "scale": "2x"
     },
     {
-      "filename": "RecordBetterYou@3x.png",
+      "filename": "LoginPageBanner@3x.png",
       "idiom": "universal",
       "scale": "3x"
     }

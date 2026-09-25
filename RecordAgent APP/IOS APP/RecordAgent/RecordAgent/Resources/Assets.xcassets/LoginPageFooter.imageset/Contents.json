@@ -1,17 +1,17 @@
 {
   "images": [
     {
-      "filename": "HeroIllustration.png",
+      "filename": "LoginPageFooter.png",
       "idiom": "universal",
       "scale": "1x"
     },
     {
-      "filename": "HeroIllustration@2x.png",
+      "filename": "LoginPageFooter@2x.png",
       "idiom": "universal",
       "scale": "2x"
     },
     {
-      "filename": "HeroIllustration@3x.png",
+      "filename": "LoginPageFooter@3x.png",
       "idiom": "universal",
       "scale": "3x"
     }

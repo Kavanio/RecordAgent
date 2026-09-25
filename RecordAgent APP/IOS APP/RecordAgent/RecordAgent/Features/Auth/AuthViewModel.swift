@@ -37,6 +37,9 @@ public final class AuthViewModel: ObservableObject {
         // 尝试加载上次记住的邮箱
         if let savedEmail = keychain.getSavedEmail() {
             self.email = savedEmail
+            self.rememberMe = true
+        } else {
+            self.rememberMe = false
         }
 
         // 检查是否已有活跃会话

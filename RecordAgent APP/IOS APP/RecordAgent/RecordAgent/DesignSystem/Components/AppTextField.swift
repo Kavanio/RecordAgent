@@ -32,9 +32,9 @@ public struct AppTextField: View {
         HStack(spacing: 12) {
             // 前置 SF Symbol 图标
             Image(systemName: iconName)
-                .font(.system(size: 18, weight: .regular))
+                .font(.system(size: 16, weight: .regular))
                 .foregroundColor(AppColors.iconTint)
-                .frame(width: 24, height: 24)
+                .frame(width: 22, height: 22)
 
             // 输入区域
             ZStack(alignment: .leading) {
@@ -83,7 +83,7 @@ public struct AppTextField: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(isFocused ? AppColors.inputBorderFocused : AppColors.inputBorder, lineWidth: 1.2)
+                .stroke(isFocused ? AppColors.inputBorderFocused : AppColors.inputBorder, lineWidth: 1.0)
         )
         .animation(.easeInOut(duration: 0.15), value: isFocused)
     }

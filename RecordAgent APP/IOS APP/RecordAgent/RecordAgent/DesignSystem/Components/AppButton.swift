@@ -39,11 +39,11 @@ public struct AppButton: View {
                     HStack(spacing: 8) {
                         Spacer()
                         Text(title)
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.system(size: 16.5, weight: .medium))
                             .foregroundColor(.white)
                         if let iconName = iconName {
                             Image(systemName: iconName)
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 15, weight: .medium))
                                 .foregroundColor(.white)
                         }
                         Spacer()
@@ -56,7 +56,7 @@ public struct AppButton: View {
                 isEnabled ? AppColors.primaryBlue : AppColors.primaryBlue.opacity(0.4)
             )
             .clipShape(Capsule())
-            .shadow(color: AppColors.primaryBlue.opacity(isEnabled ? 0.25 : 0.0), radius: 8, x: 0, y: 4)
+            .shadow(color: AppColors.primaryBlue.opacity(isEnabled ? 0.22 : 0.0), radius: 8, x: 0, y: 4)
         }
         .disabled(!isEnabled || isLoading)
         .buttonStyle(ScaleButtonStyle())
