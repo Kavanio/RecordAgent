@@ -23,15 +23,15 @@ export function TaskPreviewModal({ spec, onClose }: { spec: AutomationSpec; onCl
     return () => { stopped = true; };
   }, [spec, attempt]);
 
-  return <Modal open title={spec.kind === 'DAILY_REPORT' ? '日报邮件预览' : '任务预览'} width={800} className={styles.modal} centered onClose={onClose}>
+  return <Modal open title={spec.kind.endsWith('_REPORT') ? '报告邮件预览' : '任务预览'} width={800} className={styles.modal} centered onClose={onClose}>
     <div className={styles.body}>
       <p className={styles.hint}>根据当前草稿生成预览，不会保存任务或发送邮件。</p>
       {loading && <p role="status" className={styles.state}>正在生成预览…</p>}
       {error && <div className={styles.state} role="alert"><p>{error}</p><Button variant="outline" onClick={() => setAttempt(value => value + 1)}>重新预览</Button></div>}
       {preview && <>
         <div className={styles.summary}><strong>{preview.title}</strong><p>下次执行：{preview.nextAt ? new Date(preview.nextAt).toLocaleString('zh-CN') : spec.trigger === 'ACTIVITY' ? '等待使用状态触发' : '没有符合条件的未来执行时间'}</p></div>
-        {spec.kind === 'DAILY_REPORT'
-          ? <iframe title="日报邮件内容" sandbox="" srcDoc={preview.html} className={styles.mail} />
+        {spec.kind.endsWith('_REPORT')
+          ? <iframe title="报告邮件内容" sandbox="" srcDoc={preview.html} className={styles.mail} />
           : <pre className={styles.content}>{preview.content}</pre>}
       </>}
       <div className={styles.actions}><Button variant="outline" onClick={onClose}>返回编辑</Button></div>

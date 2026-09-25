@@ -31,6 +31,10 @@ export const TaskRunConfirmModal: React.FC<TaskRunConfirmModalProps> = ({
       ? '久坐提醒'
       : spec.kind === 'DAILY_REPORT'
         ? '每日日报'
+        : spec.kind === 'WEEKLY_REPORT'
+          ? '每周周报'
+          : spec.kind === 'MONTHLY_REPORT'
+            ? '每月月报'
         : '定时提醒';
 
   const reportSources = [
@@ -97,7 +101,7 @@ export const TaskRunConfirmModal: React.FC<TaskRunConfirmModalProps> = ({
             </div>
           </div>
 
-          {spec.kind === 'DAILY_REPORT' ? (
+          {spec.kind.endsWith('_REPORT') ? (
             <div className={styles.contentSnippet}>
               <span className={styles.snippetLabel}>汇总数据：</span>
               <span className={styles.snippetValue}>

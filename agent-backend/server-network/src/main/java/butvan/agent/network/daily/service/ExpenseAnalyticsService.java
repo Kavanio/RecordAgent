@@ -150,6 +150,13 @@ public class ExpenseAnalyticsService {
         return findExpenses(ownerId, date, date);
     }
 
+    /** 为周期报告提供闭区间支出事实，保持币种独立。 */
+    @Transactional(readOnly = true)
+    public List<ExpenseEntry> reportExpenses(String ownerId, LocalDate from, LocalDate to) {
+        validate(ownerId, from, to);
+        return findExpenses(ownerId, from, to);
+    }
+
     private List<ExpenseEntry> findExpenses(String ownerId, LocalDate from, LocalDate to) {
         return jdbcTemplate.query("""
                 SELECT id, expense_date, expense_time, category, note, amount_minor, currency, source, created_at

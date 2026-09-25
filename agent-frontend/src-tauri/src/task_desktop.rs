@@ -102,11 +102,16 @@ pub fn task_notification_status() -> TaskNotificationStatus {
 
 /// 用户主动在设置页请求横幅与声音权限。
 #[tauri::command]
-pub fn request_task_notification_permission() -> Result<TaskNotificationStatus, String> {
+pub async fn request_task_notification_permission() -> Result<TaskNotificationStatus, String> {
     #[cfg(target_os = "macos")]
-    if !tauri::is_dev() && mac_usernotifications::check_bundle().is_ok() {
-        mac_usernotifications::blocking::request_auth()
-            .map_err(|e| { log::warn!("通知授权失败：{}", e); "系统通知授权失败".to_string() })?;
+    if !tauri::is_dev() {
+        return tauri::async_runtime::spawn_blocking(|| {
+            crate::notification_authorization::request()?;
+            Ok(task_notification_status())
+        }).await.map_err(|e| {
+            log::warn!("通知授权任务失败：{}", e);
+            "系统通知授权任务失败，请重试。".to_string()
+        })?;
     }
     Ok(task_notification_status())
 }

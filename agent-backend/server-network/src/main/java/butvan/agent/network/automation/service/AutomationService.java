@@ -80,6 +80,22 @@ public class AutomationService {
             repository.withdraw(id); return null;
         });
     }
+    /** 从回收站恢复为暂停状态，避免立即触发已过期的计划。 */
+    public synchronized TaskView restore(String owner, String id, int version) {
+        return transaction(owner, () -> {
+            var old = repository.find(owner, id).filter(task -> "DELETED".equals(task.status()))
+                    .orElseThrow(() -> new IllegalArgumentException("已删除任务不存在"));
+            if (repository.list(owner).stream().filter(task -> !"DELETED".equals(task.status())).count() >= 200)
+                throw new IllegalArgumentException("最多保留 200 个任务，请先删除其他任务");
+            var restored = new AutomationTask(id, owner, old.spec(), "PAUSED", old.version() + 1, null, 0, automationClock.millis());
+            repository.update(restored, version);
+            return TaskView.from(restored);
+        });
+    }
+    /** 用户确认后永久删除当前用户全部已删除任务及其执行历史。 */
+    public synchronized int purgeDeleted(String owner) {
+        return transaction(owner, () -> repository.purgeDeleted(owner));
+    }
     /** 预览只生成内容与下次时间，不写执行记录也不发送。 */
     public synchronized Preview preview(String owner, Spec input) {
         if (input == null) throw new IllegalArgumentException("任务配置不能为空");
@@ -98,7 +114,7 @@ public class AutomationService {
     public synchronized List<RunView> history(String owner, String id) {
         return repository.history(owner, id).stream().map(RunView::from).toList();
     }
-    /** 到期调度，离线只补当天最近的日报，普通提醒不连续补发。 */
+    /** 到期调度，离线只补当天最近的报告，普通提醒不连续补发。 */
     public synchronized void tick() {
         var now = automationClock.instant();
         for (var task : repository.enabled()) {
@@ -106,8 +122,8 @@ public class AutomationService {
             transaction(task.ownerId(), () -> {
                 long planned = task.nextAt();
                 boolean due = now.toEpochMilli() - planned <= 60_000;
-                if ("DAILY_REPORT".equals(task.spec().kind())) {
-                    Long latest = TaskSchedule.next(task.spec(), now.minusSeconds(86400));
+                if (task.spec().isReport()) {
+                    Long latest = TaskSchedule.next(task.spec(), now.atZone(ZoneId.of(task.spec().timezone())).toLocalDate().atStartOfDay(ZoneId.of(task.spec().timezone())).toInstant().minusNanos(1));
                     if (latest != null && latest <= now.toEpochMilli()) planned = latest;
                     due = Instant.ofEpochMilli(planned).atZone(ZoneId.of(task.spec().timezone())).toLocalDate()
                             .equals(now.atZone(ZoneId.of(task.spec().timezone())).toLocalDate());

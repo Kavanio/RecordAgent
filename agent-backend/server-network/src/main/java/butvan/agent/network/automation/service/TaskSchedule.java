@@ -26,6 +26,7 @@ public final class TaskSchedule {
         LocalDate date = after.atZone(zone).toLocalDate();
         for (int i = 0; i < 370; i++) {
             LocalDateTime candidate = date.plusDays(i).atTime(LocalTime.parse(spec.atTime()));
+            if ("MONTHLY".equals(spec.trigger()) && candidate.getDayOfMonth() != 1) continue;
             var offsets = zone.getRules().getValidOffsets(candidate);
             if (offsets.isEmpty()) continue; // 春季不存在的本地时间当天跳过。
             Instant instant = candidate.atOffset(offsets.getFirst()).toInstant();

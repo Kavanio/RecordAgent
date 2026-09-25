@@ -35,6 +35,12 @@ public class AutomationController {
     /** 软删除任务。 */
     @ApiLog("删除自动任务") @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable String id, @RequestParam int version) { tasks.delete(user.currentUserId(), id, version); return Result.success(null); }
+    /** 从回收站恢复任务，保持暂停。 */
+    @ApiLog("恢复已删除自动任务") @PostMapping("/{id}/restore")
+    public Result<TaskView> restore(@PathVariable String id, @RequestParam int version) { return Result.success(tasks.restore(user.currentUserId(), id, version)); }
+    /** 清空当前用户的任务回收站。 */
+    @ApiLog("清空已删除自动任务") @DeleteMapping("/deleted/purge")
+    public Result<Integer> purgeDeleted() { return Result.success(tasks.purgeDeleted(user.currentUserId())); }
     /** 预览不产生外部效果。 */
     @ApiLog("预览自动任务") @PostMapping("/preview")
     public Result<Preview> preview(@RequestBody Spec input) { return Result.success(tasks.preview(user.currentUserId(), input)); }

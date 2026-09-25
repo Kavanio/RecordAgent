@@ -50,7 +50,7 @@ export function fetchFinanceTransactions(): Promise<FinanceTransaction[]> {
   return financeRequest<FinanceTransaction[]>('/agent/finance/transactions');
 }
 
-/** 查询用户使用过的收入与支出分类。 */
+/** 查询用户使用过的收入与支出分类及各自已保存的颜色。 */
 export function fetchFinanceCategories(): Promise<FinanceCategoryOptions> {
   return financeRequest<FinanceCategoryOptions>('/agent/finance/categories');
 }
@@ -64,7 +64,7 @@ export function normalizeFinanceExpenseChart(chart: CompatibleFinanceExpenseChar
   };
 }
 
-/** 查询连续日期的每日收支趋势与支出分类堆叠数据。 */
+/** 查询连续日期的每日收支趋势、支出分类堆叠数据和同次读取的分类配色。 */
 export async function fetchFinanceExpenseChart(range: FinanceChartRange): Promise<FinanceExpenseChart> {
   const chart = await financeRequest<CompatibleFinanceExpenseChart>(`/agent/finance/expense-chart?range=${range}`);
   return normalizeFinanceExpenseChart(chart);

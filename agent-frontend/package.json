@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test:tasks": "node --test src/components/task/TaskPage.test.mjs src/services/taskReminderAudio.test.mjs",
+    "test:finance": "node --test src/components/finance/*.test.mjs",
     "preview": "vite preview",
     "version:check": "node ../scripts/sync-version.mjs --check",
     "version:sync": "node ../scripts/sync-version.mjs"
@@ -28,6 +29,7 @@
     "@tiptap/starter-kit": "^3.31.3",
     "clsx": "^2.1.1",
     "framer-motion": "^13.1.1",
+    "gsap": "^3.15.0",
     "highlight.js": "^11.12.0",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.28.0",

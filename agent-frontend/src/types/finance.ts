@@ -45,6 +45,8 @@ export interface FinanceOverview {
 export interface FinanceCategoryOptions {
   expense: string[];
   income: string[];
+  /** 旧版响应可缺省；颜色按用户、收入/支出类型及分类名称保存。 */
+  colors?: Partial<Record<'expense' | 'income', Record<string, string>>>;
 }
 
 export interface FinanceExpenseCategory {
@@ -66,6 +68,8 @@ export interface FinanceExpenseChart {
   totalExpense: number;
   totalIncome: number;
   days: FinanceExpenseChartDay[];
+  /** 与图表一起读取的分类配色，避免独立分类请求导致颜色闪变。 */
+  categoryColors?: Record<string, string>;
 }
 
 export interface CreateFinanceAccountInput {
@@ -87,6 +91,8 @@ export interface CreateFinanceTransactionInput {
   accountId: string;
   transactionType: 'income' | 'expense';
   category: string;
+  /** 仅显式选色时提交；省略时保留已保存的分类颜色。 */
+  categoryColor?: string;
   note: string;
   amount: number;
   date: string;

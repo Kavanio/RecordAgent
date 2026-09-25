@@ -78,9 +78,14 @@ test('未保存修改切换需显式放弃，取消保留草稿', async () => {
 });
 test('执行状态 SSE 快照变化刷新已打开的历史', async () => {
   await click('执行历史', 0);
-  assert.match(document.body.textContent, /邮件：等待投递/);
+  const drawer = [...document.querySelectorAll('[role="dialog"]')].find(element => element.textContent.includes('任务A · 执行历史'));
+  assert.ok(drawer);
+  assert.equal(drawer.getAttribute('aria-modal'), 'true');
+  assert.ok(drawer.querySelector('[role="img"][aria-label="邮件：等待投递"]'));
   historyStatus = 'SUBMITTED'; snapshot = { ...snapshot }; await render();
-  assert.match(document.body.textContent, /邮件：已提交/);
+  assert.ok(drawer.querySelector('[role="img"][aria-label="邮件：已提交"]'));
+  await click('关闭抽屉');
+  assert.equal([...document.querySelectorAll('[role="dialog"]')].some(element => element.textContent.includes('任务A · 执行历史')), false);
 });
 test('任务页不重复展示待确认黄色提醒', async () => {
   snapshot = { ...snapshot, pending: [{ id: 'r', title: '久坐提醒', content: '起来活动', confirmation: 'WAITING' }] };
@@ -312,7 +317,7 @@ test('日报预览仅在点击后弹窗展示，返回编辑保留草稿，再�
   assert.equal(document.querySelector('iframe'), null);
   assert.equal(requests.length, 0);
   await click('预览（不发送）');
-  const modal = document.querySelector('[aria-label="日报邮件预览"]');
+  const modal = document.querySelector('[aria-label="报告邮件预览"]');
   assert.ok(modal);
   assert.equal(modal.querySelector('iframe').getAttribute('sandbox'), '');
   assert.equal(modal.querySelector('iframe').getAttribute('srcdoc'), '<h1>邮件排版</h1>');

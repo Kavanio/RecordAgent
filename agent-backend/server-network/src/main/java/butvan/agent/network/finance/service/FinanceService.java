@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -85,7 +86,8 @@ public class FinanceService {
                 day.categories().entrySet().stream()
                 .map(item -> new ExpenseCategoryAmount(item.getKey(), item.getValue())).toList())).toList();
         BigDecimal totalIncome = incomeByDate.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new ExpenseChart(normalizedRange, from, today, analysis.totalExpense(), totalIncome, days);
+        return new ExpenseChart(normalizedRange, from, today, analysis.totalExpense(), totalIncome, days,
+                repository.findTransactionCategoryColors(ownerId, "expense"));
     }
 
     private List<FinanceTransaction> findRecentTransactions(String ownerId) {
@@ -149,6 +151,15 @@ public class FinanceService {
                 "income", repository.findTransactionCategories(ownerId, "income"));
     }
 
+    /** 查询用户保存的分类颜色；收入与支出使用独立命名空间。 */
+    @Transactional(readOnly = true)
+    public Map<String, Map<String, String>> getTransactionCategoryColors(String ownerId) {
+        requireOwner(ownerId);
+        return Map.of(
+                "expense", repository.findTransactionCategoryColors(ownerId, "expense"),
+                "income", repository.findTransactionCategoryColors(ownerId, "income"));
+    }
+
     /** 创建资产账户；年化率使用百分数表达，例如 1.85 表示 1.85%。 */
     @Transactional
     public FinanceAccount createAccount(
@@ -207,7 +218,16 @@ public class FinanceService {
     public FinanceTransaction createTransaction(
             String ownerId, String accountId, String transactionType, String category, String note,
             BigDecimal amount, LocalDate date, LocalTime time) {
+        return createTransaction(ownerId, accountId, transactionType, category, note, amount, date, time, null);
+    }
+
+    /** 创建流水并原子保存可选分类颜色；旧调用省略颜色时沿用已有配色。 */
+    @Transactional
+    public FinanceTransaction createTransaction(
+            String ownerId, String accountId, String transactionType, String category, String note,
+            BigDecimal amount, LocalDate date, LocalTime time, String categoryColor) {
         requireOwner(ownerId);
+        String normalizedColor = normalizeCategoryColor(categoryColor);
         if (!TRANSACTION_TYPES.contains(transactionType)) throw new IllegalArgumentException("流水类型不合法");
         if (category == null || category.isBlank()) throw new IllegalArgumentException("分类不能为空");
         String normalizedCategory = category.trim();
@@ -225,7 +245,7 @@ public class FinanceService {
             throw new IllegalArgumentException("账户余额不足，无法记录这笔支出");
         }
         String id = UUID.randomUUID().toString();
-        repository.rememberTransactionCategory(ownerId, transactionType, normalizedCategory, now);
+        repository.rememberTransactionCategory(ownerId, transactionType, normalizedCategory, now, normalizedColor);
         repository.insertTransaction(id, ownerId, accountId, date, time, transactionType,
                 normalizedCategory, note.trim(), amountMinor, account.currency(), "manual", now);
         return repository.findTransactions(ownerId, 100).stream()
@@ -242,7 +262,16 @@ public class FinanceService {
     public FinanceTransaction updateTransaction(
             String ownerId, String transactionId, String accountId, String transactionType, String category,
             String note, BigDecimal amount, LocalDate date, LocalTime time) {
+        return updateTransaction(ownerId, transactionId, accountId, transactionType, category, note, amount, date, time, null);
+    }
+
+    /** 修改流水与同名分类配色；余额、流水和颜色任一校验失败时整体回滚。 */
+    @Transactional
+    public FinanceTransaction updateTransaction(
+            String ownerId, String transactionId, String accountId, String transactionType, String category,
+            String note, BigDecimal amount, LocalDate date, LocalTime time, String categoryColor) {
         requireOwner(ownerId);
+        String normalizedColor = normalizeCategoryColor(categoryColor);
         if (transactionId == null || transactionId.isBlank()) throw new IllegalArgumentException("流水不能为空");
         if (!TRANSACTION_TYPES.contains(transactionType)) throw new IllegalArgumentException("流水类型不合法");
         if (category == null || category.isBlank()) throw new IllegalArgumentException("分类不能为空");
@@ -285,11 +314,18 @@ public class FinanceService {
             }
         }
 
-        repository.rememberTransactionCategory(ownerId, transactionType, normalizedCategory, now);
+        repository.rememberTransactionCategory(ownerId, transactionType, normalizedCategory, now, normalizedColor);
         repository.updateTransaction(ownerId, existing.id(), newAccount.id(), date, time, transactionType,
                 normalizedCategory, note.trim(), newAmountMinor, newAccount.currency());
         return repository.findTransaction(ownerId, existing.id())
                 .orElseThrow(() -> new IllegalStateException("流水修改后无法读取"));
+    }
+
+    /** 只接受六位十六进制颜色；null 表示调用方未修改分类颜色。 */
+    private String normalizeCategoryColor(String color) {
+        if (color == null) return null;
+        if (!color.matches("#[0-9A-Fa-f]{6}")) throw new IllegalArgumentException("分类颜色必须为 #RRGGBB 格式");
+        return color.toUpperCase(Locale.ROOT);
     }
 
     /** 在两个资产账户之间进行划账，并成对写入划出与划入流水。 */

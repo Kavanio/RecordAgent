@@ -1,34 +1,14 @@
-.workspace { flex: 1; height: 100vh; min-width: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-app); }
-.page { flex: 1; min-height: 0; overflow-y: auto; }
-.content { width: 100%; max-width: 1180px; min-height: 100%; margin: 0 auto; }
-
-.overview { min-height: 132px; display: grid; grid-template-columns: minmax(220px, 1.2fr) minmax(0, 2.8fr); align-items: center; padding: 24px 32px; }
-.balanceBlock, .monthStats > div { min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 8px 18px; }
-.balanceBlock { padding-left: 0; cursor: pointer; outline: none; border: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-.balanceBlock:focus, .balanceBlock:focus-visible { outline: none; }
-.balanceBlock span, .monthStats dt { font-size: 10px; font-weight: 600; }
-.balanceBlock span { color: var(--text-secondary); }
-.balanceBlock strong { margin-top: 5px; color: var(--text-primary); font-size: 23px; font-weight: 650; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
-.balanceBlock small { margin-top: 4px; color: var(--text-muted); font-size: 10px; }
-.monthStats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.monthStats dd { overflow: hidden; margin-top: 6px; font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-.incomeStat dt { color: #4f7664; }
-.incomeStat dd { color: #246247; }
-.expenseStat dt { color: #8a5b56; }
-.expenseStat dd { color: #913f38; }
-.yieldStat dt { color: #85662d; }
-.yieldStat dd { color: #725212; }
-
-.financeLayout { min-height: calc(100vh - 193px); display: grid; grid-template-columns: minmax(500px, 1.15fr) minmax(360px, .85fr); column-gap: 40px; }
-.historyPanel, .accountPanel { min-width: 0; padding: 28px 32px 36px; }
-.accountPanel { padding-left: 0; }
-.sectionHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.sectionHeading h2 { color: var(--text-primary); font-size: 13px; font-weight: 650; letter-spacing: -.01em; }
-.sectionHeading { align-items: baseline; margin-bottom: 8px; }
-.sectionHeading span { color: var(--text-muted); font-size: 10px; }
-.sectionMeta { display: inline-flex; align-items: center; gap: 8px; }
-.sectionMeta button { display: inline-flex; align-items: center; gap: 2px; padding: 4px 5px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: 600 10px var(--font-sans); }
-.sectionMeta button:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.workspace { flex: 1; height: 100vh; min-width: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-app); container: finance / inline-size; }
+.page { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+.content { width: 100%; max-width: 1240px; margin: 0 auto; padding: 28px 32px 40px; display: flex; flex-direction: column; gap: 28px; }
+.financeLayout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, 1fr); gap: 28px; align-items: start; }
+.historyPanel, .accountPanel { min-width: 0; }
+.historyPanel { padding-right: 28px; }
+.sectionHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.sectionHeading h2 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+.sectionHeading p { margin-top: 6px; color: var(--text-secondary); font-size: 11px; }
+.sectionHeading > span { color: var(--text-secondary); font-size: 11px; white-space: nowrap; }
+.sectionMeta { display: inline-flex; align-items: center; flex-shrink: 0; }
 
 .accountForm { display: flex; flex-direction: column; gap: 14px; }
 .accountForm label > span { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 11px; font-weight: 550; }
@@ -36,31 +16,29 @@
 .accountForm input:focus { border-color: var(--accent-blue); }
 
 .transactions { display: flex; flex-direction: column; }
-.transactionRow { display: grid; align-items: center; gap: 9px; padding: 10px 0; border-bottom: 1px solid var(--border-subtle); }
+.transactionRow { display: grid; align-items: center; gap: 12px; padding: 15px 0; }
 .transactionRow { grid-template-columns: 16px minmax(0, 1fr) auto; }
-.transactionRow:last-child { border-bottom: none; }
 .transactionBody { min-width: 0; display: flex; flex-direction: column; }
-.transactionBody strong { overflow: hidden; color: var(--text-primary); font-size: 11.5px; font-weight: 600; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
-.transactionBody small { overflow: hidden; margin-top: 2px; color: var(--text-muted); font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
-.outAmount, .inAmount { font-size: 10.5px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.outAmount { color: #9f453c; }
-.inAmount { color: #31725a; }
+.transactionBody strong { overflow: hidden; color: var(--text-primary); font-size: 12px; font-weight: 600; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.transactionBody small { overflow: hidden; margin-top: 2px; color: var(--text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.outAmount, .inAmount, .transferOutAmount, .transferInAmount, .adjustmentAmount { font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.outAmount { color: #E11D48; }
+.inAmount { color: #059669; }
 .transferOutAmount { color: #1d4ed8; }
 .transferInAmount { color: #0284c7; }
 .adjustmentAmount { color: #8a6118; }
 .transactionActions { display: inline-flex; align-items: center; gap: 7px; }
 .transactionEditButton { width: 22px; height: 22px; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; }
 .transactionEditButton:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
-.yieldNote { display: flex; gap: 6px; margin-top: 12px; color: var(--text-muted); font-size: 9.5px; line-height: 1.55; }
+.yieldNote { display: flex; gap: 6px; margin-top: 12px; color: var(--text-muted); font-size: 11px; line-height: 1.55; }
 .yieldNote svg { flex: 0 0 auto; margin-top: 1px; }
 
-.emptyState, .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); text-align: center; }
-.emptyState { min-height: 250px; gap: 6px; }
+.emptyState { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); text-align: center; }
+.emptyState { min-height: 200px; gap: 6px; }
 .emptyState strong { margin-top: 4px; color: var(--text-primary); font-size: 12px; }
 .emptyState p, .emptyText { color: var(--text-muted); font-size: 10px; }
 .emptyState button { margin-top: 10px; }
 .emptyText { padding: 18px 0; }
-.loading { min-height: 300px; font-size: 11px; }
 
 .modalDescription { margin-top: -6px; color: var(--text-muted); font-size: 11px; line-height: 1.55; }
 .modalError { padding: 8px 10px; border: 1px solid #e6c8c4; border-radius: var(--radius-md); background: #fff7f5; color: #9a4038; font-size: 11px; }
@@ -81,22 +59,15 @@
 .spinning { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-@media (max-width: 980px) {
-  .financeLayout { grid-template-columns: 1fr; }
-  .accountPanel { padding: 0 32px 36px; }
+@container finance (max-width: 800px) {
+  .financeLayout { grid-template-columns: minmax(0, 1fr); }
+  .historyPanel { padding-right: 0; }
+  .accountPanel { padding-top: 12px; }
 }
-
+@container finance (max-width: 580px) {
+  .content { padding: 20px 16px 28px; gap: 24px; }
+}
 @media (max-width: 680px) {
-  .overview { grid-template-columns: 1fr; gap: 14px; padding: 20px; }
-  .balanceBlock { padding-bottom: 16px; }
-  .monthStats > div:first-child { padding-left: 0; }
-  .historyPanel, .accountPanel { padding-right: 20px; padding-left: 20px; }
   .accountTypeGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
-@media (max-width: 480px) {
-  .monthStats { grid-template-columns: 1fr; }
-  .monthStats > div { padding: 10px 0; }
-}
-
 @media (prefers-reduced-motion: reduce) { .spinning { animation: none; } }

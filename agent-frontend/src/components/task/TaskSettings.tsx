@@ -31,6 +31,14 @@ export function TaskSettings() {
   const [error, setError] = useState('');
   const { showMessage } = useMessage();
 
+  async function refreshNotificationPermission() {
+    const notification = await taskNotificationStatus();
+    setNotificationGranted(notification.authorized);
+    setNotificationMode(notification.mode);
+    setNotificationDetails(notification.mode === 'DEV_FALLBACK' ? '开发模式以提醒窗口和系统提示音呈现；安装版使用 macOS 通知中心'
+      : notification.authorized ? `横幅${notification.alertEnabled ? '已开启' : '未开启'}，声音${notification.soundEnabled ? '已开启' : '未开启'}` : '请允许本应用显示通知');
+  }
+
   async function load() {
     setError('');
     try {
@@ -47,11 +55,7 @@ export function TaskSettings() {
       });
       setRecipient(value.maskedRecipient);
       setBackground(await getTaskBackground());
-      const notification = await taskNotificationStatus();
-      setNotificationGranted(notification.authorized);
-      setNotificationMode(notification.mode);
-      setNotificationDetails(notification.mode === 'DEV_FALLBACK' ? '开发模式以提醒窗口和系统提示音呈现；安装版使用 macOS 通知中心'
-        : notification.authorized ? `横幅${notification.alertEnabled ? '已开启' : '未开启'}，声音${notification.soundEnabled ? '已开启' : '未开启'}` : '请允许本应用显示通知');
+      await refreshNotificationPermission();
     } catch (e) {
       setError(e instanceof Error ? e.message : '配置读取失败');
     }
@@ -59,6 +63,12 @@ export function TaskSettings() {
 
   useEffect(() => {
     void load();
+  }, []);
+
+  useEffect(() => {
+    const refreshOnReturn = () => { void refreshNotificationPermission(); };
+    window.addEventListener('focus', refreshOnReturn);
+    return () => window.removeEventListener('focus', refreshOnReturn);
   }, []);
 
   async function action(work: () => Promise<void>) {
@@ -81,7 +91,7 @@ export function TaskSettings() {
   return (
     <SettingsPageLayout title="任务设置" description="管理任务通知、邮箱与后台运行。">
       <div className={styles.body}>
-        <SettingsGroup title="桌面提醒" description="应用完全退出后，定时任务与邮件发送停止。">
+        <SettingsGroup title="桌面提醒" description="开启系统通知时会请求 macOS 原生授权；如果此前已拒绝，请在系统设置中手动允许。应用完全退出后，定时任务与邮件发送停止。">
           <SettingsRow
             label={notificationMode === 'DEV_FALLBACK' ? '开发模式提醒' : '系统通知权限'}
             description={notificationDetails || '由你主动授权，系统专注模式仍可能抑制通知'}
@@ -94,7 +104,13 @@ export function TaskSettings() {
                 onChange={async (checked) => {
                   if (checked) {
                     await action(async () => {
-                      const granted = await requestTaskNotificationPermission();
+                      let granted: boolean;
+                      try {
+                        granted = await requestTaskNotificationPermission();
+                      } catch (e) {
+                        showMessage('error', e instanceof Error ? e.message : String(e));
+                        return;
+                      }
                       setNotificationGranted(granted);
                       const notification = await taskNotificationStatus();
                       setNotificationDetails(granted
@@ -102,7 +118,7 @@ export function TaskSettings() {
                         : '请在系统设置中允许本应用显示通知');
                       showMessage(
                         granted ? 'success' : 'info',
-                        granted ? '系统通知已允许' : '通知尚未允许，请在系统设置中授权'
+                        granted ? '系统通知已允许' : '通知尚未允许；如果之前拒绝过，请在系统设置 → 通知中手动开启'
                       );
                     });
                   } else {
@@ -179,7 +195,7 @@ export function TaskSettings() {
               description={
                 form.host
                   ? `端口 ${form.port} · 发信邮箱 ${form.from || '未设置'}`
-                  : '配置后可通过邮件接收每日提醒与任务日报'
+                  : '配置后可通过邮件接收任务提醒和日、周、月报告'
               }
               control={
                 <Button

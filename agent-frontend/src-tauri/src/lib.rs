@@ -2,6 +2,8 @@
 mod backend;
 #[cfg(desktop)]
 mod system_settings;
+#[cfg(target_os = "macos")]
+mod notification_authorization;
 #[cfg(desktop)]
 mod task_desktop;
 #[cfg(desktop)]

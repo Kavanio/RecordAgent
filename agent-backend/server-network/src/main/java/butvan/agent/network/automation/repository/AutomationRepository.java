@@ -59,6 +59,11 @@ public class AutomationRepository {
     public Optional<AutomationTask> find(String owner, String id) {
         return jdbc.query("SELECT * FROM automation_task WHERE owner_id=? AND id=?", TASK, owner, id).stream().findFirst();
     }
+    /** 永久清空当前用户回收站；先删除历史以满足任务外键约束。 */
+    public int purgeDeleted(String owner) {
+        jdbc.update("DELETE FROM automation_run WHERE owner_id=? AND task_id IN (SELECT id FROM automation_task WHERE owner_id=? AND status='DELETED')", owner, owner);
+        return jdbc.update("DELETE FROM automation_task WHERE owner_id=? AND status='DELETED'", owner);
+    }
     /** 保存完整配置，正式规则使用独立列而非自由 JSON。 */
     public void insert(AutomationTask task) {
         TaskSpec s = task.spec();

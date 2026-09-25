@@ -10,13 +10,14 @@ export interface DrawerProps {
   onClose: () => void;
   children: React.ReactNode;
   width?: number | string;
+  variant?: 'default' | 'minimal';
 }
 
 const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 /** 通用右侧抽屉：提供遮罩关闭、焦点管理和键盘访问能力。 */
 export const Drawer: React.FC<DrawerProps> = ({
-  open, title, description, onClose, children, width = 560,
+  open, title, description, onClose, children, width = 560, variant = 'default',
 }) => {
   const panelRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
@@ -61,7 +62,7 @@ export const Drawer: React.FC<DrawerProps> = ({
     <div className={styles.overlay} onMouseDown={onClose}>
       <aside
         ref={panelRef}
-        className={styles.panel}
+        className={`${styles.panel} ${variant === 'minimal' ? styles.minimal : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="drawer-title"
