@@ -7,7 +7,11 @@
 .recordHeader { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 14px; }
 .recordHeader time { color: #262626; font-size: 14px; font-weight: 550; font-variant-numeric: tabular-nums; }
 .runStatus { color: #737373; font-size: 12px; }
-.channels { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; color: #737373; font-size: 12px; line-height: 1.7; }
+.channels { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 13px; }
+.channels:empty { display: none; }
+.channel { display: inline-flex; color: #929292; }
+.channelSuccess { color: #16875f; }
+.channelFailed { color: #bd5147; }
 .runError { margin: 12px 0; color: #a23d34; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
 .content { margin-top: 14px; }
 .content summary { display: flex; align-items: center; gap: 5px; width: fit-content; padding: 4px 0; color: #666; font-size: 12px; cursor: pointer; user-select: none; list-style: none; border-radius: 4px; }

@@ -81,9 +81,9 @@ test('执行状态 SSE 快照变化刷新已打开的历史', async () => {
   const drawer = [...document.querySelectorAll('[role="dialog"]')].find(element => element.textContent.includes('任务A · 执行历史'));
   assert.ok(drawer);
   assert.equal(drawer.getAttribute('aria-modal'), 'true');
-  assert.match(document.body.textContent, /邮件\s*等待投递/);
+  assert.ok(drawer.querySelector('[role="img"][aria-label="邮件：等待投递"]'));
   historyStatus = 'SUBMITTED'; snapshot = { ...snapshot }; await render();
-  assert.match(document.body.textContent, /邮件\s*已提交/);
+  assert.ok(drawer.querySelector('[role="img"][aria-label="邮件：已提交"]'));
   await click('关闭抽屉');
   assert.equal([...document.querySelectorAll('[role="dialog"]')].some(element => element.textContent.includes('任务A · 执行历史')), false);
 });

@@ -1,4 +1,5 @@
-import { ChevronRight, History, RotateCcw } from 'lucide-react';
+import { ChevronRight, CircleCheck, History, Mail, Monitor, RotateCcw } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { runStatus, scheduleText, taskStatus } from '../../features/automation/presentation';
 import type { AutomationRun, AutomationTask } from '../../types/automation';
 import { Button } from '../common/Button';
@@ -14,6 +15,21 @@ interface TaskHistoryDrawerProps {
   onClose: () => void;
   onReload: () => void;
   onRetryEmail: (run: AutomationRun) => void;
+}
+
+function ChannelIcon({ icon, label, status, highlighted }: {
+  icon: ReactNode;
+  label: string;
+  status: string;
+  highlighted: boolean;
+}) {
+  const description = `${label}：${runStatus[status] ?? status}`;
+  return <span
+    className={`${styles.channel} ${highlighted ? styles.channelSuccess : ''} ${status === 'FAILED' ? styles.channelFailed : ''}`}
+    role="img"
+    aria-label={description}
+    title={description}
+  >{icon}</span>;
 }
 
 /** 在任务工作区右侧展示一个任务的执行记录与投递结果。 */
@@ -46,9 +62,12 @@ export function TaskHistoryDrawer({ task, runs, loading, error, busy, onClose, o
             <span className={styles.runStatus}>{runStatus[run.status] ?? run.status}</span>
           </div>
           <div className={styles.channels}>
-            <span>桌面 {runStatus[run.desktopStatus] ?? run.desktopStatus}</span>
-            <span>邮件 {runStatus[run.emailStatus] ?? run.emailStatus}</span>
-            <span>确认 {runStatus[run.confirmation] ?? run.confirmation}</span>
+            {(task.spec.desktop || run.desktopStatus !== 'SKIPPED') &&
+              <ChannelIcon icon={<Monitor size={18} />} label="桌面通知" status={run.desktopStatus} highlighted={run.desktopStatus === 'SUBMITTED'} />}
+            {(task.spec.email || run.emailStatus !== 'SKIPPED') &&
+              <ChannelIcon icon={<Mail size={18} />} label="邮件" status={run.emailStatus} highlighted={run.emailStatus === 'SUBMITTED'} />}
+            {(task.spec.confirm || run.confirmation !== 'NONE') &&
+              <ChannelIcon icon={<CircleCheck size={18} />} label="手动确认" status={run.confirmation} highlighted={run.confirmation === 'CONFIRMED'} />}
           </div>
           {run.error && <p className={styles.runError} role="status">{run.error}</p>}
           {run.content && <details className={styles.content}>
