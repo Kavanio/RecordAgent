@@ -12,7 +12,7 @@ public struct RootCoordinatorView: View {
     public var body: some View {
         Group {
             if authViewModel.isAuthenticated {
-                AuthenticatedMainView(onLogout: {
+                MainTabView(onLogout: {
                     Task {
                         try? await MockAuthService().logout()
                         await MainActor.run {
