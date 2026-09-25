@@ -2,14 +2,13 @@ import { TopBarAction } from '../common/TopBarAction';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowClockwiseIcon, ArrowsLeftRightIcon, CaretRightIcon, PencilSimpleIcon, PlusIcon, SparkleIcon, WalletIcon } from '@phosphor-icons/react';
 import { createFinanceAccount, createFinanceBalanceAdjustment, createFinanceTransaction, createFinanceTransfer, fetchFinanceCategories, fetchFinanceExpenseChart, fetchFinanceOverview, fetchFinanceTransactions, updateFinanceTransaction } from '../../services/financeApi';
-import type { CreateFinanceBalanceAdjustmentInput, CreateFinanceTransactionInput, CreateFinanceTransferInput, FinanceAccount, FinanceAccountType, FinanceCategoryOptions, FinanceChartRange, FinanceExpenseChart, FinanceOverview, FinanceTransaction } from '../../types/finance';
+import type { CreateFinanceAccountInput, CreateFinanceBalanceAdjustmentInput, CreateFinanceTransactionInput, CreateFinanceTransferInput, FinanceAccount, FinanceCategoryOptions, FinanceChartRange, FinanceExpenseChart, FinanceOverview, FinanceTransaction } from '../../types/finance';
 import { Button } from '../common/Button';
 import { useMessage } from '../common/Message';
-import { Modal } from '../common/Modal';
 import { TopBar } from '../common/TopBar';
 import styles from './FinancePage.module.css';
-import { AccountTypeIcon } from './AccountTypeIcon';
 import { AssetAccountDeck } from './AssetAccountDeck';
+import { AssetAccountModal } from './AssetAccountModal';
 import { AssetAdjustmentModal } from './AssetAdjustmentModal';
 import { SpendingTrendChart } from './SpendingTrendChart';
 import { TransactionTypeIcon } from './TransactionTypeIcon';
@@ -19,14 +18,6 @@ import { TransferModal } from './TransferModal';
 import { AssetDetailModal } from './AssetDetailModal';
 import { FinanceSummary } from './FinanceSummary';
 
-const ACCOUNT_TYPES: Array<{ value: FinanceAccountType; label: string; interest: boolean }> = [
-  { value: 'wechat_balance', label: '微信余额', interest: false },
-  { value: 'wechat_yield', label: '微信零钱通', interest: true },
-  { value: 'alipay_balance', label: '支付宝余额', interest: false },
-  { value: 'alipay_yuebao', label: '支付宝余额宝', interest: true },
-  { value: 'bank', label: '银行卡', interest: false },
-  { value: 'other', label: '其他', interest: false },
-];
 function money(value: number): string {
   return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
 }
@@ -43,8 +34,6 @@ export const FinancePage: React.FC = () => {
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
   const [isChartLoading, setIsChartLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [accountError, setAccountError] = useState<string | null>(null);
   const [chartError, setChartError] = useState<string | null>(null);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
@@ -56,8 +45,6 @@ export const FinancePage: React.FC = () => {
   const [allTransactions, setAllTransactions] = useState<FinanceTransaction[]>([]);
   const [isTransactionsLoading, setIsTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
-  const [interestEnabled, setInterestEnabled] = useState(false);
-  const [accountType, setAccountType] = useState<FinanceAccountType>('wechat_balance');
   const chartRequestId = useRef(0);
   const overviewRequestId = useRef(0);
   const categoriesRequestId = useRef(0);
@@ -115,7 +102,6 @@ export const FinancePage: React.FC = () => {
     categoriesRequestId.current += 1;
     chartRequestId.current += 1;
   }, []);
-  const isYieldAccountType = accountType === 'wechat_yield' || accountType === 'alipay_yuebao';
   const recentTransactions = overview?.transactions.slice(0, 5) ?? [];
 
   const loadAllTransactions = useCallback(async () => {
@@ -132,15 +118,10 @@ export const FinancePage: React.FC = () => {
   };
 
   const openAccountModal = () => {
-    setAccountError(null);
-    setInterestEnabled(false);
-    setAccountType('wechat_balance');
     setIsAccountModalOpen(true);
   };
 
   const closeAccountModal = () => {
-    if (isSaving) return;
-    setAccountError(null);
     setIsAccountModalOpen(false);
   };
 
@@ -161,27 +142,11 @@ export const FinancePage: React.FC = () => {
     setEditingTransaction(null);
   };
 
-  const submitAccount = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    setIsSaving(true);
-    setAccountError(null);
-    try {
-      await createFinanceAccount({
-        name: String(data.get('name') ?? '').trim(),
-        accountType: String(data.get('accountType')) as FinanceAccountType,
-        currency: 'CNY', initialBalance: Number(data.get('initialBalance')), interestEnabled,
-        annualRatePercent: interestEnabled ? Number(data.get('annualRatePercent')) : 0,
-      });
-      form.reset();
-      setInterestEnabled(false);
-      await load();
-      setIsAccountModalOpen(false);
-      showMessage('success', '资产账户已添加');
-    } catch (cause) {
-      setAccountError(cause instanceof Error ? cause.message : '账户保存失败，请检查填写内容。');
-    } finally { setIsSaving(false); }
+  const submitAccount = async (input: CreateFinanceAccountInput) => {
+    await createFinanceAccount(input);
+    await load();
+    setIsAccountModalOpen(false);
+    showMessage('success', '资产账户已添加');
   };
 
   const submitTransaction = async (input: CreateFinanceTransactionInput) => {
@@ -308,27 +273,11 @@ export const FinancePage: React.FC = () => {
       onSubmit={submitTransfer}
     />
 
-    <Modal open={isAccountModalOpen} title="添加资产账户" onClose={closeAccountModal} width={500} centered>
-      <form className={styles.accountForm} onSubmit={submitAccount}>
-        <p className={styles.modalDescription}>记录账户当前余额；零钱通、余额宝等可开启每日收益。</p>
-        {accountError && <div className={styles.modalError} role="alert">{accountError}</div>}
-        <label><span>账户名称</span><input name="name" required autoFocus placeholder="例如：微信零钱通" /></label>
-        <fieldset className={styles.accountTypeField}><legend>账户类型</legend><div className={styles.accountTypeGrid}>
-          {ACCOUNT_TYPES.map((type) => <label key={type.value} className={accountType === type.value ? styles.accountTypeActive : ''}>
-            <input type="radio" name="accountType" value={type.value} checked={accountType === type.value} onChange={() => {
-              setAccountType(type.value);
-              setInterestEnabled(type.interest);
-            }} />
-            <AccountTypeIcon type={type.value} size={20} variant="tile" /><b>{type.label}</b>
-          </label>)}
-        </div></fieldset>
-        <label><span>当前余额</span><input name="initialBalance" type="number" min="0" step="0.01" defaultValue="0" required /></label>
-        <label className={styles.checkField}><input type="checkbox" checked={interestEnabled} disabled={isYieldAccountType}
-          onChange={(event) => setInterestEnabled(event.target.checked)} /><span>{isYieldAccountType ? '该账户默认自动计算每日收益' : '这是生息账户，自动计算每日收益'}</span></label>
-        {interestEnabled && <label><span>当前年化收益率（%）</span><input name="annualRatePercent" type="number" min="0.000001" max="100" step="0.000001" placeholder="例如：1.85" required /></label>}
-        <div className={styles.modalActions}><Button type="button" variant="outline" onClick={closeAccountModal} disabled={isSaving}>取消</Button><Button type="submit" variant="primary" disabled={isSaving}>{isSaving ? '保存中…' : '添加账户'}</Button></div>
-      </form>
-    </Modal>
+    <AssetAccountModal
+      open={isAccountModalOpen}
+      onClose={closeAccountModal}
+      onSubmit={submitAccount}
+    />
 
     <TransactionDrawer
       open={isTransactionDrawerOpen}
