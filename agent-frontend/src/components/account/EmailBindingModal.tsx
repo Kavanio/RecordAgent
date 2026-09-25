@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { FormField } from '../common/FormField';
 import { Modal } from '../common/Modal';
 import { TextInput } from '../common/TextInput';
+import { Button } from '../common/Button';
 import { useMessage } from '../common/Message';
 import { bindEmailAccount, sendEmailVerificationCode } from '../../services/api';
 import styles from './EmailBindingModal.module.css';
@@ -79,16 +80,16 @@ export const EmailBindingModal: React.FC<EmailBindingModalProps> = ({ open, onCl
           <div className={styles.codeRow}>
             <TextInput id="account-verification-code" inputMode="numeric" maxLength={6} value={verificationCode}
               onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, ''))} placeholder="6 位验证码" required />
-            <button className={styles.secondaryButton} type="button" onClick={sendCode} disabled={sending || countdown > 0}>
+            <Button variant="outline" type="button" onClick={sendCode} disabled={sending || countdown > 0}>
               {sending ? '发送中…' : countdown > 0 ? `${countdown}s 后重发` : '获取验证码'}
-            </button>
+            </Button>
           </div>
         </FormField>
         <div className={styles.actions}>
-          <button type="button" className={styles.cancelButton} onClick={onClose}>取消</button>
-          <button type="submit" className={styles.primaryButton} disabled={submitting}>
+          <Button type="button" variant="outline" onClick={onClose}>取消</Button>
+          <Button type="submit" variant="primary" disabled={submitting}>
             {submitting ? '绑定中…' : '注册并绑定'}
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>

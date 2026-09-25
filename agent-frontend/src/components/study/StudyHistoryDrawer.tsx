@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { ClockIcon, MagnifyingGlassIcon, MapPinIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react';
 import type { StudySession } from '../../types/study';
 import { Drawer } from '../common/Drawer';
+import { Select } from '../common/Select';
+import { Button } from '../common/Button';
 import styles from './StudyHistoryDrawer.module.css';
 
 interface StudyHistoryDrawerProps {
@@ -64,14 +66,21 @@ export function StudyHistoryDrawer({
         <span>搜索记录</span>
         <div><MagnifyingGlassIcon size={14} aria-hidden="true" /><input type="search" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="内容或地点" /></div>
       </label>
-      <label>
-        <span>分类</span>
-        <select value={category} onChange={(event) => setCategory(event.target.value)}>
-          <option value="all">全部分类</option>
-          {categories.map((item) => <option key={item} value={item}>{item}</option>)}
-        </select>
-      </label>
-      {(keyword || category !== 'all') && <button type="button" className={styles.clearButton} onClick={() => { setKeyword(''); setCategory('all'); }}>清除筛选</button>}
+      <Select
+        label="分类"
+        value={category}
+        onChange={(event) => setCategory(event.target.value)}
+        fieldSize="sm"
+        options={[
+          { value: 'all', label: '全部分类' },
+          ...categories.map((item) => ({ value: item, label: item })),
+        ]}
+      />
+      {(keyword || category !== 'all') && (
+        <Button variant="ghost" size="sm" onClick={() => { setKeyword(''); setCategory('all'); }}>
+          清除筛选
+        </Button>
+      )}
     </div>
 
     <div className={styles.list} aria-live="polite">
