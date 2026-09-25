@@ -113,65 +113,26 @@ public struct LoginView: View {
     // MARK: - 2. 头部 Slogan 与插画区
 
     private var heroHeaderSection: some View {
-        HStack(alignment: .bottom, spacing: 4) {
-            // 左侧排版标语
-            VStack(alignment: .leading, spacing: 3) {
-                Text("空闲的时候，")
-                    .font(.system(size: 27, weight: .bold, design: .serif))
-                    .foregroundColor(AppColors.textPrimary)
+        HStack(alignment: .bottom, spacing: 6) {
+            // 左侧艺术书法字体标语（原版书法宋体与record水彩手写高光）
+            Image("LoginPageTitle")
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 176)
 
-                // "record" 艺术字手写体带水彩底色
-                ZStack(alignment: .leading) {
-                    // 底层淡蓝荧光笔笔刷质感高光
-                    Capsule()
-                        .fill(AppColors.brushHighlight)
-                        .frame(width: 148, height: 18)
-                        .rotationEffect(.degrees(-1.5))
-                        .offset(x: -2, y: 12)
-
-                    Text("record")
-                        .font(.system(size: 36, weight: .medium, design: .serif))
-                        .italic()
-                        .foregroundColor(AppColors.primaryBlue)
-                }
-
-                Text("点什么吗？")
-                    .font(.system(size: 27, weight: .bold, design: .serif))
-                    .foregroundColor(AppColors.textPrimary)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("用记录，")
-                    Text("把生活过成喜欢的样子。")
-                }
-                .font(.system(size: 12.5, weight: .regular))
-                .foregroundColor(AppColors.textSecondary)
-                .padding(.top, 6)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            // 右侧插画区（带 ready to record ? 手绘文字与官方高清 Banner）
-            VStack(alignment: .trailing, spacing: -4) {
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text("ready")
-                        .font(.system(size: 12, weight: .medium, design: .serif))
-                        .italic()
-                    Text("to record ?")
-                        .font(.system(size: 12, weight: .medium, design: .serif))
-                        .italic()
-
-                    Image(systemName: "arrow.turn.right.down")
-                        .font(.system(size: 9, weight: .light))
-                        .rotationEffect(.degrees(70))
-                        .padding(.trailing, 16)
-                        .padding(.top, -1)
-                }
-                .foregroundColor(AppColors.textPrimary.opacity(0.85))
-                .padding(.trailing, 24)
+            // 右侧插画区（原版手绘 ready to record ? 气泡与蓝发角色电脑桌）
+            VStack(alignment: .trailing, spacing: -6) {
+                Image("LoginPageBubble")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 76, height: 64)
+                    .padding(.trailing, 18)
 
                 Image("LoginPageBanner")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 185, height: 138)
+                    .frame(width: 178, height: 134)
             }
         }
     }
