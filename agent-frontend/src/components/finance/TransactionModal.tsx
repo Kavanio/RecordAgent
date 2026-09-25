@@ -22,6 +22,9 @@ interface TransactionModalProps {
   open: boolean;
   accounts: FinanceAccount[];
   categories: FinanceCategoryOptions;
+  categoriesError?: string | null;
+  categoriesLoading?: boolean;
+  onRetryCategories?: () => void;
   defaultDate?: string;
   transaction?: FinanceTransaction | null;
   onClose: () => void;
@@ -30,7 +33,7 @@ interface TransactionModalProps {
 
 /** 统一的收入 / 支出记账弹框，供财务页和日历页共用。 */
 export const TransactionModal: React.FC<TransactionModalProps> = ({
-  open, accounts, categories, defaultDate, transaction, onClose, onSubmit,
+  open, accounts, categories, categoriesError, categoriesLoading, onRetryCategories, defaultDate, transaction, onClose, onSubmit,
 }) => {
   const [entryType, setEntryType] = useState<'expense' | 'income'>('expense');
   const [category, setCategory] = useState<string>(EXPENSE_CATEGORIES[0]);
@@ -88,6 +91,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           <button type="button" className={entryType === 'income' ? styles.typeActive : ''} onClick={() => { setEntryType('income'); setCategory(INCOME_CATEGORIES[0]); }}>收入</button>
         </div>
         {error && <div className={styles.modalError} role="alert">{error}</div>}
+        {categoriesError && <div className={styles.categoryNotice} role="alert">
+          <span>历史分类加载失败，仍可使用默认分类或输入新分类。{categoriesError}</span>
+          {onRetryCategories && <Button type="button" variant="ghost" size="sm" onClick={onRetryCategories} disabled={categoriesLoading || isSaving}>重试分类</Button>}
+        </div>}
         <label className={styles.amountField}><span>金额</span><div><b>¥</b><input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" defaultValue={transaction?.amount} required autoFocus /></div></label>
         <div className={styles.formGrid}>
           <Select

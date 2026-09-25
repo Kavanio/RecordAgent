@@ -104,6 +104,15 @@
 | **Sidebar** | [`Sidebar.tsx`](file:///Users/butvan/Butvan_Projets/my_code/ButvanAgent/agent-frontend/src/components/layout/Sidebar.tsx) | `Sidebar.module.css`<br/>`lucide-react` | 统一全局主侧边栏：Codex 经典冰蓝灰配色、模块路由切换、会话列表树、折叠/展开、快捷设置入口与用户气泡 | `activeModule: string`<br/>`onSelectModule: (mod) => void`<br/>`collapsed: boolean`<br/>`onToggleCollapse: () => void` | **状态**：完整展开（包含会话列表） / 紧凑折叠（仅图标） | 桌面端应用主界面全局左侧导航底座 |
 
 
+## 财务组件（`agent-frontend/src/components/finance/`）
+
+| 组件名称 | 源码路径 | 样式 / 依赖 | 核心职责 | 接口契约 | 状态变体与应用场景 |
+| --- | --- | --- | --- | --- | --- |
+| FinancePage | `agent-frontend/src/components/finance/FinancePage.tsx` | `FinancePage.module.css`、TopBar / TopBarAction、FinanceSummary、SpendingTrendChart、AssetAccountDeck、各财务弹窗 | 财务工作台编排：顶部资产与月度收支、中部趋势、底部流水与账户；1240px 版心，按工作区容器宽度折叠双栏；复用统一顶栏与操作按钮 | 无 Props；概览、历史分类、趋势独立加载；概览与分类、趋势均忽略过期响应；保存结果通过全局 Message 展示，刷新错误留在对应区域 | 首次加载失败不显示零资产或虚假空账户；刷新失败保留上次概览并明确标记；分类失败不阻塞概览和记账；支持账户建档、记账、编辑、划账、余额校准和全部流水 |
+| FinanceSummary | `agent-frontend/src/components/finance/FinanceSummary.tsx` | `FinanceSummary.module.css`、Button、LoadingTree、Phosphor Icons | 统一展示总资产与本月收入、支出、收益；原生按钮打开资产详情；收入包含自动计提收益 | `overview: FinanceOverview \| null`、`loading: boolean`、`error: string \| null`、`onRetry()`、`onOpenAssets()` | 加载、首次失败重试、刷新中、旧数据错误提示、正常与真实零余额；支持键盘焦点与容器自适应 |
+| SpendingTrendChart | `agent-frontend/src/components/finance/SpendingTrendChart.tsx` | `SpendingTrendChart.module.css`、`spendingTrendData.ts`、GSAP、Button、LoadingTree | 收支曲线与分类堆叠柱、区间汇总、非线性对比增强；曲线通过裁剪逐步展开，柱形错峰入场，不动画金额本身 | `chart: FinanceExpenseChart \| null`、`range`、`loading`、`error`、`onRangeChange(range)`、`onRetry()`；仅展示成功且匹配当前范围的数据 | 本周 / 本月 / 今年；加载或失败时金额为占位符并隐藏旧图形；失败就地重试；悬浮或键盘查看日期明细；动画响应 `prefers-reduced-motion` 并在更新、卸载时清理 |
+| TransactionModal | `agent-frontend/src/components/finance/TransactionModal.tsx` | `TransactionModal.module.css`、Modal、Button、Select、CategoryPicker | 财务与日历共用的收入 / 支出新增及编辑表单；历史分类失败时仍支持默认分类与手输分类 | `open`、`accounts`、`categories`、`defaultDate?`、`transaction?`、`onClose()`、`onSubmit(input): Promise<void>`；可选 `categoriesError`、`categoriesLoading`、`onRetryCategories()` | 新增 / 编辑、收入 / 支出、保存中、字段或保存错误、历史分类失败及重试；可选新属性兼容日历入口 |
+
 ## 自动任务组件（`agent-frontend/src/components/task/`）
 
 | 组件名称 | 源码路径 | 样式 / 依赖 | 核心职责 | 接口契约 | 状态变体与应用场景 |

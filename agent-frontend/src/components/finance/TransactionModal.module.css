@@ -23,3 +23,6 @@
   .formGrid { grid-template-columns: 1fr; }
   .wideField { grid-column: auto; }
 }
+.categoryNotice { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
+.categoryNotice > span { min-width: 0; overflow-wrap: anywhere; }
+.categoryNotice > button { flex-shrink: 0; }
