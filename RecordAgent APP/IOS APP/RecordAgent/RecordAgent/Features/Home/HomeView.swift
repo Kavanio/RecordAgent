@@ -32,13 +32,14 @@ public struct HomeView: View {
                     // 2. 周历日期选择条（月份切换与 7 天日期）
                     WeekCalendarStripView(viewModel: viewModel)
 
-                    // 3. 主插画横幅卡片（生活不在别处语录与背景插画）
+                    // 3. 主插画横幅（通栏展示与自然上下过渡）
                     HomeBannerCardView()
 
-                    // 4. 今日概览卡片（待办、日程、支出、学习指标与进度条）
+                    // 4. 今日概览卡片（向上浮动叠加在 Banner 上）
                     TodayOverviewCardView(data: viewModel.overviewData) {
                         // 点击“更多”可触发展开日历/概览详情
                     }
+                    .padding(.top, -36)
 
                     // 5. 近期待办卡片与悬浮按钮区域
                     ZStack(alignment: .bottomTrailing) {
@@ -54,12 +55,10 @@ public struct HomeView: View {
 
                     // 6. 底部语录与拍立得照片卡片
                     InspirationCardView()
-
-                    // 底部为自定义 TabBar 留出空间
-                    Spacer()
-                        .frame(height: 70)
+                        .padding(.bottom, 16)
                 }
                 .padding(.top, 4)
+
             }
 
             // 搜索占位提示弹窗

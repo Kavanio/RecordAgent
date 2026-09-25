@@ -44,27 +44,24 @@ public struct MainTabView: View {
     }
 
     public var body: some View {
-        ZStack(alignment: .bottom) {
-            // 内容区域
-            Group {
-                switch selectedTab {
-                case .home:
-                    HomeView()
-                case .discover:
-                    DiscoverPlaceholderView()
-                case .profile:
-                    ProfileView(onLogout: onLogout)
-                }
+        Group {
+            switch selectedTab {
+            case .home:
+                HomeView()
+            case .discover:
+                DiscoverPlaceholderView()
+            case .profile:
+                ProfileView(onLogout: onLogout)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            // 自定义底部 TabBar
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             customTabBar
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 
-    /// 自定义底部导航栏
+    /// 自定义底部导航栏：背景无缝延伸至屏幕物理底部，解决悬空空隙问题
     private var customTabBar: some View {
         VStack(spacing: 0) {
             // 顶部微细分割线
@@ -98,13 +95,15 @@ public struct MainTabView: View {
                 }
             }
             .padding(.horizontal, 24)
-            .background(
-                Color.white.opacity(0.96)
-                    .background(.ultraThinMaterial)
-            )
         }
+        .background(
+            Color.white.opacity(0.96)
+                .background(.ultraThinMaterial)
+                .ignoresSafeArea(edges: .bottom)
+        )
     }
 }
+
 
 /// 发现页面占位（待后续功能扩展）
 struct DiscoverPlaceholderView: View {

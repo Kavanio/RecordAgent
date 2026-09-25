@@ -55,7 +55,7 @@
 		1A33E9D0CED73615452B250D /* AgreementSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgreementSheetView.swift; sourceTree = "<group>"; };
 		251E8C4858304290ABB30D70 /* HomeHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeaderView.swift; sourceTree = "<group>"; };
 		30E522FE5316059D06E41FDA /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
-		35C6E2B0B2F43D7C34CE4805 /* RecordAgent.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RecordAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		35C6E2B0B2F43D7C34CE4805 /* RecordAgent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RecordAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		364230326B4B17D57744561E /* AuthModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthModels.swift; sourceTree = "<group>"; };
 		3C185DC38613AF4D9F5F551E /* MockAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAuthService.swift; sourceTree = "<group>"; };
 		40E029C2717107B0909772ED /* RecentTodosCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentTodosCardView.swift; sourceTree = "<group>"; };
@@ -426,6 +426,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 7JWU292AKK;
 				INFOPLIST_FILE = RecordAgent/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -502,6 +503,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 7JWU292AKK;
 				INFOPLIST_FILE = RecordAgent/App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
