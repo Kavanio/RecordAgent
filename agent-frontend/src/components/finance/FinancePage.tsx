@@ -241,7 +241,7 @@ export const FinancePage: React.FC = () => {
           onRetry={() => void load()} onOpenAssets={() => setIsAssetDetailModalOpen(true)} />
 
         <SpendingTrendChart chart={chart} range={chartRange} loading={isChartLoading} error={chartError}
-          onRangeChange={setChartRange} onRetry={() => void loadChart(chartRange)} />
+          onRangeChange={setChartRange} onRetry={() => void loadChart(chartRange)} categoryColors={categoryOptions.colors?.expense} />
 
         {overview && <div className={styles.financeLayout}>
           <section className={styles.historyPanel}>

@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test:tasks": "node --test src/components/task/TaskPage.test.mjs src/services/taskReminderAudio.test.mjs",
-    "test:finance": "node --test src/components/finance/FinancePage.test.mjs src/components/finance/spendingTrendData.test.mjs",
+    "test:finance": "node --test src/components/finance/*.test.mjs",
     "preview": "vite preview",
     "version:check": "node ../scripts/sync-version.mjs --check",
     "version:sync": "node ../scripts/sync-version.mjs"

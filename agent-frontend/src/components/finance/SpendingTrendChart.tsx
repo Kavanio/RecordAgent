@@ -4,14 +4,11 @@ import type { FinanceChartRange, FinanceExpenseChart } from '../../types/finance
 import { Button } from '../common/Button';
 import { LoadingTree } from '../common/LoadingTree';
 import { trendBuckets, trendCeiling, trendTicks, hasOutlier, createTrendScale } from './spendingTrendData';
+import { financeCategoryColor } from './financeCategoryColors';
 import styles from './SpendingTrendChart.module.css';
 
 const RANGE_OPTIONS: Array<{ value: FinanceChartRange; label: string }> = [
   { value: 'week', label: '本周' }, { value: 'month', label: '本月' }, { value: 'year', label: '今年' },
-];
-const CATEGORY_COLORS = [
-  '#9eb6ca', '#d9bc91', '#9fc6b4', '#b8aed0',
-  '#d3a5aa', '#96bfc6', '#d3ad91', '#a8c2b9',
 ];
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
 const compactMoney = (value: number) => value >= 10000
@@ -28,10 +25,11 @@ interface SpendingTrendChartProps {
   error: string | null;
   onRangeChange: (range: FinanceChartRange) => void;
   onRetry: () => void;
+  categoryColors?: Record<string, string>;
 }
 
 /** 收支折线叠加分类堆叠柱，悬浮明细随选中日期定位，支持键盘逐期浏览。 */
-export const SpendingTrendChart: React.FC<SpendingTrendChartProps> = ({ chart, range, loading, error, onRangeChange, onRetry }) => {
+export const SpendingTrendChart: React.FC<SpendingTrendChartProps> = ({ chart, range, loading, error, onRangeChange, onRetry, categoryColors }) => {
   const hostRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const helpId = useId();
@@ -64,7 +62,7 @@ export const SpendingTrendChart: React.FC<SpendingTrendChartProps> = ({ chart, r
     days.forEach((day) => day.categories.forEach((item) => totals.set(item.category, (totals.get(item.category) ?? 0) + item.amount)));
     return [...totals.keys()].sort();
   }, [days]);
-  const categoryColor = (category: string) => CATEGORY_COLORS[Math.max(0, categories.indexOf(category)) % CATEGORY_COLORS.length];
+  const categoryColor = (category: string) => financeCategoryColor(category, 'expense', displayedChart?.categoryColors ?? categoryColors);
   const hasData = days.some((day) => day.total > 0 || day.income > 0);
   const activeDay = activeIndex === null ? null : days[activeIndex];
   const height = 248;
@@ -206,8 +204,7 @@ export const SpendingTrendChart: React.FC<SpendingTrendChartProps> = ({ chart, r
                 const segBottom = y(prev);
                 const segHeight = Math.max(0, segBottom - segTop);
                 return <rect key={item.category} x={x(index) - barWidth / 2} y={segTop}
-                  width={barWidth} height={segHeight} fill={categoryColor(item.category)}
-                  stroke="var(--bg-app)" strokeWidth={.6} />;
+                  width={barWidth} height={segHeight} fill={categoryColor(item.category)} data-finance-category={item.category} />;
               })}</g>
             </g>;
           })}
@@ -235,10 +232,15 @@ export const SpendingTrendChart: React.FC<SpendingTrendChartProps> = ({ chart, r
         </div>
         <div className={styles.tooltipCategories}>{activeDay.categories.length ? [...activeDay.categories]
           .sort((a, b) => categories.indexOf(a.category) - categories.indexOf(b.category))
-          .map((item) => <div key={item.category}><span><i style={{ backgroundColor: categoryColor(item.category) }} />{item.category}</span><b>{money(item.amount)}</b></div>) : <p>暂无支出分类</p>}</div>
+          .map((item) => <div key={item.category}><span><svg className={styles.categoryMarker} viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill={categoryColor(item.category)} /></svg>{item.category}</span><b>{money(item.amount)}</b></div>) : <p>暂无支出分类</p>}</div>
       </div>}
     </div>
-    <div className={styles.chartFooter}><span>柱形表示支出分类</span><span>悬停或使用方向键查看明细</span></div>
+    {categories.length > 0 && <div className={styles.legend} aria-label="支出分类图例">
+      {categories.map((category) => <span key={category}>
+        <svg className={styles.categoryMarker} viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill={categoryColor(category)} /></svg>{category}
+      </span>)}
+    </div>}
+    <div className={styles.chartFooter}><span>分类颜色可在记账时调整</span><span>悬停或使用方向键查看明细</span></div>
     <p className={styles.visuallyHidden} id={helpId}>实线圆点为支出，虚线方点为收入，柱体显示支出分类。聚焦图表后，可用左右方向键切换日期，Home 和 End 跳至首尾，Escape 关闭明细。</p>
   </section>;
 };

@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
 /** 资产账户与收支流水领域模型。 */
 public final class FinanceModels {
@@ -44,9 +45,9 @@ public final class FinanceModels {
             LocalDate date, BigDecimal total, BigDecimal income, List<ExpenseCategoryAmount> categories) {
     }
 
-    /** 财务收支图表所需的连续日期序列。 */
+    /** 财务收支图表所需的连续日期序列与同次读取的支出分类配色。 */
     public record ExpenseChart(
             String range, LocalDate from, LocalDate to, BigDecimal totalExpense, BigDecimal totalIncome,
-            List<ExpenseChartDay> days) {
+            List<ExpenseChartDay> days, Map<String, String> categoryColors) {
     }
 }

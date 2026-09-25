@@ -50,6 +50,7 @@
 - 财务“最近流水”需按时间合并财务流水与旧日历花销；旧日历花销只做兼容展示，不得反向绑定或修改资产账户余额。
 - 财务首页总览仅承担最近流水；完整历史由 `GET /agent/finance/transactions` 按需读取，响应沿用 `TransactionResponse` 列表并包含账户、分类、来源、日期与时间。
 - 收入与支出分类分别维护内置选项和用户使用过的自定义选项；成功创建流水时自动记住分类，两个类型之间不得混用自定义分类。
+- 分类颜色保存于 `finance_transaction_category.color`，按当前用户、收支类型和分类名称隔离。`GET /agent/finance/categories` 保留 `expense`、`income` 名称列表并返回 `colors: { expense: { 分类名: "#RRGGBB" }, income: { 分类名: "#RRGGBB" } }`；`POST /agent/finance/transactions` 和 `PUT /agent/finance/transactions/{transactionId}` 接受可选 `categoryColor`，仅六位十六进制颜色有效，非法值返回统一参数错误 `code: 400`。颜色与流水、余额在同一事务保存，省略或 null 保留已有颜色；未配置颜色由前端按分类名称稳定分配，`GET /agent/finance/expense-chart` 同次返回支出 `categoryColors`，避免独立分类请求迟到或失败造成配色闪变；切换图表区间不得改变颜色。
 
 ## 学习记录
 

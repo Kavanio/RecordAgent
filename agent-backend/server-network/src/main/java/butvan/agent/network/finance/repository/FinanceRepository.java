@@ -11,6 +11,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Optional;
 
 /** 财务域 SQLite 持久化适配器，金额统一以分保存。 */
@@ -37,14 +39,29 @@ public class FinanceRepository {
                 """, String.class, ownerId, transactionType);
     }
 
-    /** 记住用户首次使用的收支分类，重复使用时保持原顺序。 */
+    /** 查询当前用户指定收支类型已保存的分类颜色，不把历史空颜色作为覆盖值。 */
+    public Map<String, String> findTransactionCategoryColors(String ownerId, String transactionType) {
+        return jdbcTemplate.query("""
+                SELECT name, color FROM finance_transaction_category
+                WHERE owner_id = ? AND transaction_type = ? AND color IS NOT NULL
+                ORDER BY created_at, name
+                """, rs -> {
+            Map<String, String> colors = new LinkedHashMap<>();
+            while (rs.next()) colors.put(rs.getString("name"), rs.getString("color"));
+            return colors;
+        }, ownerId, transactionType);
+    }
+
+    /** 记住分类及可选颜色；重复使用保留原顺序，未提供颜色时保留已有配色。 */
     public void rememberTransactionCategory(
-            String ownerId, String transactionType, String category, Instant now) {
+            String ownerId, String transactionType, String category, Instant now, String color) {
         jdbcTemplate.update("""
-                INSERT OR IGNORE INTO finance_transaction_category (
-                    owner_id, transaction_type, name, created_at
-                ) VALUES (?, ?, ?, ?)
-                """, ownerId, transactionType, category, now.toString());
+                INSERT INTO finance_transaction_category (
+                    owner_id, transaction_type, name, created_at, color
+                ) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(owner_id, transaction_type, name)
+                DO UPDATE SET color = COALESCE(excluded.color, finance_transaction_category.color)
+                """, ownerId, transactionType, category, now.toString(), color);
     }
 
     /** 查询用户全部账户。 */

@@ -14,7 +14,7 @@
 .amountField input::placeholder { color: #707b8c; }
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .wideField { grid-column: 1 / -1; }
-.transactionForm input:not([type='checkbox']):not(.amountField input) { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); outline: 0; background: var(--bg-app); color: var(--text-primary); font: 12px var(--font-sans); }
+.transactionForm input:not([type='checkbox']):not([type='color']):not(.amountField input) { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); outline: 0; background: var(--bg-app); color: var(--text-primary); font: 12px var(--font-sans); }
 .transactionForm input:focus { border-color: var(--accent-blue); }
 .modalError { padding: 8px 10px; border: 1px solid #e6c8c4; border-radius: var(--radius-md); background: #fff7f5; color: #9a4038; font-size: 11px; }
 .modalActions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }

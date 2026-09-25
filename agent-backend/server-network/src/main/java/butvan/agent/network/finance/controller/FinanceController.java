@@ -71,8 +71,9 @@ public class FinanceController {
     @ApiLog("查询收支分类")
     @GetMapping("/categories")
     public Result<FinanceDtos.TransactionCategoryOptionsResponse> categories() {
+        String ownerId = currentUserProvider.currentUserId();
         return Result.success(FinanceDtos.categoryOptions(
-                financeService.getTransactionCategories(currentUserProvider.currentUserId())));
+                financeService.getTransactionCategories(ownerId), financeService.getTransactionCategoryColors(ownerId)));
     }
 
     @ApiLog("查询收支趋势与支出分类构成")
@@ -104,7 +105,7 @@ public class FinanceController {
     public Result<TransactionResponse> createTransaction(@RequestBody CreateTransactionRequest request) {
         return Result.success(FinanceDtos.from(financeService.createTransaction(
                 currentUserProvider.currentUserId(), request.accountId(), request.transactionType(),
-                request.category(), request.note(), request.amount(), request.date(), request.time())));
+                request.category(), request.note(), request.amount(), request.date(), request.time(), request.categoryColor())));
     }
 
     @ApiLog("修改手工收入或支出流水")
@@ -113,7 +114,7 @@ public class FinanceController {
             @PathVariable String transactionId, @RequestBody UpdateTransactionRequest request) {
         return Result.success(FinanceDtos.from(financeService.updateTransaction(
                 currentUserProvider.currentUserId(), transactionId, request.accountId(), request.transactionType(),
-                request.category(), request.note(), request.amount(), request.date(), request.time())));
+                request.category(), request.note(), request.amount(), request.date(), request.time(), request.categoryColor())));
     }
 
     @ApiLog("账户间资产划账")

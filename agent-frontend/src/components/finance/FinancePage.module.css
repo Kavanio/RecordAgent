@@ -3,7 +3,7 @@
 .content { width: 100%; max-width: 1240px; margin: 0 auto; padding: 28px 32px 40px; display: flex; flex-direction: column; gap: 28px; }
 .financeLayout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, 1fr); gap: 28px; align-items: start; }
 .historyPanel, .accountPanel { min-width: 0; }
-.historyPanel { padding-right: 28px; border-right: 1px solid var(--border-subtle); }
+.historyPanel { padding-right: 28px; }
 .sectionHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .sectionHeading h2 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
 .sectionHeading p { margin-top: 6px; color: var(--text-secondary); font-size: 11px; }
@@ -16,15 +16,14 @@
 .accountForm input:focus { border-color: var(--accent-blue); }
 
 .transactions { display: flex; flex-direction: column; }
-.transactionRow { display: grid; align-items: center; gap: 12px; padding: 15px 0; border-bottom: 1px solid var(--border-subtle); }
+.transactionRow { display: grid; align-items: center; gap: 12px; padding: 15px 0; }
 .transactionRow { grid-template-columns: 16px minmax(0, 1fr) auto; }
-.transactionRow:last-child { border-bottom: none; }
 .transactionBody { min-width: 0; display: flex; flex-direction: column; }
 .transactionBody strong { overflow: hidden; color: var(--text-primary); font-size: 12px; font-weight: 600; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .transactionBody small { overflow: hidden; margin-top: 2px; color: var(--text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .outAmount, .inAmount, .transferOutAmount, .transferInAmount, .adjustmentAmount { font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.outAmount { color: #9f453c; }
-.inAmount { color: #31725a; }
+.outAmount { color: #E11D48; }
+.inAmount { color: #059669; }
 .transferOutAmount { color: #1d4ed8; }
 .transferInAmount { color: #0284c7; }
 .adjustmentAmount { color: #8a6118; }
@@ -62,8 +61,8 @@
 
 @container finance (max-width: 800px) {
   .financeLayout { grid-template-columns: minmax(0, 1fr); }
-  .historyPanel { padding-right: 0; border-right: 0; }
-  .accountPanel { padding-top: 24px; border-top: 1px solid var(--border-subtle); }
+  .historyPanel { padding-right: 0; }
+  .accountPanel { padding-top: 12px; }
 }
 @container finance (max-width: 580px) {
   .content { padding: 20px 16px 28px; gap: 24px; }

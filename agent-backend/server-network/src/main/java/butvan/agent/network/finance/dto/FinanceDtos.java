@@ -29,14 +29,16 @@ public final class FinanceDtos {
     public record CreateBalanceAdjustmentRequest(String direction, BigDecimal amount, String note) {
     }
 
+    /** categoryColor 可选，保存后应用于当前用户同一收支类型的同名分类。 */
     public record CreateTransactionRequest(
             String accountId, String transactionType, String category, String note,
-            BigDecimal amount, LocalDate date, LocalTime time) {
+            BigDecimal amount, LocalDate date, LocalTime time, String categoryColor) {
     }
 
+    /** 未提供 categoryColor 时保持原有分类颜色。 */
     public record UpdateTransactionRequest(
             String accountId, String transactionType, String category, String note,
-            BigDecimal amount, LocalDate date, LocalTime time) {
+            BigDecimal amount, LocalDate date, LocalTime time, String categoryColor) {
     }
 
     public record CreateTransferRequest(
@@ -73,14 +75,17 @@ public final class FinanceDtos {
 
     public record ExpenseChartResponse(
             String range, LocalDate from, LocalDate to, BigDecimal totalExpense, BigDecimal totalIncome,
-            List<ExpenseChartDayResponse> days) {
+            List<ExpenseChartDayResponse> days, Map<String, String> categoryColors) {
     }
 
-    public record TransactionCategoryOptionsResponse(List<String> expense, List<String> income) {
+    /** 分类名称保持兼容，colors 按 expense / income 返回已保存的颜色覆盖。 */
+    public record TransactionCategoryOptionsResponse(
+            List<String> expense, List<String> income, Map<String, Map<String, String>> colors) {
     }
 
-    public static TransactionCategoryOptionsResponse categoryOptions(Map<String, List<String>> categories) {
-        return new TransactionCategoryOptionsResponse(categories.get("expense"), categories.get("income"));
+    public static TransactionCategoryOptionsResponse categoryOptions(
+            Map<String, List<String>> categories, Map<String, Map<String, String>> colors) {
+        return new TransactionCategoryOptionsResponse(categories.get("expense"), categories.get("income"), colors);
     }
 
     public static AccountResponse from(FinanceAccount account) {
@@ -110,6 +115,6 @@ public final class FinanceDtos {
         return new ExpenseChartResponse(chart.range(), chart.from(), chart.to(), chart.totalExpense(), chart.totalIncome(),
                 chart.days().stream().map(day -> new ExpenseChartDayResponse(
                         day.date(), day.total(), day.income(), day.categories().stream()
-                        .map(item -> new ExpenseCategoryResponse(item.category(), item.amount())).toList())).toList());
+                        .map(item -> new ExpenseCategoryResponse(item.category(), item.amount())).toList())).toList(), chart.categoryColors());
     }
 }

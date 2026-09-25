@@ -83,6 +83,13 @@ async function click(name) {
 const summary = () => container.querySelector('[aria-label="本月财务概览"]');
 const trend = () => [...container.querySelectorAll('section')].find((item) => item.querySelector('h2')?.textContent === '收支趋势');
 const totals = () => [...trend().querySelectorAll('dd')].map((item) => item.textContent);
+async function selectCategory(value) {
+  const select = [...document.querySelectorAll('select')].find((item) => [...item.options].some((option) => option.value === '__custom_category__'));
+  await React.act(async () => {
+    select.value = value;
+    select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  });
+}
 
 test('首次概览失败不伪造零资产，图表仍独立可用，重试后恢复', async () => {
   const normal = respond;
@@ -199,4 +206,98 @@ test('保存成功但概览刷新失败时关闭表单，保留成功反馈和�
   assert.equal(document.querySelector('[role="dialog"]'), null);
   assert.match(document.body.textContent, /流水已保存/);
   assert.match(summary().textContent, /以下为上次读取的数据/);
+});
+
+test('分类颜色不随区间内分类增减变化，图例与柱形采用相同配色', async () => {
+  await render();
+  const originalColor = trend().querySelector('[data-finance-category="餐饮"]').getAttribute('fill');
+  const normal = respond;
+  respond = (url) => {
+    if (url.searchParams.get('range') === 'week') {
+      const nextChart = chart('week');
+      nextChart.days[0].categories = [{ category: '交通', amount: 200 }, { category: '餐饮', amount: 1000 }];
+      return response(nextChart);
+    }
+    return normal(url);
+  };
+  await click('本周');
+  assert.equal(trend().querySelector('[data-finance-category="餐饮"]').getAttribute('fill'), originalColor);
+  const legend = [...trend().querySelectorAll('[aria-label="支出分类图例"] > span')].find((item) => item.textContent === '餐饮');
+  assert.equal(legend.querySelector('circle').getAttribute('fill'), originalColor);
+});
+
+test('分类请求失败时图表仍直接使用同次响应中的已保存颜色', async () => {
+  const normal = respond;
+  respond = (url) => {
+    if (url.pathname.endsWith('/categories')) throw new Error('分类暂时不可用');
+    if (url.pathname.endsWith('/expense-chart')) return response({ ...chart(), categoryColors: { 餐饮: '#A855F7' } });
+    return normal(url);
+  };
+  await render();
+  assert.equal(trend().querySelector('[data-finance-category="餐饮"]').getAttribute('fill'), '#A855F7');
+});
+
+test('新增自定义分类选色随记账提交，重新打开页面后读取保存的颜色', async () => {
+  const normal = respond;
+  let saved;
+  respond = (url, init) => {
+    if (init?.method === 'POST') { saved = JSON.parse(init.body); return response({}); }
+    if (saved && url.pathname.endsWith('/categories')) return response({ expense: ['宠物'], income: [], colors: { expense: { 宠物: saved.categoryColor } } });
+    if (saved && url.pathname.endsWith('/expense-chart')) {
+      const nextChart = chart(url.searchParams.get('range'));
+      nextChart.days[0].categories = [{ category: saved.category, amount: nextChart.totalExpense }];
+      return response(nextChart);
+    }
+    return normal(url);
+  };
+  await render();
+  await click('记一笔');
+  await selectCategory('__custom_category__');
+  const name = document.querySelector('input[aria-label="自定义分类"]');
+  await React.act(async () => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set.call(name, '宠物');
+    name.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  });
+  await click('使用此分类');
+  await click('分类颜色：青蓝');
+  const colorInput = document.querySelector('input[aria-label="自定义分类颜色"]');
+  await React.act(async () => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set.call(colorInput, '#24abef');
+    colorInput.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  });
+  assert.equal(saved, undefined, '选色本身不应写入后端');
+  const form = document.querySelector('form');
+  form.querySelector('[name="amount"]').value = '25';
+  form.querySelector('[name="note"]').value = '猫粮';
+  await React.act(async () => form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
+  assert.equal(saved.category, '宠物');
+  assert.equal(saved.categoryColor, '#24ABEF');
+  await React.act(async () => root.render(null));
+  await render();
+  assert.equal(trend().querySelector('[data-finance-category="宠物"]').getAttribute('fill'), '#24ABEF');
+  await click('记一笔');
+  await selectCategory('宠物');
+  assert.equal(document.querySelector('input[aria-label="自定义分类颜色"]').value.toUpperCase(), '#24ABEF');
+});
+
+test('取消选色不写入，未修改颜色的记账不会覆盖后端配色', async () => {
+  const normal = respond;
+  let saved;
+  respond = (url, init) => {
+    if (init?.method === 'POST') { saved = JSON.parse(init.body); return response({}); }
+    if (url.pathname.endsWith('/categories')) return response({ expense: ['餐饮'], income: [], colors: { expense: { 餐饮: '#A855F7' } } });
+    return normal(url);
+  };
+  await render();
+  await click('记一笔');
+  await click('分类颜色：天蓝');
+  await click('取消');
+  assert.equal(saved, undefined);
+  await click('记一笔');
+  assert.equal(document.querySelector('input[type="color"]').value.toUpperCase(), '#A855F7');
+  const form = document.querySelector('form');
+  form.querySelector('[name="amount"]').value = '10';
+  form.querySelector('[name="note"]').value = '早餐';
+  await React.act(async () => form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
+  assert.equal(Object.hasOwn(saved, 'categoryColor'), false);
 });
