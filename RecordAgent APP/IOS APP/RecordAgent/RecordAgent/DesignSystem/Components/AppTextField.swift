@@ -3,7 +3,8 @@ import SwiftUI
 /// 统一设计规范的表单输入框
 public struct AppTextField: View {
     let iconName: String
-    let placeholder: String
+    private let placeholderKey: LocalizedStringKey?
+    private let placeholderString: String?
     @Binding var text: String
     var isSecure: Bool = false
     var keyboardType: UIKeyboardType = .default
@@ -12,6 +13,25 @@ public struct AppTextField: View {
     @State private var isPasswordVisible: Bool = false
     @FocusState private var isFocused: Bool
 
+    /// 支持本地化 Key 的构造方法（推荐）
+    public init(
+        iconName: String,
+        placeholderKey: LocalizedStringKey,
+        text: Binding<String>,
+        isSecure: Bool = false,
+        keyboardType: UIKeyboardType = .default,
+        trailingAction: AnyView? = nil
+    ) {
+        self.iconName = iconName
+        self.placeholderKey = placeholderKey
+        self.placeholderString = nil
+        self._text = text
+        self.isSecure = isSecure
+        self.keyboardType = keyboardType
+        self.trailingAction = trailingAction
+    }
+
+    /// 兼容直接传入 String 的构造方法
     public init(
         iconName: String,
         placeholder: String,
@@ -21,7 +41,8 @@ public struct AppTextField: View {
         trailingAction: AnyView? = nil
     ) {
         self.iconName = iconName
-        self.placeholder = placeholder
+        self.placeholderKey = nil
+        self.placeholderString = placeholder
         self._text = text
         self.isSecure = isSecure
         self.keyboardType = keyboardType
@@ -39,9 +60,15 @@ public struct AppTextField: View {
             // 输入区域
             ZStack(alignment: .leading) {
                 if text.isEmpty {
-                    Text(placeholder)
-                        .font(.system(size: 15))
-                        .foregroundColor(AppColors.placeholderText)
+                    if let placeholderKey = placeholderKey {
+                        Text(placeholderKey)
+                            .font(.system(size: 15))
+                            .foregroundColor(AppColors.placeholderText)
+                    } else if let placeholderString = placeholderString {
+                        Text(placeholderString)
+                            .font(.system(size: 15))
+                            .foregroundColor(AppColors.placeholderText)
+                    }
                 }
 
                 if isSecure && !isPasswordVisible {

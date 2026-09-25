@@ -41,7 +41,7 @@ public struct AuthUser: Codable, Identifiable, Sendable, Equatable {
     }
 }
 
-/// 认证业务错误枚举
+/// 认证业务错误枚举（支持本地化多语言）
 public enum AuthError: LocalizedError, Sendable, Equatable {
     case emptyEmail
     case invalidEmail
@@ -57,21 +57,21 @@ public enum AuthError: LocalizedError, Sendable, Equatable {
     public var errorDescription: String? {
         switch self {
         case .emptyEmail:
-            return "请输入邮箱地址"
+            return String(localized: "auth.error.empty_email", defaultValue: "请输入邮箱地址")
         case .invalidEmail:
-            return "邮箱格式不正确，请检查输入"
+            return String(localized: "auth.error.invalid_email", defaultValue: "邮箱格式不正确，请检查输入")
         case .emptyPassword:
-            return "请输入密码"
+            return String(localized: "auth.error.empty_password", defaultValue: "请输入密码")
         case .passwordTooShort:
-            return "密码长度至少需要 6 位"
+            return String(localized: "auth.error.password_too_short", defaultValue: "密码长度至少需要 6 位")
         case .emptyVerificationCode:
-            return "请输入邮箱验证码"
+            return String(localized: "auth.error.empty_code", defaultValue: "请输入邮箱验证码")
         case .invalidVerificationCode:
-            return "验证码错误或已过期"
+            return String(localized: "auth.error.invalid_code", defaultValue: "验证码错误或已过期")
         case .networkUnavailable:
-            return "网络连接不可用，请稍后重试"
+            return String(localized: "auth.error.network", defaultValue: "网络连接不可用，请稍后重试")
         case .unauthorized:
-            return "登录状态已失效，请重新登录"
+            return String(localized: "auth.error.unauthorized", defaultValue: "登录状态已失效，请重新登录")
         case .serverError(let message):
             return message
         case .custom(let message):

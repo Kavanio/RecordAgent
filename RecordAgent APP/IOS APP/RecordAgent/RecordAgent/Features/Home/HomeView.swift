@@ -58,23 +58,22 @@ public struct HomeView: View {
                         .padding(.bottom, 16)
                 }
                 .padding(.top, 4)
-
             }
 
             // 搜索占位提示弹窗
-            .alert("搜索", isPresented: $viewModel.showSearchAlert) {
-                Button("确定", role: .cancel) {}
+            .alert(Text("home.search.title"), isPresented: $viewModel.showSearchAlert) {
+                Button("common.confirm", role: .cancel) {}
             } message: {
-                Text("搜索功能正在准备中，后续将支持快速检索待办、日程与记录。")
+                Text("home.search.message")
             }
 
             // 消息通知占位提示弹窗
-            .alert("通知中心", isPresented: $viewModel.showNotificationAlert) {
-                Button("我知道了", role: .cancel) {
+            .alert(Text("home.notifications.title"), isPresented: $viewModel.showNotificationAlert) {
+                Button("home.notifications.dismiss", role: .cancel) {
                     viewModel.unreadNotificationCount = 0
                 }
             } message: {
-                Text("暂无未读系统提醒。每天记录一点点，生活更清晰。")
+                Text("home.notifications.message")
             }
 
             // 快捷新增待办弹窗
@@ -90,12 +89,12 @@ public struct HomeView: View {
     private var quickAddSheet: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 18) {
-                Text("新建待办")
+                Text("home.todo.new")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
                     .padding(.top, 8)
 
-                TextField("想记录什么待办事项？", text: $viewModel.quickAddTitle)
+                TextField("home.todo.placeholder", text: $viewModel.quickAddTitle)
                     .font(.system(size: 15))
                     .padding(14)
                     .background(Color(red: 0.96, green: 0.97, blue: 0.98))
@@ -106,7 +105,7 @@ public struct HomeView: View {
                         viewModel.showQuickAddSheet = false
                         viewModel.quickAddTitle = ""
                     }) {
-                        Text("取消")
+                        Text("common.cancel")
                             .font(.system(size: 15, weight: .medium))
                             .foregroundColor(AppColors.textSecondary)
                             .frame(maxWidth: .infinity)
@@ -118,7 +117,7 @@ public struct HomeView: View {
                     Button(action: {
                         viewModel.addQuickTodo()
                     }) {
-                        Text("添加")
+                        Text("common.add")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)

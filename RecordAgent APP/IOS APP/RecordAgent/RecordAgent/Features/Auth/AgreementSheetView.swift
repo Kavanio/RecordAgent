@@ -34,7 +34,7 @@ public struct AgreementSheetView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("关闭") {
+                    Button("common.close") {
                         dismiss()
                     }
                     .foregroundColor(AppColors.primaryBlue)

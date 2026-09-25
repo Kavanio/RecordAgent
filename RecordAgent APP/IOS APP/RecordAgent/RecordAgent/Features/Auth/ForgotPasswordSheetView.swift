@@ -13,12 +13,12 @@ public struct ForgotPasswordSheetView: View {
     public var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                Text("重置密码")
+                Text("auth.forgot_password.title")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
                     .padding(.top, 16)
 
-                Text("输入您的注册邮箱，我们将向您发送重置验证码。")
+                Text("auth.forgot_password.subtitle")
                     .font(.system(size: 14))
                     .foregroundColor(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
@@ -27,29 +27,37 @@ public struct ForgotPasswordSheetView: View {
                 VStack(spacing: 14) {
                     AppTextField(
                         iconName: "envelope",
-                        placeholder: "请输入注册邮箱",
+                        placeholderKey: "auth.email.placeholder",
                         text: $email,
                         keyboardType: .emailAddress
                     )
 
                     AppTextField(
                         iconName: "shield.checkered",
-                        placeholder: "请输入验证码",
+                        placeholderKey: "auth.code.placeholder",
                         text: $code,
                         keyboardType: .numberPad,
                         trailingAction: AnyView(
-                            Button(countdown > 0 ? "\(countdown)s" : "获取验证码") {
+                            Button(action: {
                                 startCountdown()
+                            }) {
+                                if countdown > 0 {
+                                    Text("auth.code.resend \(countdown)")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(AppColors.placeholderText)
+                                } else {
+                                    Text("auth.code.get")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(AppColors.primaryBlue)
+                                }
                             }
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(countdown > 0 ? AppColors.placeholderText : AppColors.primaryBlue)
                             .disabled(countdown > 0 || email.isEmpty)
                         )
                     )
 
                     AppTextField(
                         iconName: "lock",
-                        placeholder: "设置新密码（至少 6 位）",
+                        placeholderKey: "auth.password.set_placeholder",
                         text: $newPassword,
                         isSecure: true
                     )
@@ -58,13 +66,13 @@ public struct ForgotPasswordSheetView: View {
                 .padding(.top, 8)
 
                 if isSuccess {
-                    Text("密码重置成功，请使用新密码登录")
+                    Text("auth.forgot_password.success")
                         .font(.system(size: 14))
                         .foregroundColor(.green)
                 }
 
                 AppButton(
-                    title: isSuccess ? "返回登录" : "确认重置",
+                    isSuccess ? "auth.back_to_login" : "auth.forgot_password.confirm",
                     iconName: isSuccess ? "checkmark" : "arrow.right",
                     isLoading: isSubmitting
                 ) {
@@ -81,7 +89,7 @@ public struct ForgotPasswordSheetView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button("common.cancel") { dismiss() }
                         .foregroundColor(AppColors.primaryBlue)
                 }
             }

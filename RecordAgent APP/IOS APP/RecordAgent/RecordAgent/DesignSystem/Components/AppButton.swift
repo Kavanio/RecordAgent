@@ -2,12 +2,30 @@ import SwiftUI
 
 /// 统一设计规范的主操作胶囊按钮
 public struct AppButton: View {
-    let title: String
+    private let titleKey: LocalizedStringKey?
+    private let titleString: String?
     let iconName: String?
     let isLoading: Bool
     let isEnabled: Bool
     let action: () -> Void
 
+    /// 支持本地化 Key 的构造方法（推荐）
+    public init(
+        _ titleKey: LocalizedStringKey,
+        iconName: String? = "arrow.right",
+        isLoading: Bool = false,
+        isEnabled: Bool = true,
+        action: @escaping () -> Void
+    ) {
+        self.titleKey = titleKey
+        self.titleString = nil
+        self.iconName = iconName
+        self.isLoading = isLoading
+        self.isEnabled = isEnabled
+        self.action = action
+    }
+
+    /// 兼容直接传入 String 字符串的构造方法
     public init(
         title: String,
         iconName: String? = "arrow.right",
@@ -15,7 +33,8 @@ public struct AppButton: View {
         isEnabled: Bool = true,
         action: @escaping () -> Void
     ) {
-        self.title = title
+        self.titleKey = nil
+        self.titleString = title
         self.iconName = iconName
         self.isLoading = isLoading
         self.isEnabled = isEnabled
@@ -38,9 +57,19 @@ public struct AppButton: View {
                 } else {
                     HStack(spacing: 8) {
                         Spacer()
-                        Text(title)
-                            .font(.system(size: 16.5, weight: .medium))
-                            .foregroundColor(.white)
+                        if let titleKey = titleKey {
+                            Text(titleKey)
+                                .font(.system(size: 16.5, weight: .medium))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                        } else if let titleString = titleString {
+                            Text(titleString)
+                                .font(.system(size: 16.5, weight: .medium))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                        }
                         if let iconName = iconName {
                             Image(systemName: iconName)
                                 .font(.system(size: 15, weight: .medium))

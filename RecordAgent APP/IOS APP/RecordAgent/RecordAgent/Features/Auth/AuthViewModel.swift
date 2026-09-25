@@ -3,9 +3,8 @@ import Combine
 
 @MainActor
 public final class AuthViewModel: ObservableObject {
-    // MARK: - 模式与语言
+    // MARK: - 模式
     @Published public var authMode: AuthMode = .passwordLogin
-    @Published public var currentLanguage: String = "中" // "中" 或 "En"
 
     // MARK: - 表单输入
     @Published public var email: String = ""
@@ -165,6 +164,7 @@ public final class AuthViewModel: ObservableObject {
                 } else {
                     self.countdownSeconds = 0
                     self.countdownTimer?.cancel()
+                    self.countdownTimer = nil
                 }
             }
     }
@@ -184,10 +184,6 @@ public final class AuthViewModel: ObservableObject {
         self.errorMessage = message
         self.showErrorAlert = true
     }
-
-    public func toggleLanguage() {
-        currentLanguage = (currentLanguage == "中") ? "En" : "中"
-    }
 }
 
 public enum AgreementType: Identifiable, Sendable {
@@ -201,10 +197,10 @@ public enum AgreementType: Identifiable, Sendable {
         }
     }
 
-    public var title: String {
+    public var title: LocalizedStringKey {
         switch self {
-        case .privacy: return "隐私政策"
-        case .userTerms: return "用户协议"
+        case .privacy: return "auth.agreement.privacy_title"
+        case .userTerms: return "auth.agreement.terms_title"
         }
     }
 }

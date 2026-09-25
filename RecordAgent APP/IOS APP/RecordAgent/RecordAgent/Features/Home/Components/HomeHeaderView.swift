@@ -12,13 +12,15 @@ public struct HomeHeaderView: View {
         HStack(alignment: .center) {
             // 左侧用户称谓与问候语
             VStack(alignment: .leading, spacing: 4) {
-                Text("你好，\(viewModel.userName)")
+                Text("home.greeting")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
 
-                Text(viewModel.greetingSubtitle)
+                Text("home.motto")
                     .font(.system(size: 13, weight: .regular))
                     .foregroundColor(AppColors.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
 
             Spacer()
@@ -32,7 +34,7 @@ public struct HomeHeaderView: View {
                         .font(.system(size: 19, weight: .regular))
                         .foregroundColor(AppColors.textPrimary)
                 }
-                .accessibilityLabel("搜索")
+                .accessibilityLabel(Text("home.search.title"))
 
                 Button(action: {
                     viewModel.showNotificationAlert = true
@@ -54,7 +56,7 @@ public struct HomeHeaderView: View {
                         }
                     }
                 }
-                .accessibilityLabel("通知")
+                .accessibilityLabel(Text("home.notifications.title"))
             }
         }
         .padding(.horizontal, 20)

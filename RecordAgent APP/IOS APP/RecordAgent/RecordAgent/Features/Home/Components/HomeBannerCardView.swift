@@ -44,7 +44,7 @@ public struct HomeBannerCardView: View {
 
             // 顶部叠加诗意生活语录
             VStack(alignment: .leading, spacing: 6) {
-                Text("生活不在别处，\n而在每一个被记录的当下。")
+                Text("home.banner.quote")
                     .font(.system(size: 13.5, weight: .medium))
                     .foregroundColor(Color(red: 0.20, green: 0.24, blue: 0.30)) // #333D4D
                     .lineSpacing(4)

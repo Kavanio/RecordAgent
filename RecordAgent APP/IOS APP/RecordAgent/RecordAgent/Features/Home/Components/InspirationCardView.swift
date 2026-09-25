@@ -19,7 +19,7 @@ public struct InspirationCardView: View {
                         .rotationEffect(.degrees(-20))
                 }
 
-                Text("持续记录，\n会让普通的日子闪闪发光。")
+                Text("home.inspiration.quote")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Color(red: 0.28, green: 0.33, blue: 0.42)) // #47546B
                     .lineSpacing(4)

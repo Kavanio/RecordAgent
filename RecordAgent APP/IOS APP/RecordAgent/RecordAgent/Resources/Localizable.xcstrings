@@ -1,0 +1,503 @@
+{
+  "sourceLanguage" : "zh-Hans",
+  "strings" : {
+    "tab.home" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Home" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "首页" } }
+      }
+    },
+    "tab.discover" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Discover" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "发现" } }
+      }
+    },
+    "tab.profile" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Profile" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "我的" } }
+      }
+    },
+    "discover.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Explore" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "发现精彩" } }
+      }
+    },
+    "discover.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "More curated recording templates, lifestyle inspirations, and data insights are in the works." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "更多精选记录模板、生活灵感与数据洞察\n正在精心准备中。" } }
+      }
+    },
+    "profile.user_name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Jun Wang" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "王俊" } }
+      }
+    },
+    "profile.recorded_days %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Recorded %lld days · Keep shining" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已记录 %lld 天 · 持续发光中" } }
+      }
+    },
+    "profile.settings.section.general" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "General" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "通用设置" } }
+      }
+    },
+    "profile.settings.language" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Language" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "多语言设置" } }
+      }
+    },
+    "language.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Language" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "语言设置" } }
+      }
+    },
+    "language.system" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "System Default" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "跟随系统" } }
+      }
+    },
+    "auth.logout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Log Out" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "退出登录" } }
+      }
+    },
+    "auth.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Start Journaling" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "开启美好记录" } }
+      }
+    },
+    "auth.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Capture moments with ease, let everyday count" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "随心捕捉生活灵感，让每一天都有迹可循" } }
+      }
+    },
+    "auth.mode.password" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Password" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "密码登录" } }
+      }
+    },
+    "auth.mode.code" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Verification Code" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "验证码登录" } }
+      }
+    },
+    "auth.register.mode_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New Account" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新用户注册" } }
+      }
+    },
+    "auth.back_to_login" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Back to Login" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "返回登录" } }
+      }
+    },
+    "auth.register.switch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign Up" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "注册" } }
+      }
+    },
+    "auth.email.placeholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Enter email address" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请输入邮箱地址" } }
+      }
+    },
+    "auth.password.placeholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Enter password" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请输入密码" } }
+      }
+    },
+    "auth.password.set_placeholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Set password (at least 6 characters)" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "设置密码（不少于 6 位）" } }
+      }
+    },
+    "auth.code.placeholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Enter verification code" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请输入验证码" } }
+      }
+    },
+    "auth.code.get" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Get Code" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "获取验证码" } }
+      }
+    },
+    "auth.code.resend %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Resend in %llds" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "%llds 后重发" } }
+      }
+    },
+    "auth.remember_me" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Remember me" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "记住我" } }
+      }
+    },
+    "auth.forgot_password" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Forgot password?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "忘记密码？" } }
+      }
+    },
+    "auth.login.button" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign In" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "登录" } }
+      }
+    },
+    "auth.register.button" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign Up & Sign In" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "注册并登录" } }
+      }
+    },
+    "auth.sync_slogan" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "One account, sync desktop & iPhone notes" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "一个账号，同步桌面与 iPhone 记录" } }
+      }
+    },
+    "auth.agreement.privacy_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Privacy Policy" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "隐私政策" } }
+      }
+    },
+    "auth.agreement.terms_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Terms of Service" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "用户协议" } }
+      }
+    },
+    "auth.forgot_password.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reset Password" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重置密码" } }
+      }
+    },
+    "auth.forgot_password.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Enter your registered email, and we will send you a reset code." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "输入您的注册邮箱，我们将向您发送重置验证码。" } }
+      }
+    },
+    "auth.forgot_password.success" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Password reset successful, please log in with your new password" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "密码重置成功，请使用新密码登录" } }
+      }
+    },
+    "auth.forgot_password.confirm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Confirm Reset" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "确认重置" } }
+      }
+    },
+    "auth.error.empty_email" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Please enter your email address" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请输入邮箱地址" } }
+      }
+    },
+    "auth.error.invalid_email" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid email address format" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "邮箱格式不正确，请检查输入" } }
+      }
+    },
+    "auth.error.empty_password" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Please enter your password" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请输入密码" } }
+      }
+    },
+    "auth.error.password_too_short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Password must be at least 6 characters" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "密码长度至少需要 6 位" } }
+      }
+    },
+    "auth.error.empty_code" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Please enter verification code" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请输入邮箱验证码" } }
+      }
+    },
+    "auth.error.invalid_code" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Incorrect or expired verification code" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "验证码错误或已过期" } }
+      }
+    },
+    "auth.error.network" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Network unavailable, please try again later" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "网络连接不可用，请稍后重试" } }
+      }
+    },
+    "auth.error.unauthorized" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Session expired, please sign in again" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "登录状态已失效，请重新登录" } }
+      }
+    },
+    "common.alert.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Alert" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "提示" } }
+      }
+    },
+    "common.ok" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "OK" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "好的" } }
+      }
+    },
+    "common.cancel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "取消" } }
+      }
+    },
+    "common.close" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "关闭" } }
+      }
+    },
+    "common.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Done" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "完成" } }
+      }
+    },
+    "common.more" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "More" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "更多" } }
+      }
+    },
+    "common.confirm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "OK" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "确定" } }
+      }
+    },
+    "common.add" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "添加" } }
+      }
+    },
+    "home.greeting" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hello, Jun" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "你好，王俊" } }
+      }
+    },
+    "home.motto" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Make every moment recorded a treasure for the future." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "让每一次记录，都成为未来的财富。" } }
+      }
+    },
+    "home.overview.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Today's Overview" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "今日概览" } }
+      }
+    },
+    "home.overview.todo_short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Todo" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "待办" } }
+      }
+    },
+    "home.overview.schedule_short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Events" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "日程" } }
+      }
+    },
+    "home.overview.expense_short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Spent" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "支出" } }
+      }
+    },
+    "home.overview.study_short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Study" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "学习" } }
+      }
+    },
+    "home.recent_todos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Recent Todos" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "近期待办" } }
+      }
+    },
+    "home.all_todos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "All" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部" } }
+      }
+    },
+    "home.empty_todos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No recent todos, tap + to add one" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无近期待办，点击右侧 + 记一个吧" } }
+      }
+    },
+    "home.inspiration.quote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Keep journaling,\nmake everyday moments shine bright." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "持续记录，\n会让普通的日子闪闪发光。" } }
+      }
+    },
+    "home.banner.quote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Life is not elsewhere,\nbut in every moment you record." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "生活不在别处，\n而在每一个被记录的当下。" } }
+      }
+    },
+    "home.search.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Search" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "搜索" } }
+      }
+    },
+    "home.search.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Search feature is in preparation, and will soon support todos, schedules, and notes." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "搜索功能正在准备中，后续将支持快速检索待办、日程与记录。" } }
+      }
+    },
+    "home.notifications.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Notifications" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "通知中心" } }
+      }
+    },
+    "home.notifications.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No unread reminders. Small records make daily life clearer." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无未读系统提醒。每天记录一点点，生活更清晰。" } }
+      }
+    },
+    "home.notifications.dismiss" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Got it" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "我知道了" } }
+      }
+    },
+    "home.todo.new" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New Todo" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新建待办" } }
+      }
+    },
+    "home.todo.placeholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "What would you like to record?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "想记录什么待办事项？" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

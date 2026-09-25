@@ -14,7 +14,7 @@ public struct TodayOverviewCardView: View {
         VStack(spacing: 16) {
             // 顶部标题栏
             HStack {
-                Text("今日概览")
+                Text("home.overview.title")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
 
@@ -24,7 +24,7 @@ public struct TodayOverviewCardView: View {
                     onMoreTapped?()
                 }) {
                     HStack(spacing: 3) {
-                        Text("更多")
+                        Text("common.more")
                             .font(.system(size: 13, weight: .regular))
                         Image(systemName: "chevron.right")
                             .font(.system(size: 10, weight: .semibold))
@@ -39,7 +39,7 @@ public struct TodayOverviewCardView: View {
                 // 1. 待办
                 overviewColumn(
                     dotColor: AppColors.primaryBlue,
-                    title: "待办",
+                    titleKey: "home.overview.todo_short",
                     valueView: AnyView(
                         HStack(alignment: .firstTextBaseline, spacing: 2) {
                             Text("\(data.todoCompleted)")
@@ -57,7 +57,7 @@ public struct TodayOverviewCardView: View {
                 // 2. 日程
                 overviewColumn(
                     dotColor: AppColors.overviewSchedule,
-                    title: "日程",
+                    titleKey: "home.overview.schedule_short",
                     valueView: AnyView(
                         Text("\(data.scheduleCount)")
                             .font(.system(size: 18, weight: .bold))
@@ -70,11 +70,13 @@ public struct TodayOverviewCardView: View {
                 // 3. 支出
                 overviewColumn(
                     dotColor: AppColors.overviewExpense,
-                    title: "支出",
+                    titleKey: "home.overview.expense_short",
                     valueView: AnyView(
                         Text(data.formattedExpense)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(AppColors.overviewExpense)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                     ),
                     progress: 0.35,
                     progressColor: AppColors.overviewExpense
@@ -83,7 +85,7 @@ public struct TodayOverviewCardView: View {
                 // 4. 学习
                 overviewColumn(
                     dotColor: AppColors.overviewStudy,
-                    title: "学习",
+                    titleKey: "home.overview.study_short",
                     valueView: AnyView(
                         HStack(alignment: .firstTextBaseline, spacing: 2) {
                             Text(data.formattedStudyHours)
@@ -111,7 +113,7 @@ public struct TodayOverviewCardView: View {
     @ViewBuilder
     private func overviewColumn(
         dotColor: Color,
-        title: String,
+        titleKey: LocalizedStringKey,
         valueView: AnyView,
         progress: Double,
         progressColor: Color
@@ -123,9 +125,11 @@ public struct TodayOverviewCardView: View {
                     .fill(dotColor)
                     .frame(width: 6, height: 6)
 
-                Text(title)
+                Text(titleKey)
                     .font(.system(size: 12, weight: .regular))
                     .foregroundColor(AppColors.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
 
             // 中间数值

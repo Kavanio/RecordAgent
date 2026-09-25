@@ -14,7 +14,7 @@ public struct RecentTodosCardView: View {
         VStack(spacing: 16) {
             // 顶部标题与全部按钮
             HStack {
-                Text("近期待办")
+                Text("home.recent_todos")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
 
@@ -24,7 +24,7 @@ public struct RecentTodosCardView: View {
                     onAllTapped?()
                 }) {
                     HStack(spacing: 3) {
-                        Text("全部")
+                        Text("home.all_todos")
                             .font(.system(size: 13, weight: .regular))
                         Image(systemName: "chevron.right")
                             .font(.system(size: 10, weight: .semibold))
@@ -36,7 +36,7 @@ public struct RecentTodosCardView: View {
 
             // 待办清单
             if viewModel.recentTodos.isEmpty {
-                Text("暂无近期待办，点击右侧 + 记一个吧")
+                Text("home.empty_todos")
                     .font(.system(size: 13))
                     .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)

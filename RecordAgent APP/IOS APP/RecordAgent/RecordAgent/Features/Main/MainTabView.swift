@@ -8,11 +8,11 @@ public enum AppTab: Int, CaseIterable, Identifiable {
 
     public var id: Int { rawValue }
 
-    public var title: String {
+    public var title: LocalizedStringKey {
         switch self {
-        case .home: return "首页"
-        case .discover: return "发现"
-        case .profile: return "我的"
+        case .home: return "tab.home"
+        case .discover: return "tab.discover"
+        case .profile: return "tab.profile"
         }
     }
 
@@ -85,6 +85,8 @@ public struct MainTabView: View {
                             Text(tab.title)
                                 .font(.system(size: 11, weight: isSelected ? .medium : .regular))
                                 .foregroundColor(isSelected ? AppColors.primaryBlue : AppColors.tabInactive)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.top, 8)
@@ -104,7 +106,6 @@ public struct MainTabView: View {
     }
 }
 
-
 /// 发现页面占位（待后续功能扩展）
 struct DiscoverPlaceholderView: View {
     var body: some View {
@@ -116,11 +117,11 @@ struct DiscoverPlaceholderView: View {
                     .font(.system(size: 54))
                     .foregroundColor(AppColors.primaryBlue)
 
-                Text("发现精彩")
+                Text("discover.title")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(AppColors.textPrimary)
 
-                Text("更多精选记录模板、生活灵感与数据洞察\n正在精心准备中。")
+                Text("discover.subtitle")
                     .font(.system(size: 14))
                     .foregroundColor(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
@@ -129,7 +130,7 @@ struct DiscoverPlaceholderView: View {
                 Spacer()
             }
             .background(AppColors.pageBackground)
-            .navigationTitle("发现")
+            .navigationTitle(Text("tab.discover"))
             .navigationBarTitleDisplayMode(.inline)
         }
     }
@@ -137,58 +138,122 @@ struct DiscoverPlaceholderView: View {
 
 /// 个人中心/我的页面
 struct ProfileView: View {
+    @EnvironmentObject private var environment: AppEnvironment
     let onLogout: () -> Void
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                // 用户简要资料卡片
-                HStack(spacing: 16) {
-                    Circle()
-                        .fill(AppColors.segmentSelectedBg)
-                        .frame(width: 60, height: 60)
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 28))
-                                .foregroundColor(AppColors.primaryBlue)
-                        )
+            ScrollView {
+                VStack(spacing: 20) {
+                    // 用户简要资料卡片
+                    HStack(spacing: 16) {
+                        Circle()
+                            .fill(AppColors.segmentSelectedBg)
+                            .frame(width: 60, height: 60)
+                            .overlay(
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 28))
+                                    .foregroundColor(AppColors.primaryBlue)
+                            )
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("王俊")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(AppColors.textPrimary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("profile.user_name")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(AppColors.textPrimary)
 
-                        Text("已记录 128 天 · 持续发光中")
-                            .font(.system(size: 13))
-                            .foregroundColor(AppColors.textSecondary)
+                            Text("profile.recorded_days \(128)")
+                                .font(.system(size: 13))
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+
+                        Spacer()
                     }
+                    .padding(20)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: Color.black.opacity(0.03), radius: 8, y: 2)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
 
-                    Spacer()
+                    // 通用设置卡片
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("profile.settings.section.general")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(AppColors.textSecondary)
+                            .padding(.horizontal, 4)
+
+                        VStack(spacing: 0) {
+                            // 语言切换选项行
+                            HStack {
+                                Image(systemName: "globe")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(AppColors.primaryBlue)
+                                    .frame(width: 28)
+
+                                Text("profile.settings.language")
+                                    .font(.system(size: 15, weight: .regular))
+                                    .foregroundColor(AppColors.textPrimary)
+
+                                Spacer()
+
+                                Menu {
+                                    ForEach(AppLanguage.allCases) { lang in
+                                        Button {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                environment.setLanguage(lang)
+                                            }
+                                        } label: {
+                                            HStack {
+                                                Text(lang.displayName)
+                                                if environment.selectedLanguage == lang {
+                                                    Image(systemName: "checkmark")
+                                                }
+                                            }
+                                        }
+                                    }
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Text(environment.selectedLanguage.displayName)
+                                            .font(.system(size: 14))
+                                            .foregroundColor(AppColors.textSecondary)
+
+                                        Image(systemName: "chevron.up.chevron.down")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(AppColors.placeholderText)
+                                    }
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 10)
+                                    .background(Color.black.opacity(0.03))
+                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .frame(height: 54)
+                        }
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .shadow(color: Color.black.opacity(0.03), radius: 8, y: 2)
+                    }
+                    .padding(.horizontal, 16)
+
+                    Spacer(minLength: 40)
+
+                    // 退出登录按钮
+                    Button(action: onLogout) {
+                        Text("auth.logout")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(Color.red.opacity(0.9))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(Color.red.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 90) // 避开底部 TabBar
                 }
-                .padding(20)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .shadow(color: Color.black.opacity(0.03), radius: 8, y: 2)
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-
-                Spacer()
-
-                // 退出登录按钮
-                Button(action: onLogout) {
-                    Text("退出登录")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Color.red.opacity(0.9))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(Color.red.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 90) // 避开底部 TabBar
             }
             .background(AppColors.pageBackground)
-            .navigationTitle("我的")
+            .navigationTitle(Text("tab.profile"))
             .navigationBarTitleDisplayMode(.inline)
         }
     }

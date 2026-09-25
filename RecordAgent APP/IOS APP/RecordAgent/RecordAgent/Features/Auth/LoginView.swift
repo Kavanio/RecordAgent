@@ -3,6 +3,7 @@ import SwiftUI
 /// 完全对齐高保真设计图的登录与注册主视图
 @MainActor
 public struct LoginView: View {
+    @EnvironmentObject private var environment: AppEnvironment
     @StateObject private var viewModel: AuthViewModel
     @FocusState private var focusedField: FormField?
 
@@ -73,10 +74,10 @@ public struct LoginView: View {
                 }
             }
         }
-        .alert("提示", isPresented: $viewModel.showErrorAlert) {
-            Button("好的", role: .cancel) {}
+        .alert(Text("common.alert.title"), isPresented: $viewModel.showErrorAlert) {
+            Button("common.ok", role: .cancel) {}
         } message: {
-            Text(viewModel.errorMessage ?? "未知错误")
+            Text(viewModel.errorMessage ?? "")
         }
         .sheet(isPresented: $viewModel.showAgreementSheet) {
             AgreementSheetView(type: viewModel.agreementType)
@@ -93,16 +94,21 @@ public struct LoginView: View {
             Spacer()
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    viewModel.toggleLanguage()
+                    let nextLanguage: AppLanguage = (environment.selectedLanguage == .en) ? .zhHans : .en
+                    environment.setLanguage(nextLanguage)
                 }
             }) {
-                Text(viewModel.currentLanguage == "中" ? "中 / En" : "En / 中")
-                    .font(.system(size: 13.5, weight: .regular))
-                    .foregroundColor(AppColors.textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Color.white.opacity(0.65))
-                    .clipShape(Capsule())
+                HStack(spacing: 4) {
+                    Image(systemName: "globe")
+                        .font(.system(size: 12))
+                    Text(environment.selectedLanguage == .en ? "En / 中" : "中 / En")
+                        .font(.system(size: 13, weight: .regular))
+                }
+                .foregroundColor(AppColors.textSecondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.white.opacity(0.65))
+                .clipShape(Capsule())
             }
             .buttonStyle(.plain)
         }
@@ -114,14 +120,14 @@ public struct LoginView: View {
 
     private var heroHeaderSection: some View {
         HStack(alignment: .bottom, spacing: 6) {
-            // 左侧艺术书法字体标语（原版书法宋体与record水彩手写高光）
+            // 左侧艺术书法字体标语
             Image("LoginPageTitle")
                 .resizable()
                 .scaledToFit()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: 176)
 
-            // 右侧插画区（原版手绘 ready to record ? 气泡与蓝发角色电脑桌）
+            // 右侧插画区
             VStack(alignment: .trailing, spacing: -6) {
                 Image("LoginPageBubble")
                     .resizable()
@@ -142,7 +148,7 @@ public struct LoginView: View {
     private var segmentSwitcherSection: some View {
         HStack(spacing: 0) {
             if viewModel.authMode == .register {
-                Text("新用户注册")
+                Text("auth.register.mode_title")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(AppColors.textPrimary)
 
@@ -154,7 +160,7 @@ public struct LoginView: View {
                     }
                 }) {
                     HStack(spacing: 3) {
-                        Text("返回登录")
+                        Text("auth.back_to_login")
                             .font(.system(size: 14, weight: .medium))
                         Image(systemName: "chevron.right")
                             .font(.system(size: 11, weight: .semibold))
@@ -164,8 +170,8 @@ public struct LoginView: View {
                 .buttonStyle(.plain)
             } else {
                 HStack(spacing: 3) {
-                    segmentButton(title: "密码登录", mode: .passwordLogin)
-                    segmentButton(title: "验证码登录", mode: .codeLogin)
+                    segmentButton(titleKey: "auth.mode.password", mode: .passwordLogin)
+                    segmentButton(titleKey: "auth.mode.code", mode: .codeLogin)
                 }
                 .padding(3)
                 .background(AppColors.segmentBarBg)
@@ -179,7 +185,7 @@ public struct LoginView: View {
                     }
                 }) {
                     HStack(spacing: 3) {
-                        Text("注册")
+                        Text("auth.register.switch")
                             .font(.system(size: 14, weight: .regular))
                         Image(systemName: "chevron.right")
                             .font(.system(size: 11, weight: .medium))
@@ -191,14 +197,14 @@ public struct LoginView: View {
         }
     }
 
-    private func segmentButton(title: String, mode: AuthMode) -> some View {
+    private func segmentButton(titleKey: LocalizedStringKey, mode: AuthMode) -> some View {
         let isSelected = viewModel.authMode == mode
         return Button(action: {
             withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
                 viewModel.authMode = mode
             }
         }) {
-            Text(title)
+            Text(titleKey)
                 .font(.system(size: 13.5, weight: isSelected ? .medium : .regular))
                 .foregroundColor(isSelected ? AppColors.segmentSelectedText : AppColors.textSecondary)
                 .padding(.horizontal, 16)
@@ -217,7 +223,7 @@ public struct LoginView: View {
         VStack(spacing: 12) {
             AppTextField(
                 iconName: "envelope",
-                placeholder: "请输入邮箱地址",
+                placeholderKey: "auth.email.placeholder",
                 text: $viewModel.email,
                 keyboardType: .emailAddress
             )
@@ -227,7 +233,7 @@ public struct LoginView: View {
             case .passwordLogin:
                 AppTextField(
                     iconName: "lock",
-                    placeholder: "请输入密码",
+                    placeholderKey: "auth.password.placeholder",
                     text: $viewModel.password,
                     isSecure: true
                 )
@@ -236,7 +242,7 @@ public struct LoginView: View {
             case .codeLogin:
                 AppTextField(
                     iconName: "shield.checkered",
-                    placeholder: "请输入验证码",
+                    placeholderKey: "auth.code.placeholder",
                     text: $viewModel.verificationCode,
                     keyboardType: .numberPad,
                     trailingAction: AnyView(verificationCodeButton)
@@ -246,7 +252,7 @@ public struct LoginView: View {
             case .register:
                 AppTextField(
                     iconName: "shield.checkered",
-                    placeholder: "请输入邮箱验证码",
+                    placeholderKey: "auth.code.placeholder",
                     text: $viewModel.verificationCode,
                     keyboardType: .numberPad,
                     trailingAction: AnyView(verificationCodeButton)
@@ -255,7 +261,7 @@ public struct LoginView: View {
 
                 AppTextField(
                     iconName: "lock",
-                    placeholder: "设置密码（不少于 6 位）",
+                    placeholderKey: "auth.password.set_placeholder",
                     text: $viewModel.password,
                     isSecure: true
                 )
@@ -268,10 +274,17 @@ public struct LoginView: View {
         Button(action: {
             viewModel.sendVerificationCode()
         }) {
-            Text(viewModel.countdownSeconds > 0 ? "\(viewModel.countdownSeconds)s 后重发" : "获取验证码")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(viewModel.countdownSeconds > 0 ? AppColors.placeholderText : AppColors.primaryBlue)
-                .padding(.horizontal, 6)
+            if viewModel.countdownSeconds > 0 {
+                Text("auth.code.resend \(viewModel.countdownSeconds)")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(AppColors.placeholderText)
+                    .padding(.horizontal, 6)
+            } else {
+                Text("auth.code.get")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(AppColors.primaryBlue)
+                    .padding(.horizontal, 6)
+            }
         }
         .disabled(viewModel.countdownSeconds > 0)
         .buttonStyle(.plain)
@@ -301,7 +314,7 @@ public struct LoginView: View {
                         }
                     }
 
-                    Text("记住我")
+                    Text("auth.remember_me")
                         .font(.system(size: 13))
                         .foregroundColor(AppColors.textSecondary)
                 }
@@ -313,7 +326,7 @@ public struct LoginView: View {
             Button(action: {
                 viewModel.showForgotPasswordSheet = true
             }) {
-                Text("忘记密码？")
+                Text("auth.forgot_password")
                     .font(.system(size: 13))
                     .foregroundColor(AppColors.textSecondary)
             }
@@ -325,7 +338,7 @@ public struct LoginView: View {
 
     private var submitButtonSection: some View {
         AppButton(
-            title: viewModel.authMode == .register ? "注册并登录" : "登录",
+            viewModel.authMode == .register ? "auth.register.button" : "auth.login.button",
             iconName: "arrow.right",
             isLoading: viewModel.isLoading,
             isEnabled: true
@@ -344,9 +357,11 @@ public struct LoginView: View {
                     .fill(Color(red: 0.88, green: 0.90, blue: 0.93))
                     .frame(width: 32, height: 0.8)
 
-                Text("一个账号，同步桌面与 iPhone 记录")
+                Text("auth.sync_slogan")
                     .font(.system(size: 12))
                     .foregroundColor(AppColors.textTertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
                 Rectangle()
                     .fill(Color(red: 0.88, green: 0.90, blue: 0.93))
@@ -366,18 +381,22 @@ public struct LoginView: View {
 
     private var legalFooterSection: some View {
         HStack(spacing: 12) {
-            Button("隐私政策") {
+            Button {
                 viewModel.agreementType = .privacy
                 viewModel.showAgreementSheet = true
+            } label: {
+                Text("auth.agreement.privacy_title")
             }
             .foregroundColor(AppColors.textTertiary)
 
             Text("|")
                 .foregroundColor(Color(red: 0.88, green: 0.90, blue: 0.93))
 
-            Button("用户协议") {
+            Button {
                 viewModel.agreementType = .userTerms
                 viewModel.showAgreementSheet = true
+            } label: {
+                Text("auth.agreement.terms_title")
             }
             .foregroundColor(AppColors.textTertiary)
         }
