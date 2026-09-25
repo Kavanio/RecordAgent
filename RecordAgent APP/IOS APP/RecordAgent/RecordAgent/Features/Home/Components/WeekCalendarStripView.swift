@@ -1,84 +1,111 @@
 import SwiftUI
 
-/// 首页横向周历选择条：左侧月份切换，右侧周一到周日日期列表
-public struct WeekCalendarStripView: View {
+/// 周历采用原生分页滚动，滑动保留星期位置，月份选择与内容日期同步。
+struct WeekCalendarStripView: View {
     @ObservedObject var viewModel: HomeViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .caption) private var weekHeight = 84.0
+    @State private var visibleWeek: Date?
+    @State private var showMonths = false
 
-    public init(viewModel: HomeViewModel) {
+    init(viewModel: HomeViewModel) {
         self.viewModel = viewModel
+        _visibleWeek = State(initialValue: viewModel.dates.startOfWeek(containing: viewModel.selectedDate))
     }
 
-    public var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            // 左侧月份切换选择器
-            Button(action: {
-                // 点击可触发展开月历或切换月份
-            }) {
-                HStack(spacing: 4) {
-                    Text(viewModel.currentMonthText)
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(AppColors.textPrimary)
-
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(AppColors.textPrimary)
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack {
+                Button {
+                    showMonths = true
+                } label: {
+                    HStack(spacing: 7) {
+                        Text(viewModel.selectedDate, format: .dateTime.year().month(.wide))
+                            .font(.subheadline.weight(.semibold))
+                        Image(systemName: "chevron.down").font(.caption2.weight(.bold))
+                    }
+                    .foregroundStyle(.primary)
+                    .frame(minHeight: 44)
                 }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 4)
+                .accessibilityHint(Text("home.month.choose"))
+                .popover(isPresented: $showMonths) {
+                    HomeMonthPickerView(selectedDate: viewModel.selectedDate, dates: viewModel.dates) { year, month in
+                        viewModel.selectMonth(year: year, month: month)
+                        showMonths = false
+                    }
+                    .presentationCompactAdaptation(.sheet)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                }
+                Spacer()
+                Button("home.today") { viewModel.selectDate(.now) }
+                    .font(.caption.weight(.medium))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .opacity(viewModel.dates.calendar.isDateInToday(viewModel.selectedDate) ? 0.45 : 1)
+                    .disabled(viewModel.dates.calendar.isDateInToday(viewModel.selectedDate))
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 24)
 
-            Spacer(minLength: 4)
-
-            // 右侧周一至周日 7 天排布
-            HStack(spacing: 0) {
-                ForEach(viewModel.weekDays) { day in
-                    let isSelected = (day.id == viewModel.selectedDateId)
-
-                    Button(action: {
-                        viewModel.selectDate(day)
-                    }) {
-                        VStack(spacing: 6) {
-                            // 星期字样（一、二、三...）
-                            Text(day.weekdaySymbol)
-                                .font(.system(size: 11, weight: .regular))
-                                .foregroundColor(isSelected ? AppColors.primaryBlue : AppColors.textSecondary)
-
-                            // 日期数字与选中指示圆
-                            ZStack {
-                                if isSelected {
-                                    Circle()
-                                        .fill(AppColors.primaryBlue)
-                                        .frame(width: 32, height: 32)
-                                        .shadow(color: AppColors.primaryBlue.opacity(0.3), radius: 4, y: 2)
-                                } else {
-                                    Color.clear
-                                        .frame(width: 32, height: 32)
-                                }
-
-                                Text("\(day.dayNumber)")
-                                    .font(.system(size: 13, weight: isSelected ? .bold : .medium))
-                                    .foregroundColor(isSelected ? .white : AppColors.textPrimary)
-                            }
-
-                            // 选中日期下方的小圆点指示器
-                            if isSelected {
-                                Circle()
-                                    .fill(AppColors.primaryBlue)
-                                    .frame(width: 3.5, height: 3.5)
-                            } else {
-                                Color.clear
-                                    .frame(width: 3.5, height: 3.5)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 0) {
+                    ForEach(viewModel.weekStarts, id: \.self) { week in
+                        HStack(spacing: 0) {
+                            ForEach(viewModel.dates.days(inWeek: week), id: \.self) { date in
+                                dayButton(date)
                             }
                         }
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
+                        .containerRelativeFrame(.horizontal)
+                        .id(week)
                     }
-                    .buttonStyle(.plain)
                 }
+                .scrollTargetLayout()
+            }
+            .frame(height: weekHeight)
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $visibleWeek)
+            .onChange(of: visibleWeek) { _, week in
+                if let week { viewModel.selectWeek(week) }
+            }
+            .onChange(of: viewModel.selectedDate) { _, date in
+                let week = viewModel.dates.startOfWeek(containing: date)
+                guard visibleWeek != week else { return }
+                withAnimation(reduceMotion ? nil : .smooth(duration: 0.32)) { visibleWeek = week }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 4)
+        .buttonStyle(.plain)
+    }
+
+    private func dayButton(_ date: Date) -> some View {
+        let selected = viewModel.dates.calendar.isDate(date, inSameDayAs: viewModel.selectedDate)
+        let today = viewModel.dates.calendar.isDateInToday(date)
+        return Button {
+            viewModel.selectDate(date)
+        } label: {
+            VStack(spacing: 7) {
+                Text(date, format: .dateTime.weekday(.narrow))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text(date, format: .dateTime.day())
+                    .font(.subheadline.weight(selected ? .semibold : .regular))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .monospacedDigit()
+                    .foregroundStyle(selected ? Color.white : Color.primary)
+                    .frame(minWidth: 34, minHeight: 34)
+                    .padding(2)
+                    .background { if selected { Circle().fill(AppColors.primaryBlue) } }
+                Circle()
+                    .fill(today ? AppColors.primaryBlue : .clear)
+                    .frame(width: 4, height: 4)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 3)
+            .contentShape(Rectangle())
+        }
+        .disabled(!viewModel.dates.supportedDates.contains(date))
+        .accessibilityLabel(Text(date, format: .dateTime.year().month().day().weekday()))
+        .accessibilityValue(today ? Text("home.today") : Text(verbatim: ""))
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .animation(reduceMotion ? nil : .smooth(duration: 0.22), value: selected)
     }
 }

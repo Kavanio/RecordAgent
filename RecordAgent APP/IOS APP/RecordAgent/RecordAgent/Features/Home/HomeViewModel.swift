@@ -1,113 +1,103 @@
+import Combine
 import Foundation
-import SwiftUI
 
-/// 首页交互与数据状态驱动视图模型
 @MainActor
-public final class HomeViewModel: ObservableObject {
-    // MARK: - 用户信息与问候
-    @Published public var userName: String = "王俊"
-    @Published public var greetingSubtitle: String = "新的一天，也会很好。"
+final class HomeViewModel: ObservableObject {
+    @Published private(set) var selectedDate: Date
+    @Published private(set) var weekStarts: [Date]
+    @Published private(set) var snapshot: HomeDaySnapshot?
+    @Published private(set) var isLoading = false
+    @Published private(set) var loadFailed = false
+    @Published private(set) var savingTodoIDs: Set<String> = []
+    @Published var showWriteError = false
+    @Published var showSearchAlert = false
+    @Published var showNotificationAlert = false
+    @Published var category: HomeCategory?
 
-    // MARK: - 日期与周历条
-    @Published public var currentMonthText: String = "9月"
-    @Published public var weekDays: [WeekCalendarDay] = []
-    @Published public var selectedDateId: String = ""
+    let dates: HomeCalendar
+    private let service: any HomeDataServiceProtocol
+    private var loadRevision = 0
 
-    // MARK: - 核心概览指标
-    @Published public var overviewData: HomeOverviewData = HomeOverviewData(
-        todoCompleted: 3,
-        todoTotal: 5,
-        scheduleCount: 2,
-        expenseAmount: 86.5,
-        studyHours: 2.5
-    )
-
-    // MARK: - 近期待办清单
-    @Published public var recentTodos: [RecentTodoItem] = [
-        RecentTodoItem(title: "完成八股文复习", timeString: "10:00", isCompleted: false),
-        RecentTodoItem(title: "整理项目文档", timeString: "14:00", isCompleted: false),
-        RecentTodoItem(title: "健身 30 分钟", timeString: "今天", isCompleted: false)
-    ]
-
-    // MARK: - 交互弹窗与反馈
-    @Published public var showQuickAddSheet: Bool = false
-    @Published public var quickAddTitle: String = ""
-    @Published public var showSearchAlert: Bool = false
-    @Published public var showNotificationAlert: Bool = false
-    @Published public var unreadNotificationCount: Int = 1
-
-    public init() {
-        setupWeekDays()
+    init(service: any HomeDataServiceProtocol, now: Date = .now, calendar: Calendar = .current) {
+        self.service = service
+        self.dates = HomeCalendar(calendar: calendar)
+        self.selectedDate = calendar.startOfDay(for: now)
+        self.weekStarts = dates.weeks(around: now)
     }
 
-    /// 初始化周历日期数据（对齐设计图：9月 21~27 日，23 日选中）
-    private func setupWeekDays() {
-        let calendar = Calendar.current
-        let weekdayNames = ["一", "二", "三", "四", "五", "六", "日"]
-        var days: [WeekCalendarDay] = []
+    var visibleEntries: [HomeEntry] { entries(in: category) }
+    func entries(in category: HomeCategory?) -> [HomeEntry] {
+        (snapshot?.entries ?? []).filter { category == nil || $0.kind.category == category }
+    }
 
-        // 构建 21 ~ 27 日
-        for (index, dayNum) in (21...27).enumerated() {
-            var components = DateComponents()
-            components.year = 2026
-            components.month = 9
-            components.day = dayNum
-            let date = calendar.date(from: components) ?? Date()
-            let isToday = (dayNum == 23)
-            let item = WeekCalendarDay(
-                date: date,
-                weekdaySymbol: weekdayNames[index % 7],
-                dayNumber: dayNum,
-                isToday: isToday
-            )
-            days.append(item)
-        }
-
-        self.weekDays = days
-        // 默认选中 23 号
-        if let defaultSelected = days.first(where: { $0.dayNumber == 23 }) {
-            self.selectedDateId = defaultSelected.id
-        } else if let first = days.first {
-            self.selectedDateId = first.id
+    func selectDate(_ date: Date) {
+        let normalized = dates.calendar.startOfDay(for: date)
+        guard dates.supportedDates.contains(normalized), normalized != selectedDate else { return }
+        selectedDate = normalized
+        loadRevision += 1
+        snapshot = nil
+        loadFailed = false
+        isLoading = true
+        let week = dates.startOfWeek(containing: normalized)
+        if !weekStarts.contains(week) {
+            weekStarts = dates.weeks(around: normalized)
+        } else if week == weekStarts.first {
+            weekStarts.insert(
+                contentsOf: (-26..<0).map { dates.addingDays($0 * 7, to: week) }.filter(dates.isSupportedWeek), at: 0)
+        } else if week == weekStarts.last {
+            weekStarts.append(
+                contentsOf: (1...26).map { dates.addingDays($0 * 7, to: week) }.filter(dates.isSupportedWeek))
         }
     }
 
-    /// 切换选中的日期
-    public func selectDate(_ day: WeekCalendarDay) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-            self.selectedDateId = day.id
+    func selectWeek(_ week: Date) {
+        let currentWeek = dates.startOfWeek(containing: selectedDate)
+        guard currentWeek != week else { return }
+        let offset = dates.calendar.dateComponents([.day], from: currentWeek, to: selectedDate).day ?? 0
+        let candidate = dates.addingDays(offset, to: week)
+        selectDate(min(max(candidate, dates.supportedDates.lowerBound), dates.supportedDates.upperBound))
+    }
+
+    func selectMonth(year: Int, month: Int) {
+        guard let date = dates.date(inYear: year, month: month, preservingDayOf: selectedDate) else { return }
+        selectDate(date)
+    }
+
+    /// revision 与日期双重检查，防止快速滑动时旧请求覆盖当前日期。
+    func load(locale: Locale) async {
+        loadRevision += 1
+        let revision = loadRevision
+        let date = selectedDate
+        isLoading = true
+        loadFailed = false
+        do {
+            let result = try await service.snapshot(for: date, locale: locale)
+            guard !Task.isCancelled, revision == loadRevision, date == selectedDate else { return }
+            snapshot = result
+            isLoading = false
+        } catch {
+            guard revision == loadRevision else { return }
+            isLoading = false
+            if !(error is CancellationError) { loadFailed = true }
         }
     }
 
-    /// 勾选/取消勾选待办事项，并联动概览数据中的完成计数
-    public func toggleTodoCompletion(id: UUID) {
-        guard let index = recentTodos.firstIndex(where: { $0.id == id }) else { return }
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-            let newState = !recentTodos[index].isCompleted
-            recentTodos[index].isCompleted = newState
-
-            // 联动今日概览完成数
-            if newState {
-                overviewData.todoCompleted = min(overviewData.todoCompleted + 1, overviewData.todoTotal)
-            } else {
-                overviewData.todoCompleted = max(overviewData.todoCompleted - 1, 0)
-            }
-        }
-    }
-
-    /// 快捷添加待办
-    public func addQuickTodo() {
-        guard !quickAddTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let newTodo = RecentTodoItem(
-            title: quickAddTitle.trimmingCharacters(in: .whitespacesAndNewlines),
-            timeString: "今天",
-            isCompleted: false
-        )
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            recentTodos.insert(newTodo, at: 0)
-            overviewData.todoTotal += 1
-            quickAddTitle = ""
-            showQuickAddSheet = false
+    /// 服务确认后更新当前快照；离开日期后不把旧日数据写入新日。
+    func toggleTodo(_ entry: HomeEntry) async {
+        guard entry.kind == .todo, !savingTodoIDs.contains(entry.id),
+            let current = snapshot?.entries.first(where: { $0.id == entry.id })
+        else { return }
+        let date = selectedDate
+        savingTodoIDs.insert(entry.id)
+        defer { savingTodoIDs.remove(entry.id) }
+        do {
+            try await service.setTodoCompleted(id: entry.id, completed: !current.isCompleted, date: date)
+            guard selectedDate == date,
+                let index = snapshot?.entries.firstIndex(where: { $0.id == entry.id })
+            else { return }
+            snapshot?.entries[index].isCompleted = !current.isCompleted
+        } catch {
+            if !(error is CancellationError) { showWriteError = true }
         }
     }
 }

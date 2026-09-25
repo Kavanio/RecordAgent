@@ -1,23 +1,23 @@
 import SwiftUI
 
 /// 首页顶部问候栏与快捷操作（搜索、通知）
-public struct HomeHeaderView: View {
+struct HomeHeaderView: View {
     @ObservedObject var viewModel: HomeViewModel
 
-    public init(viewModel: HomeViewModel) {
+    init(viewModel: HomeViewModel) {
         self.viewModel = viewModel
     }
 
-    public var body: some View {
+    var body: some View {
         HStack(alignment: .center) {
             // 左侧用户称谓与问候语
             VStack(alignment: .leading, spacing: 4) {
                 Text("home.greeting")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.title2.bold())
                     .foregroundColor(AppColors.textPrimary)
 
                 Text("home.motto")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.footnote)
                     .foregroundColor(AppColors.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
@@ -26,36 +26,29 @@ public struct HomeHeaderView: View {
             Spacer()
 
             // 右侧搜索与通知图标
-            HStack(spacing: 18) {
+            HStack(spacing: 2) {
                 Button(action: {
                     viewModel.showSearchAlert = true
                 }) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 19, weight: .regular))
                         .foregroundColor(AppColors.textPrimary)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel(Text("home.search.title"))
 
                 Button(action: {
                     viewModel.showNotificationAlert = true
                 }) {
-                    ZStack(alignment: .topTrailing) {
-                        Image(systemName: "bell")
-                            .font(.system(size: 19, weight: .regular))
-                            .foregroundColor(AppColors.textPrimary)
-
-                        if viewModel.unreadNotificationCount > 0 {
-                            Circle()
-                                .fill(Color(red: 1.0, green: 0.43, blue: 0.38)) // 柔和橙红未读指示点
-                                .frame(width: 7, height: 7)
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.white, lineWidth: 1.2)
-                                )
-                                .offset(x: 2, y: -2)
-                        }
-                    }
+                    Image(systemName: "bell")
+                        .font(.system(size: 19, weight: .regular))
+                        .foregroundColor(AppColors.textPrimary)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel(Text("home.notifications.title"))
             }
         }

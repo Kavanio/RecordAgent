@@ -1,260 +1,78 @@
 import SwiftUI
 
-/// 底部导航主 Tab 枚举
-public enum AppTab: Int, CaseIterable, Identifiable {
-    case home = 0
-    case discover = 1
-    case profile = 2
-
-    public var id: Int { rawValue }
-
-    public var title: LocalizedStringKey {
+enum AppTab: String, CaseIterable, Identifiable {
+    case home, calendar, finance, library, record, tasks, profile
+    var id: String { rawValue }
+    var title: LocalizedStringKey {
         switch self {
         case .home: return "tab.home"
-        case .discover: return "tab.discover"
+        case .calendar: return "tab.calendar"
+        case .finance: return "tab.finance"
+        case .library: return "tab.library"
+        case .record: return "tab.record"
+        case .tasks: return "tab.tasks"
         case .profile: return "tab.profile"
         }
     }
-
-    public var iconName: String {
+    var icon: String {
         switch self {
-        case .home: return "house.fill"
-        case .discover: return "safari"
-        case .profile: return "person"
+        case .home: return "house"
+        case .calendar: return "calendar"
+        case .finance: return "chart.pie"
+        case .library: return "books.vertical"
+        case .record: return "timer"
+        case .tasks: return "bell.badge"
+        case .profile: return "person.crop.circle"
         }
     }
-
-    public var selectedIconName: String {
+    var category: HomeCategory? {
         switch self {
-        case .home: return "house.fill"
-        case .discover: return "safari.fill"
-        case .profile: return "person.fill"
+        case .finance: return .finance
+        case .library: return .library
+        case .record: return .record
+        default: return nil
         }
     }
 }
 
-/// 登录后的全局主容器视图：承载自定义底部 TabBar 与各主模块视图
+/// 主容器持有按日状态，切换 Tab 不销毁首页的选择与待办修改。
 @MainActor
-public struct MainTabView: View {
+struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
+    @StateObject private var homeModel: HomeViewModel
+    @Environment(\.locale) private var locale
     let onLogout: () -> Void
 
-    public init(onLogout: @escaping () -> Void) {
+    init(homeService: any HomeDataServiceProtocol, onLogout: @escaping () -> Void) {
+        _homeModel = StateObject(wrappedValue: HomeViewModel(service: homeService))
         self.onLogout = onLogout
     }
 
-    public var body: some View {
+    private struct LoadKey: Equatable {
+        let date: Date
+        let locale: String
+    }
+
+    var body: some View {
         Group {
             switch selectedTab {
             case .home:
-                HomeView()
-            case .discover:
-                DiscoverPlaceholderView()
+                HomeView(viewModel: homeModel)
             case .profile:
                 ProfileView(onLogout: onLogout)
+            default:
+                WorkspacePreviewView(tab: selectedTab, viewModel: homeModel)
+                    .id(selectedTab)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            customTabBar
+            MainNavigationBar(selection: $selectedTab)
         }
-        .ignoresSafeArea(.keyboard, edges: .bottom)
-    }
-
-    /// 自定义底部导航栏：背景无缝延伸至屏幕物理底部，解决悬空空隙问题
-    private var customTabBar: some View {
-        VStack(spacing: 0) {
-            // 顶部微细分割线
-            Divider()
-                .background(Color(red: 0.92, green: 0.94, blue: 0.96))
-
-            HStack {
-                ForEach(AppTab.allCases) { tab in
-                    let isSelected = (selectedTab == tab)
-
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            selectedTab = tab
-                        }
-                    }) {
-                        VStack(spacing: 4) {
-                            Image(systemName: isSelected ? tab.selectedIconName : tab.iconName)
-                                .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
-                                .foregroundColor(isSelected ? AppColors.primaryBlue : AppColors.tabInactive)
-
-                            Text(tab.title)
-                                .font(.system(size: 11, weight: isSelected ? .medium : .regular))
-                                .foregroundColor(isSelected ? AppColors.primaryBlue : AppColors.tabInactive)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 8)
-                        .padding(.bottom, 4)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 24)
+        .tint(AppColors.primaryBlue)
+        .task(id: LoadKey(date: homeModel.selectedDate, locale: locale.identifier)) {
+            await homeModel.load(locale: locale)
         }
-        .background(
-            Color.white.opacity(0.96)
-                .background(.ultraThinMaterial)
-                .ignoresSafeArea(edges: .bottom)
-        )
-    }
-}
 
-/// 发现页面占位（待后续功能扩展）
-struct DiscoverPlaceholderView: View {
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                Spacer()
-
-                Image(systemName: "sparkles.rectangle.stack")
-                    .font(.system(size: 54))
-                    .foregroundColor(AppColors.primaryBlue)
-
-                Text("discover.title")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(AppColors.textPrimary)
-
-                Text("discover.subtitle")
-                    .font(.system(size: 14))
-                    .foregroundColor(AppColors.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-
-                Spacer()
-            }
-            .background(AppColors.pageBackground)
-            .navigationTitle(Text("tab.discover"))
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-}
-
-/// 个人中心/我的页面
-struct ProfileView: View {
-    @EnvironmentObject private var environment: AppEnvironment
-    let onLogout: () -> Void
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // 用户简要资料卡片
-                    HStack(spacing: 16) {
-                        Circle()
-                            .fill(AppColors.segmentSelectedBg)
-                            .frame(width: 60, height: 60)
-                            .overlay(
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 28))
-                                    .foregroundColor(AppColors.primaryBlue)
-                            )
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("profile.user_name")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(AppColors.textPrimary)
-
-                            Text("profile.recorded_days \(128)")
-                                .font(.system(size: 13))
-                                .foregroundColor(AppColors.textSecondary)
-                        }
-
-                        Spacer()
-                    }
-                    .padding(20)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.03), radius: 8, y: 2)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-
-                    // 通用设置卡片
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("profile.settings.section.general")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(AppColors.textSecondary)
-                            .padding(.horizontal, 4)
-
-                        VStack(spacing: 0) {
-                            // 语言切换选项行
-                            HStack {
-                                Image(systemName: "globe")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(AppColors.primaryBlue)
-                                    .frame(width: 28)
-
-                                Text("profile.settings.language")
-                                    .font(.system(size: 15, weight: .regular))
-                                    .foregroundColor(AppColors.textPrimary)
-
-                                Spacer()
-
-                                Menu {
-                                    ForEach(AppLanguage.allCases) { lang in
-                                        Button {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                environment.setLanguage(lang)
-                                            }
-                                        } label: {
-                                            HStack {
-                                                Text(lang.displayName)
-                                                if environment.selectedLanguage == lang {
-                                                    Image(systemName: "checkmark")
-                                                }
-                                            }
-                                        }
-                                    }
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Text(environment.selectedLanguage.displayName)
-                                            .font(.system(size: 14))
-                                            .foregroundColor(AppColors.textSecondary)
-
-                                        Image(systemName: "chevron.up.chevron.down")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(AppColors.placeholderText)
-                                    }
-                                    .padding(.vertical, 8)
-                                    .padding(.horizontal, 10)
-                                    .background(Color.black.opacity(0.03))
-                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .frame(height: 54)
-                        }
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: Color.black.opacity(0.03), radius: 8, y: 2)
-                    }
-                    .padding(.horizontal, 16)
-
-                    Spacer(minLength: 40)
-
-                    // 退出登录按钮
-                    Button(action: onLogout) {
-                        Text("auth.logout")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(Color.red.opacity(0.9))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 48)
-                            .background(Color.red.opacity(0.08))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 90) // 避开底部 TabBar
-                }
-            }
-            .background(AppColors.pageBackground)
-            .navigationTitle(Text("tab.profile"))
-            .navigationBarTitleDisplayMode(.inline)
-        }
     }
 }

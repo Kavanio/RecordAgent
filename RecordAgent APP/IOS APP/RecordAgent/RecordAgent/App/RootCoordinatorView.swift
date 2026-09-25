@@ -3,6 +3,7 @@ import SwiftUI
 /// 根导航协调器：负责在未登录（登录页）与已登录（主界面）之间无缝切换
 @MainActor
 public struct RootCoordinatorView: View {
+    @EnvironmentObject private var environment: AppEnvironment
     @StateObject private var authViewModel: AuthViewModel
 
     public init(authViewModel: AuthViewModel) {
@@ -12,14 +13,16 @@ public struct RootCoordinatorView: View {
     public var body: some View {
         Group {
             if authViewModel.isAuthenticated {
-                MainTabView(onLogout: {
-                    Task {
-                        try? await MockAuthService().logout()
-                        await MainActor.run {
-                            authViewModel.isAuthenticated = false
+                MainTabView(
+                    homeService: environment.homeService,
+                    onLogout: {
+                        Task {
+                            try? await MockAuthService().logout()
+                            await MainActor.run {
+                                authViewModel.isAuthenticated = false
+                            }
                         }
-                    }
-                })
+                    })
             } else {
                 LoginView(viewModel: authViewModel)
             }
