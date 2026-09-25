@@ -19,6 +19,11 @@ targets:
       - path: RecordAgent
     info:
       path: RecordAgent/App/Info.plist
+      properties:
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+
     settings:
       base:
         PRODUCT_NAME: RecordAgent
