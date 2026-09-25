@@ -1,6 +1,6 @@
 # RecordAgent iOS 工程约束
 
-本文件适用于当前目录及全部子目录，叠加仓库根目录 `AGENTS.md`。每次修改前读取两者；涉及产品范围、接口或数据归属时，另读 [开发前规划.md](开发前规划.md)；处理桌面历史数据迁移时，另读 [桌面历史数据迁移-后续事项.md](桌面历史数据迁移-后续事项.md)。本文是 iOS 工程的强制工作契约。
+本文件适用于当前目录及全部子目录，叠加仓库根目录 `AGENTS.md`。每次修改前读取两者；涉及产品范围、接口或数据归属时，另读 [开发前规划.md](开发前规划.md)；涉及多语言设计与文案约束时，另读 [国际化规范.md](国际化规范.md)；处理桌面历史数据迁移时，另读 [桌面历史数据迁移-后续事项.md](桌面历史数据迁移-后续事项.md)。本文是 iOS 工程的强制工作契约。
 
 ## 一、范围与技术基线
 
@@ -35,10 +35,10 @@
 - 使用 Swift Concurrency 的 `async/await` 和结构化任务；UI 状态更新在 `MainActor`，取消时传播取消，不在 `View.body` 发请求。异步操作明确加载、成功、空、失败与重试状态，避免重复提交。
 - 用明确的错误类型处理网络、鉴权、校验、冲突、离线和服务端故障。禁止 `try!`、强制解包外部数据或静默 `catch`；用户只看到可理解的中文错误，日志保留排障上下文但不含敏感内容。
 - 避免 `Any`、魔法字符串和重复的日期/金额转换；用类型化 DTO、枚举与集中映射。金额按最小货币单位整数传输，日期、时间、IANA 时区分别表达；更新按 API 要求携带版本号。
-- SwiftUI 组件提供清晰的输入和事件边界、稳定标识及无障碍标签。重复交互抽成共用组件；布局适配动态字体、安全区域、深浅色和常见屏宽，用户可见文案统一使用清晰中文并预留本地化入口。
+- SwiftUI 组件提供清晰的输入和事件边界、稳定标识及无障碍标签。重复交互抽成共用组件；布局适配动态字体、安全区域、深浅色和常见屏宽。**多语言与文案规范**：全面采用 iOS 17 String Catalogs（`Localizable.xcstrings`），控件对外接口优先使用 `LocalizedStringKey`，动态文本使用参数化插值；禁止在视图层硬编码中英文字符串；日期、时间使用环境感知格式化；UI 容器避免定死宽度以适配英文自适应拉伸。
 - **全面屏与 LaunchScreen 强制约束**：必须在 `project.yml` 与 `Info.plist` 中保持 `UILaunchScreen: {}` 字典配置；严禁遗漏或在重构时删除启动屏幕声明，以杜绝 iOS 系统因缺少现代启动屏而降级回落为旧分辨率兼容模式，导致真机上下出现巨大黑色留白（Letterboxing）。
 - **SafeArea 与全屏响应式布局**：所有页面的底色与背景渐变必须使用 `.ignoresSafeArea()` 铺满整个屏幕；主内容在 SafeArea 内通过弹性容器和滚动视图（`ScrollView`）承载，禁止写死屏幕高宽，确保小型屏至 Pro Max 均能自适应流动且无黑边、无遮挡。自定义底部导航栏（TabBar）必须采用 `.safeAreaInset(edge: .bottom)` 或通过 `.ignoresSafeArea(edges: .bottom)` 将背景贯穿延伸至物理屏幕底部，避免导航栏底端因未铺满 SafeArea 而悬空留白。
-- **构建配置一致性**：`project.yml` 是 Xcode 工程配置的单一事实来源，任何针对 `Info.plist`（如 `UILaunchScreen`、`UISupportedInterfaceOrientations`）或编译参数的改动必须同步在 `project.yml` 中登记，杜绝 `xcodegen generate` 后配置丢失。
+- **构建配置一致性**：`project.yml` 是 Xcode 工程配置的单一事实来源，任何针对 `Info.plist`（如 `UILaunchScreen`、`UISupportedInterfaceOrientations`）、多语言区域声明（`knownRegions`、`defaultLanguage`）或编译参数的改动必须同步在 `project.yml` 中登记，杜绝 `xcodegen generate` 后配置丢失。
 
 
 ## 四、API、数据与安全
