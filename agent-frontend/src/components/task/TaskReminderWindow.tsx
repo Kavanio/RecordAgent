@@ -79,6 +79,12 @@ export function TaskReminderWindow() {
       }
       completed.current.add(id);
       localStorage.removeItem(startedKey(id));
+      localStorage.removeItem('butvan-task-rest-data');
+      try {
+        const bc = new BroadcastChannel('butvan-task-rest-sync');
+        bc.postMessage({ type: 'FINISH', runId: id });
+        bc.close();
+      } catch {}
     } catch (e) {
       confirmFailed.current.add(id);
       setError(e instanceof Error ? e.message : '确认失败，请重试');
@@ -86,6 +92,21 @@ export function TaskReminderWindow() {
       finishing.current.delete(id); setBusy(null);
     }
   }, [pending, snapshot.tasks, preferences]);
+
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('butvan-task-rest-sync');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'EARLY_FINISH' && event.data?.runId) {
+          void finish(event.data.runId);
+        }
+      };
+    } catch {}
+    return () => {
+      bc?.close();
+    };
+  }, [finish]);
 
   useEffect(() => {
     if (!connected) return;
@@ -104,6 +125,21 @@ export function TaskReminderWindow() {
     localStorage.setItem(startedKey(id), String(at));
     setStarted(value => ({ ...value, [id]: at }));
     setNow(at);
+    const currentTask = snapshot.tasks.find(value => value.id === active?.taskId);
+    const restPayload = {
+      runId: id,
+      startedAt: at,
+      durationMs: (currentTask?.spec?.breakMinutes ?? 5) * 60_000,
+      breakMinutes: currentTask?.spec?.breakMinutes ?? 5,
+      title: active?.title || '久坐提醒',
+      content: active?.content || '起来活动一下，深呼吸，眺望远方',
+    };
+    localStorage.setItem('butvan-task-rest-data', JSON.stringify(restPayload));
+    try {
+      const bc = new BroadcastChannel('butvan-task-rest-sync');
+      bc.postMessage({ type: 'START', payload: restPayload });
+      bc.close();
+    } catch {}
   }
 
   const task = snapshot.tasks.find(value => value.id === active?.taskId);
@@ -114,6 +150,18 @@ export function TaskReminderWindow() {
   const progress = remaining !== null && task ? Math.min(100, Math.max(0, (1 - remaining / (task.spec.breakMinutes * 60)) * 100)) : 0;
 
   const resting = remaining !== null && remaining > 0;
+  useEffect(() => {
+    if (!active || !sedentary || !start) return;
+    const restPayload = {
+      runId: active.id,
+      startedAt: start,
+      durationMs: (task?.spec?.breakMinutes ?? 5) * 60_000,
+      breakMinutes: task?.spec?.breakMinutes ?? 5,
+      title: active.title || '久坐提醒',
+      content: active.content || '起来活动一下，深呼吸，眺望远方',
+    };
+    localStorage.setItem('butvan-task-rest-data', JSON.stringify(restPayload));
+  }, [active, sedentary, start, task?.spec?.breakMinutes]);
   useEffect(() => {
     const until = resting && connected && preferences?.restLock && start && sedentary
       ? start + task.spec.breakMinutes * 60_000 : null;

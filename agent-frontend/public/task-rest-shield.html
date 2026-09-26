@@ -1,6 +1,726 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>正在休息</title>
-<style>html,body{margin:0;width:100%;height:100%;background:#edf1f5;color:#6b7787;font-family:system-ui,sans-serif;user-select:none}body{display:grid;place-items:center;text-align:center}h1{font-size:24px;font-weight:500}p{font-size:14px;line-height:1.8}</style></head>
-<body><main><h1>给自己一点休息时间</h1><p>休息结束后自动恢复桌面操作<br>剩余时间请查看任务提醒窗口</p></main></body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>休息中 · ButvanAgent</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      background: radial-gradient(ellipse at 8% 12%, #fffefa 0%, #fbfcff 42%, #f0f6ff 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: #1e293b;
+    }
+
+    #stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      outline: none;
+    }
+
+    /* 顶部提醒卡片 */
+    .reminder-card {
+      position: absolute;
+      top: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 8px;
+      padding: 18px 36px;
+      max-width: min(600px, 90vw);
+      background: rgba(255, 255, 255, 0.76);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.88);
+      box-shadow: 0 20px 40px -12px rgba(22, 38, 77, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.6);
+      border-radius: 24px;
+      animation: fadeInDown 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      pointer-events: auto;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #2563eb;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+      animation: pulse 2s infinite;
+    }
+
+    .title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      color: #0f172a;
+      line-height: 1.25;
+    }
+
+    .content {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #64748b;
+      max-width: 480px;
+    }
+
+    /* 底部倒计时控制卡片 */
+    .timer-card {
+      position: absolute;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      width: min(480px, 90vw);
+      padding: 22px 34px 18px;
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 24px 48px -12px rgba(30, 58, 138, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.6);
+      border-radius: 28px;
+      animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      pointer-events: auto;
+    }
+
+    .timer-label {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+
+    .time-display {
+      font-size: 56px;
+      line-height: 1;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 2px 8px rgba(37, 99, 235, 0.15));
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(219, 234, 254, 0.7);
+      overflow: hidden;
+      margin-top: 2px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+      transition: width 0.35s ease;
+    }
+
+    .timer-footer {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 2px;
+    }
+
+    .status-hint {
+      font-size: 12px;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-early {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(255, 255, 255, 0.7);
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .btn-early:hover {
+      background: #ffffff;
+      color: #0f172a;
+      border-color: #94a3b8;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-early:active {
+      transform: scale(0.98);
+    }
+
+    /* 3D 加载与错误提示 */
+    #loading,
+    #error {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+
+    #loading.hidden,
+    #error.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .loading-inner {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: #8197c4;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px 18px;
+      border-radius: 999px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #d8e3ff;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    #error {
+      padding: 24px;
+      color: #b91c1c;
+      font-size: 13px;
+      text-align: center;
+      line-height: 1.7;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+      }
+      70% {
+        box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      }
+    }
+
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translate(-50%, -18px);
+      }
+      to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translate(-50%, 18px);
+      }
+      to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; }
+      .reminder-card,
+      .timer-card { animation: none; }
+    }
+  </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <main id="stage" aria-label="全屏久坐休息与倒计时">
+    <!-- 顶部提醒卡片 -->
+    <header class="reminder-card">
+      <div class="tag">
+        <span class="pulse-dot"></span>
+        <span>久坐提醒 · 护眼放松</span>
+      </div>
+      <h1 id="rest-title" class="title">起来活动一下</h1>
+      <p id="rest-content" class="content">离开屏幕，起身活动活动筋骨，深呼吸，远眺窗外放松眼睛</p>
+    </header>
+
+    <!-- 底部倒计时卡片 -->
+    <section class="timer-card" aria-label="休息倒计时">
+      <span class="timer-label">REST TIME REMAINING · 剩余休息时间</span>
+      <div id="rest-timer" class="time-display" role="timer">05:00</div>
+      <div class="progress-track" aria-hidden="true">
+        <div id="rest-progress-bar" class="progress-fill" style="width: 0%;"></div>
+      </div>
+      <div class="timer-footer">
+        <span id="rest-status-hint" class="status-hint">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+          休息结束后自动恢复桌面操作
+        </span>
+        <button id="btn-end-early" class="btn-early" type="button" title="如需紧急使用电脑可提前结束 (Esc)">提前结束</button>
+      </div>
+    </section>
+
+    <!-- 加载中指示器 -->
+    <div id="loading">
+      <div class="loading-inner">
+        <span class="spinner"></span>
+        <span>加载星球世界…</span>
+      </div>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="error" class="hidden"></div>
+  </main>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+
+    // 优先加载本地模型，离线也能秒开；本地不可用时自动回退 CDN
+    const LOCAL_PLANET = "/models/whimsical-world.glb";
+    const LOCAL_COURIER = "/models/courier.glb";
+    const CDN_BASE = "https://cdn.jsdelivr.net/gh/fadeichev2121/planet@b3f70fbf4b577845b1d9d5947c9410fb4d925dae/";
+    const CDN_PLANET = `${CDN_BASE}models/whimsical-world.glb`;
+    const CDN_COURIER = `${CDN_BASE}models/courier.glb`;
+
+    const stage = document.querySelector("#stage");
+    const loading = document.querySelector("#loading");
+    const errorBox = document.querySelector("#error");
+
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.OrthographicCamera(-3, 3, 3, -3, 0.1, 30);
+    camera.position.set(0, 0, 9);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      powerPreference: "high-performance"
+    });
+
+    renderer.setClearColor(0x000000, 0);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.04;
+    stage.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+
+    const hemi = new THREE.HemisphereLight("#f1f5ff", "#8aabc5", 1.4);
+    scene.add(hemi);
+
+    const warmKey = new THREE.DirectionalLight("#fff8f1", 2.6);
+    warmKey.position.set(-3, 5, 5);
+    scene.add(warmKey);
+
+    const coolFill = new THREE.DirectionalLight("#c5deff", 1.8);
+    coolFill.position.set(3, 2, -2);
+    scene.add(coolFill);
+
+    const content = new THREE.Group();
+    // 居中稍微下移以配合顶部与底部浮层
+    content.position.y = -0.15;
+    scene.add(content);
+
+    const globePivot = new THREE.Group();
+    globePivot.rotation.x = 0.08;
+    globePivot.rotation.y = 0.45;
+    content.add(globePivot);
+
+    const courierAnchor = new THREE.Group();
+    content.add(courierAnchor);
+
+    const courierModelRoot = new THREE.Group();
+    courierAnchor.add(courierModelRoot);
+
+    let courierMixer = null;
+    let courierAction = null;
+    let ready = false;
+
+    const clock = new THREE.Clock();
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const runnerNormal = new THREE.Vector3();
+    const nextRunnerNormal = new THREE.Vector3();
+    const runnerPosition = new THREE.Vector3();
+    const movementTangent = new THREE.Vector3();
+    const basisX = new THREE.Vector3();
+    const basisZ = new THREE.Vector3();
+    const orientationMatrix = new THREE.Matrix4();
+    const targetQuaternion = new THREE.Quaternion();
+
+    const PLANET_RADIUS = 2.25;
+    const COURIER_OFFSET = 0.035;
+    const RUN_SPEED = 0.42;
+    const PLANET_SPIN = 0.018;
+    const RIM_CAMERA_OFFSET = 0.055;
+
+    let routeAngle = Math.PI;
+
+    function damp(value, target, lambda, dt) {
+      return value + (target - value) * (1 - Math.exp(-lambda * dt));
+    }
+
+    function tunePlanetMaterials(root) {
+      root.traverse((node) => {
+        if (!node.isMesh) return;
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        for (const material of materials) {
+          if (!material || !material.isMeshStandardMaterial) continue;
+          material.side = THREE.FrontSide;
+          material.metalness = 0;
+          material.roughness = 0.86;
+          if (material.normalScale) material.normalScale.setScalar(0.65);
+          if (material.map) material.map.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+          material.needsUpdate = true;
+        }
+      });
+    }
+
+    function tuneCourierMaterials(root) {
+      root.traverse((node) => {
+        if (!node.isMesh) return;
+        if (node.isSkinnedMesh) node.frustumCulled = false;
+        if (node.morphTargetInfluences) node.morphTargetInfluences.fill(0);
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        for (const material of materials) {
+          if (!material || !material.isMeshStandardMaterial) continue;
+          material.metalness = 0;
+          material.roughness = 0.9;
+          if (material.normalScale) material.normalScale.setScalar(0.25);
+          if (material.map) material.map.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+          material.needsUpdate = true;
+        }
+      });
+    }
+
+    function createLoader() {
+      const draco = new DRACOLoader();
+      draco.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/");
+      draco.setDecoderConfig({ type: "wasm" });
+      draco.setWorkerLimit(2);
+
+      const loader = new GLTFLoader();
+      loader.setDRACOLoader(draco);
+      return { loader, draco };
+    }
+
+    async function loadWithFallback(loader, localUrl, cdnUrl) {
+      try {
+        return await loader.loadAsync(localUrl);
+      } catch (err) {
+        console.warn(`本地资源 ${localUrl} 加载失败，回退到 CDN：${cdnUrl}`);
+        return await loader.loadAsync(cdnUrl);
+      }
+    }
+
+    async function loadWorld() {
+      const { loader, draco } = createLoader();
+      try {
+        const [planetGltf, courierGltf] = await Promise.all([
+          loadWithFallback(loader, LOCAL_PLANET, CDN_PLANET),
+          loadWithFallback(loader, LOCAL_COURIER, CDN_COURIER)
+        ]);
+
+        const planet = planetGltf.scene;
+        tunePlanetMaterials(planet);
+        planet.scale.setScalar(PLANET_RADIUS);
+        globePivot.add(planet);
+
+        const courier = courierGltf.scene;
+        tuneCourierMaterials(courier);
+        const modelScale = 0.76 / 1.7;
+        courier.scale.setScalar(modelScale);
+        courierModelRoot.add(courier);
+
+        const usableAnimations = courierGltf.animations.filter((clip) => clip.duration > 0.3);
+        if (usableAnimations.length) {
+          courierMixer = new THREE.AnimationMixer(courier);
+          courierAction = courierMixer.clipAction(usableAnimations[0]);
+          courierAction.setLoop(THREE.LoopRepeat, Infinity);
+          courierAction.play();
+          courierAction.timeScale = 1.0;
+        }
+
+        ready = true;
+        loading.classList.add("hidden");
+      } catch (error) {
+        console.error(error);
+        loading.classList.add("hidden");
+        errorBox.textContent = "3D 模型加载受阻，正在继续休息倒计时。";
+        errorBox.classList.remove("hidden");
+      } finally {
+        draco.dispose();
+      }
+    }
+
+    function resize() {
+      const width = stage.clientWidth;
+      const height = stage.clientHeight;
+      renderer.setSize(width, height, false);
+
+      const aspect = Math.max(width / Math.max(height, 1), 0.1);
+      const visibleHeight = width < 700 ? 6.45 : 6.05;
+      const visibleWidth = visibleHeight * aspect;
+
+      camera.left = -visibleWidth / 2;
+      camera.right = visibleWidth / 2;
+      camera.top = visibleHeight / 2;
+      camera.bottom = -visibleHeight / 2;
+      camera.updateProjectionMatrix();
+    }
+
+    function pointOnRoute(angle, out) {
+      return out.set(Math.cos(angle), Math.sin(angle), 0);
+    }
+
+    function updateCourierRoute(dt) {
+      if (!ready) return;
+
+      if (!reducedMotion) {
+        routeAngle -= RUN_SPEED * dt;
+      }
+
+      pointOnRoute(routeAngle, runnerNormal).normalize();
+      runnerPosition.copy(runnerNormal).multiplyScalar(PLANET_RADIUS + COURIER_OFFSET);
+      runnerPosition.z += RIM_CAMERA_OFFSET;
+      courierAnchor.position.copy(runnerPosition);
+
+      pointOnRoute(routeAngle - 0.0035, nextRunnerNormal);
+      movementTangent.copy(nextRunnerNormal).sub(runnerNormal);
+      movementTangent.addScaledVector(runnerNormal, -movementTangent.dot(runnerNormal));
+      if (movementTangent.lengthSq() < 1e-8) {
+        movementTangent.set(0, 1, 0);
+      }
+      movementTangent.normalize();
+
+      basisZ.copy(movementTangent);
+      basisX.crossVectors(runnerNormal, basisZ).normalize();
+      basisZ.crossVectors(basisX, runnerNormal).normalize();
+
+      orientationMatrix.makeBasis(basisX, runnerNormal, basisZ);
+      targetQuaternion.setFromRotationMatrix(orientationMatrix);
+      courierAnchor.quaternion.slerp(targetQuaternion, 1 - Math.exp(-14 * dt));
+
+      courierModelRoot.rotation.x = damp(
+        courierModelRoot.rotation.x,
+        0.045 + Math.sin(routeAngle * 6.2) * 0.005,
+        9,
+        dt
+      );
+      courierModelRoot.position.y = Math.sin(routeAngle * 6.2) * 0.006;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+
+      if (!reducedMotion) {
+        globePivot.rotation.y += PLANET_SPIN * dt;
+        globePivot.rotation.x = 0.08 + Math.sin(clock.elapsedTime * 0.34) * 0.018;
+      }
+
+      updateCourierRoute(dt);
+
+      if (ready && courierMixer) {
+        courierMixer.update(dt);
+        if (courierAction) {
+          courierAction.timeScale = damp(courierAction.timeScale, reducedMotion ? 0.25 : 1.05, 6, dt);
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener("resize", resize);
+    resize();
+    loadWorld();
+    animate();
+
+    // ==========================================
+    // 休息数据同步与倒计时逻辑
+    // ==========================================
+    const titleEl = document.querySelector("#rest-title");
+    const contentEl = document.querySelector("#rest-content");
+    const timerEl = document.querySelector("#rest-timer");
+    const progressBarEl = document.querySelector("#rest-progress-bar");
+    const statusHintEl = document.querySelector("#rest-status-hint");
+    const btnEndEarly = document.querySelector("#btn-end-early");
+
+    let restState = {
+      runId: "",
+      startedAt: Date.now(),
+      durationMs: 5 * 60 * 1000,
+      breakMinutes: 5,
+      title: "起来活动一下",
+      content: "离开屏幕，起身活动活动筋骨，深呼吸，远眺窗外放松眼睛"
+    };
+
+    function readStoredState() {
+      try {
+        const raw = localStorage.getItem("butvan-task-rest-data");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {
+            restState = { ...restState, ...parsed };
+            if (restState.title) titleEl.textContent = restState.title;
+            if (restState.content) contentEl.textContent = restState.content;
+          }
+        }
+      } catch (e) {
+        console.warn("读取本地休息数据失败", e);
+      }
+    }
+
+    readStoredState();
+
+    // BroadcastChannel 双向状态同步
+    let syncChannel = null;
+    try {
+      syncChannel = new BroadcastChannel("butvan-task-rest-sync");
+      syncChannel.onmessage = (event) => {
+        if (event.data?.type === "START" && event.data?.payload) {
+          restState = { ...restState, ...event.data.payload };
+          if (restState.title) titleEl.textContent = restState.title;
+          if (restState.content) contentEl.textContent = restState.content;
+          updateTick();
+        } else if (event.data?.type === "FINISH") {
+          statusHintEl.textContent = "休息已完成，正在恢复桌面…";
+          btnEndEarly.disabled = true;
+        }
+      };
+    } catch (e) {
+      console.warn("BroadcastChannel 初始化失败", e);
+    }
+
+    window.addEventListener("storage", (event) => {
+      if (event.key === "butvan-task-rest-data") {
+        readStoredState();
+        updateTick();
+      }
+    });
+
+    function endEarly() {
+      btnEndEarly.disabled = true;
+      btnEndEarly.textContent = "结束中…";
+      statusHintEl.textContent = "正在提前结束休息…";
+      try {
+        if (syncChannel) {
+          syncChannel.postMessage({ type: "EARLY_FINISH", runId: restState.runId });
+        }
+      } catch (e) {
+        console.warn("发送提前结束消息失败", e);
+      }
+    }
+
+    btnEndEarly.addEventListener("click", endEarly);
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        endEarly();
+      }
+    });
+
+    function updateTick() {
+      const now = Date.now();
+      const started = restState.startedAt || now;
+      const totalMs = restState.durationMs || (restState.breakMinutes * 60_000) || (5 * 60_000);
+      const elapsed = Math.max(0, now - started);
+      const remainingSec = Math.max(0, Math.ceil((totalMs - elapsed) / 1000));
+
+      const mins = String(Math.floor(remainingSec / 60)).padStart(2, "0");
+      const secs = String(remainingSec % 60).padStart(2, "0");
+      timerEl.textContent = `${mins}:${secs}`;
+
+      const progress = Math.min(100, Math.max(0, (elapsed / totalMs) * 100));
+      progressBarEl.style.width = `${progress}%`;
+
+      if (remainingSec === 0) {
+        statusHintEl.textContent = "休息完成，正在恢复桌面…";
+        btnEndEarly.disabled = true;
+      }
+    }
+
+    updateTick();
+    const intervalTimer = setInterval(updateTick, 200);
+    window.addEventListener("pagehide", () => clearInterval(intervalTimer));
+  </script>
+</body>
 </html>
