@@ -68,20 +68,24 @@ struct ProfileActivitySection: View {
                 .accessibilityElement(children: .combine)
             }
 
-            // 15 天打卡刻度（等间距横向自适应排布）
-            HStack(spacing: 0) {
-                ForEach(streakDays) { day in
-                    VStack(spacing: 11) {
-                        Text(day.weekdaySymbol)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(AppColors.textSecondary)
-                            .frame(maxWidth: .infinity)
+            // 连续记录打卡刻度（支持横向滚动，默认停留在最新日期）
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 12) {
+                    ForEach(streakDays) { day in
+                        VStack(spacing: 10) {
+                            Text(day.weekdaySymbol)
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(AppColors.textSecondary)
 
-                        dayDot(day: day)
-                            .frame(maxWidth: .infinity)
+                            dayDot(day: day)
+                        }
+                        .frame(width: 24)
+                        .id(day.id)
                     }
                 }
+                .padding(.horizontal, 2)
             }
+            .defaultScrollAnchor(.trailing)
             .padding(.top, 4)
             .padding(.bottom, 2)
         }

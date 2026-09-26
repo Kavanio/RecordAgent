@@ -56,12 +56,12 @@ struct ProfileActivityMonth: Equatable, Sendable {
         return streak
     }
 
-    /// 最近 15 天的打卡数据
-    func recentStreakDays(calendar: Calendar = .current) -> [StreakDay] {
+    /// 最近天数的打卡数据（默认 30 天，支持横向平滑滚动查看）
+    func recentStreakDays(count: Int = 30, calendar: Calendar = .current) -> [StreakDay] {
         let today = calendar.startOfDay(for: .now)
         let weekdaySymbols = ["日", "一", "二", "三", "四", "五", "六"]
         var result: [StreakDay] = []
-        for offset in (0..<15).reversed() {
+        for offset in (0..<count).reversed() {
             guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
             let dayEntries =
                 days.first(where: { calendar.isDate($0.date, inSameDayAs: date) })?.entries ?? []
@@ -72,15 +72,24 @@ struct ProfileActivityMonth: Equatable, Sendable {
 
             let isCompleted: Bool
             if isDemo {
-                // 与示意图保持一致：前6天已打卡、中3天未打卡、后3天打卡、末3天未打卡
-                let demoPattern = [
+                let demoPattern15 = [
                     true, true, true, true, true, true,
                     false, false, false,
                     true, true, true,
                     false, false, false
                 ]
-                let index = 14 - offset
-                isCompleted = index < demoPattern.count ? demoPattern[index] : (!dayEntries.isEmpty)
+                if count == 15 {
+                    let index = 14 - offset
+                    isCompleted = index < demoPattern15.count ? demoPattern15[index] : (!dayEntries.isEmpty)
+                } else {
+                    if offset < 12 {
+                        isCompleted = true
+                    } else if offset == 12 || offset == 13 {
+                        isCompleted = false
+                    } else {
+                        isCompleted = (offset % 3 != 0)
+                    }
+                }
             } else {
                 isCompleted = !dayEntries.isEmpty
             }

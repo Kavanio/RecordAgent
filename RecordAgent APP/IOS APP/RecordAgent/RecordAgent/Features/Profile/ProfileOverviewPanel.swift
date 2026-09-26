@@ -93,8 +93,7 @@ struct ProfileOverviewPanel: View {
             title: "profile.overview.totalExpense",
             value: overview.map { HomeFormat.money($0.totalExpenseInCents, locale: locale) },
             color: HomeCategory.finance.color,
-            growthRate: overview?.expenseGrowthRate,
-            growthInverse: true)
+            growthRate: overview?.expenseGrowthRate)
     }
 
     private var recordTime: some View {
@@ -221,8 +220,7 @@ struct ProfileOverviewPanel: View {
         value: String?,
         color: Color,
         prominent: Bool = false,
-        growthRate: Double? = nil,
-        growthInverse: Bool = false
+        growthRate: Double? = nil
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -242,26 +240,21 @@ struct ProfileOverviewPanel: View {
             if let rate = growthRate {
                 HStack {
                     Spacer(minLength: 0)
-                    growthBadge(rate: rate, growthInverse: growthInverse)
+                    growthBadge(rate: rate)
                 }
             }
         }
         .accessibilityElement(children: .combine)
     }
 
-    private func growthBadge(
-        rate: Double,
-        growthInverse: Bool = false
-    ) -> some View {
+    private func growthBadge(rate: Double) -> some View {
         let isPositive = rate > 0.0001
         let isNegative = rate < -0.0001
-        let isGood = growthInverse ? isNegative : isPositive
-        let isBad = growthInverse ? isPositive : isNegative
 
         let tintColor: Color =
-            isGood
-            ? Color(red: 0.16, green: 0.65, blue: 0.40)
-            : (isBad ? Color(red: 0.95, green: 0.38, blue: 0.32) : AppColors.textTertiary)
+            isNegative
+            ? Color(red: 0.96, green: 0.20, blue: 0.20) // 鲜红色
+            : (isPositive ? Color(red: 0.16, green: 0.65, blue: 0.40) : AppColors.textTertiary)
 
         let percentString = abs(rate).formatted(
             .percent.precision(.fractionLength(1)).locale(locale))
