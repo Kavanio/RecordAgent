@@ -1,0 +1,162 @@
+<!doctype html>
+<!-- 三种底部导航视觉原型；通过 ?variant=a|b|c 切换。仅用于设计预览，不接入 App。 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>RecordAgent · 底部导航设计预览</title>
+  <style>
+    :root { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif; color: #26312e; background: #e9eee9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100dvh; background: radial-gradient(circle at 18% 15%, #f9ede0 0, transparent 32%), radial-gradient(circle at 85% 82%, #dbe8e1 0, transparent 35%), #e9eee9; }
+    button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    button:focus-visible { outline: 2px solid #47746a; outline-offset: 3px; }
+    .review { min-height: 100dvh; display: grid; grid-template-columns: minmax(230px, 350px) auto minmax(190px, 290px); align-items: center; justify-content: center; gap: clamp(32px, 5vw, 95px); padding: 32px 42px 115px; }
+    .intro { align-self: center; max-width: 340px; }
+    .eyebrow { font-size: 11px; font-weight: 750; letter-spacing: .23em; color: #6c887f; }
+    .intro h1 { margin: 25px 0 14px; font-family: Georgia, "Songti SC", serif; font-weight: 500; font-size: clamp(32px, 3.5vw, 50px); line-height: 1.17; letter-spacing: -.05em; }
+    .intro p, .notes p { color: #6d7972; font-size: 14px; line-height: 1.8; }
+    .intro p { max-width: 300px; }
+    .swatches { display: flex; gap: 8px; margin-top: 28px; }
+    .swatches span { width: 18px; height: 18px; border-radius: 50%; background: #c66955; }
+    .swatches span:nth-child(2) { background: #789aa2; }.swatches span:nth-child(3) { background: #ead1b1; }.swatches span:nth-child(4) { background: #1f3936; }
+    .notes { max-width: 270px; align-self: end; margin-bottom: 50px; }
+    .notes .number { font: 68px/.9 Georgia, serif; color: #b7c8be; letter-spacing: -.1em; }
+    .notes h2 { font-size: 18px; font-weight: 600; margin: 16px 0 6px; letter-spacing: -.03em; }
+    .notes p { margin: 0; }
+    .phone { width: 393px; height: 852px; border-radius: 47px; padding: 9px; background: #212725; box-shadow: 0 42px 75px rgba(33, 58, 50, .22), 0 7px 20px rgba(33, 58, 50, .13); transform: translateZ(0); }
+    .screen { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; border-radius: 39px; background: #f8f8f4; }
+    .status { height: 42px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 7px 28px 0; font-size: 14px; font-weight: 650; position: relative; z-index: 2; }
+    .status .island { width: 116px; height: 27px; border-radius: 100px; background: #202523; position: absolute; left: 50%; top: 8px; transform: translateX(-50%); }
+    .signals { display: flex; align-items: center; gap: 5px; }.signals svg { width: 17px; height: 17px; }
+    .content { flex: 1; min-height: 0; overflow: auto; scrollbar-width: none; padding: 18px 24px 15px; background: radial-gradient(circle at 92% 3%, rgba(219, 233, 220, .8), transparent 39%), #f8f8f4; }
+    .content::-webkit-scrollbar { display: none; }
+    .topline { display: flex; align-items: flex-start; justify-content: space-between; }
+    .greeting { margin: 0; font-size: 13px; color: #768178; }.greeting strong { color: #3f6459; font-weight: 600; }
+    .avatar { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: #e8d7c5; color: #8c5f4c; font: 17px Georgia, serif; }
+    .date-title { margin: 7px 0 3px; font-size: 29px; font-weight: 600; letter-spacing: -.055em; }
+    .date-sub { margin: 0; color: #97a199; font-size: 12px; letter-spacing: .03em; }
+    .week { display: flex; justify-content: space-between; margin: 25px -2px 18px; }.day { width: 40px; text-align: center; color: #8e9990; font-size: 11px; }.day b { display: grid; width: 35px; height: 35px; place-items: center; margin: 8px auto 0; border-radius: 50%; color: #38463e; font-size: 14px; font-weight: 500; }.day.today b { background: #dcebe1; color: #214e43; font-weight: 700; }
+    .hero { position: relative; overflow: hidden; height: 132px; border-radius: 20px; padding: 20px; background: linear-gradient(115deg,#b9cfc5 0%,#d9dfcb 52%,#f5d6bb 100%); }
+    .hero::before { content:""; position:absolute; width: 145px; height: 145px; border-radius: 50%; top: -49px; right: 34px; background: rgba(254,246,218,.54); box-shadow: 0 0 60px rgba(255,245,208,.7); }
+    .hero::after { content:""; position:absolute; width: 210px; height: 68px; bottom: -23px; right: -32px; border-radius: 50%; transform: rotate(-15deg); background: rgba(98,139,116,.19); box-shadow: -60px -14px 0 rgba(245,250,225,.28); }
+    .hero small { display: block; position: relative; z-index: 1; font-size: 10px; letter-spacing: .22em; color: #425b50; font-weight: 700; }
+    .hero strong { display: block; position: relative; z-index: 1; margin-top: 11px; font-family: Georgia,"Songti SC",serif; font-size: 20px; font-weight: 500; letter-spacing: -.04em; color: #234138; }
+    .section-heading { display: flex; align-items: baseline; justify-content: space-between; margin: 27px 0 17px; }.section-heading h3 { margin:0; font-size:17px; letter-spacing:-.04em; }.section-heading small { color:#9aa59b; font-size:11px; }
+    .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 5px; }.stat small { display: block; font-size: 11px; color: #9ba69c; white-space: nowrap; }.stat b { display:block; margin-top: 9px; font-size: 18px; font-weight: 600; letter-spacing: -.055em; white-space:nowrap; }.stat:nth-child(1) b { color:#527d75 }.stat:nth-child(2) b { color:#c56e5b }.stat:nth-child(3) b { color:#766ca0 }.stat:nth-child(4) b { color:#4c8c83 }
+    .trend-heading { display:flex; justify-content:space-between; align-items:center; margin-top: 32px; }.trend-heading b { font-size:14px; }.trend-heading span { font-size:11px; color:#858f88; }
+    .chart { display:block; width:100%; height:102px; margin:12px 0 4px; overflow:visible; }.chart .area { fill:url(#areaGradient); }.chart .line { fill:none; stroke:#c56e5b; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; }.chart .point { fill:#c56e5b; }
+    .chart-labels { display:flex; justify-content:space-between; color:#a0aba2; font-size:10px; }
+    .digest { margin-top:31px; }.digest h3 { font-size:16px; margin:0 0 16px; }.digest .category { color:#689088; font-size:12px; }.digest strong { display:block; margin-top:9px; font-size:18px; font-weight:500; letter-spacing:-.03em; }.digest p { margin:8px 0 0; font-size:12px; color:#8d988e; }.digest .dots { display:flex; justify-content:center; gap:5px; margin-top:20px; }.digest .dots i { width:5px; height:5px; border-radius:5px; background:#d0d9ce; }.digest .dots i:first-child { width:17px; background:#70998c; }
+    .app-nav { flex: none; position: relative; z-index: 2; transition: background .4s ease, color .4s ease; }.app-nav button { background: none; border: 0; color: inherit; }
+    .home-indicator { width: 119px; height: 5px; border-radius: 5px; margin: 8px auto 8px; background: currentColor; opacity: .75; }
+    .nav-icon { width: 22px; height:22px; display:block; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; transition:transform .45s cubic-bezier(.2,1.45,.3,1),color .3s ease; }
+    .nav-a { background:rgba(247,249,245,.96); color:#596b61; padding:9px 7px 0; box-shadow:0 -12px 30px rgba(95,121,103,.045); }.nav-a .nav-items { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); }.nav-a .tab { height:63px; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; position:relative; color:#a0aaa2; transition:color .3s; }.nav-a .tab::before { content:""; width:18px; height:2px; border-radius:2px; position:absolute; top:0; background:#cb715b; opacity:0; transform:scaleX(.2); transition:transform .35s,opacity .3s; }.nav-a .tab[aria-current="page"] { color:#aa5c4d; }.nav-a .tab[aria-current="page"]::before { opacity:1; transform:scaleX(1); }.nav-a .tab[aria-current="page"] .nav-icon { transform:translateY(-3px) scale(1.14); }.nav-a .tab-label { font-size:9px; white-space:nowrap; font-weight:500; letter-spacing:-.035em; }.nav-a .tab[aria-current="page"] .tab-label { font-weight:700; }.nav-a .home-indicator { color:#344138; }
+    .nav-b { background:#1e3532; color:#e7eee5; padding:17px 15px 0; box-shadow:0 -14px 30px rgba(36,65,58,.12); }.nav-b .chapter { display:flex; align-items:baseline; justify-content:space-between; padding:0 7px 8px; }.nav-b .chapter-title { font-family:Georgia,"Songti SC",serif; font-size:23px; letter-spacing:.09em; font-weight:500; }.nav-b .chapter-num { color:#a9c9ba; font:italic 14px Georgia,serif; }.nav-b .nav-items { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); }.nav-b .tab { height:43px; display:grid; place-items:center; color:#91a9a0; position:relative; }.nav-b .tab[aria-current="page"] { color:#eed2ae; }.nav-b .tab[aria-current="page"] .nav-icon { transform:translateY(-3px) scale(1.14); }.nav-b .tab::after { content:""; position:absolute; bottom:0; width:3px; height:3px; border-radius:50%; background:#eed2ae; opacity:0; transform:translateY(3px); transition:.3s; }.nav-b .tab[aria-current="page"]::after { opacity:1; transform:translateY(0); }.nav-b .nav-icon { width:19px; height:19px; }.nav-b .home-indicator { color:#d1dfd1; }
+    .nav-c { background:#f4e9df; color:#9f7165; padding:14px 8px 0; box-shadow:0 -12px 30px rgba(111,75,57,.05); }.nav-c .nav-items { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); }.nav-c .tab { height:65px; min-width:0; color:#a58c82; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:9px; position:relative; }.nav-c .tab-number { font:italic 11px Georgia,serif; opacity:.7; transition:transform .35s; }.nav-c .tab-label { font-size:11px; font-weight:600; white-space:nowrap; letter-spacing:-.05em; transition:transform .35s; }.nav-c .tab[aria-current="page"] { color:#bc5247; }.nav-c .tab[aria-current="page"] .tab-number { transform:translateY(-4px); opacity:1; }.nav-c .tab[aria-current="page"] .tab-label { transform:translateY(-4px); font-weight:750; }.nav-c .tab::after { content:""; position:absolute; bottom:3px; width:6px; height:6px; background:#bc5247; border-radius:50%; transform:scale(0); transition:transform .42s cubic-bezier(.2,1.5,.3,1); }.nav-c .tab[aria-current="page"]::after { transform:scale(1); }.nav-c .home-indicator { color:#7b554e; }
+    .switcher { position:fixed; z-index:10; left:50%; bottom:20px; transform:translateX(-50%); display:flex; gap:6px; align-items:center; padding:6px; border-radius:60px; color:#f8faf7; background:#233b36; box-shadow:0 13px 35px rgba(31,57,50,.25); white-space:nowrap; }.switcher button { border:0; color:inherit; background:transparent; width:40px; height:38px; border-radius:50%; font-size:21px; }.switcher button:hover { background:rgba(255,255,255,.13); }.switcher output { min-width:154px; text-align:center; font-size:12px; letter-spacing:.01em; }.switcher .key { color:#aac9bb; font-weight:750; margin-right:6px; }
+    @media(max-width:1050px) { .review { grid-template-columns: 1fr auto; gap:30px; }.notes { display:none; } }
+    @media(max-width:700px) { .review { display:flex; flex-direction:column; padding:23px 12px 112px; gap:20px; }.intro { align-self:flex-start; max-width:393px; }.intro h1 { margin:10px 0 5px; font-size:26px; }.intro p { margin:0; font-size:12px; }.eyebrow { font-size:9px; }.swatches { display:none; }.phone { width:min(393px,100%); height: min(852px,calc(100dvh - 162px)); min-height:570px; border-radius:35px; padding:6px; }.screen { border-radius:29px; }.content { padding-inline:19px; }.switcher { bottom:9px; } }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; scroll-behavior:auto!important; } }
+  </style>
+</head>
+<body>
+  <main class="review">
+    <div class="intro">
+      <div class="eyebrow">RECORDAGENT / NAVIGATION STUDY</div>
+      <h1>导航，也可以<br>有自己的呼吸。</h1>
+      <p>三种截然不同的底部导航。点击手机中的七个入口感受切换，再用下方箭头比较方案。</p>
+      <div class="swatches" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    </div>
+    <div class="phone" aria-label="iPhone 导航设计预览">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span class="island" aria-hidden="true"></span><span class="signals" aria-hidden="true"><svg viewBox="0 0 20 20"><path fill="currentColor" d="M1 14h3v4H1zm5-3h3v7H6zm5-4h3v11h-3zm5-4h3v15h-3z"/></svg><svg viewBox="0 0 20 20"><rect x="1" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="7" width="11" height="6" rx="1" fill="currentColor"/><path d="M18 8v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span></div>
+        <div class="content" id="content">
+          <div class="topline"><p class="greeting">早上好，<strong>今天也从容一点</strong></p><div class="avatar" aria-hidden="true">B</div></div>
+          <h2 class="date-title" id="pageTitle">星期六，9 月 26 日</h2><p class="date-sub" id="pageSub">把今天过成自己喜欢的样子</p>
+          <div class="week" aria-label="一周日期"><div class="day">一<b>21</b></div><div class="day">二<b>22</b></div><div class="day">三<b>23</b></div><div class="day">四<b>24</b></div><div class="day">五<b>25</b></div><div class="day today">六<b>26</b></div><div class="day">日<b>27</b></div></div>
+          <div class="hero"><small>DAILY MOMENT</small><strong>留一点时间，<br>给值得记住的事。</strong></div>
+          <div class="section-heading"><h3>今天概览</h3><small>09 / 26</small></div>
+          <div class="stats"><div class="stat"><small>待办</small><b>2 / 4</b></div><div class="stat"><small>支出</small><b>¥ 128</b></div><div class="stat"><small>资料</small><b>3</b></div><div class="stat"><small>记录</small><b>42′</b></div></div>
+          <div class="trend-heading"><b>一周节奏</b><span>支出 · 元⌄</span></div>
+          <svg class="chart" viewBox="0 0 320 102" preserveAspectRatio="none" aria-label="近七日趋势图"><defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d48a78" stop-opacity=".22"/><stop offset="1" stop-color="#d48a78" stop-opacity="0"/></linearGradient></defs><path class="area" d="M0 86 C24 82 28 67 52 68 S82 41 105 53 S135 61 157 42 S188 52 211 41 S242 23 264 35 S290 9 320 25 V102 H0Z"/><path class="line" d="M0 86 C24 82 28 67 52 68 S82 41 105 53 S135 61 157 42 S188 52 211 41 S242 23 264 35 S290 9 320 25"/><circle class="point" cx="320" cy="25" r="3.8"/></svg>
+          <div class="chart-labels"><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span><span>26</span></div>
+          <div class="digest"><h3>这一天</h3><span class="category">待办 · 01 / 04</span><strong>完成下午的设计复盘</strong><p>轻轻翻一页，看看今天的其他片段。</p><div class="dots" aria-hidden="true"><i></i><i></i><i></i><i></i></div></div>
+        </div>
+        <nav class="app-nav" id="appNav" aria-label="应用底部导航"></nav>
+      </div>
+    </div>
+    <aside class="notes"><div class="number" id="variantNumber">01</div><h2 id="variantName">呼吸线</h2><p id="variantDescription">最轻的一种：七个入口完整呈现，选中后图标轻抬，顶端只有一截短线。</p></aside>
+  </main>
+  <div class="switcher" role="group" aria-label="切换设计方案"><button id="previous" type="button" aria-label="上一个方案">‹</button><output id="variantLabel" aria-live="polite"><span class="key">A</span>呼吸线</output><button id="next" type="button" aria-label="下一个方案">›</button></div>
+  <script>
+    const tabs = [
+      { id:'home', label:'首页', title:'星期六，9 月 26 日', sub:'把今天过成自己喜欢的样子', icon:'<path d="M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>' },
+      { id:'calendar', label:'日历', title:'日历', sub:'你的安排，随时间自然展开', icon:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M8 14h3v3H8z"/>' },
+      { id:'finance', label:'财务', title:'财务', sub:'每一笔，都看得清楚', icon:'<path d="M12 3v18M7 8c0-2 2-3 5-3s5 1 5 3-2 3-5 4-5 2-5 4 2 3 5 3 5-1 5-3"/>' },
+      { id:'library', label:'资料', title:'资料', sub:'收好值得再看的内容', icon:'<path d="M5 3h12a2 2 0 0 1 2 2v16H7a2 2 0 0 1-2-2zM5 17a2 2 0 0 1 2-2h12M9 7h6M9 10h5"/>' },
+      { id:'record', label:'记录', title:'记录', sub:'让日常留下自己的纹理', icon:'<circle cx="12" cy="13" r="8"/><path d="M12 13V8M12 13l3 2M9 2h6M18 5l2 2"/>' },
+      { id:'tasks', label:'任务', title:'任务', sub:'把想做的事慢慢做完', icon:'<path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9ZM10 21h4"/>' },
+      { id:'profile', label:'个人中心', title:'个人中心', sub:'属于你的设置与偏好', icon:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>' }
+    ];
+    const variants = [
+      { id:'a', key:'A', name:'呼吸线', description:'最轻的一种：七个入口完整呈现，选中后图标轻抬，顶端只有一截短线。' },
+      { id:'b', key:'B', name:'夜航目录', description:'大胆的深色章节栏：当前页面以大字出现，下方七枚图标像一行目录索引。' },
+      { id:'c', key:'字间书签', description:'完全不用图标。序号和中文名称排成一行，选中项轻抬并留下一个朱红色句点。' }
+    ];
+    let selected = 'home';
+    let variant = new URL(location.href).searchParams.get('variant');
+    if (!variants.some(item => item.id === variant)) variant = 'a';
+    const nav = document.getElementById('appNav');
+    const icon = tab => `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">${tab.icon}</svg>`;
+    function render() {
+      const design = variants.find(item => item.id === variant);
+      const active = tabs.find(item => item.id === selected);
+      nav.className = `app-nav nav-${variant}`;
+      let items = tabs.map((tab,index) => {
+        const current = tab.id === selected ? ' aria-current="page"' : '';
+        const inner = variant === 'c' ? `<span class="tab-number">0${index+1}</span><span class="tab-label">${tab.label}</span>` : `${icon(tab)}${variant === 'a' ? `<span class="tab-label">${tab.label}</span>` : ''}`;
+        return `<button type="button" class="tab" data-tab="${tab.id}" aria-label="${tab.label}"${current}>${inner}</button>`;
+      }).join('');
+      nav.innerHTML = `${variant === 'b' ? `<div class="chapter"><span class="chapter-title">${active.label}</span><span class="chapter-num">0${tabs.indexOf(active)+1} / 07</span></div>` : ''}<div class="nav-items">${items}</div><div class="home-indicator" aria-hidden="true"></div>`;
+      document.getElementById('variantNumber').textContent = `0${variants.indexOf(design)+1}`;
+      document.getElementById('variantName').textContent = design.name;
+      document.getElementById('variantDescription').textContent = design.description;
+      document.getElementById('variantLabel').innerHTML = `<span class="key">${design.key}</span>${design.name}`;
+      document.getElementById('pageTitle').textContent = active.title;
+      document.getElementById('pageSub').textContent = active.sub;
+    }
+    function setVariant(next) {
+      variant = next;
+      const url = new URL(location.href);
+      url.searchParams.set('variant', next);
+      history.replaceState({}, '', url);
+      render();
+    }
+    function cycle(direction) {
+      const index = variants.findIndex(item => item.id === variant);
+      setVariant(variants[(index + direction + variants.length) % variants.length].id);
+    }
+    nav.addEventListener('click', event => {
+      const button = event.target.closest('[data-tab]');
+      if (!button) return;
+      selected = button.dataset.tab;
+      render();
+    });
+    document.getElementById('previous').addEventListener('click', () => cycle(-1));
+    document.getElementById('next').addEventListener('click', () => cycle(1));
+    document.addEventListener('keydown', event => {
+      if (event.target.closest('input,textarea,select,[contenteditable]')) return;
+      if (event.key === 'ArrowLeft') cycle(-1);
+      if (event.key === 'ArrowRight') cycle(1);
+    });
+    addEventListener('popstate', () => {
+      const next = new URL(location.href).searchParams.get('variant');
+      variant = variants.some(item => item.id === next) ? next : 'a';
+      render();
+    });
+    render();
+  </script>
+</body>
+</html>
