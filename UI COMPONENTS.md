@@ -170,13 +170,13 @@
 | 组件名称 | 源码路径 | 样式 / 依赖 | 核心职责 | 接口契约 | 状态变体与应用场景 |
 | --- | --- | --- | --- | --- | --- |
 | HomeView / HomeCanvas | `Features/Home/HomeView.swift`、`HomePresentation.swift` | SwiftUI、HomeViewModel、AppColors | 连续渐变画布与首页编排，保留顶部、移除卡片和悬浮添加入口 | 注入 `HomeViewModel`；下拉刷新 | 加载、重试、选中日内容；中部无边框与分割线 |
-| HomeHeaderView / HomeBannerCardView | `Features/Home/Components/HomeHeaderView.swift`、`HomeBannerCardView.swift` | SwiftUI、HomeBanner 资源 | 问候与搜索/通知入口；160pt 轻量插画，保留既有视觉氛围 | Header 注入 ViewModel，搜索/通知继续为提示入口 | 字体跟随系统；装饰图不参与无障碍朗读 |
-| WeekCalendarStripView | `Features/Home/Components/WeekCalendarStripView.swift` | SwiftUI 原生分页滚动、HomeCalendar | 七日横向分页、选日、回今天、打开月份选择 | 注入 ViewModel，双向同步可见周与选中日 | 今日圆点与选中态分离；日期完整朗读、选中 trait、减少动态效果 |
+| HomeHeaderView / HomeBannerCardView | `Features/Home/Components/HomeHeaderView.swift`、`HomeBannerCardView.swift` | SwiftUI、HomeBanner 资源 | 问候与搜索/通知入口；170pt 插画以透明遮罩融入页面底色 | Header 注入 ViewModel，搜索/通知继续为提示入口 | 字体跟随系统；装饰图不参与无障碍朗读 |
+| WeekCalendarStripView | `Features/Home/Components/WeekCalendarStripView.swift` | SwiftUI 原生分页滚动、HomeCalendar | 七日横向分页、停稳后选周、回今天、打开月份选择 | 注入 ViewModel，双向同步可见周与选中日 | 今日圆点与选中态分离；滑动更新延迟合并、跳月不回选；日期完整朗读、减少动态效果 |
 | HomeMonthPickerView | `Features/Home/Components/HomeMonthPickerView.swift` | SwiftUI、HomeCalendar | 年份选择与十二个月网格 | `selectedDate`、`dates`、`onSelect(year, month)` | 1900–2100；跨年与月末收敛；紧凑屏以可滚动 sheet 展示 |
 | HomeDayContentView / HomeDaySummaryView | `Features/Home/Components/HomeDayContentView.swift`、`HomeDaySummaryView.swift` | SwiftUI、HomeDaySnapshot | 四类当天摘要、筛选和加载反馈；复用于业务预览 | ViewModel、可选固定分类、摘要开关；摘要绑定分类 | 摘要窄屏自动换行；加载、错误/重试、空内容、明确标注样例 |
-| HomeTrendChartView | `Features/Home/Components/HomeTrendChartView.swift` | Swift Charts | 选中日及此前六日支出/专注曲线，零基线且不画网格 | `[HomeTrendPoint]`、初始指标 | 支出元/专注分钟切换、零值；图表无框、动画响应减少动态效果 |
+| HomeTrendChartView | `Features/Home/Components/HomeTrendChartView.swift` | Swift Charts | 选中日及此前六日支出/专注曲线；默认支出，选中胶囊与曲线柔和换场 | `[HomeTrendPoint]`、初始指标 | 支出元/专注分钟切换、零值；图表无框、响应减少动态效果 |
 | HomeEntryListView / HomeEntryDetailView | `Features/Home/Components/HomeEntryListView.swift`、`HomeEntryDetailView.swift` | SwiftUI、HomeEntry | 同一信息流展示待办、收支、资料、专注，点击查看详情 | 列表接收 entries、savingIDs、onToggle、onOpen；详情接收 entry 与 ViewModel | 待办完成与详情分离；服务确认后更新、保存中禁用、失败提示、大字体纵排 |
-| MainTabView / MainNavigationBar | `Features/Main/MainTabView.swift`、`MainNavigationBar.swift` | SwiftUI | 七个直接入口和跨页面共享日期状态；底部延伸至安全区 | `homeService`、`onLogout`；导航绑定 AppTab | 首页/日历/财务/资料/记录/任务/个人中心；大字体横向滚动、选中动画与无障碍 trait |
+| MainTabView / MainNavigationBar | `Features/Main/MainTabView.swift`、`MainNavigationBar.swift` | SwiftUI | 七个直接入口和跨页面共享日期状态；选中图标胶囊连续滑动、页面淡入，底色延伸至安全区 | `homeService`、`onLogout`；导航绑定 AppTab | 首页/日历/财务/资料/记录/任务/个人中心；大字体横向滚动、按压缩放、轻触反馈、减少动态效果与无障碍 trait |
 | WorkspacePreviewView / ProfileView | `Features/Main/WorkspacePreviewView.swift`、`ProfileView.swift` | SwiftUI、共享按日组件、AppEnvironment | 日历及业务分类预览；个人中心保持原账户/语言/退出功能 | `tab`、ViewModel；Profile 接收 onLogout | 业务预览明确未完成，任务入口独立占位；不冒充已接入服务 |
 
 原 iOS `TodayOverviewCardView`、`RecentTodosCardView`、`InspirationCardView` 和 `FloatingActionButton` 已删除，由以上无卡片信息流取代。

@@ -1,46 +1,30 @@
 import SwiftUI
 
-/// 首页主插画横幅：通栏展示 banner2.png，带有上下平滑自然过渡渐变
+/// 首页主插画横幅：图片透明度融入页面底色，保留原图的天空与人物细节。
 struct HomeBannerCardView: View {
     init() {}
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // 背景插画图片：通栏撑满，无卡片框与外边距
             Image("HomeBanner")
                 .resizable()
                 .scaledToFill()
                 .frame(maxWidth: .infinity)
-                .frame(height: 160)
+                .frame(height: 170)
                 .clipped()
-
-            // 顶部过渡渐变：与周历区域的淡蓝天空自然融合
-            LinearGradient(
-                colors: [
-                    Color(red: 0.93, green: 0.96, blue: 1.0),
-                    Color(red: 0.93, green: 0.96, blue: 1.0).opacity(0.6),
-                    Color.clear,
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 48)
-
-            // 底部过渡渐变：向下方背景与概览卡片平滑淡出
-            VStack {
-                Spacer()
-                LinearGradient(
-                    colors: [
-                        Color.clear,
-                        AppColors.pageBackground.opacity(0.35),
-                        AppColors.pageBackground.opacity(0.85),
-                        AppColors.pageBackground,
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 70)
-            }
+                .mask {
+                    // 透明遮罩让实际页面背景透出，避免固定颜色渐变形成色带。
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: .white, location: 0.17),
+                            .init(color: .white, location: 0.58),
+                            .init(color: .clear, location: 1),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
 
             // 顶部叠加诗意生活语录
             VStack(alignment: .leading, spacing: 6) {
@@ -58,6 +42,6 @@ struct HomeBannerCardView: View {
             .padding(.leading, 24)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 160)
+        .frame(height: 170)
     }
 }

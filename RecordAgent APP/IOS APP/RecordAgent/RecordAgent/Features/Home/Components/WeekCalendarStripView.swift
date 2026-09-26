@@ -7,6 +7,8 @@ struct WeekCalendarStripView: View {
     @ScaledMetric(relativeTo: .caption) private var weekHeight = 84.0
     @State private var visibleWeek: Date?
     @State private var showMonths = false
+    @State private var pendingWeekSelection: Task<Void, Never>?
+    @State private var programmaticWeek: Date?
 
     init(viewModel: HomeViewModel) {
         self.viewModel = viewModel
@@ -64,13 +66,35 @@ struct WeekCalendarStripView: View {
             .scrollTargetBehavior(.paging)
             .scrollPosition(id: $visibleWeek)
             .onChange(of: visibleWeek) { _, week in
-                if let week { viewModel.selectWeek(week) }
+                pendingWeekSelection?.cancel()
+                guard let week else { return }
+                // 月份跳转会改变滚动位置，不应被当成一次反向滑动。
+                if let programmaticWeek {
+                    if week == programmaticWeek { self.programmaticWeek = nil }
+                    return
+                }
+                pendingWeekSelection = Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(130))
+                    guard !Task.isCancelled, visibleWeek == week else { return }
+                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.28)) {
+                        viewModel.selectWeek(week)
+                    }
+                }
             }
             .onChange(of: viewModel.selectedDate) { _, date in
                 let week = viewModel.dates.startOfWeek(containing: date)
                 guard visibleWeek != week else { return }
-                withAnimation(reduceMotion ? nil : .smooth(duration: 0.32)) { visibleWeek = week }
+                pendingWeekSelection?.cancel()
+                programmaticWeek = week
+                let distance =
+                    visibleWeek.flatMap {
+                        viewModel.dates.calendar.dateComponents([.day], from: $0, to: week).day
+                    } ?? 0
+                withAnimation(reduceMotion || abs(distance) > 21 ? nil : .smooth(duration: 0.38)) {
+                    visibleWeek = week
+                }
             }
+            .onDisappear { pendingWeekSelection?.cancel() }
         }
         .buttonStyle(.plain)
     }
@@ -79,7 +103,9 @@ struct WeekCalendarStripView: View {
         let selected = viewModel.dates.calendar.isDate(date, inSameDayAs: viewModel.selectedDate)
         let today = viewModel.dates.calendar.isDateInToday(date)
         return Button {
-            viewModel.selectDate(date)
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.26)) {
+                viewModel.selectDate(date)
+            }
         } label: {
             VStack(spacing: 7) {
                 Text(date, format: .dateTime.weekday(.narrow))

@@ -41,6 +41,7 @@ struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
     @StateObject private var homeModel: HomeViewModel
     @Environment(\.locale) private var locale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let onLogout: () -> Void
 
     init(homeService: any HomeDataServiceProtocol, onLogout: @escaping () -> Void) {
@@ -54,17 +55,21 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        Group {
+        ZStack {
             switch selectedTab {
             case .home:
                 HomeView(viewModel: homeModel)
+                    .transition(pageTransition)
             case .profile:
                 ProfileView(onLogout: onLogout)
+                    .transition(pageTransition)
             default:
                 WorkspacePreviewView(tab: selectedTab, viewModel: homeModel)
                     .id(selectedTab)
+                    .transition(pageTransition)
             }
         }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.23), value: selectedTab)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             MainNavigationBar(selection: $selectedTab)
@@ -73,6 +78,9 @@ struct MainTabView: View {
         .task(id: LoadKey(date: homeModel.selectedDate, locale: locale.identifier)) {
             await homeModel.load(locale: locale)
         }
+    }
 
+    private var pageTransition: AnyTransition {
+        reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 8))
     }
 }
