@@ -46,24 +46,10 @@ struct ProfileView: View {
                         ProfileOverviewPanel(state: overviewModel.state)
                         ProfileActivitySection(state: activityModel.state, onOpen: onOpenActivity)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 24)
-                    .padding(.bottom, 36)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 32)
                     .frame(maxWidth: 640)
                     .frame(maxWidth: .infinity)
-                    .background {
-                        UnevenRoundedRectangle(
-                            topLeadingRadius: 24,
-                            bottomLeadingRadius: 0,
-                            bottomTrailingRadius: 0,
-                            topTrailingRadius: 24,
-                            style: .continuous
-                        )
-                        .fill(Color(uiColor: .systemBackground))
-                        .shadow(color: Color.black.opacity(0.04), radius: 10, y: -4)
-                    }
-                    .offset(y: -16)
-                    .padding(.bottom, -16)
                 }
             }
             .ignoresSafeArea(edges: .top)
