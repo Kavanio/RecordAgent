@@ -51,7 +51,7 @@
 		DAF89F59F6827CB81B32120D /* ProfileAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6FD19180FB162B8D30F9409 /* ProfileAccountView.swift */; };
 		93AFD6EBD3A441965FDBD47E /* ProfilePreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53EB386F63A76A91ABEAD50E /* ProfilePreferencesView.swift */; };
 		C6D07149D3AE1E33FCDE8F30 /* ProfileAboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDEF96DE576B39F64D60A782 /* ProfileAboutView.swift */; };
-		7EB0104647566BFD016189EB /* ProfileDirectoryRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CF01092ACA81C2DF427763D /* ProfileDirectoryRow.swift */; };
+		A8E5910F20E84B81967FE52C /* ProfileSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E2B541DBA14B8A8A5205C2 /* ProfileSettingsView.swift */; };
 		FB14CF6BA1766C68D07F9EC2 /* AppSettingsGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFFD259A7595E93BB796AE78 /* AppSettingsGroup.swift */; };
 		68911651ED4E67338F3135AF /* AppSettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C686DBBB24BB6D109C70AAA2 /* AppSettingsRow.swift */; };
 		39BC56A43A97856136718D88 /* ProfileOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E6D4DF19536471DFC0194B /* ProfileOverview.swift */; };
@@ -122,7 +122,7 @@
 		C6FD19180FB162B8D30F9409 /* ProfileAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAccountView.swift; sourceTree = "<group>"; };
 		53EB386F63A76A91ABEAD50E /* ProfilePreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePreferencesView.swift; sourceTree = "<group>"; };
 		FDEF96DE576B39F64D60A782 /* ProfileAboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAboutView.swift; sourceTree = "<group>"; };
-		1CF01092ACA81C2DF427763D /* ProfileDirectoryRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileDirectoryRow.swift; sourceTree = "<group>"; };
+		F3E2B541DBA14B8A8A5205C2 /* ProfileSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileSettingsView.swift; sourceTree = "<group>"; };
 		BFFD259A7595E93BB796AE78 /* AppSettingsGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsGroup.swift; sourceTree = "<group>"; };
 		C686DBBB24BB6D109C70AAA2 /* AppSettingsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsRow.swift; sourceTree = "<group>"; };
 		E2E6D4DF19536471DFC0194B /* ProfileOverview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileOverview.swift; sourceTree = "<group>"; };
@@ -369,7 +369,7 @@
 				C6FD19180FB162B8D30F9409 /* ProfileAccountView.swift */,
 				53EB386F63A76A91ABEAD50E /* ProfilePreferencesView.swift */,
 				FDEF96DE576B39F64D60A782 /* ProfileAboutView.swift */,
-				1CF01092ACA81C2DF427763D /* ProfileDirectoryRow.swift */,
+				F3E2B541DBA14B8A8A5205C2 /* ProfileSettingsView.swift */,
 			);
 			path = Profile;
 			sourceTree = "<group>";
@@ -521,7 +521,7 @@
 				39BC56A43A97856136718D88 /* ProfileOverview.swift in Sources */,
 				68911651ED4E67338F3135AF /* AppSettingsRow.swift in Sources */,
 				FB14CF6BA1766C68D07F9EC2 /* AppSettingsGroup.swift in Sources */,
-				7EB0104647566BFD016189EB /* ProfileDirectoryRow.swift in Sources */,
+				A8E5910F20E84B81967FE52C /* ProfileSettingsView.swift in Sources */,
 				C6D07149D3AE1E33FCDE8F30 /* ProfileAboutView.swift in Sources */,
 				93AFD6EBD3A441965FDBD47E /* ProfilePreferencesView.swift in Sources */,
 				DAF89F59F6827CB81B32120D /* ProfileAccountView.swift in Sources */,
