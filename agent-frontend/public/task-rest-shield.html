@@ -199,7 +199,7 @@
       transform: scale(0.98);
     }
 
-    /* 3D 加载与错误提示 */
+    /* 3D 加载与错误提示：复用项目统一 LoadingTree 动效 */
     #loading,
     #error {
       position: absolute;
@@ -217,26 +217,58 @@
       visibility: hidden;
     }
 
-    .loading-inner {
-      display: flex;
+    .loading-card {
+      display: inline-flex;
+      flex-direction: column;
       align-items: center;
-      gap: 11px;
-      color: #8197c4;
-      font-size: 13px;
-      letter-spacing: 0.02em;
-      background: rgba(255, 255, 255, 0.8);
-      padding: 10px 18px;
-      border-radius: 999px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+      justify-content: center;
+      gap: 12px;
+      color: #334155;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      padding: 24px 32px;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 16px 40px -8px rgba(22, 38, 77, 0.08);
     }
 
-    .spinner {
-      width: 18px;
-      height: 18px;
-      border: 2px solid #d8e3ff;
-      border-top-color: #3b82f6;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
+    .loading-tree-svg {
+      display: block;
+      overflow: visible;
+      stroke: #2563eb;
+      stroke-width: 2.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      width: 48px;
+      height: 56px;
+    }
+
+    .tree-path {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      animation: growTree 2.8s cubic-bezier(0.5, 0.1, 0.5, 1) infinite both;
+    }
+
+    .tree-branches {
+      animation-delay: 100ms;
+    }
+
+    .tree-crown {
+      animation-delay: 220ms;
+    }
+
+    .tree-ground {
+      animation-delay: 320ms;
+    }
+
+    .loading-label {
+      max-width: 32ch;
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.5;
+      letter-spacing: 0.02em;
     }
 
     #error {
@@ -247,8 +279,20 @@
       line-height: 1.7;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    @keyframes growTree {
+      0% {
+        opacity: 0.28;
+        stroke-dashoffset: 1;
+      }
+      58%,
+      78% {
+        opacity: 1;
+        stroke-dashoffset: 0;
+      }
+      100% {
+        opacity: 0.28;
+        stroke-dashoffset: -1;
+      }
     }
 
     @keyframes pulse {
@@ -275,7 +319,11 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .spinner { animation: none; }
+      .tree-path {
+        animation: none;
+        opacity: 1;
+        stroke-dashoffset: 0;
+      }
       .dashboard-card { animation: none; }
     }
   </style>
@@ -328,11 +376,16 @@
       </div>
     </aside>
 
-    <!-- 加载中指示器 -->
+    <!-- 加载中指示器：复用项目统一 LoadingTree 动效 -->
     <div id="loading">
-      <div class="loading-inner">
-        <span class="spinner"></span>
-        <span>加载星球世界…</span>
+      <div class="loading-card" role="status" aria-live="polite" aria-busy="true">
+        <svg class="loading-tree-svg" viewBox="0 0 96 112" fill="none" aria-hidden="true">
+          <path class="tree-path tree-trunk" pathLength="1" d="M35 101c7-10 11-22 12-36m14 36c-7-11-11-23-13-36m-13 36h26" />
+          <path class="tree-path tree-branches" pathLength="1" d="M48 78V47m0 18L34 51m14 7l14-16M48 70l19-12M48 55L39 39" />
+          <path class="tree-path tree-crown" pathLength="1" d="M47 57c-5 4-13 4-18-1-8 2-15-4-14-12-7-5-5-16 3-19 0-10 11-16 19-11 4-11 19-12 25-2 10-4 20 4 18 15 8 4 9 15 2 20 0 9-10 15-18 11-4 5-12 6-18 2z" />
+          <path class="tree-path tree-ground" pathLength="1" d="M24 104h48" />
+        </svg>
+        <span class="loading-label">正在唤醒 3D 奔跑小人…</span>
       </div>
     </div>
 
