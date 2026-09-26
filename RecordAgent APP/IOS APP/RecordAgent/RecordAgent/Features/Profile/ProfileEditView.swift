@@ -9,6 +9,7 @@ struct ProfileEditView: View {
     let onSave: (ProfileAppearance) async -> Bool
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.locale) private var locale
     @State private var nickname: String
     @State private var avatarData: Data?
     @State private var coverData: Data?
@@ -34,12 +35,19 @@ struct ProfileEditView: View {
         NavigationStack {
             Form {
                 Section("profile.edit.nickname") {
-                    TextField("profile.edit.nicknamePlaceholder", text: $nickname)
-                        .textInputAutocapitalization(.words)
-                        .autocorrectionDisabled()
-                        .onChange(of: nickname) { _, value in
-                            if value.count > 32 { nickname = String(value.prefix(32)) }
-                        }
+                    TextField(
+                        "profile.edit.nicknamePlaceholder", text: $nickname,
+                        prompt: Text(
+                            verbatim: user.profileDisplayName(override: nil, locale: locale))
+                    )
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled()
+                    .onChange(of: nickname) { _, value in
+                        if value.count > 32 { nickname = String(value.prefix(32)) }
+                    }
+                    Text("profile.edit.nicknameHint")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
                 Section("profile.edit.images") {
                     PhotosPicker(selection: $avatarSelection, matching: .images) {
@@ -77,9 +85,7 @@ struct ProfileEditView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("common.save") { Task { await save() } }
-                        .disabled(
-                            isSaving
-                                || nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(isSaving)
                 }
             }
             .task(id: avatarSelection) { await importImage(avatarSelection, isCover: false) }

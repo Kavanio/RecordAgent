@@ -1,18 +1,23 @@
 import SwiftUI
 import UIKit
 
-/// 全宽封面承载身份信息，底部融入个人主页的连续画布。
+/// 有照片时用短渐变衔接页面；无照片时与页面共享纯净底色。
 struct ProfileIdentityHeader: View {
     let user: AuthUser?
     let appearance: ProfileAppearance
     let onEdit: () -> Void
     let onSettings: () -> Void
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.locale) private var locale
+
+    private var cover: UIImage? {
+        guard let data = appearance.coverData else { return nil }
+        return UIImage(data: data)
+    }
+
+    private var foreground: Color { cover == nil ? AppColors.textPrimary : .white }
 
     private var name: String? {
-        if let nickname = appearance.nickname, !nickname.isEmpty { return nickname }
-        if let nickname = user?.nickname, !nickname.isEmpty { return nickname }
-        return user?.email.components(separatedBy: "@").first
+        user?.profileDisplayName(override: appearance.nickname, locale: locale)
     }
 
     var body: some View {
@@ -22,13 +27,13 @@ struct ProfileIdentityHeader: View {
                 Button(action: onSettings) {
                     Image(systemName: "gearshape")
                         .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(foreground)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("profile.settings.title"))
-                .shadow(color: .black.opacity(0.45), radius: 5, y: 2)
+                .shadow(color: .black.opacity(cover == nil ? 0 : 0.35), radius: 4, y: 1)
             }
             .padding(.horizontal, 24)
             .padding(.top, 54)
@@ -53,25 +58,27 @@ struct ProfileIdentityHeader: View {
                     if let user {
                         Text(verbatim: user.email)
                             .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.88))
+                            .foregroundStyle(
+                                cover == nil ? AppColors.textSecondary : .white.opacity(0.9)
+                            )
                             .lineLimit(2)
                     }
                 }
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.42), radius: 4, y: 1)
+                .foregroundStyle(foreground)
+                .shadow(color: .black.opacity(cover == nil ? 0 : 0.35), radius: 3, y: 1)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Button(action: onEdit) {
                     Image(systemName: "pencil")
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(foreground)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(user == nil)
                 .accessibilityLabel(Text("profile.edit.title"))
-                .shadow(color: .black.opacity(0.45), radius: 5, y: 2)
+                .shadow(color: .black.opacity(cover == nil ? 0 : 0.35), radius: 4, y: 1)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 48)
@@ -82,56 +89,50 @@ struct ProfileIdentityHeader: View {
             GeometryReader { geometry in
                 ZStack {
                     coverImage(size: geometry.size)
-                    LinearGradient(
-                        stops: [
-                            .init(color: .black.opacity(0.35), location: 0),
-                            .init(color: .clear, location: 0.36),
-                            .init(color: .black.opacity(0.22), location: 0.55),
-                            .init(color: .black.opacity(0.62), location: 1),
-                        ],
-                        startPoint: .top, endPoint: .bottom)
+                    if cover != nil {
+                        LinearGradient(
+                            colors: [.black.opacity(0.18), .clear, .black.opacity(0.48)],
+                            startPoint: .top, endPoint: .bottom)
+                    }
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height)
                 .clipped()
             }
         }
         .overlay(alignment: .bottom) {
-            ZStack {
-                Color(uiColor: .systemBackground)
-                AppColors.skyLightBlue.opacity(colorScheme == .dark ? 0.08 : 0.55)
+            if cover != nil {
+                LinearGradient(
+                    colors: [.clear, Color(uiColor: .systemBackground)],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .frame(height: 22)
+                .allowsHitTesting(false)
             }
-            .mask {
-                LinearGradient(colors: [.clear, .white], startPoint: .top, endPoint: .bottom)
-            }
-            .frame(height: 48)
-            .allowsHitTesting(false)
         }
     }
 
     @ViewBuilder private func coverImage(size: CGSize) -> some View {
-        if let data = appearance.coverData, let image = UIImage(data: data) {
+        if let image = cover {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFill()
                 .frame(width: size.width, height: size.height)
                 .clipped()
         } else {
-            ZStack {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.17, green: 0.27, blue: 0.42),
-                        Color(red: 0.35, green: 0.43, blue: 0.60),
-                        HomeCategory.record.color.opacity(0.85),
-                    ],
-                    startPoint: .topLeading, endPoint: .bottomTrailing)
-                Circle()
-                    .fill(Color.white.opacity(0.12))
-                    .frame(width: 220, height: 220)
-                    .blur(radius: 65)
-                    .offset(x: size.width * 0.32, y: -48)
-            }
-            .frame(width: size.width, height: size.height)
-            .clipped()
+            Color(uiColor: .systemBackground)
+                .frame(width: size.width, height: size.height)
         }
+    }
+}
+
+extension AuthUser {
+    /// 个性化昵称优先；缺失时按账户稳定生成展示名。
+    func profileDisplayName(override: String?, locale: Locale) -> String {
+        for candidate in [override, nickname] {
+            let value = candidate?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let value, !value.isEmpty { return value }
+        }
+        let number = generatedNicknameNumber
+        return AppLocalization.string("profile.generatedNickname \(number)", locale: locale)
     }
 }

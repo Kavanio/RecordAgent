@@ -53,7 +53,7 @@ struct ProfileView: View {
                 }
             }
             .ignoresSafeArea(edges: .top)
-            .background { HomeCanvas() }
+            .background(Color(uiColor: .systemBackground).ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $showsSettings) {
                 ProfileSettingsView(

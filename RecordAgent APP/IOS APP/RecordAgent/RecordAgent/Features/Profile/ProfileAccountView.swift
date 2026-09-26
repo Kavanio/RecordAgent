@@ -8,14 +8,19 @@ struct ProfileAccountView: View {
     @State private var confirmLogout = false
     @State private var isLoggingOut = false
     @State private var logoutFailed = false
+    @Environment(\.locale) private var locale
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 AppSettingsGroup(title: "profile.account.details") {
                     AppSettingsRow(title: "profile.account.nickname") {
-                        if let nickname = nicknameOverride ?? user?.nickname, !nickname.isEmpty {
-                            Text(verbatim: nickname).foregroundStyle(.secondary)
+                        if let user {
+                            Text(
+                                verbatim: user.profileDisplayName(
+                                    override: nicknameOverride, locale: locale)
+                            )
+                            .foregroundStyle(.secondary)
                         } else {
                             Text("profile.account.unset").foregroundStyle(.secondary)
                         }

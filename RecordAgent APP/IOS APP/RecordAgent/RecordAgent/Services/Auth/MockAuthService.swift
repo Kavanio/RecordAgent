@@ -12,8 +12,7 @@ public final class MockAuthService: AuthServiceProtocol, @unchecked Sendable {
         if let token = keychain.getToken(), let email = keychain.getSavedEmail() {
             let mockUser = AuthUser(
                 id: "user_\(abs(email.hashValue))",
-                email: email,
-                nickname: email.components(separatedBy: "@").first ?? "RecordUser"
+                email: email
             )
             self.currentSession = AuthSession(token: token, user: mockUser)
         }
@@ -37,11 +36,11 @@ public final class MockAuthService: AuthServiceProtocol, @unchecked Sendable {
 
         let user = AuthUser(
             id: "usr_\(UUID().uuidString.prefix(8).lowercased())",
-            email: email,
-            nickname: email.components(separatedBy: "@").first ?? "RecordUser"
+            email: email
         )
         let token = "mock_jwt_token_\(UUID().uuidString)"
-        let session = AuthSession(token: token, user: user, expiresAt: Date().addingTimeInterval(86400 * 30))
+        let session = AuthSession(
+            token: token, user: user, expiresAt: Date().addingTimeInterval(86400 * 30))
 
         lock.lock()
         self.currentSession = session
@@ -78,11 +77,11 @@ public final class MockAuthService: AuthServiceProtocol, @unchecked Sendable {
 
         let user = AuthUser(
             id: "usr_\(UUID().uuidString.prefix(8).lowercased())",
-            email: email,
-            nickname: email.components(separatedBy: "@").first ?? "RecordUser"
+            email: email
         )
         let token = "mock_jwt_code_token_\(UUID().uuidString)"
-        let session = AuthSession(token: token, user: user, expiresAt: Date().addingTimeInterval(86400 * 30))
+        let session = AuthSession(
+            token: token, user: user, expiresAt: Date().addingTimeInterval(86400 * 30))
 
         lock.lock()
         self.currentSession = session
@@ -94,7 +93,8 @@ public final class MockAuthService: AuthServiceProtocol, @unchecked Sendable {
         return session
     }
 
-    public func register(email: String, code: String, password: String) async throws -> AuthSession {
+    public func register(email: String, code: String, password: String) async throws -> AuthSession
+    {
         try await Task.sleep(nanoseconds: 700_000_000)
 
         if let error = AuthValidator.validateEmail(email) {
@@ -109,11 +109,11 @@ public final class MockAuthService: AuthServiceProtocol, @unchecked Sendable {
 
         let user = AuthUser(
             id: "usr_\(UUID().uuidString.prefix(8).lowercased())",
-            email: email,
-            nickname: email.components(separatedBy: "@").first ?? "RecordUser"
+            email: email
         )
         let token = "mock_jwt_register_token_\(UUID().uuidString)"
-        let session = AuthSession(token: token, user: user, expiresAt: Date().addingTimeInterval(86400 * 30))
+        let session = AuthSession(
+            token: token, user: user, expiresAt: Date().addingTimeInterval(86400 * 30))
 
         lock.lock()
         self.currentSession = session

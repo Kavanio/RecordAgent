@@ -2107,6 +2107,40 @@
         }
       }
     },
+    "profile.generatedNickname %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "User_%lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用户_%lld"
+          }
+        }
+      }
+    },
+    "profile.edit.nicknameHint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave blank to use your generated nickname."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "留空则使用系统生成的昵称。"
+          }
+        }
+      }
+    },
     "profile.settings.language" : {
       "extractionState" : "manual",
       "localizations" : {

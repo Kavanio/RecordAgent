@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// 认证表单模式
@@ -16,7 +17,8 @@ public struct AuthSession: Codable, Sendable, Equatable {
     public let user: AuthUser
     public let expiresAt: Date?
 
-    public init(token: String, refreshToken: String? = nil, user: AuthUser, expiresAt: Date? = nil) {
+    public init(token: String, refreshToken: String? = nil, user: AuthUser, expiresAt: Date? = nil)
+    {
         self.token = token
         self.refreshToken = refreshToken
         self.user = user
@@ -32,12 +34,23 @@ public struct AuthUser: Codable, Identifiable, Sendable, Equatable {
     public let avatarUrl: String?
     public let createdAt: Date
 
-    public init(id: String, email: String, nickname: String? = nil, avatarUrl: String? = nil, createdAt: Date = Date()) {
+    public init(
+        id: String, email: String, nickname: String? = nil, avatarUrl: String? = nil,
+        createdAt: Date = Date()
+    ) {
         self.id = id
         self.email = email
         self.nickname = nickname
         self.avatarUrl = avatarUrl
         self.createdAt = createdAt
+    }
+
+    /// 仅供未设置昵称时显示的稳定数字后缀；服务端接通后由账户系统分配真正全局唯一的昵称。
+    public var generatedNicknameNumber: Int64 {
+        let account = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let digest = SHA256.hash(data: Data(account.utf8))
+        let value = digest.prefix(8).reduce(UInt64(0)) { ($0 << 8) | UInt64($1) }
+        return Int64(1_000_000_000_000 + value % 9_000_000_000_000)
     }
 }
 
