@@ -1,9 +1,11 @@
 import SwiftUI
+import UIKit
 
 /// 显示账户头像；尚无头像或加载失败时保留同尺寸的字母印记。
 struct ProfileAvatarView: View {
     let name: String?
     let avatarURLString: String?
+    var imageData: Data? = nil
 
     private var avatarURL: URL? {
         guard let avatarURLString,
@@ -15,7 +17,9 @@ struct ProfileAvatarView: View {
 
     var body: some View {
         Group {
-            if let avatarURL {
+            if let imageData, let image = UIImage(data: imageData) {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else if let avatarURL {
                 AsyncImage(url: avatarURL) { phase in
                     switch phase {
                     case .success(let image):

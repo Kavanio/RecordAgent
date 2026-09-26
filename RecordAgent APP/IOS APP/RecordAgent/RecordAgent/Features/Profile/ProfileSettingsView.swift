@@ -3,6 +3,7 @@ import SwiftUI
 /// 从个人总览的齿轮入口集中访问账户、偏好与应用信息。
 struct ProfileSettingsView: View {
     let user: AuthUser?
+    let nicknameOverride: String?
     let onLogout: () async throws -> Void
     @EnvironmentObject private var environment: AppEnvironment
 
@@ -11,7 +12,8 @@ struct ProfileSettingsView: View {
             VStack(spacing: 28) {
                 AppSettingsGroup(title: "profile.settings.section.account") {
                     NavigationLink {
-                        ProfileAccountView(user: user, onLogout: onLogout)
+                        ProfileAccountView(
+                            user: user, nicknameOverride: nicknameOverride, onLogout: onLogout)
                     } label: {
                         settingsRow(title: "profile.account.title")
                     }

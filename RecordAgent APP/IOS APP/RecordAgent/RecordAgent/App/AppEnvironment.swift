@@ -12,6 +12,8 @@ public final class AppEnvironment: ObservableObject {
     public let keychain: KeychainService
     let homeService: any HomeDataServiceProtocol
     let profileOverviewService: any ProfileOverviewServiceProtocol
+    let profileActivityService: any ProfileActivityServiceProtocol
+    let profileAppearanceService: any ProfileAppearanceServiceProtocol
 
     /// 当前选中的应用语言（支持跟随系统、简体中文、英文）
     @Published public var selectedLanguage: AppLanguage {
@@ -38,6 +40,8 @@ public final class AppEnvironment: ObservableObject {
             self.homeService = UnavailableHomeDataService()
             self.profileOverviewService = UnavailableProfileOverviewService()
         #endif
+        self.profileActivityService = HomeProfileActivityService(homeService: homeService)
+        self.profileAppearanceService = LocalProfileAppearanceService()
 
         // 从 UserDefaults 读取持久化的语言偏好，默认跟随系统
         if let savedRaw = UserDefaults.standard.string(forKey: languageStorageKey),

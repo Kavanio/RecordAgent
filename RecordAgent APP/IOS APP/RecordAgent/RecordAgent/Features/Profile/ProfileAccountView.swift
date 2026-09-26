@@ -3,6 +3,7 @@ import SwiftUI
 /// 账户信息与退出交互；退出成功后由根协调器关闭已登录界面。
 struct ProfileAccountView: View {
     let user: AuthUser?
+    let nicknameOverride: String?
     let onLogout: () async throws -> Void
     @State private var confirmLogout = false
     @State private var isLoggingOut = false
@@ -13,7 +14,7 @@ struct ProfileAccountView: View {
             VStack(alignment: .leading, spacing: 28) {
                 AppSettingsGroup(title: "profile.account.details") {
                     AppSettingsRow(title: "profile.account.nickname") {
-                        if let nickname = user?.nickname, !nickname.isEmpty {
+                        if let nickname = nicknameOverride ?? user?.nickname, !nickname.isEmpty {
                             Text(verbatim: nickname).foregroundStyle(.secondary)
                         } else {
                             Text("profile.account.unset").foregroundStyle(.secondary)

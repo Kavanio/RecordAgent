@@ -16,6 +16,8 @@ public struct RootCoordinatorView: View {
                 MainTabView(
                     homeService: environment.homeService,
                     profileOverviewService: environment.profileOverviewService,
+                    profileActivityService: environment.profileActivityService,
+                    profileAppearanceService: environment.profileAppearanceService,
                     user: environment.authService.getCurrentSession()?.user,
                     onLogout: {
                         try await environment.authService.logout()

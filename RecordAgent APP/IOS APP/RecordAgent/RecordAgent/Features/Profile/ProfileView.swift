@@ -4,33 +4,45 @@ import SwiftUI
 struct ProfileView: View {
     let user: AuthUser?
     let onLogout: () async throws -> Void
+    let onOpenActivity: (HomeEntry) -> Void
     @StateObject private var overviewModel: ProfileOverviewViewModel
+    @StateObject private var activityModel: ProfileActivityViewModel
+    @StateObject private var appearanceModel: ProfileAppearanceViewModel
+    @State private var showsSettings = false
+    @State private var showsEdit = false
     @Environment(\.locale) private var locale
     @Environment(\.calendar) private var calendar
 
     init(
         user: AuthUser?,
         overviewService: any ProfileOverviewServiceProtocol,
+        activityService: any ProfileActivityServiceProtocol,
+        appearanceService: any ProfileAppearanceServiceProtocol,
+        onOpenActivity: @escaping (HomeEntry) -> Void,
         onLogout: @escaping () async throws -> Void
     ) {
         self.user = user
         self.onLogout = onLogout
+        self.onOpenActivity = onOpenActivity
         _overviewModel = StateObject(
             wrappedValue: ProfileOverviewViewModel(service: overviewService))
-    }
-
-    private var name: String? {
-        guard let user else { return nil }
-        let nickname = user.nickname?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return nickname?.isEmpty == false ? nickname : user.email.components(separatedBy: "@").first
+        _activityModel = StateObject(
+            wrappedValue: ProfileActivityViewModel(service: activityService))
+        _appearanceModel = StateObject(
+            wrappedValue: ProfileAppearanceViewModel(service: appearanceService))
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
-                    identity
+                    ProfileIdentityHeader(
+                        user: user,
+                        appearance: appearanceModel.appearance,
+                        onEdit: { showsEdit = true },
+                        onSettings: { showsSettings = true })
                     ProfileOverviewPanel(state: overviewModel.state)
+                    ProfileActivitySection(state: activityModel.state, onOpen: onOpenActivity)
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 18)
@@ -40,50 +52,40 @@ struct ProfileView: View {
             }
             .background { HomeCanvas() }
             .toolbar(.hidden, for: .navigationBar)
-            .task(id: LoadKey(userID: user?.id, month: monthStart, locale: locale.identifier)) {
-                await overviewModel.load(userID: user?.id, month: monthStart)
+            .navigationDestination(isPresented: $showsSettings) {
+                ProfileSettingsView(
+                    user: user,
+                    nicknameOverride: appearanceModel.appearance.nickname,
+                    onLogout: onLogout)
             }
-            .refreshable {
-                await overviewModel.load(userID: user?.id, month: monthStart)
-            }
-        }
-    }
-
-    private var identity: some View {
-        HStack(spacing: 16) {
-            ProfileAvatarView(name: name, avatarURLString: user?.avatarUrl)
-            VStack(alignment: .leading, spacing: 5) {
-                if let name, !name.isEmpty {
-                    Text(verbatim: name)
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(AppColors.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text("profile.cover.fallback")
-                        .font(.title2.weight(.semibold))
-                }
+            .sheet(isPresented: $showsEdit) {
                 if let user {
-                    Text(verbatim: user.email)
-                        .font(.footnote)
-                        .foregroundStyle(AppColors.textSecondary)
-                        .lineLimit(2)
-                        .textSelection(.enabled)
+                    ProfileEditView(user: user, current: appearanceModel.appearance) { updated in
+                        await appearanceModel.save(updated, account: user.email)
+                    }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            NavigationLink {
-                ProfileSettingsView(user: user, onLogout: onLogout)
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 20, weight: .regular))
-                    .foregroundStyle(AppColors.textPrimary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
+            .task(id: LoadKey(userID: user?.id, month: monthStart, locale: locale.identifier)) {
+                async let overview: Void = overviewModel.load(userID: user?.id, month: monthStart)
+                async let activity: Void = activityModel.load(
+                    account: user?.email, month: monthStart, locale: locale)
+                _ = await (overview, activity)
             }
-            .accessibilityLabel(Text("profile.settings.title"))
-            .buttonStyle(.plain)
+            .task(id: user?.email) { await appearanceModel.load(account: user?.email) }
+            .refreshable {
+                async let overview: Void = overviewModel.load(userID: user?.id, month: monthStart)
+                async let activity: Void = activityModel.load(
+                    account: user?.email, month: monthStart, locale: locale)
+                _ = await (overview, activity)
+            }
+            .alert(
+                "profile.edit.saveFailed",
+                isPresented: Binding(
+                    get: { appearanceModel.error != nil },
+                    set: { if !$0 { appearanceModel.error = nil } }
+                )
+            ) { Button("common.confirm", role: .cancel) {} }
         }
-        .frame(minHeight: 62)
     }
 
     private var monthStart: Date {

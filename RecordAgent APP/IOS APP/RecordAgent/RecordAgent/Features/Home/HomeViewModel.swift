@@ -13,6 +13,7 @@ final class HomeViewModel: ObservableObject {
     @Published var showSearchAlert = false
     @Published var showNotificationAlert = false
     @Published var category: HomeCategory?
+    @Published private(set) var requestedEntryID: String?
 
     let dates: HomeCalendar
     private let service: any HomeDataServiceProtocol
@@ -26,6 +27,14 @@ final class HomeViewModel: ObservableObject {
     }
 
     var visibleEntries: [HomeEntry] { entries(in: category) }
+
+    func openFromProfile(_ entry: HomeEntry) {
+        selectDate(entry.date)
+        category = entry.kind.category
+        requestedEntryID = entry.id
+    }
+
+    func consumeRequestedEntry() { requestedEntryID = nil }
     func entries(in category: HomeCategory?) -> [HomeEntry] {
         (snapshot?.entries ?? []).filter { category == nil || $0.kind.category == category }
     }
@@ -43,23 +52,28 @@ final class HomeViewModel: ObservableObject {
             weekStarts = dates.weeks(around: normalized)
         } else if week == weekStarts.first {
             weekStarts.insert(
-                contentsOf: (-26..<0).map { dates.addingDays($0 * 7, to: week) }.filter(dates.isSupportedWeek), at: 0)
+                contentsOf: (-26..<0).map { dates.addingDays($0 * 7, to: week) }.filter(
+                    dates.isSupportedWeek), at: 0)
         } else if week == weekStarts.last {
             weekStarts.append(
-                contentsOf: (1...26).map { dates.addingDays($0 * 7, to: week) }.filter(dates.isSupportedWeek))
+                contentsOf: (1...26).map { dates.addingDays($0 * 7, to: week) }.filter(
+                    dates.isSupportedWeek))
         }
     }
 
     func selectWeek(_ week: Date) {
         let currentWeek = dates.startOfWeek(containing: selectedDate)
         guard currentWeek != week else { return }
-        let offset = dates.calendar.dateComponents([.day], from: currentWeek, to: selectedDate).day ?? 0
+        let offset =
+            dates.calendar.dateComponents([.day], from: currentWeek, to: selectedDate).day ?? 0
         let candidate = dates.addingDays(offset, to: week)
-        selectDate(min(max(candidate, dates.supportedDates.lowerBound), dates.supportedDates.upperBound))
+        selectDate(
+            min(max(candidate, dates.supportedDates.lowerBound), dates.supportedDates.upperBound))
     }
 
     func selectMonth(year: Int, month: Int) {
-        guard let date = dates.date(inYear: year, month: month, preservingDayOf: selectedDate) else { return }
+        guard let date = dates.date(inYear: year, month: month, preservingDayOf: selectedDate)
+        else { return }
         selectDate(date)
     }
 
@@ -91,7 +105,8 @@ final class HomeViewModel: ObservableObject {
         savingTodoIDs.insert(entry.id)
         defer { savingTodoIDs.remove(entry.id) }
         do {
-            try await service.setTodoCompleted(id: entry.id, completed: !current.isCompleted, date: date)
+            try await service.setTodoCompleted(
+                id: entry.id, completed: !current.isCompleted, date: date)
             guard selectedDate == date,
                 let index = snapshot?.entries.firstIndex(where: { $0.id == entry.id })
             else { return }

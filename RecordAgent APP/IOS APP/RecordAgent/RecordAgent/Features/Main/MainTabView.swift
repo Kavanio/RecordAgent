@@ -57,16 +57,22 @@ struct MainTabView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let user: AuthUser?
     let profileOverviewService: any ProfileOverviewServiceProtocol
+    let profileActivityService: any ProfileActivityServiceProtocol
+    let profileAppearanceService: any ProfileAppearanceServiceProtocol
     let onLogout: () async throws -> Void
 
     init(
         homeService: any HomeDataServiceProtocol,
         profileOverviewService: any ProfileOverviewServiceProtocol,
+        profileActivityService: any ProfileActivityServiceProtocol,
+        profileAppearanceService: any ProfileAppearanceServiceProtocol,
         user: AuthUser?,
         onLogout: @escaping () async throws -> Void
     ) {
         _homeModel = StateObject(wrappedValue: HomeViewModel(service: homeService))
         self.profileOverviewService = profileOverviewService
+        self.profileActivityService = profileActivityService
+        self.profileAppearanceService = profileAppearanceService
         self.user = user
         self.onLogout = onLogout
     }
@@ -86,16 +92,27 @@ struct MainTabView: View {
                 WorkspaceHubView { selectedTab = $0 }
                     .transition(pageTransition)
             case .profile:
-                ProfileView(user: user, overviewService: profileOverviewService, onLogout: onLogout)
-                    .transition(pageTransition)
+                ProfileView(
+                    user: user,
+                    overviewService: profileOverviewService,
+                    activityService: profileActivityService,
+                    appearanceService: profileAppearanceService,
+                    onOpenActivity: { entry in
+                        homeModel.openFromProfile(entry)
+                        selectedTab = .home
+                    },
+                    onLogout: onLogout
+                )
+                .transition(pageTransition)
             default:
                 WorkspacePreviewView(
                     tab: selectedTab,
                     viewModel: homeModel,
-                    onBack: selectedTab.navigationTab == .workspace ? { selectedTab = .workspace } : nil
+                    onBack: selectedTab.navigationTab == .workspace
+                        ? { selectedTab = .workspace } : nil
                 )
-                    .id(selectedTab)
-                    .transition(pageTransition)
+                .id(selectedTab)
+                .transition(pageTransition)
             }
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.23), value: selectedTab)
