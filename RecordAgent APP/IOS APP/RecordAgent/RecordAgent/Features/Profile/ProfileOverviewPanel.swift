@@ -64,16 +64,11 @@ struct ProfileOverviewPanel: View {
                 .font(.caption.weight(.medium))
                 .foregroundStyle(AppColors.textSecondary)
 
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 22) {
-                    assets
-                    Spacer(minLength: 0)
-                    totalExpense
-                }
-                VStack(alignment: .leading, spacing: 20) {
-                    assets
-                    totalExpense
-                }
+            HStack(alignment: .top, spacing: 16) {
+                assets
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                totalExpense
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(22)
@@ -108,7 +103,7 @@ struct ProfileOverviewPanel: View {
             Text("profile.overview.recordTime")
                 .font(.caption)
                 .foregroundStyle(AppColors.textSecondary)
-            HStack(alignment: .lastTextBaseline, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(
                     verbatim: overview.map {
                         (Double($0.totalRecordMinutes) / 60)
@@ -122,9 +117,11 @@ struct ProfileOverviewPanel: View {
                 Text("profile.overview.hours")
                     .font(.caption)
                     .foregroundStyle(AppColors.textSecondary)
-                if let growth = overview?.recordMinutesGrowthRate {
+            }
+            if let growth = overview?.recordMinutesGrowthRate {
+                HStack {
+                    Spacer(minLength: 0)
                     growthBadge(rate: growth)
-                        .padding(.leading, 2)
                 }
             }
         }
@@ -231,17 +228,20 @@ struct ProfileOverviewPanel: View {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(AppColors.textSecondary)
-            HStack(alignment: .lastTextBaseline, spacing: 6) {
-                Text(verbatim: value ?? "—")
-                    .font(
-                        prominent
-                            ? .title.weight(.semibold).monospacedDigit()
-                            : .title3.weight(.semibold).monospacedDigit()
-                    )
-                    .foregroundStyle(color)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.65)
-                if let rate = growthRate {
+
+            Text(verbatim: value ?? "—")
+                .font(
+                    prominent
+                        ? .title2.weight(.semibold).monospacedDigit()
+                        : .title3.weight(.semibold).monospacedDigit()
+                )
+                .foregroundStyle(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+
+            if let rate = growthRate {
+                HStack {
+                    Spacer(minLength: 0)
                     growthBadge(rate: rate, growthInverse: growthInverse)
                 }
             }
