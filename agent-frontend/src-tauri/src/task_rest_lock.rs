@@ -33,7 +33,19 @@ pub fn sync_task_rest_lock(app: tauri::AppHandle, window: tauri::WebviewWindow, 
     *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now() + Duration::from_secs(u64::from(remaining_seconds.min(4))));
     Ok(())
 }
-fn show(app: &tauri::AppHandle, reminder: &tauri::WebviewWindow) -> Result<(), String> {
+
+/// 预览锁屏效果（主窗口等可用），0 释放，正数续约最多四秒。
+#[tauri::command]
+pub fn preview_task_rest_lock(app: tauri::AppHandle, remaining_seconds: u32) -> Result<(), String> {
+    if remaining_seconds == 0 { return clear(&app); }
+    let result = show_shields(&app);
+    if result.is_err() { if let Err(e) = clear(&app) { log::error!("休息遮罩清理失败：{e}"); } }
+    result?;
+    *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now() + Duration::from_secs(u64::from(remaining_seconds.min(4))));
+    Ok(())
+}
+
+fn show_shields(app: &tauri::AppHandle) -> Result<(), String> {
     let monitors = app.available_monitors().map_err(|e| e.to_string())?;
     for (index, monitor) in monitors.iter().enumerate() {
         let label = format!("task-rest-shield-{index}");
@@ -43,7 +55,7 @@ fn show(app: &tauri::AppHandle, reminder: &tauri::WebviewWindow) -> Result<(), S
                 .always_on_top(true).visible_on_all_workspaces(true).skip_taskbar(true).focused(true).focusable(true).visible(false)
                 .build().map_err(|e| e.to_string())?
         };
-        // macOS 状态栏层覆盖菜单栏与 Dock；提醒窗口隐藏，全屏完整展示 3D 星球与倒计时。
+        // macOS 状态栏层覆盖菜单栏与 Dock；全屏展示 3D 星球与倒计时。
         set_macos_level(&shield, 25)?;
         shield.set_position(*monitor.position()).map_err(|e| e.to_string())?;
         shield.set_size(*monitor.size()).map_err(|e| e.to_string())?;
@@ -55,6 +67,11 @@ fn show(app: &tauri::AppHandle, reminder: &tauri::WebviewWindow) -> Result<(), S
             window.destroy().map_err(|e| e.to_string())?;
         }
     }
+    Ok(())
+}
+
+fn show(app: &tauri::AppHandle, reminder: &tauri::WebviewWindow) -> Result<(), String> {
+    show_shields(app)?;
     // 隐藏小提醒窗口，使全屏 3D 休息画面完整展示
     let _ = reminder.hide();
     Ok(())

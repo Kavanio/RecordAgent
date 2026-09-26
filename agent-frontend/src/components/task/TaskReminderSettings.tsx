@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TaskReminderConfiguration, TaskReminderPreferences } from '../../types/taskReminder';
-import { getTaskReminderConfiguration, importTaskReminderAudio, saveTaskReminderPreferences } from '../../services/taskReminderPreferences';
+import { getTaskReminderConfiguration, importTaskReminderAudio, previewTaskRestLock, saveTaskReminderPreferences } from '../../services/taskReminderPreferences';
 import { playReminderAudio } from '../../services/taskReminderAudio';
 import { isTaskDesktop } from '../../services/taskDesktop';
 import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
@@ -17,8 +17,10 @@ export function TaskReminderSettings() {
   const [interval, setInterval] = useState('4');
   const [busy, setBusy] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [lockPreviewing, setLockPreviewing] = useState(false);
   const [error, setError] = useState('');
   const preview = useRef<AbortController | null>(null);
+  const lockPreviewTimer = useRef<number | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const { showMessage } = useMessage();
   const desktop = isTaskDesktop();
@@ -29,11 +31,82 @@ export function TaskReminderSettings() {
       setConfig(value); setInterval(String(value.preferences.repeatSeconds));
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   }
-  useEffect(() => { void load(); return () => preview.current?.abort(); }, []);
+
+  const stopLockPreview = useCallback(() => {
+    if (lockPreviewTimer.current) {
+      window.clearInterval(lockPreviewTimer.current);
+      lockPreviewTimer.current = null;
+    }
+    setLockPreviewing(false);
+    try { window?.localStorage?.removeItem('butvan-task-rest-data'); } catch {}
+    void previewTaskRestLock(0).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('butvan-task-rest-sync');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'EARLY_FINISH' || event.data?.type === 'FINISH') {
+            stopLockPreview();
+          }
+        };
+      }
+    } catch {}
+    return () => {
+      bc?.close();
+      stopLockPreview();
+    };
+  }, [stopLockPreview]);
+
+  useEffect(() => { void load(); return () => { preview.current?.abort(); stopLockPreview(); }; }, [stopLockPreview]);
   const disabled = !desktop || busy || !config;
   const validInterval = /^\d+$/.test(interval) && Number(interval) >= 1 && Number(interval) <= 3600;
   const options = config?.sounds.map(sound => ({ value: sound.id, label: `${sound.name} · ${{ builtin: '内置', system: '系统', custom: '上传' }[sound.source]}` })) ?? [];
   const saving = useRef(false);
+
+  async function handleToggleLockPreview() {
+    if (lockPreviewing) {
+      stopLockPreview();
+      return;
+    }
+    const durationSec = 60;
+    const payload = {
+      runId: 'preview',
+      startedAt: Date.now(),
+      durationMs: durationSec * 1000,
+      breakMinutes: 1,
+      title: '久坐提醒（效果预览）',
+      content: '当前为锁屏全屏效果预览，按 Esc 或点击卡片上的“提前结束”即可退出。',
+    };
+    try { window?.localStorage?.setItem('butvan-task-rest-data', JSON.stringify(payload)); } catch {}
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('butvan-task-rest-sync');
+        bc.postMessage({ type: 'START', payload });
+        bc.close();
+      }
+    } catch {}
+
+    setLockPreviewing(true);
+    let remaining = durationSec;
+    try {
+      await previewTaskRestLock(remaining);
+      const timer = window.setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          stopLockPreview();
+        } else {
+          void previewTaskRestLock(remaining).catch(() => stopLockPreview());
+        }
+      }, 1000);
+      lockPreviewTimer.current = timer;
+    } catch (e) {
+      stopLockPreview();
+      showMessage('error', `无法开启锁屏预览：${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 
   function stopPreview() { preview.current?.abort(); preview.current = null; setPlaying(false); }
   async function listen() {
@@ -74,8 +147,13 @@ export function TaskReminderSettings() {
 
   return <SettingsGroup title="提醒窗口" description="修改自动保存在本机，下次提醒生效；系统通知横幅继续使用系统声音设置。">
     <SettingsRow label="休息时锁定桌面" description="仅在确认休息后的倒计时期间遮罩所有屏幕；结束后恢复。保留系统快捷键，不会锁定系统账户。"
-      control={<LeverSwitch checked={config?.preferences.restLock ?? false} disabled={disabled} label="休息时锁定桌面" showLabel={false}
-        onChange={restLock => void save({ restLock })} />} />
+      control={<div className={styles.lockRow}>
+        <Button size="sm" variant="outline" disabled={disabled} onClick={() => void handleToggleLockPreview()}>
+          {lockPreviewing ? '停止预览' : '预览锁屏效果'}
+        </Button>
+        <LeverSwitch checked={config?.preferences.restLock ?? false} disabled={disabled} label="休息时锁定桌面" showLabel={false}
+          onChange={restLock => void save({ restLock })} />
+      </div>} />
     <SettingsRow label="提示音" description="内置音色、当前电脑的系统提示音或上传的音频；任务自身须开启声音。"
       control={<div className={styles.sounds}>
         <Select aria-label="选择提示音" options={options} value={config?.preferences.soundId ?? ''} disabled={disabled} fieldSize="md" fullWidth

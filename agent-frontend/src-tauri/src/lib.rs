@@ -72,7 +72,8 @@ pub fn run() {
     task_reminder_settings::save_task_reminder_preferences,
     task_reminder_settings::import_task_reminder_audio,
     task_reminder_settings::read_task_reminder_audio,
-    task_rest_lock::sync_task_rest_lock
+    task_rest_lock::sync_task_rest_lock,
+    task_rest_lock::preview_task_rest_lock
   ]);
 
   let app = builder

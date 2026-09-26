@@ -32,3 +32,11 @@ export function syncTaskRestLock(remainingSeconds: number): Promise<void> {
   lockQueue = request.catch(() => {});
   return request;
 }
+
+export function previewTaskRestLock(remainingSeconds: number): Promise<void> {
+  const request = lockQueue.then(() => isTauri()
+    ? invoke<void>('preview_task_rest_lock', { remainingSeconds: Math.max(0, Math.ceil(remainingSeconds)) })
+    : undefined);
+  lockQueue = request.catch(() => {});
+  return request;
+}
