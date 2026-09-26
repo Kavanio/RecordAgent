@@ -108,7 +108,7 @@ struct ProfileOverviewPanel: View {
             Text("profile.overview.recordTime")
                 .font(.caption)
                 .foregroundStyle(AppColors.textSecondary)
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            HStack(alignment: .lastTextBaseline, spacing: 4) {
                 Text(
                     verbatim: overview.map {
                         (Double($0.totalRecordMinutes) / 60)
@@ -122,9 +122,10 @@ struct ProfileOverviewPanel: View {
                 Text("profile.overview.hours")
                     .font(.caption)
                     .foregroundStyle(AppColors.textSecondary)
-            }
-            if let growth = overview?.recordMinutesGrowthRate {
-                growthBadge(rate: growth)
+                if let growth = overview?.recordMinutesGrowthRate {
+                    growthBadge(rate: growth)
+                        .padding(.leading, 2)
+                }
             }
         }
         .accessibilityElement(children: .combine)
@@ -230,17 +231,19 @@ struct ProfileOverviewPanel: View {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(AppColors.textSecondary)
-            Text(verbatim: value ?? "—")
-                .font(
-                    prominent
-                        ? .title.weight(.semibold).monospacedDigit()
-                        : .title3.weight(.semibold).monospacedDigit()
-                )
-                .foregroundStyle(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.65)
-            if let rate = growthRate {
-                growthBadge(rate: rate, growthInverse: growthInverse)
+            HStack(alignment: .lastTextBaseline, spacing: 6) {
+                Text(verbatim: value ?? "—")
+                    .font(
+                        prominent
+                            ? .title.weight(.semibold).monospacedDigit()
+                            : .title3.weight(.semibold).monospacedDigit()
+                    )
+                    .foregroundStyle(color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+                if let rate = growthRate {
+                    growthBadge(rate: rate, growthInverse: growthInverse)
+                }
             }
         }
         .accessibilityElement(children: .combine)
@@ -259,24 +262,20 @@ struct ProfileOverviewPanel: View {
             isGood
             ? Color(red: 0.16, green: 0.65, blue: 0.40)
             : (isBad ? Color(red: 0.95, green: 0.38, blue: 0.32) : AppColors.textTertiary)
-        let bgColor: Color = tintColor.opacity(0.12)
 
         let percentString = abs(rate).formatted(
             .percent.precision(.fractionLength(1)).locale(locale))
         let symbol = isPositive ? "arrow.up" : (isNegative ? "arrow.down" : "minus")
         let sign = isPositive ? "+" : (isNegative ? "-" : "")
 
-        return HStack(spacing: 3) {
+        return HStack(spacing: 2) {
             Image(systemName: symbol)
-                .font(.system(size: 8.5, weight: .bold))
+                .font(.system(size: 8, weight: .bold))
             Text("profile.overview.vsLastMonth")
                 .font(.system(size: 10, weight: .regular))
             Text(verbatim: "\(sign)\(percentString)")
                 .font(.system(size: 10, weight: .semibold).monospacedDigit())
         }
         .foregroundStyle(tintColor)
-        .padding(.horizontal, 6)
-        .padding(.vertical, 3)
-        .background(bgColor, in: Capsule())
     }
 }

@@ -85,11 +85,7 @@ struct ProfileActivitySection: View {
             .padding(.top, 4)
             .padding(.bottom, 2)
         }
-        .padding(18)
-        .background(
-            Color(uiColor: .secondarySystemBackground).opacity(0.65),
-            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
-        )
+        .padding(.vertical, 4)
     }
 
     private func dayDot(day: StreakDay) -> some View {
