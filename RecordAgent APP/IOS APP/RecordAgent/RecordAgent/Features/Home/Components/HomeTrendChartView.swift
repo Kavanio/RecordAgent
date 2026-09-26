@@ -15,13 +15,15 @@ struct HomeTrendChartView: View {
 
     let points: [HomeTrendPoint]
     @State private var metric: Metric = .expense
+    @State private var blend = 0.0
+    @State private var selectedDate: Date?
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Namespace private var metricIndicator
 
     init(points: [HomeTrendPoint], metric: Metric = .expense) {
         self.points = points
         _metric = State(initialValue: metric)
+        _blend = State(initialValue: metric == .expense ? 0 : 1)
     }
 
     var body: some View {
@@ -37,42 +39,88 @@ struct HomeTrendChartView: View {
                     controls
                 }
             }
-            ZStack {
-                Chart(points) { point in
-                    AreaMark(
-                        x: .value(AppLocalization.string("home.chart.date", locale: locale), point.date),
-                        y: .value(AppLocalization.string("home.chart.value", locale: locale), metric.value(point))
-                    )
-                    .interpolationMethod(.monotone)
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [metric.color.opacity(0.2), metric.color.opacity(0.01)], startPoint: .top,
-                            endPoint: .bottom))
-                    LineMark(
-                        x: .value(AppLocalization.string("home.chart.date", locale: locale), point.date),
-                        y: .value(AppLocalization.string("home.chart.value", locale: locale), metric.value(point))
-                    )
-                    .interpolationMethod(.monotone)
-                    .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round))
-                    .foregroundStyle(metric.color)
-                    PointMark(
-                        x: .value(AppLocalization.string("home.chart.date", locale: locale), point.date),
-                        y: .value(AppLocalization.string("home.chart.value", locale: locale), metric.value(point))
-                    )
-                    .symbolSize(point.id == points.last?.id ? 34 : 12)
-                    .foregroundStyle(metric.color)
-                    .accessibilityLabel(Text(point.date, format: .dateTime.month().day()))
-                    .accessibilityValue(formatted(point))
+            VStack(spacing: 5) {
+                ZStack {
+                    if let selectedPoint {
+                        HStack(spacing: 8) {
+                            Text(selectedPoint.date, format: .dateTime.month().day())
+                            Text(formatted(selectedPoint)).fontWeight(.semibold)
+                        }
+                        .font(.caption.monospacedDigit())
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
+                        .background(.thinMaterial, in: Capsule())
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+                .frame(height: 32)
+                .frame(maxWidth: .infinity)
+                Chart {
+                    ForEach(points) { point in
+                        AreaMark(
+                            x: .value(AppLocalization.string("home.chart.date", locale: locale), point.date),
+                            y: .value(AppLocalization.string("home.chart.value", locale: locale), plotValue(point))
+                        )
+                        .interpolationMethod(.monotone)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [metric.color.opacity(0.2), metric.color.opacity(0.01)], startPoint: .top,
+                                endPoint: .bottom))
+                        LineMark(
+                            x: .value(AppLocalization.string("home.chart.date", locale: locale), point.date),
+                            y: .value(AppLocalization.string("home.chart.value", locale: locale), plotValue(point))
+                        )
+                        .interpolationMethod(.monotone)
+                        .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round))
+                        .foregroundStyle(metric.color)
+                        PointMark(
+                            x: .value(AppLocalization.string("home.chart.date", locale: locale), point.date),
+                            y: .value(AppLocalization.string("home.chart.value", locale: locale), plotValue(point))
+                        )
+                        .symbolSize(point.id == points.last?.id ? 34 : 12)
+                        .foregroundStyle(metric.color)
+                        .accessibilityLabel(Text(point.date, format: .dateTime.month().day()))
+                        .accessibilityValue(formatted(point))
+                    }
+                    if let selectedPoint {
+                        RuleMark(
+                            x: .value(AppLocalization.string("home.chart.date", locale: locale), selectedPoint.date)
+                        )
+                        .foregroundStyle(.secondary.opacity(0.32))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    }
                 }
                 .chartXAxis(.hidden)
                 .chartYAxis(.hidden)
-                .chartYScale(domain: 0...max((points.map { metric.value($0) }.max() ?? 0) * 1.15, 1))
+                .chartYScale(domain: 0...1.15)
+                .chartOverlay { proxy in
+                    GeometryReader { geometry in
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onContinuousHover { phase in
+                                switch phase {
+                                case .active(let location):
+                                    guard let plotFrame = proxy.plotFrame else { return }
+                                    let plotOrigin = geometry[plotFrame].origin.x
+                                    selectedDate = proxy.value(atX: location.x - plotOrigin, as: Date.self)
+                                case .ended:
+                                    selectedDate = nil
+                                }
+                            }
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { value in
+                                        guard let plotFrame = proxy.plotFrame else { return }
+                                        selectedDate = proxy.value(
+                                            atX: value.location.x - geometry[plotFrame].origin.x, as: Date.self)
+                                    }
+                                    .onEnded { _ in selectedDate = nil }
+                            )
+                    }
+                }
                 .accessibilityLabel(Text(metric.title))
-                .id(metric)
-                .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                .frame(height: 82)
             }
-            .frame(height: 82)
-            .clipped()
             HStack {
                 ForEach(points) { point in
                     Text(point.date, format: .dateTime.day())
@@ -83,7 +131,7 @@ struct HomeTrendChartView: View {
             }
             .accessibilityHidden(true)
         }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.32), value: metric)
+        .animation(reduceMotion ? nil : .smooth(duration: 0.48), value: blend)
     }
 
     private var title: some View {
@@ -96,30 +144,39 @@ struct HomeTrendChartView: View {
         }
     }
     private var controls: some View {
-        HStack(spacing: 2) {
+        Menu {
             ForEach(Metric.allCases) { item in
                 Button {
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.32)) { metric = item }
+                    selectedDate = nil
+                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.48)) {
+                        blend = item == .expense ? 0 : 1
+                        metric = item
+                    }
                 } label: {
-                    Text(item.title)
-                        .font(.caption.weight(metric == item ? .semibold : .regular))
-                        .foregroundStyle(metric == item ? item.color : .secondary)
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: 40)
-                        .background {
-                            if metric == item {
-                                Capsule().fill(item.color.opacity(0.14))
-                                    .matchedGeometryEffect(id: "selectedMetric", in: metricIndicator)
-                            }
-                        }
-                        .contentShape(Capsule())
+                    if metric == item { Label(item.title, systemImage: "checkmark") } else { Text(item.title) }
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(metric == item ? .isSelected : [])
             }
+        } label: {
+            HStack(spacing: 4) {
+                Text(metric.title)
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
+            }
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
-        .padding(3)
-        .background(Color.secondary.opacity(0.08), in: Capsule())
+    }
+    private var selectedPoint: HomeTrendPoint? {
+        guard let selectedDate else { return nil }
+        return points.min {
+            abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
+        }
+    }
+    private func plotValue(_ point: HomeTrendPoint) -> Double {
+        let expenseMax = max(points.map { Metric.expense.value($0) }.max() ?? 0, 1)
+        let focusMax = max(points.map { Metric.focus.value($0) }.max() ?? 0, 1)
+        return Metric.expense.value(point) / expenseMax * (1 - blend) + Metric.focus.value(point) / focusMax * blend
     }
     private func formatted(_ point: HomeTrendPoint) -> String {
         metric == .expense

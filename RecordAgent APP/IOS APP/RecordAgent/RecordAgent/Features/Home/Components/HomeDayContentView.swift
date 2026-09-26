@@ -6,6 +6,8 @@ struct HomeDayContentView: View {
     var fixedCategory: HomeCategory? = nil
     var showsSummary = true
     @State private var selectedEntry: HomeEntry?
+    @State private var digestCategory: HomeCategory = .todo
+    @ScaledMetric(relativeTo: .body) private var digestHeight = 190
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -35,14 +37,28 @@ struct HomeDayContentView: View {
                         HomeTrendChartView(points: snapshot.trend, metric: fixedCategory == .record ? .focus : .expense)
                     }
                 }
-                VStack(alignment: .leading, spacing: 16) {
-                    if fixedCategory == nil { filters }
-                    HomeEntryListView(
-                        entries: viewModel.entries(in: fixedCategory ?? viewModel.category),
-                        savingIDs: viewModel.savingTodoIDs,
-                        onToggle: { entry in Task { await viewModel.toggleTodo(entry) } },
-                        onOpen: { selectedEntry = $0 }
-                    )
+                if fixedCategory == nil && viewModel.category == nil {
+                    dayDigest(snapshot)
+                } else {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if fixedCategory == nil {
+                            Button {
+                                withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) { viewModel.category = nil }
+                            } label: {
+                                Label("home.day.back", systemImage: "arrow.left")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .frame(minHeight: 44)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        HomeEntryListView(
+                            entries: viewModel.entries(in: fixedCategory ?? viewModel.category),
+                            savingIDs: viewModel.savingTodoIDs,
+                            onToggle: { entry in Task { await viewModel.toggleTodo(entry) } },
+                            onOpen: { selectedEntry = $0 }
+                        )
+                    }
                 }
                 if snapshot.isDemo {
                     Text("home.demo.footer")
@@ -75,25 +91,67 @@ struct HomeDayContentView: View {
         }
     }
 
-    private var filters: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 22) {
-                filter(nil, title: "home.filter.all")
-                ForEach(HomeCategory.allCases) { item in filter(item, title: item.title) }
+    private func dayDigest(_ snapshot: HomeDaySnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("home.day.digest")
+                .font(.headline)
+            TabView(selection: $digestCategory) {
+                ForEach(HomeCategory.allCases) { category in
+                    digestPage(category, snapshot: snapshot)
+                        .tag(category)
+                }
             }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: digestHeight)
+            HStack(spacing: 7) {
+                ForEach(HomeCategory.allCases) { category in
+                    Capsule()
+                        .fill(category == digestCategory ? category.color : Color.secondary.opacity(0.22))
+                        .frame(width: category == digestCategory ? 17 : 5, height: 5)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .accessibilityHidden(true)
         }
     }
-    private func filter(_ item: HomeCategory?, title: LocalizedStringKey) -> some View {
-        Button {
-            withAnimation(reduceMotion ? nil : .smooth(duration: 0.25)) { viewModel.category = item }
-        } label: {
-            Text(title)
-                .font(.subheadline.weight(viewModel.category == item ? .semibold : .regular))
-                .foregroundStyle(viewModel.category == item ? Color.primary : .secondary)
-                .frame(minWidth: 32, minHeight: 44)
-                .contentShape(Rectangle())
+
+    private func digestPage(_ category: HomeCategory, snapshot: HomeDaySnapshot) -> some View {
+        let entries = snapshot.entries.filter { $0.kind.category == category }
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(category.title).font(.subheadline.weight(.medium)).foregroundStyle(category.color)
+                Spacer()
+                Text("\((HomeCategory.allCases.firstIndex(of: category) ?? 0) + 1) / 4")
+                    .font(.caption.monospacedDigit()).foregroundStyle(.tertiary)
+            }
+            if let entry = entries.last {
+                Text(entry.title)
+                    .font(.title3.weight(.medium))
+                    .lineLimit(2)
+                Text(entry.detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            } else {
+                Text("home.day.empty_detail")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Button {
+                withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) { viewModel.category = category }
+            } label: {
+                HStack(spacing: 5) {
+                    Text("home.day.open_category")
+                    Image(systemName: "arrow.up.right")
+                }
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(category.color)
+                .frame(minHeight: 44)
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(viewModel.category == item ? .isSelected : [])
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 4)
     }
 }
