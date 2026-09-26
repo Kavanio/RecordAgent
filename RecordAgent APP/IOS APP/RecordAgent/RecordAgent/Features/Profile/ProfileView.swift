@@ -35,21 +35,38 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 26) {
+                VStack(alignment: .leading, spacing: 0) {
                     ProfileIdentityHeader(
                         user: user,
                         appearance: appearanceModel.appearance,
                         onEdit: { showsEdit = true },
                         onSettings: { showsSettings = true })
-                    ProfileOverviewPanel(state: overviewModel.state)
-                    ProfileActivitySection(state: activityModel.state, onOpen: onOpenActivity)
+
+                    VStack(alignment: .leading, spacing: 26) {
+                        ProfileOverviewPanel(state: overviewModel.state)
+                        ProfileActivitySection(state: activityModel.state, onOpen: onOpenActivity)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 36)
+                    .frame(maxWidth: 640)
+                    .frame(maxWidth: .infinity)
+                    .background {
+                        UnevenRoundedRectangle(
+                            topLeadingRadius: 24,
+                            bottomLeadingRadius: 0,
+                            bottomTrailingRadius: 0,
+                            topTrailingRadius: 24,
+                            style: .continuous
+                        )
+                        .fill(Color(uiColor: .systemBackground))
+                        .shadow(color: Color.black.opacity(0.04), radius: 10, y: -4)
+                    }
+                    .offset(y: -16)
+                    .padding(.bottom, -16)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 18)
-                .padding(.bottom, 32)
-                .frame(maxWidth: 640)
-                .frame(maxWidth: .infinity)
             }
+            .ignoresSafeArea(edges: .top)
             .background { HomeCanvas() }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $showsSettings) {

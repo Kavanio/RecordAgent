@@ -6,6 +6,8 @@ struct ProfileAvatarView: View {
     let name: String?
     let avatarURLString: String?
     var imageData: Data? = nil
+    var size: CGFloat = 72
+    var showBorder: Bool = true
 
     private var avatarURL: URL? {
         guard let avatarURLString,
@@ -32,9 +34,14 @@ struct ProfileAvatarView: View {
                 placeholder
             }
         }
-        .frame(width: 62, height: 62)
+        .frame(width: size, height: size)
         .clipShape(Circle())
-        .overlay(Circle().strokeBorder(AppColors.primaryBlue.opacity(0.12), lineWidth: 1))
+        .overlay {
+            if showBorder {
+                Circle().strokeBorder(Color.white, lineWidth: 2.5)
+            }
+        }
+        .shadow(color: Color.black.opacity(0.18), radius: 6, x: 0, y: 3)
         .accessibilityHidden(true)
     }
 
@@ -44,11 +51,11 @@ struct ProfileAvatarView: View {
             .overlay {
                 if let initial = name?.first {
                     Text(verbatim: String(initial).uppercased())
-                        .font(.title2.weight(.medium))
+                        .font(.system(size: size * 0.42, weight: .bold))
                         .foregroundStyle(AppColors.segmentSelectedText)
                 } else {
                     Image(systemName: "person.crop.circle")
-                        .font(.title2)
+                        .font(.system(size: size * 0.45))
                         .foregroundStyle(AppColors.segmentSelectedText)
                 }
             }
