@@ -15,13 +15,10 @@ public struct RootCoordinatorView: View {
             if authViewModel.isAuthenticated {
                 MainTabView(
                     homeService: environment.homeService,
+                    user: environment.authService.getCurrentSession()?.user,
                     onLogout: {
-                        Task {
-                            try? await MockAuthService().logout()
-                            await MainActor.run {
-                                authViewModel.isAuthenticated = false
-                            }
-                        }
+                        try await environment.authService.logout()
+                        authViewModel.isAuthenticated = false
                     })
             } else {
                 LoginView(viewModel: authViewModel)
