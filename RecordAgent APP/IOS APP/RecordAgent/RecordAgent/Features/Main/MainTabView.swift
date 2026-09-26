@@ -1,12 +1,24 @@
 import SwiftUI
 
 enum AppTab: String, CaseIterable, Identifiable {
-    case home, calendar, finance, library, record, tasks, profile
+    case home, calendar, workspace, finance, library, record, tasks, profile
     var id: String { rawValue }
+    static let primaryTabs: [AppTab] = [.home, .calendar, .workspace, .profile]
+    static let workspaceTabs: [AppTab] = [.finance, .library, .record, .tasks]
+
+    var navigationTab: AppTab {
+        Self.workspaceTabs.contains(self) ? .workspace : self
+    }
+
+    var navigationTitle: LocalizedStringKey {
+        self == .profile ? "tab.mine" : title
+    }
+
     var title: LocalizedStringKey {
         switch self {
         case .home: return "tab.home"
         case .calendar: return "tab.calendar"
+        case .workspace: return "tab.workspace"
         case .finance: return "tab.finance"
         case .library: return "tab.library"
         case .record: return "tab.record"
@@ -18,6 +30,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "house"
         case .calendar: return "calendar"
+        case .workspace: return "square.grid.2x2"
         case .finance: return "chart.pie"
         case .library: return "books.vertical"
         case .record: return "timer"
@@ -60,11 +73,18 @@ struct MainTabView: View {
             case .home:
                 HomeView(viewModel: homeModel)
                     .transition(pageTransition)
+            case .workspace:
+                WorkspaceHubView { selectedTab = $0 }
+                    .transition(pageTransition)
             case .profile:
                 ProfileView(onLogout: onLogout)
                     .transition(pageTransition)
             default:
-                WorkspacePreviewView(tab: selectedTab, viewModel: homeModel)
+                WorkspacePreviewView(
+                    tab: selectedTab,
+                    viewModel: homeModel,
+                    onBack: selectedTab.navigationTab == .workspace ? { selectedTab = .workspace } : nil
+                )
                     .id(selectedTab)
                     .transition(pageTransition)
             }

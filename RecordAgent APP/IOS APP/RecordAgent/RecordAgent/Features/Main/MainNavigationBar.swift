@@ -1,86 +1,49 @@
 import SwiftUI
 
-/// 全宽轻材质导航底座；选中图标的柔色胶囊在七个入口间连续移动。
+/// 四个常驻入口保持等宽；选中态仅改变前景色与字重。
 struct MainNavigationBar: View {
     @Binding var selection: AppTab
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ScaledMetric(relativeTo: .caption2) private var minimumItemWidth = 46.0
-    @ScaledMetric(relativeTo: .caption2) private var barHeight = 72.0
-    @Namespace private var indicator
+    @ScaledMetric(relativeTo: .caption) private var barHeight = 64.0
 
     var body: some View {
-        GeometryReader { geometry in
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 0) {
-                        ForEach(AppTab.allCases) { tab in
-                            let isSelected = selection == tab
-                            Button {
-                                withAnimation(reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.82)) {
-                                    selection = tab
-                                }
-                            } label: {
-                                VStack(spacing: 5) {
-                                    Image(systemName: tab.icon)
-                                        .font(.system(size: 19, weight: isSelected ? .semibold : .regular))
-                                        .symbolVariant(isSelected ? .fill : .none)
-                                        .foregroundStyle(isSelected ? AppColors.primaryBlue : Color.secondary)
-                                        .scaleEffect(isSelected ? 1.08 : 1)
-                                        .frame(width: 39, height: 34)
-                                        .background {
-                                            if isSelected {
-                                                Capsule()
-                                                    .fill(AppColors.primaryBlue.opacity(0.15))
-                                                    .matchedGeometryEffect(id: "selectedTab", in: indicator)
-                                            }
-                                        }
-                                    Text(tab.title)
-                                        .font(.caption2.weight(isSelected ? .semibold : .regular))
-                                        .foregroundStyle(isSelected ? AppColors.textPrimary : Color.secondary)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.8)
-                                }
-                                .frame(width: max((geometry.size.width - 16) / 7, minimumItemWidth), height: barHeight)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(NavigationPressStyle(reduceMotion: reduceMotion))
-                            .accessibilityAddTraits(isSelected ? .isSelected : [])
-                            .id(tab)
-                        }
+        HStack(spacing: 0) {
+            ForEach(AppTab.primaryTabs) { tab in
+                let isSelected = selection.navigationTab == tab
+                Button {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                        selection = tab
                     }
-                    .padding(.horizontal, 8)
+                } label: {
+                    VStack(spacing: 5) {
+                        Image(systemName: tab.icon)
+                            .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
+                            .symbolVariant(isSelected ? .fill : .none)
+                            .frame(height: 24)
+                        Text(tab.navigationTitle)
+                            .font(.caption.weight(isSelected ? .semibold : .regular))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                    }
+                    .foregroundStyle(isSelected ? AppColors.primaryBlue : AppColors.tabInactive)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: barHeight)
+                    .contentShape(Rectangle())
                 }
-                .onChange(of: selection) { _, tab in
-                    withAnimation(reduceMotion ? nil : .smooth(duration: 0.3)) { proxy.scrollTo(tab, anchor: .center) }
-                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
-        .frame(height: barHeight)
+        .padding(.horizontal, 12)
         .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
+            AppColors.pageBackground
                 .overlay(alignment: .top) {
-                    LinearGradient(
-                        colors: [AppColors.skyLightBlue.opacity(0.28), .clear],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 42)
+                    Rectangle()
+                        .fill(AppColors.inputBorder.opacity(0.7))
+                        .frame(height: 0.5)
                 }
                 .ignoresSafeArea(edges: .bottom)
         }
-        .shadow(color: .black.opacity(0.055), radius: 16, y: -4)
         .sensoryFeedback(.selection, trigger: selection)
-    }
-}
-
-private struct NavigationPressStyle: ButtonStyle {
-    let reduceMotion: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.92 : 1)
-            .animation(
-                reduceMotion ? nil : .spring(response: 0.24, dampingFraction: 0.78), value: configuration.isPressed)
     }
 }

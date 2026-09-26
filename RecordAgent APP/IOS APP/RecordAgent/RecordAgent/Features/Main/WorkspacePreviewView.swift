@@ -4,12 +4,20 @@ import SwiftUI
 struct WorkspacePreviewView: View {
     let tab: AppTab
     @ObservedObject var viewModel: HomeViewModel
+    let onBack: (() -> Void)?
     @Environment(\.locale) private var locale
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
+                    if let onBack {
+                        Button(action: onBack) {
+                            Label("tab.workspace", systemImage: "chevron.left")
+                                .font(.subheadline.weight(.medium))
+                        }
+                        .padding(.bottom, 12)
+                    }
                     Label(tab.title, systemImage: tab.icon)
                         .font(.title2.weight(.semibold))
                     Text("workspace.preview").font(.footnote).foregroundStyle(.secondary)
