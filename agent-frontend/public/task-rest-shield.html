@@ -38,100 +38,97 @@
       outline: none;
     }
 
-    /* 顶部提醒卡片 */
-    .reminder-card {
+    /* 左上角合并卡片 */
+    .dashboard-card {
       position: absolute;
-      top: 36px;
-      left: 50%;
-      transform: translateX(-50%);
+      top: 32px;
+      left: 36px;
       z-index: 20;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 8px;
-      padding: 18px 36px;
-      max-width: min(600px, 90vw);
-      background: rgba(255, 255, 255, 0.76);
-      backdrop-filter: blur(24px) saturate(180%);
-      -webkit-backdrop-filter: blur(24px) saturate(180%);
-      border: 1px solid rgba(255, 255, 255, 0.88);
-      box-shadow: 0 20px 40px -12px rgba(22, 38, 77, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.6);
+      gap: 12px;
+      width: 340px;
+      max-width: calc(100vw - 72px);
+      padding: 20px 24px 18px;
+      background: rgba(255, 255, 255, 0.84);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.92);
+      box-shadow: 0 20px 48px -12px rgba(22, 38, 77, 0.09), 0 0 0 1px rgba(255, 255, 255, 0.7);
       border-radius: 24px;
-      animation: fadeInDown 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation: fadeInLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       pointer-events: auto;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
     }
 
     .tag {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      padding: 4px 12px;
+      gap: 6px;
+      padding: 3px 10px;
       border-radius: 999px;
       background: #eff6ff;
       color: #2563eb;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.02em;
     }
 
     .pulse-dot {
-      width: 7px;
-      height: 7px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: #10b981;
       box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
       animation: pulse 2s infinite;
     }
 
+    .card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
     .title {
-      font-size: 26px;
+      font-size: 20px;
       font-weight: 700;
-      letter-spacing: -0.025em;
+      letter-spacing: -0.02em;
       color: #0f172a;
-      line-height: 1.25;
+      line-height: 1.3;
     }
 
     .content {
-      font-size: 14px;
-      line-height: 1.6;
+      font-size: 13px;
+      line-height: 1.55;
       color: #64748b;
-      max-width: 480px;
     }
 
-    /* 底部倒计时控制卡片 */
-    .timer-card {
-      position: absolute;
-      bottom: 36px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 20;
+    .card-divider {
+      height: 1px;
+      background: rgba(226, 232, 240, 0.75);
+      margin: 2px 0;
+    }
+
+    .timer-section {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      width: min(480px, 90vw);
-      padding: 22px 34px 18px;
-      background: rgba(255, 255, 255, 0.78);
-      backdrop-filter: blur(24px) saturate(180%);
-      -webkit-backdrop-filter: blur(24px) saturate(180%);
-      border: 1px solid rgba(255, 255, 255, 0.9);
-      box-shadow: 0 24px 48px -12px rgba(30, 58, 138, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.6);
-      border-radius: 28px;
-      animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      pointer-events: auto;
+      gap: 6px;
     }
 
     .timer-label {
-      font-size: 11px;
-      letter-spacing: 0.08em;
+      font-size: 10px;
+      letter-spacing: 0.06em;
       font-weight: 600;
       text-transform: uppercase;
       color: #64748b;
     }
 
     .time-display {
-      font-size: 56px;
+      font-size: 42px;
       line-height: 1;
       font-weight: 800;
       font-variant-numeric: tabular-nums;
@@ -139,12 +136,12 @@
       background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      filter: drop-shadow(0 2px 8px rgba(37, 99, 235, 0.15));
+      filter: drop-shadow(0 2px 6px rgba(37, 99, 235, 0.12));
     }
 
     .progress-track {
       width: 100%;
-      height: 6px;
+      height: 5px;
       border-radius: 999px;
       background: rgba(219, 234, 254, 0.7);
       overflow: hidden;
@@ -158,33 +155,33 @@
       transition: width 0.35s ease;
     }
 
-    .timer-footer {
+    .card-footer {
       width: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
       margin-top: 2px;
     }
 
     .status-hint {
-      font-size: 12px;
+      font-size: 11px;
       color: #64748b;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
 
     .btn-early {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 5px 12px;
+      padding: 4px 10px;
       border-radius: 8px;
       border: 1px solid rgba(148, 163, 184, 0.35);
-      background: rgba(255, 255, 255, 0.7);
+      background: rgba(255, 255, 255, 0.8);
       color: #64748b;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 500;
       cursor: pointer;
       outline: none;
@@ -266,32 +263,20 @@
       }
     }
 
-    @keyframes fadeInDown {
+    @keyframes fadeInLeft {
       from {
         opacity: 0;
-        transform: translate(-50%, -18px);
+        transform: translateX(-16px);
       }
       to {
         opacity: 1;
-        transform: translate(-50%, 0);
-      }
-    }
-
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translate(-50%, 18px);
-      }
-      to {
-        opacity: 1;
-        transform: translate(-50%, 0);
+        transform: translateX(0);
       }
     }
 
     @media (prefers-reduced-motion: reduce) {
       .spinner { animation: none; }
-      .reminder-card,
-      .timer-card { animation: none; }
+      .dashboard-card { animation: none; }
     }
   </style>
 
@@ -307,33 +292,41 @@
 
 <body>
   <main id="stage" aria-label="全屏久坐休息与倒计时">
-    <!-- 顶部提醒卡片 -->
-    <header class="reminder-card">
-      <div class="tag">
-        <span class="pulse-dot"></span>
-        <span>久坐提醒 · 护眼放松</span>
+    <!-- 左上角合并控制卡片 -->
+    <aside class="dashboard-card" aria-label="久坐提醒与休息倒计时">
+      <div class="card-header">
+        <div class="tag">
+          <span class="pulse-dot"></span>
+          <span>久坐提醒 · 护眼放松</span>
+        </div>
       </div>
-      <h1 id="rest-title" class="title">起来活动一下</h1>
-      <p id="rest-content" class="content">离开屏幕，起身活动活动筋骨，深呼吸，远眺窗外放松眼睛</p>
-    </header>
 
-    <!-- 底部倒计时卡片 -->
-    <section class="timer-card" aria-label="休息倒计时">
-      <span class="timer-label">REST TIME REMAINING · 剩余休息时间</span>
-      <div id="rest-timer" class="time-display" role="timer">05:00</div>
-      <div class="progress-track" aria-hidden="true">
-        <div id="rest-progress-bar" class="progress-fill" style="width: 0%;"></div>
+      <div class="card-body">
+        <h1 id="rest-title" class="title">起来活动一下</h1>
+        <p id="rest-content" class="content">离开屏幕，起身活动活动筋骨，深呼吸，远眺窗外放松眼睛</p>
       </div>
-      <div class="timer-footer">
+
+      <div class="card-divider"></div>
+
+      <div class="timer-section">
+        <span class="timer-label">REST TIME REMAINING · 剩余休息时间</span>
+        <div id="rest-timer" class="time-display" role="timer">05:00</div>
+        <div class="progress-track" aria-hidden="true">
+          <div id="rest-progress-bar" class="progress-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <div class="card-footer">
         <span id="rest-status-hint" class="status-hint">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
-          休息结束后自动恢复桌面操作
+          休息结束后自动恢复桌面
         </span>
         <button id="btn-end-early" class="btn-early" type="button" title="如需紧急使用电脑可提前结束 (Esc)">提前结束</button>
       </div>
-    </section>
+    </aside>
 
     <!-- 加载中指示器 -->
     <div id="loading">
@@ -348,9 +341,9 @@
   </main>
 
   <script type="module">
-    import * as THREE from "three";
-    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-    import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
+    import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/loaders/DRACOLoader.js";
 
     // 优先加载本地模型，离线也能秒开；本地不可用时自动回退 CDN
     const LOCAL_PLANET = "/models/whimsical-world.glb";
@@ -396,8 +389,8 @@
     scene.add(coolFill);
 
     const content = new THREE.Group();
-    // 居中稍微下移以配合顶部与底部浮层
-    content.position.y = -0.15;
+    // 居中自然微调，确保小人顶部奔跑与底部轮廓完整舒适
+    content.position.y = -0.05;
     scene.add(content);
 
     const globePivot = new THREE.Group();
@@ -538,7 +531,7 @@
       renderer.setSize(width, height, false);
 
       const aspect = Math.max(width / Math.max(height, 1), 0.1);
-      const visibleHeight = width < 700 ? 6.45 : 6.05;
+      const visibleHeight = width < 700 ? 6.55 : 6.25;
       const visibleWidth = visibleHeight * aspect;
 
       camera.left = -visibleWidth / 2;
