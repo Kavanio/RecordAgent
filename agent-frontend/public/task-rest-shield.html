@@ -691,6 +691,7 @@
       }
     });
 
+    let lastFormattedTime = "";
     function updateTick() {
       const now = Date.now();
       const started = restState.startedAt || now;
@@ -700,10 +701,14 @@
 
       const mins = String(Math.floor(remainingSec / 60)).padStart(2, "0");
       const secs = String(remainingSec % 60).padStart(2, "0");
-      timerEl.textContent = `${mins}:${secs}`;
+      const timeStr = `${mins}:${secs}`;
 
-      const progress = Math.min(100, Math.max(0, (elapsed / totalMs) * 100));
-      progressBarEl.style.width = `${progress}%`;
+      if (timeStr !== lastFormattedTime) {
+        lastFormattedTime = timeStr;
+        timerEl.textContent = timeStr;
+        const progress = Math.min(100, Math.max(0, (elapsed / totalMs) * 100));
+        progressBarEl.style.width = `${progress}%`;
+      }
 
       if (remainingSec === 0) {
         statusHintEl.textContent = "休息完成，正在恢复桌面…";

@@ -22,7 +22,8 @@ pub fn clear(app: &tauri::AppHandle) -> Result<(), String> {
     error.map_or(Ok(()), Err)
 }
 
-/// 只允许提醒窗口按一秒心跳续约；原生四秒看门狗避免脚本失效后永久遮挡。
+/// 只允许提醒窗口按一秒心跳续约；原生看门狗避免脚本失效后永久遮挡。
+/// 租约放宽至 15 秒（至少 6 秒），防止后台 WebKit 节能节流导致误判超时闪屏。
 #[tauri::command]
 pub fn sync_task_rest_lock(app: tauri::AppHandle, window: tauri::WebviewWindow, remaining_seconds: u32) -> Result<(), String> {
     if window.label() != "task-reminder" { return Err("仅提醒窗口可以控制休息遮罩".into()); }
@@ -30,18 +31,20 @@ pub fn sync_task_rest_lock(app: tauri::AppHandle, window: tauri::WebviewWindow, 
     let result = show(&app, &window);
     if result.is_err() { if let Err(e) = clear(&app) { log::error!("休息遮罩清理失败：{e}"); } }
     result?;
-    *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now() + Duration::from_secs(u64::from(remaining_seconds.min(4))));
+    let lease_secs = u64::from(remaining_seconds.min(15).max(6));
+    *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now() + Duration::from_secs(lease_secs));
     Ok(())
 }
 
-/// 预览锁屏效果（主窗口等可用），0 释放，正数续约最多四秒。
+/// 预览锁屏效果（主窗口等可用），0 释放，正数直接按指定剩余时间加缓冲设置租约（无需每秒心跳）。
 #[tauri::command]
 pub fn preview_task_rest_lock(app: tauri::AppHandle, remaining_seconds: u32) -> Result<(), String> {
     if remaining_seconds == 0 { return clear(&app); }
     let result = show_shields(&app);
     if result.is_err() { if let Err(e) = clear(&app) { log::error!("休息遮罩清理失败：{e}"); } }
     result?;
-    *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now() + Duration::from_secs(u64::from(remaining_seconds.min(4))));
+    let lease_secs = u64::from(remaining_seconds.clamp(10, 300) + 5);
+    *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now() + Duration::from_secs(lease_secs));
     Ok(())
 }
 
@@ -49,17 +52,25 @@ fn show_shields(app: &tauri::AppHandle) -> Result<(), String> {
     let monitors = app.available_monitors().map_err(|e| e.to_string())?;
     for (index, monitor) in monitors.iter().enumerate() {
         let label = format!("task-rest-shield-{index}");
-        let shield = if let Some(window) = app.get_webview_window(&label) { window } else {
-            tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::App("task-rest-shield.html".into()))
-                .title("正在休息").decorations(false).resizable(false).maximizable(false).minimizable(false)
-                .always_on_top(true).visible_on_all_workspaces(true).skip_taskbar(true).focused(true).focusable(true).visible(false)
-                .build().map_err(|e| e.to_string())?
-        };
+        if let Some(shield) = app.get_webview_window(&label) {
+            // 窗口已存在且已可见时，直接跳过，切勿重复 set_position/set_size/set_macos_level（避免触发 Webview resize 和 WebGL 重绘闪屏）
+            if !shield.is_visible().map_err(|e| e.to_string())? {
+                set_macos_level(&shield, 25)?;
+                shield.show().map_err(|e| e.to_string())?;
+            }
+            continue;
+        }
+
+        let shield = tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::App("task-rest-shield.html".into()))
+            .title("正在休息").decorations(false).resizable(false).maximizable(false).minimizable(false)
+            .always_on_top(true).visible_on_all_workspaces(true).skip_taskbar(true).focused(true).focusable(true).visible(false)
+            .build().map_err(|e| e.to_string())?;
+
         // macOS 状态栏层覆盖菜单栏与 Dock；全屏展示 3D 星球与倒计时。
         set_macos_level(&shield, 25)?;
         shield.set_position(*monitor.position()).map_err(|e| e.to_string())?;
         shield.set_size(*monitor.size()).map_err(|e| e.to_string())?;
-        if !shield.is_visible().map_err(|e| e.to_string())? { shield.show().map_err(|e| e.to_string())?; }
+        shield.show().map_err(|e| e.to_string())?;
     }
     // 拔除屏幕后及时移除不再对应显示器的遮罩。
     for (label, window) in app.webview_windows() {

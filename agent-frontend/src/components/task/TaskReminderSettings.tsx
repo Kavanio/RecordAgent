@@ -34,7 +34,7 @@ export function TaskReminderSettings() {
 
   const stopLockPreview = useCallback(() => {
     if (lockPreviewTimer.current) {
-      window.clearInterval(lockPreviewTimer.current);
+      window.clearTimeout(lockPreviewTimer.current);
       lockPreviewTimer.current = null;
     }
     setLockPreviewing(false);
@@ -90,17 +90,11 @@ export function TaskReminderSettings() {
     } catch {}
 
     setLockPreviewing(true);
-    let remaining = durationSec;
     try {
-      await previewTaskRestLock(remaining);
-      const timer = window.setInterval(() => {
-        remaining -= 1;
-        if (remaining <= 0) {
-          stopLockPreview();
-        } else {
-          void previewTaskRestLock(remaining).catch(() => stopLockPreview());
-        }
-      }, 1000);
+      await previewTaskRestLock(durationSec);
+      const timer = window.setTimeout(() => {
+        stopLockPreview();
+      }, durationSec * 1000);
       lockPreviewTimer.current = timer;
     } catch (e) {
       stopLockPreview();
