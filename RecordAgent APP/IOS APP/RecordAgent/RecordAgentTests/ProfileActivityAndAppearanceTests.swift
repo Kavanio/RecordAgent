@@ -61,4 +61,39 @@ final class ProfileActivityAndAppearanceTests: XCTestCase {
         model.consumeRequestedEntry()
         XCTAssertNil(model.requestedEntryID)
     }
+
+    func testContinuousRecordStreakDaysAndRecentDaysStrip() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+
+        // 验证 Demo 模式下的 15 天刻度与 12 天连续记录
+        let demoMonth = ProfileActivityMonth(days: [], isDemo: true)
+        XCTAssertEqual(demoMonth.streakDays, 12)
+        let demoDays = demoMonth.recentStreakDays(calendar: calendar)
+        XCTAssertEqual(demoDays.count, 15)
+        XCTAssertEqual(demoDays.last?.isToday, true)
+
+        // 验证非 Demo 模式下真实的连续打卡天数计算
+        let entry = HomeEntry(
+            id: "e-1",
+            kind: .document,
+            title: "学习笔记",
+            detail: "正文内容",
+            date: today,
+            isCompleted: true
+        )
+        let day0 = ProfileActivityMonth.Day(date: today, entries: [entry])
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today) else {
+            XCTFail("无法计算昨天日期")
+            return
+        }
+        let day1 = ProfileActivityMonth.Day(date: yesterday, entries: [entry])
+
+        let activeMonth = ProfileActivityMonth(days: [day0, day1], isDemo: false)
+        XCTAssertEqual(activeMonth.streakDays, 2)
+
+        let realDays = activeMonth.recentStreakDays(calendar: calendar)
+        XCTAssertEqual(realDays.count, 15)
+        XCTAssertEqual(realDays.last?.isCompleted, true)
+    }
 }

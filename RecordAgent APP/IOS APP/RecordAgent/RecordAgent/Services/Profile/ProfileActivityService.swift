@@ -1,5 +1,15 @@
 import Foundation
 
+/// 连续记录打卡单日模型
+struct StreakDay: Equatable, Sendable, Identifiable {
+    let date: Date
+    let weekdaySymbol: String
+    let isCompleted: Bool
+    let entryCount: Int
+    let isToday: Bool
+    var id: Date { date }
+}
+
 /// 月内活动与原始按日条目共享事实来源，条目 ID 可回到首页详情。
 struct ProfileActivityMonth: Equatable, Sendable {
     struct Day: Equatable, Sendable, Identifiable {
@@ -12,6 +22,80 @@ struct ProfileActivityMonth: Equatable, Sendable {
 
     var latest: [HomeEntry] {
         days.flatMap(\.entries).sorted { $0.date > $1.date }
+    }
+
+    /// 连续记录天数
+    var streakDays: Int {
+        if isDemo { return 12 }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        var current = today
+        var streak = 0
+
+        let todayHasRecord = days.contains {
+            calendar.isDate($0.date, inSameDayAs: today) && !$0.entries.isEmpty
+        }
+        if !todayHasRecord {
+            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today) else { return 0 }
+            current = yesterday
+        }
+
+        while true {
+            let target = current
+            let hasRecord = days.contains {
+                calendar.isDate($0.date, inSameDayAs: target) && !$0.entries.isEmpty
+            }
+            if hasRecord {
+                streak += 1
+                guard let previous = calendar.date(byAdding: .day, value: -1, to: current) else { break }
+                current = previous
+            } else {
+                break
+            }
+        }
+        return streak
+    }
+
+    /// 最近 15 天的打卡数据
+    func recentStreakDays(calendar: Calendar = .current) -> [StreakDay] {
+        let today = calendar.startOfDay(for: .now)
+        let weekdaySymbols = ["日", "一", "二", "三", "四", "五", "六"]
+        var result: [StreakDay] = []
+        for offset in (0..<15).reversed() {
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
+            let dayEntries =
+                days.first(where: { calendar.isDate($0.date, inSameDayAs: date) })?.entries ?? []
+            let weekdayIndex = calendar.component(.weekday, from: date) - 1
+            let symbol =
+                (weekdayIndex >= 0 && weekdayIndex < weekdaySymbols.count)
+                ? weekdaySymbols[weekdayIndex] : ""
+
+            let isCompleted: Bool
+            if isDemo {
+                // 与示意图保持一致：前6天已打卡、中3天未打卡、后3天打卡、末3天未打卡
+                let demoPattern = [
+                    true, true, true, true, true, true,
+                    false, false, false,
+                    true, true, true,
+                    false, false, false
+                ]
+                let index = 14 - offset
+                isCompleted = index < demoPattern.count ? demoPattern[index] : (!dayEntries.isEmpty)
+            } else {
+                isCompleted = !dayEntries.isEmpty
+            }
+
+            result.append(
+                StreakDay(
+                    date: date,
+                    weekdaySymbol: symbol,
+                    isCompleted: isCompleted,
+                    entryCount: dayEntries.count,
+                    isToday: offset == 0
+                )
+            )
+        }
+        return result
     }
 }
 
@@ -31,19 +115,20 @@ struct HomeProfileActivityService: ProfileActivityServiceProtocol {
         guard let interval = calendar.dateInterval(of: .month, for: month) else {
             return ProfileActivityMonth(days: [], isDemo: false)
         }
-        let lastDay = min(Date.now, interval.end.addingTimeInterval(-1))
-        guard lastDay >= interval.start else {
+        let today = calendar.startOfDay(for: .now)
+        let fifteenDaysAgo = calendar.date(byAdding: .day, value: -14, to: today) ?? interval.start
+        let queryStart = min(interval.start, fifteenDaysAgo)
+        let queryEnd = max(min(today, interval.end.addingTimeInterval(-1)), today)
+
+        guard queryEnd >= queryStart else {
             return ProfileActivityMonth(days: [], isDemo: false)
         }
-        let count =
-            calendar.dateComponents(
-                [.day], from: interval.start, to: calendar.startOfDay(for: lastDay)
-            ).day ?? 0
+        let count = calendar.dateComponents([.day], from: queryStart, to: queryEnd).day ?? 0
         var days: [ProfileActivityMonth.Day] = []
         var demo = false
-        for offset in 0...min(count, 30) {
+        for offset in 0...min(count, 45) {
             try Task.checkCancellation()
-            guard let date = calendar.date(byAdding: .day, value: offset, to: interval.start) else {
+            guard let date = calendar.date(byAdding: .day, value: offset, to: queryStart) else {
                 continue
             }
             let snapshot = try await homeService.snapshot(for: date, locale: locale)

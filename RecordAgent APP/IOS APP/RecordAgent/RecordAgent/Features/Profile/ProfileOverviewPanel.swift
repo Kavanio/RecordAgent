@@ -65,14 +65,14 @@ struct ProfileOverviewPanel: View {
                 .foregroundStyle(AppColors.textSecondary)
 
             ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: 22) {
+                HStack(alignment: .top, spacing: 22) {
                     assets
                     Spacer(minLength: 0)
-                    monthlyExpense
+                    totalExpense
                 }
                 VStack(alignment: .leading, spacing: 20) {
                     assets
-                    monthlyExpense
+                    totalExpense
                 }
             }
         }
@@ -89,14 +89,17 @@ struct ProfileOverviewPanel: View {
             title: "profile.overview.assets",
             value: overview.map { HomeFormat.money($0.totalAssetsInCents, locale: locale) },
             color: AppColors.textPrimary,
-            prominent: true)
+            prominent: true,
+            growthRate: overview?.assetsGrowthRate)
     }
 
-    private var monthlyExpense: some View {
+    private var totalExpense: some View {
         metric(
-            title: "profile.overview.monthlyExpense",
-            value: overview.map { HomeFormat.money($0.monthlyExpenseInCents, locale: locale) },
-            color: HomeCategory.finance.color)
+            title: "profile.overview.totalExpense",
+            value: overview.map { HomeFormat.money($0.totalExpenseInCents, locale: locale) },
+            color: HomeCategory.finance.color,
+            growthRate: overview?.expenseGrowthRate,
+            growthInverse: true)
     }
 
     private var recordTime: some View {
@@ -119,6 +122,9 @@ struct ProfileOverviewPanel: View {
                 Text("profile.overview.hours")
                     .font(.caption)
                     .foregroundStyle(AppColors.textSecondary)
+            }
+            if let growth = overview?.recordMinutesGrowthRate {
+                growthBadge(rate: growth)
             }
         }
         .accessibilityElement(children: .combine)
@@ -216,7 +222,9 @@ struct ProfileOverviewPanel: View {
         title: LocalizedStringKey,
         value: String?,
         color: Color,
-        prominent: Bool = false
+        prominent: Bool = false,
+        growthRate: Double? = nil,
+        growthInverse: Bool = false
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -231,7 +239,44 @@ struct ProfileOverviewPanel: View {
                 .foregroundStyle(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
+            if let rate = growthRate {
+                growthBadge(rate: rate, growthInverse: growthInverse)
+            }
         }
         .accessibilityElement(children: .combine)
+    }
+
+    private func growthBadge(
+        rate: Double,
+        growthInverse: Bool = false
+    ) -> some View {
+        let isPositive = rate > 0.0001
+        let isNegative = rate < -0.0001
+        let isGood = growthInverse ? isNegative : isPositive
+        let isBad = growthInverse ? isPositive : isNegative
+
+        let tintColor: Color =
+            isGood
+            ? Color(red: 0.16, green: 0.65, blue: 0.40)
+            : (isBad ? Color(red: 0.95, green: 0.38, blue: 0.32) : AppColors.textTertiary)
+        let bgColor: Color = tintColor.opacity(0.12)
+
+        let percentString = abs(rate).formatted(
+            .percent.precision(.fractionLength(1)).locale(locale))
+        let symbol = isPositive ? "arrow.up" : (isNegative ? "arrow.down" : "minus")
+        let sign = isPositive ? "+" : (isNegative ? "-" : "")
+
+        return HStack(spacing: 3) {
+            Image(systemName: symbol)
+                .font(.system(size: 8.5, weight: .bold))
+            Text("profile.overview.vsLastMonth")
+                .font(.system(size: 10, weight: .regular))
+            Text(verbatim: "\(sign)\(percentString)")
+                .font(.system(size: 10, weight: .semibold).monospacedDigit())
+        }
+        .foregroundStyle(tintColor)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(bgColor, in: Capsule())
     }
 }

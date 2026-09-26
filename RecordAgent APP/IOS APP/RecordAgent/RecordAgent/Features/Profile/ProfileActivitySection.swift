@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 月内活动刻度与最近条目共享同一快照；点日期筛选，点条目回到原始详情。
+/// 连续记录打卡刻度与最近条目共享同一快照；点打卡圆点可筛选，点条目回到原始详情。
 struct ProfileActivitySection: View {
     let state: ProfileActivityViewModel.State
     let onOpen: (HomeEntry) -> Void
@@ -25,17 +25,6 @@ struct ProfileActivitySection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("profile.activity.title")
-                    .font(.headline)
-                    .foregroundStyle(AppColors.textPrimary)
-                Spacer()
-                if month?.isDemo == true {
-                    Text("profile.overview.demo")
-                        .font(.caption2)
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-            }
             switch state {
             case .loading:
                 ProgressView().frame(maxWidth: .infinity, minHeight: 90)
@@ -44,81 +33,103 @@ struct ProfileActivitySection: View {
                     .font(.subheadline)
                     .foregroundStyle(AppColors.textSecondary)
             case .ready(let month):
-                monthGrid(month)
+                continuousRecordCard(month)
                 recent(month)
             }
         }
     }
 
-    private func monthGrid(_ month: ProfileActivityMonth) -> some View {
-        let start =
-            calendar.dateInterval(of: .month, for: .now)?.start ?? calendar.startOfDay(for: .now)
-        let count = calendar.range(of: .day, in: .month, for: start)?.count ?? 30
-        let offset = (calendar.component(.weekday, from: start) - calendar.firstWeekday + 7) % 7
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
-        return VStack(alignment: .leading, spacing: 13) {
-            Text(start, format: .dateTime.year().month(.wide))
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(AppColors.textSecondary)
-            HStack(spacing: 8) {
-                ForEach(0..<7, id: \.self) { index in
-                    let symbol = calendar.veryShortStandaloneWeekdaySymbols[
-                        (calendar.firstWeekday - 1 + index) % 7]
-                    Text(verbatim: symbol)
-                        .font(.caption2)
+    /// 连续记录卡片：顶部展示“连续记录”与天数箭头，下方横向排列 15 天星期及圆点打卡状态
+    private func continuousRecordCard(_ month: ProfileActivityMonth) -> some View {
+        let streakDays = month.recentStreakDays(calendar: calendar)
+
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("profile.streak.title")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(AppColors.textPrimary)
+
+                Spacer(minLength: 8)
+
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text(verbatim: "\(month.streakDays)")
+                        .font(.title3.weight(.bold).monospacedDigit())
+                        .foregroundStyle(AppColors.textPrimary)
+
+                    Text("profile.streak.unit")
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(AppColors.textSecondary)
-                        .frame(maxWidth: .infinity)
+
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(AppColors.textTertiary)
+                        .padding(.leading, 1)
                 }
+                .accessibilityElement(children: .combine)
             }
-            LazyVGrid(columns: columns, spacing: 11) {
-                ForEach(0..<(offset + count), id: \.self) { index in
-                    if index < offset {
-                        Color.clear.frame(height: 28)
-                    } else if let date = calendar.date(
-                        byAdding: .day, value: index - offset, to: start)
-                    {
-                        dayButton(date, month: month)
+
+            // 15 天打卡刻度（等间距横向自适应排布）
+            HStack(spacing: 0) {
+                ForEach(streakDays) { day in
+                    VStack(spacing: 11) {
+                        Text(day.weekdaySymbol)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(AppColors.textSecondary)
+                            .frame(maxWidth: .infinity)
+
+                        dayDot(day: day)
+                            .frame(maxWidth: .infinity)
                     }
                 }
             }
+            .padding(.top, 4)
+            .padding(.bottom, 2)
         }
         .padding(18)
         .background(
-            Color(uiColor: .secondarySystemBackground).opacity(0.62),
-            in: RoundedRectangle(cornerRadius: 22))
+            Color(uiColor: .secondarySystemBackground).opacity(0.65),
+            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+        )
     }
 
-    private func dayButton(_ date: Date, month: ProfileActivityMonth) -> some View {
-        let count =
-            month.days.first(where: { calendar.isDate($0.date, inSameDayAs: date) })?.entries.count
-            ?? 0
-        let selected = selectedDay.map { calendar.isDate($0, inSameDayAs: date) } ?? false
-        let future = date > Date.now
+    private func dayDot(day: StreakDay) -> some View {
+        let isSelected = selectedDay.map { calendar.isDate($0, inSameDayAs: day.date) } ?? false
+
         return Button {
-            selectedDay = selected ? nil : date
+            selectedDay = isSelected ? nil : day.date
         } label: {
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .fill(
-                    count == 0
-                        ? AppColors.progressTrackBg
-                        : AppColors.primaryBlue.opacity(count >= 3 ? 0.86 : 0.4)
-                )
-                .frame(width: 19, height: 19)
-                .overlay {
-                    if selected {
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(AppColors.textPrimary, lineWidth: 1.5)
-                            .frame(width: 27, height: 27)
-                    }
+            ZStack {
+                if day.isCompleted {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.44, green: 0.70, blue: 1.0),
+                                    AppColors.primaryBlue
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: 12, height: 12)
+                } else {
+                    Circle()
+                        .fill(AppColors.progressTrackBg)
+                        .frame(width: 11, height: 11)
                 }
-                .frame(maxWidth: .infinity, minHeight: 32)
-                .contentShape(Rectangle())
+
+                if isSelected {
+                    Circle()
+                        .strokeBorder(AppColors.textPrimary, lineWidth: 1.5)
+                        .frame(width: 20, height: 20)
+                }
+            }
+            .frame(width: 22, height: 22)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(future)
-        .accessibilityLabel(Text(date, format: .dateTime.month().day()))
-        .accessibilityValue(Text("profile.activity.count \(count)"))
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityLabel(Text(day.date, format: .dateTime.month().day()))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private func recent(_ month: ProfileActivityMonth) -> some View {

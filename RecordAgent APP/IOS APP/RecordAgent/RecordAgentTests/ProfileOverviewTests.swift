@@ -29,4 +29,26 @@ final class ProfileOverviewTests: XCTestCase {
         await model.load(userID: "user-1", month: Date())
         XCTAssertEqual(model.state, .unavailable)
     }
+
+    func testProfileOverviewGrowthRatesAndTotalExpense() {
+        let overview = ProfileOverview(
+            month: Date(),
+            totalAssetsInCents: 10_000_00,
+            totalExpenseInCents: 500_00,
+            totalRecordMinutes: 600,
+            documentCount: 10,
+            documentWordCount: 5000,
+            monthlyCompletedTodos: 5,
+            monthlyTodoCount: 5,
+            isDemo: false,
+            assetsGrowthRate: 0.125,
+            expenseGrowthRate: -0.05,
+            recordMinutesGrowthRate: 0.20
+        )
+        XCTAssertEqual(overview.totalExpenseInCents, 500_00)
+        XCTAssertEqual(overview.monthlyExpenseInCents, 500_00)
+        XCTAssertEqual(overview.assetsGrowthRate, 0.125)
+        XCTAssertEqual(overview.expenseGrowthRate, -0.05)
+        XCTAssertEqual(overview.recordMinutesGrowthRate, 0.20)
+    }
 }

@@ -7,13 +7,16 @@ struct MockProfileOverviewService: ProfileOverviewServiceProtocol {
         return ProfileOverview(
             month: month,
             totalAssetsInCents: 8_642_000,
-            monthlyExpenseInCents: 326_800,
+            totalExpenseInCents: 326_800,
             totalRecordMinutes: 12_870,
             documentCount: 342,
             documentWordCount: 120_480,
             monthlyCompletedTodos: 24,
             monthlyTodoCount: 30,
-            isDemo: true
+            isDemo: true,
+            assetsGrowthRate: 0.086,
+            expenseGrowthRate: -0.042,
+            recordMinutesGrowthRate: 0.152
         )
     }
 }
