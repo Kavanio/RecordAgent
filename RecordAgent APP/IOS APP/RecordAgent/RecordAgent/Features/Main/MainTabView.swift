@@ -56,10 +56,17 @@ struct MainTabView: View {
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let user: AuthUser?
+    let profileOverviewService: any ProfileOverviewServiceProtocol
     let onLogout: () async throws -> Void
 
-    init(homeService: any HomeDataServiceProtocol, user: AuthUser?, onLogout: @escaping () async throws -> Void) {
+    init(
+        homeService: any HomeDataServiceProtocol,
+        profileOverviewService: any ProfileOverviewServiceProtocol,
+        user: AuthUser?,
+        onLogout: @escaping () async throws -> Void
+    ) {
         _homeModel = StateObject(wrappedValue: HomeViewModel(service: homeService))
+        self.profileOverviewService = profileOverviewService
         self.user = user
         self.onLogout = onLogout
     }
@@ -79,7 +86,7 @@ struct MainTabView: View {
                 WorkspaceHubView { selectedTab = $0 }
                     .transition(pageTransition)
             case .profile:
-                ProfileView(user: user, onLogout: onLogout)
+                ProfileView(user: user, overviewService: profileOverviewService, onLogout: onLogout)
                     .transition(pageTransition)
             default:
                 WorkspacePreviewView(

@@ -15,6 +15,7 @@ public struct RootCoordinatorView: View {
             if authViewModel.isAuthenticated {
                 MainTabView(
                     homeService: environment.homeService,
+                    profileOverviewService: environment.profileOverviewService,
                     user: environment.authService.getCurrentSession()?.user,
                     onLogout: {
                         try await environment.authService.logout()

@@ -1,11 +1,24 @@
 import SwiftUI
 
-/// 个人档案扉页：会话资料与编号目录；没有统计来源时仅展示记录题记。
+/// “我的”主页面：会话身份、五类个人统计与设置入口共享首页的轻盈画布。
 struct ProfileView: View {
     let user: AuthUser?
     let onLogout: () async throws -> Void
+    @StateObject private var overviewModel: ProfileOverviewViewModel
     @EnvironmentObject private var environment: AppEnvironment
-    @ScaledMetric(relativeTo: .largeTitle) private var nameSize = 38.0
+    @Environment(\.locale) private var locale
+    @Environment(\.calendar) private var calendar
+
+    init(
+        user: AuthUser?,
+        overviewService: any ProfileOverviewServiceProtocol,
+        onLogout: @escaping () async throws -> Void
+    ) {
+        self.user = user
+        self.onLogout = onLogout
+        _overviewModel = StateObject(
+            wrappedValue: ProfileOverviewViewModel(service: overviewService))
+    }
 
     private var name: String? {
         guard let user else { return nil }
@@ -16,109 +29,115 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("profile.cover.label")
-                        .font(.caption.weight(.medium))
-                        .tracking(2)
-                        .foregroundStyle(.secondary)
-                        .padding(.bottom, 36)
-
-                    HStack(alignment: .top, spacing: 20) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            if let name, !name.isEmpty {
-                                Text(verbatim: name)
-                                    .font(.system(size: nameSize, weight: .semibold))
-                                    .tracking(-1)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            } else {
-                                Text("profile.cover.fallback")
-                                    .font(.largeTitle.weight(.semibold))
-                            }
-                            if let user {
-                                Text(verbatim: user.email)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                                    .textSelection(.enabled)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                        // 字母印记只作装饰，不重复朗读用户身份。
-                        Group {
-                            if let initial = name?.first {
-                                Text(verbatim: String(initial).uppercased())
-                                    .font(.system(.title2, design: .serif).weight(.medium))
-                            } else {
-                                Image(systemName: "person")
-                                    .font(.title2.weight(.light))
-                            }
-                        }
-                        .frame(width: 54, height: 54)
-                        .overlay(Circle().strokeBorder(.primary.opacity(0.18), lineWidth: 1))
-                        .padding(.top, 18)
-                        .accessibilityHidden(true)
-                    }
-
-                    VStack(alignment: .leading, spacing: 20) {
-                        Rectangle()
-                            .fill(AppColors.primaryBlue)
-                            .frame(width: 22, height: 2)
-                            .accessibilityHidden(true)
-                        Text("profile.cover.note")
-                            .font(.system(.title, design: .serif).weight(.regular))
-                            .lineSpacing(8)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(.top, 56)
-                    .padding(.bottom, 48)
-
-                    VStack(spacing: 0) {
-                        NavigationLink {
-                            ProfileAccountView(user: user, onLogout: onLogout)
-                        } label: {
-                            ProfileDirectoryRow(
-                                number: 1, title: "profile.account.title",
-                                summary: Text("profile.account.summary"))
-                        }
-                        Divider()
-                        NavigationLink {
-                            ProfilePreferencesView()
-                        } label: {
-                            ProfileDirectoryRow(
-                                number: 2, title: "profile.preferences.title",
-                                summary: languageSummary)
-                        }
-                        Divider()
-                        NavigationLink {
-                            ProfileAboutView()
-                        } label: {
-                            ProfileDirectoryRow(
-                                number: 3, title: "profile.about.title",
-                                summary: Text("profile.about.summary"))
-                        }
-                    }
-                    .buttonStyle(.plain)
-
-                    Text("profile.cover.footer")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 36)
+                VStack(alignment: .leading, spacing: 26) {
+                    identity
+                    ProfileOverviewPanel(state: overviewModel.state)
+                    destinations
                 }
-                .padding(.horizontal, 28)
-                .padding(.top, 24)
-                .padding(.bottom, 28)
-                .frame(maxWidth: 600, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.top, 22)
+                .padding(.bottom, 32)
+                .frame(maxWidth: 640)
                 .frame(maxWidth: .infinity)
             }
-            .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+            .background { HomeCanvas() }
             .toolbar(.hidden, for: .navigationBar)
+            .task(id: LoadKey(userID: user?.id, month: monthStart, locale: locale.identifier)) {
+                await overviewModel.load(userID: user?.id, month: monthStart)
+            }
+            .refreshable {
+                await overviewModel.load(userID: user?.id, month: monthStart)
+            }
         }
+    }
+
+    private var identity: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            Text("tab.mine")
+                .font(.largeTitle.weight(.bold))
+                .foregroundStyle(AppColors.textPrimary)
+
+            HStack(spacing: 16) {
+                ProfileAvatarView(name: name, avatarURLString: user?.avatarUrl)
+                VStack(alignment: .leading, spacing: 5) {
+                    if let name, !name.isEmpty {
+                        Text(verbatim: name)
+                            .font(.title2.weight(.semibold))
+                            .foregroundStyle(AppColors.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("profile.cover.fallback")
+                            .font(.title2.weight(.semibold))
+                    }
+                    if let user {
+                        Text(verbatim: user.email)
+                            .font(.footnote)
+                            .foregroundStyle(AppColors.textSecondary)
+                            .lineLimit(2)
+                            .textSelection(.enabled)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                NavigationLink {
+                    ProfileAccountView(user: user, onLogout: onLogout)
+                } label: {
+                    Image(systemName: "arrow.up.right")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("profile.account.title"))
+            }
+        }
+    }
+
+    private var destinations: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("profile.destinations.title")
+                .font(.headline)
+                .foregroundStyle(AppColors.textPrimary)
+                .padding(.bottom, 8)
+
+            NavigationLink {
+                ProfileAccountView(user: user, onLogout: onLogout)
+            } label: {
+                ProfileDirectoryRow(
+                    number: 1, title: "profile.account.title",
+                    summary: Text("profile.account.summary"))
+            }
+            Divider()
+            NavigationLink {
+                ProfilePreferencesView()
+            } label: {
+                ProfileDirectoryRow(
+                    number: 2, title: "profile.preferences.title", summary: languageSummary)
+            }
+            Divider()
+            NavigationLink {
+                ProfileAboutView()
+            } label: {
+                ProfileDirectoryRow(
+                    number: 3, title: "profile.about.title", summary: Text("profile.about.summary"))
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var monthStart: Date {
+        calendar.dateInterval(of: .month, for: .now)?.start ?? calendar.startOfDay(for: .now)
     }
 
     private var languageSummary: Text {
         environment.selectedLanguage == .system
             ? Text("language.system")
             : Text(verbatim: environment.selectedLanguage.displayName)
+    }
+
+    private struct LoadKey: Equatable {
+        let userID: String?
+        let month: Date
+        let locale: String
     }
 }

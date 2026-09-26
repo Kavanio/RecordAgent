@@ -34,7 +34,7 @@ struct ProfileDirectoryRow: View {
                 .accessibilityHidden(true)
         }
         .foregroundStyle(.primary)
-        .padding(.vertical, 26)
+        .padding(.vertical, 19)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }

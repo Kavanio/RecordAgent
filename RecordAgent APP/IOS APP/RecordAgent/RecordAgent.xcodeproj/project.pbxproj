@@ -54,6 +54,13 @@
 		7EB0104647566BFD016189EB /* ProfileDirectoryRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CF01092ACA81C2DF427763D /* ProfileDirectoryRow.swift */; };
 		FB14CF6BA1766C68D07F9EC2 /* AppSettingsGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFFD259A7595E93BB796AE78 /* AppSettingsGroup.swift */; };
 		68911651ED4E67338F3135AF /* AppSettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C686DBBB24BB6D109C70AAA2 /* AppSettingsRow.swift */; };
+		39BC56A43A97856136718D88 /* ProfileOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E6D4DF19536471DFC0194B /* ProfileOverview.swift */; };
+		C67988BEA151C1480A1B1A41 /* ProfileOverviewServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCA41CB32B0D986A3949474F /* ProfileOverviewServiceProtocol.swift */; };
+		235D134A983F6FA01168FD0A /* MockProfileOverviewService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38043C094E797D142A6EC091 /* MockProfileOverviewService.swift */; };
+		649741AA923181419CDA0282 /* ProfileOverviewViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F08942861039B2CC071CB43 /* ProfileOverviewViewModel.swift */; };
+		D7D14FF56B3056617E1B1818 /* ProfileAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B04C440EEE3FD5CF90A6D34 /* ProfileAvatarView.swift */; };
+		2FDC936469396CFFCFCAC3EB /* ProfileOverviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 609350F6E03F2BDE9A4D5784 /* ProfileOverviewPanel.swift */; };
+		E1ABB8CE41F2BD3C61311E39 /* ProfileOverviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1EE5E3B590781B7E3B5C489 /* ProfileOverviewTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -118,6 +125,13 @@
 		1CF01092ACA81C2DF427763D /* ProfileDirectoryRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileDirectoryRow.swift; sourceTree = "<group>"; };
 		BFFD259A7595E93BB796AE78 /* AppSettingsGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsGroup.swift; sourceTree = "<group>"; };
 		C686DBBB24BB6D109C70AAA2 /* AppSettingsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsRow.swift; sourceTree = "<group>"; };
+		E2E6D4DF19536471DFC0194B /* ProfileOverview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileOverview.swift; sourceTree = "<group>"; };
+		FCA41CB32B0D986A3949474F /* ProfileOverviewServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileOverviewServiceProtocol.swift; sourceTree = "<group>"; };
+		38043C094E797D142A6EC091 /* MockProfileOverviewService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockProfileOverviewService.swift; sourceTree = "<group>"; };
+		3F08942861039B2CC071CB43 /* ProfileOverviewViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileOverviewViewModel.swift; sourceTree = "<group>"; };
+		1B04C440EEE3FD5CF90A6D34 /* ProfileAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAvatarView.swift; sourceTree = "<group>"; };
+		609350F6E03F2BDE9A4D5784 /* ProfileOverviewPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileOverviewPanel.swift; sourceTree = "<group>"; };
+		A1EE5E3B590781B7E3B5C489 /* ProfileOverviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileOverviewTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -197,6 +211,7 @@
 			children = (
 				E45BA8B8C8FD692C0A8061F9 /* AuthTests.swift */,
 				948757F93523D4259A3EB62F /* HomeTests.swift */,
+				A1EE5E3B590781B7E3B5C489 /* ProfileOverviewTests.swift */,
 				FCFFB71727120C53CD0BC771 /* Info.plist */,
 				4CF90727D3FAA6F2A18BC44E /* LocalizationTests.swift */,
 			);
@@ -304,6 +319,7 @@
 				A1FE52778E8D90883C780D32 /* Auth */,
 				A3F844F6F76CBDEEA7492C1B /* Home */,
 				59CB12CCCE759D92E436D98C /* Localization */,
+				D9F99EDA7D82E233D97F0BF1 /* Profile */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -337,6 +353,7 @@
 			children = (
 				2F7E6F20F89CC8881EEDE0DC /* Auth */,
 				D9FA61E5E0A80F1D1BE395FD /* Home */,
+				6A4EA0C78B4B0C1F962D7ABD /* Profile */,
 				B611F52E8AEF3CA940F7AA95 /* Localization */,
 			);
 			path = Domain;
@@ -346,6 +363,9 @@
 			isa = PBXGroup;
 			children = (
 				F5E41F0BB1617ECDC22F26D4 /* ProfileView.swift */,
+				609350F6E03F2BDE9A4D5784 /* ProfileOverviewPanel.swift */,
+				1B04C440EEE3FD5CF90A6D34 /* ProfileAvatarView.swift */,
+				3F08942861039B2CC071CB43 /* ProfileOverviewViewModel.swift */,
 				C6FD19180FB162B8D30F9409 /* ProfileAccountView.swift */,
 				53EB386F63A76A91ABEAD50E /* ProfilePreferencesView.swift */,
 				FDEF96DE576B39F64D60A782 /* ProfileAboutView.swift */,
@@ -353,6 +373,23 @@
 			);
 			path = Profile;
 			sourceTree = "<group>";
+		};
+		6A4EA0C78B4B0C1F962D7ABD /* Profile */ = {
+			isa = PBXGroup;
+			children = (
+				E2E6D4DF19536471DFC0194B /* ProfileOverview.swift */,
+			);
+			path = Profile;
+		sourceTree = "<group>";
+		};
+		D9F99EDA7D82E233D97F0BF1 /* Profile */ = {
+			isa = PBXGroup;
+			children = (
+				FCA41CB32B0D986A3949474F /* ProfileOverviewServiceProtocol.swift */,
+				38043C094E797D142A6EC091 /* MockProfileOverviewService.swift */,
+			);
+			path = Profile;
+		sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
@@ -476,6 +513,12 @@
 				799A036EACA5C4B00DD700D5 /* MockAuthService.swift in Sources */,
 				3D2FC92D5A9D8212B7E89C87 /* MockHomeDataService.swift in Sources */,
 				4F76832284E3484963D3770F /* ProfileView.swift in Sources */,
+				2FDC936469396CFFCFCAC3EB /* ProfileOverviewPanel.swift in Sources */,
+				D7D14FF56B3056617E1B1818 /* ProfileAvatarView.swift in Sources */,
+				649741AA923181419CDA0282 /* ProfileOverviewViewModel.swift in Sources */,
+				235D134A983F6FA01168FD0A /* MockProfileOverviewService.swift in Sources */,
+				C67988BEA151C1480A1B1A41 /* ProfileOverviewServiceProtocol.swift in Sources */,
+				39BC56A43A97856136718D88 /* ProfileOverview.swift in Sources */,
 				68911651ED4E67338F3135AF /* AppSettingsRow.swift in Sources */,
 				FB14CF6BA1766C68D07F9EC2 /* AppSettingsGroup.swift in Sources */,
 				7EB0104647566BFD016189EB /* ProfileDirectoryRow.swift in Sources */,
@@ -496,6 +539,7 @@
 			files = (
 				9E9C2086B7E24252FBC9DC52 /* AuthTests.swift in Sources */,
 				DF6981B4A831354C742E84F6 /* HomeTests.swift in Sources */,
+				E1ABB8CE41F2BD3C61311E39 /* ProfileOverviewTests.swift in Sources */,
 				E58F3F4B2D71FEF4FBA12467 /* LocalizationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -11,6 +11,7 @@ public final class AppEnvironment: ObservableObject {
     public let authService: AuthServiceProtocol
     public let keychain: KeychainService
     let homeService: any HomeDataServiceProtocol
+    let profileOverviewService: any ProfileOverviewServiceProtocol
 
     /// 当前选中的应用语言（支持跟随系统、简体中文、英文）
     @Published public var selectedLanguage: AppLanguage {
@@ -32,8 +33,10 @@ public final class AppEnvironment: ObservableObject {
         self.keychain = keychain
         #if DEBUG
             self.homeService = MockHomeDataService()
+            self.profileOverviewService = MockProfileOverviewService()
         #else
             self.homeService = UnavailableHomeDataService()
+            self.profileOverviewService = UnavailableProfileOverviewService()
         #endif
 
         // 从 UserDefaults 读取持久化的语言偏好，默认跟随系统
