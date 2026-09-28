@@ -5,10 +5,11 @@ import styles from './AccountCashflowChart.module.css';
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
 const compact = (value: number) => value >= 10000 ? `${Number((value / 10000).toFixed(1))}万` : String(Number(value.toFixed(2)));
 
-const accountBrand = (type: FinanceAccountType, name: string) => {
-  if (type.startsWith('wechat')) return 'wechat';
-  if (type.startsWith('alipay')) return 'alipay';
-  if (type !== 'bank') return 'other';
+const accountBrand = (type: FinanceAccountType | undefined, name: string) => {
+  // 兼容尚未更新的后端响应；旧响应没有 accountType，只能从账户名称识别品牌。
+  if (type?.startsWith('wechat') || (!type && /微信/.test(name))) return 'wechat';
+  if (type?.startsWith('alipay') || (!type && /支付宝/.test(name))) return 'alipay';
+  if (type && type !== 'bank') return 'other';
   if (/招商银行|招行/.test(name)) return 'cmb';
   if (/农业银行|农行/.test(name)) return 'abc';
   if (/建设银行|建行/.test(name)) return 'ccb';

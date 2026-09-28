@@ -282,6 +282,18 @@ test('账户柱图按账户品牌着色，未知银行保留中性色，收入�
   assert.deepEqual(brands(), ['wechat', 'alipay', 'cmb', 'abc', 'ccb', 'bank']);
 });
 
+test('旧版支出分析响应缺少账户类型时仍能展示账户柱图', async () => {
+  const normal = respond;
+  respond = (url) => url.pathname.endsWith('/expense-insights')
+    ? response({ ...insights(url.searchParams.get('range')), accounts: [
+      { accountId: 'wechat', accountName: '微信余额', amount: 100, income: 50 },
+      { accountId: 'bank', accountName: '招商银行万事达卡', amount: 80, income: 20 },
+    ] }) : normal(url);
+  await render();
+  const bars = [...analysis().querySelectorAll('[class*="barGroup"]')];
+  assert.deepEqual(bars.map((bar) => bar.dataset.brand), ['wechat', 'cmb']);
+});
+
 test('新增自定义分类选色随记账提交，重新打开页面后读取保存的颜色', async () => {
   const normal = respond;
   let saved;
