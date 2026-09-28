@@ -3,6 +3,8 @@ import SwiftUI
 struct HomeEntryDetailView: View {
     let entry: HomeEntry
     @ObservedObject var viewModel: HomeViewModel
+    var savingIDs: Set<String> = []
+    var onToggle: ((HomeEntry) -> Void)?
     @Environment(\.locale) private var locale
     @Environment(\.dismiss) private var dismiss
 
@@ -13,7 +15,7 @@ struct HomeEntryDetailView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Label(current.kind.category.title, systemImage: current.kind.category.icon)
+                    Label(current.kind.title, systemImage: current.kind.category.icon)
                         .font(.subheadline)
                         .foregroundStyle(current.kind.category.color)
                     Text(current.title).font(.title2.weight(.semibold))
@@ -32,9 +34,12 @@ struct HomeEntryDetailView: View {
                             .foregroundStyle(current.kind.category.color)
                     }
                     Text(current.detail).font(.body).lineSpacing(7)
+                    if !current.sampleImageNames.isEmpty {
+                        HomePhotoStrip(names: current.sampleImageNames)
+                    }
                     if current.kind == .todo {
                         Button {
-                            Task { await viewModel.toggleTodo(current) }
+                            if let onToggle { onToggle(current) } else { Task { await viewModel.toggleTodo(current) } }
                         } label: {
                             Label(
                                 current.isCompleted ? "home.todo.undo" : "home.todo.complete",
@@ -42,7 +47,7 @@ struct HomeEntryDetailView: View {
                             )
                             .frame(minHeight: 44)
                         }
-                        .disabled(viewModel.savingTodoIDs.contains(current.id))
+                        .disabled(viewModel.savingTodoIDs.contains(current.id) || savingIDs.contains(current.id))
                     }
                     if viewModel.snapshot?.isDemo == true {
                         Text("home.demo.detail").font(.footnote).foregroundStyle(.secondary)

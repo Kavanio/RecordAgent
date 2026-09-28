@@ -55,3 +55,17 @@ struct HomeCanvas: View {
         .ignoresSafeArea()
     }
 }
+
+extension HomeEntry.Kind {
+    var title: LocalizedStringKey {
+        switch self {
+        case .todo: return "calendar.kind.todo"
+        case .schedule: return "calendar.kind.schedule"
+        case .focus: return "calendar.kind.focus"
+        case .document: return "calendar.kind.document"
+        case .photo: return "calendar.kind.photo"
+        case .expense: return "calendar.kind.expense"
+        case .income: return "calendar.kind.income"
+        }
+    }
+}

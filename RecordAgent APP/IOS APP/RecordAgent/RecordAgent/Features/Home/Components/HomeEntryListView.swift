@@ -27,7 +27,7 @@ struct HomeEntryListView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 5) {
                                 HStack(spacing: 8) {
-                                    Text(entry.kind.category.title)
+                                    Text(entry.kind.title)
                                         .foregroundStyle(entry.kind.category.color)
                                     Text(entry.date, format: .dateTime.hour().minute())
                                         .foregroundStyle(.secondary)
@@ -84,7 +84,7 @@ struct HomeEntryListView: View {
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(entry.kind.category.color)
                 .fixedSize(horizontal: true, vertical: false)
-        case .todo, .document:
+        case .todo, .schedule, .document, .photo:
             EmptyView()
         }
     }

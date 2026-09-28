@@ -15,6 +15,7 @@ public struct RootCoordinatorView: View {
             if authViewModel.isAuthenticated {
                 MainTabView(
                     homeService: environment.homeService,
+                    calendarService: environment.calendarService,
                     profileOverviewService: environment.profileOverviewService,
                     profileActivityService: environment.profileActivityService,
                     profileAppearanceService: environment.profileAppearanceService,

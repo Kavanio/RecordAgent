@@ -56,6 +56,7 @@ struct MainTabView: View {
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let user: AuthUser?
+    let calendarService: any CalendarDataServiceProtocol
     let profileOverviewService: any ProfileOverviewServiceProtocol
     let profileActivityService: any ProfileActivityServiceProtocol
     let profileAppearanceService: any ProfileAppearanceServiceProtocol
@@ -63,6 +64,7 @@ struct MainTabView: View {
 
     init(
         homeService: any HomeDataServiceProtocol,
+        calendarService: any CalendarDataServiceProtocol,
         profileOverviewService: any ProfileOverviewServiceProtocol,
         profileActivityService: any ProfileActivityServiceProtocol,
         profileAppearanceService: any ProfileAppearanceServiceProtocol,
@@ -70,6 +72,7 @@ struct MainTabView: View {
         onLogout: @escaping () async throws -> Void
     ) {
         _homeModel = StateObject(wrappedValue: HomeViewModel(service: homeService))
+        self.calendarService = calendarService
         self.profileOverviewService = profileOverviewService
         self.profileActivityService = profileActivityService
         self.profileAppearanceService = profileAppearanceService
@@ -87,6 +90,9 @@ struct MainTabView: View {
             switch selectedTab {
             case .home:
                 HomeView(viewModel: homeModel)
+                    .transition(pageTransition)
+            case .calendar:
+                CalendarView(home: homeModel, service: calendarService)
                     .transition(pageTransition)
             case .workspace:
                 WorkspaceHubView { selectedTab = $0 }

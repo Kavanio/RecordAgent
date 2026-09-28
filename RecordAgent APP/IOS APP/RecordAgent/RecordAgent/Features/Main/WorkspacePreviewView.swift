@@ -31,22 +31,10 @@ struct WorkspacePreviewView: View {
                         Text("workspace.tasks.description")
                     }
                 } else {
-                    if tab == .calendar {
-                        DatePicker(
-                            "home.date.choose",
-                            selection: Binding(
-                                get: { viewModel.selectedDate },
-                                set: { viewModel.selectDate($0) }
-                            ), in: viewModel.dates.supportedDates, displayedComponents: .date
-                        )
-                        .datePickerStyle(.graphical)
-                        .padding(.horizontal, 16)
-                    } else {
-                        WeekCalendarStripView(viewModel: viewModel)
-                    }
+                    WeekCalendarStripView(viewModel: viewModel)
                     HomeDayContentView(
                         viewModel: viewModel, fixedCategory: tab.category,
-                        showsSummary: tab == .calendar)
+                        showsSummary: false)
                 }
             }
         }

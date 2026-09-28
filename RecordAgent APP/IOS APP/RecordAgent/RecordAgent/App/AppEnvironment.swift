@@ -11,6 +11,7 @@ public final class AppEnvironment: ObservableObject {
     public let authService: AuthServiceProtocol
     public let keychain: KeychainService
     let homeService: any HomeDataServiceProtocol
+    let calendarService: any CalendarDataServiceProtocol
     let profileOverviewService: any ProfileOverviewServiceProtocol
     let profileActivityService: any ProfileActivityServiceProtocol
     let profileAppearanceService: any ProfileAppearanceServiceProtocol
@@ -34,10 +35,13 @@ public final class AppEnvironment: ObservableObject {
         self.authService = authService
         self.keychain = keychain
         #if DEBUG
-            self.homeService = MockHomeDataService()
+            let sharedData = MockHomeDataService()
+            self.homeService = sharedData
+            self.calendarService = sharedData
             self.profileOverviewService = MockProfileOverviewService()
         #else
             self.homeService = UnavailableHomeDataService()
+            self.calendarService = UnavailableHomeDataService()
             self.profileOverviewService = UnavailableProfileOverviewService()
         #endif
         self.profileActivityService = HomeProfileActivityService(homeService: homeService)

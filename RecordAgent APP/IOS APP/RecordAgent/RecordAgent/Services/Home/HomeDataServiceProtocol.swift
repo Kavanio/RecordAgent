@@ -6,7 +6,7 @@ protocol HomeDataServiceProtocol: Sendable {
     func setTodoCompleted(id: String, completed: Bool, date: Date) async throws
 }
 
-enum HomeDataError: Error { case unavailable, missingTodo }
+enum HomeDataError: Error { case unavailable, missingTodo, invalidEntry }
 
 /// Release 不展示开发样例，真实业务服务就绪前明确返回不可用状态。
 struct UnavailableHomeDataService: HomeDataServiceProtocol {
