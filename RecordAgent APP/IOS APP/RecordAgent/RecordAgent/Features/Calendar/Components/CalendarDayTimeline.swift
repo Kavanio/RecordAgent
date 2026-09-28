@@ -101,12 +101,25 @@ struct CalendarDayTimeline: View {
 
     private func timelineRow(_ entry: HomeEntry, index: Int) -> some View {
         HStack(alignment: .top, spacing: 4) {
-            Circle().fill(entry.kind.calendarColor)
-                .frame(width: 12, height: 12)
-                .overlay(Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 2))
+            Image(systemName: entry.kind.calendarSymbol)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(entry.kind.calendarColor)
+                .frame(width: 26, height: 26)
+                .background {
+                    RoundedRectangle(cornerRadius: 9)
+                        .fill(Color(uiColor: .systemBackground))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 9)
+                                .fill(entry.kind.calendarColor.opacity(0.13))
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 9)
+                                .strokeBorder(entry.kind.calendarColor.opacity(0.35), lineWidth: 1)
+                        }
+                }
                 .frame(width: 28, height: 44)
                 .offset(x: TimelineThread.horizontalOffset(for: index))
-                .scrollTransition(.animated(.smooth(duration: 0.5)), axis: .vertical) { content, phase in
+                .scrollTransition(.animated(.smooth(duration: 0.5)), axis: .vertical) { [reduceMotion] content, phase in
                     content
                         .scaleEffect(reduceMotion || phase.isIdentity ? 1 : 0.55)
                         .opacity(reduceMotion || phase.isIdentity ? 1 : 0.35)
@@ -157,7 +170,7 @@ struct CalendarDayTimeline: View {
                     .accessibilityHint(Text(entry.isCompleted ? "home.todo.undo" : "home.todo.complete"))
                 }
             }
-            .scrollTransition(.animated(.smooth(duration: 0.5)), axis: .vertical) { content, phase in
+            .scrollTransition(.animated(.smooth(duration: 0.5)), axis: .vertical) { [reduceMotion] content, phase in
                 content
                     .opacity(reduceMotion || phase.isIdentity ? 1 : 0.12)
                     .offset(y: reduceMotion || phase.isIdentity ? 0 : 26)
@@ -218,7 +231,9 @@ enum CalendarTimelineSpacing {
 
 private struct TimelineNodeAnchors: PreferenceKey {
     static var defaultValue: [String: Anchor<CGRect>] = [:]
-    static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
+    static func reduce(
+        value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]
+    ) {
         value.merge(nextValue(), uniquingKeysWith: { _, newest in newest })
     }
 }

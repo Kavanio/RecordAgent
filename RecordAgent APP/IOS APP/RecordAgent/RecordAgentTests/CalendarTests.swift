@@ -70,7 +70,8 @@ final class CalendarTests: XCTestCase {
         let lastDay = try await service.snapshot(for: todo.date, locale: .current)
         XCTAssertTrue(try XCTUnwrap(lastDay.entries.first { $0.id == todo.id }).isCompleted)
         let updated = try await service.periodicTodos(for: today, locale: .current)
-        XCTAssertEqual(updated.first { $0.period == .monthly }?.completedCount, group.completedCount + 1)
+        XCTAssertEqual(
+            updated.first { $0.period == .monthly }?.completedCount, group.completedCount + 1)
         let next = try await service.periodicTodos(for: date(2026, 10, 2), locale: .current)
         XCTAssertEqual(next.first { $0.period == .monthly }?.completedCount, 0)
         XCTAssertFalse(next.flatMap(\.entries).contains { $0.id == todo.id })
@@ -88,10 +89,23 @@ final class CalendarTests: XCTestCase {
         XCTAssertTrue(month.days.allSatisfy { $0.kinds.count <= 3 })
     }
 
+    func testPastPhotoRecordSuppliesMonthThumbnail() async throws {
+        let today = date(2026, 9, 26)
+        let past = date(2026, 9, 24)
+        let service = MockHomeDataService(now: today, calendar: calendar)
+        let day = try await service.snapshot(for: past, locale: .current)
+        let photo = try XCTUnwrap(day.entries.first { $0.kind == .photo })
+        let month = try await service.month(for: today, locale: .current)
+        XCTAssertEqual(
+            month.days.first { $0.date == past }?.sampleImageName, photo.sampleImageNames.first)
+        XCTAssertNotNil(month.days.first { $0.date == past }?.sampleImageName)
+    }
+
     func testWeeklyCreationStartsInChosenPeriodAndUsesSunday() async throws {
         let today = date(2026, 9, 26)
         let service = MockHomeDataService(now: today, calendar: calendar)
-        try await service.createEntry(CalendarEntryDraft(title: "周计划", date: date(2026, 10, 5), period: .weekly))
+        try await service.createEntry(
+            CalendarEntryDraft(title: "周计划", date: date(2026, 10, 5), period: .weekly))
         let previous = try await service.periodicTodos(for: today, locale: .current)
         XCTAssertFalse(previous.flatMap(\.entries).contains { $0.title == "周计划" })
         let following = try await service.periodicTodos(for: date(2026, 10, 7), locale: .current)

@@ -18,6 +18,19 @@ enum CalendarPalette {
 }
 
 extension HomeEntry.Kind {
+    /// 时间线用形状区分类型，颜色只作辅助；每种业务记录保持唯一图标。
+    var calendarSymbol: String {
+        switch self {
+        case .todo: return "checkmark"
+        case .schedule: return "calendar"
+        case .focus: return "book.closed.fill"
+        case .document: return "doc.text.fill"
+        case .photo: return "camera.fill"
+        case .expense: return "arrow.up.right"
+        case .income: return "arrow.down.left"
+        }
+    }
+
     var calendarColor: Color {
         switch self {
         case .todo, .income: return Color(red: 0.29, green: 0.69, blue: 0.43)

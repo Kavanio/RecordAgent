@@ -8,9 +8,16 @@ struct CalendarStickyTodoNote: View {
     @AppStorage("calendar.week.expanded") private var weekExpanded = false
     @AppStorage("calendar.month.expanded") private var monthExpanded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isVisible = false
+    @State private var hasEntered = false
+    @State private var isSwaying = false
     private var expanded: Bool { group.period == .weekly ? weekExpanded : monthExpanded }
+    private var swayDirection: Double { group.period == .weekly ? 1 : -1 }
+    private var motionEnabled: Bool { isVisible && scenePhase == .active && !reduceMotion }
     private var paper: Color {
-        group.period == .weekly ? Color(red: 1, green: 0.95, blue: 0.69) : Color(red: 0.89, green: 0.96, blue: 0.76)
+        group.period == .weekly
+            ? Color(red: 1, green: 0.95, blue: 0.69) : Color(red: 0.89, green: 0.96, blue: 0.76)
     }
 
     var body: some View {
@@ -86,6 +93,50 @@ struct CalendarStickyTodoNote: View {
                 .accessibilityHidden(true)
                 .allowsHitTesting(false)
         }
+        .rotationEffect(.degrees(motionEnabled ? (isSwaying ? 0.65 : -0.45) * swayDirection : 0), anchor: .top)
+        .offset(x: motionEnabled ? (isSwaying ? 1 : -1) * swayDirection : 0)
+        .opacity(hasEntered ? 1 : 0)
+        .scaleEffect(hasEntered ? 1 : 0.97, anchor: .top)
+        .offset(y: hasEntered ? 0 : 16)
+        .onAppear(perform: enter)
+        .onDisappear(perform: stop)
+        .onChange(of: reduceMotion) { _, value in
+            if value { stopSway() } else if isVisible { startSway() }
+        }
+        .onChange(of: scenePhase) { _, value in
+            if value == .active && isVisible { startSway() } else { stopSway() }
+        }
+    }
+
+    private func enter() {
+        isVisible = true
+        withAnimation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.8)) {
+            hasEntered = true
+        }
+        startSway()
+    }
+
+    private func startSway() {
+        guard !reduceMotion, scenePhase == .active, !isSwaying else { return }
+        let duration = group.period == .weekly ? 3.8 : 4.6
+        let delay = group.period == .weekly ? 0.7 : 1.1
+        withAnimation(.easeInOut(duration: duration).repeatForever(autoreverses: true).delay(delay)) {
+            isSwaying = true
+        }
+    }
+
+    private func stopSway() {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { isSwaying = false }
+    }
+
+    private func stop() {
+        isVisible = false
+        stopSway()
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { hasEntered = false }
     }
 }
 
@@ -93,8 +144,10 @@ private struct NoteFold: Shape {
     func path(in rect: CGRect) -> Path {
         Path { path in
             path.move(to: CGPoint(x: 0, y: rect.maxY))
-            path.addQuadCurve(to: CGPoint(x: rect.maxX, y: 0), control: CGPoint(x: rect.midX, y: rect.midY))
-            path.addQuadCurve(to: CGPoint(x: 0, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addQuadCurve(
+                to: CGPoint(x: rect.maxX, y: 0), control: CGPoint(x: rect.midX, y: rect.midY))
+            path.addQuadCurve(
+                to: CGPoint(x: 0, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
         }
     }
 }

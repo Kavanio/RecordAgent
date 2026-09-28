@@ -43,7 +43,7 @@ struct CalendarMonthGrid: View {
     private func dayCell(_ date: Date, marker: CalendarDayMarker?) -> some View {
         let selected = dates.calendar.isDate(date, inSameDayAs: selectedDate)
         let sameMonth = dates.calendar.isDate(date, equalTo: selectedDate, toGranularity: .month)
-        let hasPhoto = selected && marker?.sampleImageName != nil
+        let hasPhoto = marker?.sampleImageName != nil
         return Button {
             onSelect(date)
         } label: {
@@ -69,19 +69,23 @@ struct CalendarMonthGrid: View {
             .frame(maxWidth: .infinity)
             .frame(height: max(44, cellHeight))
             .background {
-                if selected {
-                    if let name = marker?.sampleImageName {
-                        GeometryReader { geometry in
-                            Image(name).resizable().scaledToFill()
-                                .frame(width: geometry.size.width, height: geometry.size.height)
-                                .overlay(.black.opacity(0.2)).clipped()
-                        }
-                    } else {
-                        RoundedRectangle(cornerRadius: 10).fill(CalendarPalette.accent.opacity(0.12))
+                if let name = marker?.sampleImageName {
+                    GeometryReader { geometry in
+                        Image(name).resizable().scaledToFill()
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .overlay(.black.opacity(sameMonth ? 0.3 : 0.48)).clipped()
                     }
+                } else if selected {
+                    RoundedRectangle(cornerRadius: 10).fill(CalendarPalette.accent.opacity(0.12))
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay {
+                if selected && hasPhoto {
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(CalendarPalette.accent, lineWidth: 2)
+                }
+            }
             .overlay(alignment: .bottom) {
                 if dates.calendar.isDateInToday(date) && !selected {
                     Capsule().fill(CalendarPalette.accent).frame(width: 12, height: 2).padding(.bottom, 2)
@@ -92,7 +96,9 @@ struct CalendarMonthGrid: View {
         .buttonStyle(.plain)
         .disabled(!dates.supportedDates.contains(date))
         .accessibilityLabel(Text(date, format: .dateTime.year().month().day().weekday()))
-        .accessibilityValue(Text(marker?.kinds.isEmpty == false ? "calendar.day.has_items" : "calendar.day.no_items"))
+        .accessibilityValue(
+            Text(marker?.kinds.isEmpty == false ? "calendar.day.has_items" : "calendar.day.no_items")
+        )
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

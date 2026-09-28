@@ -27,7 +27,8 @@ import Foundation
                     focusMinutes: items.filter { $0.kind == .focus }.reduce(0) { $0 + $1.durationMinutes }
                 )
             }
-            return HomeDaySnapshot(date: day, entries: entries(for: day, locale: locale), trend: trend, isDemo: true)
+            return HomeDaySnapshot(
+                date: day, entries: entries(for: day, locale: locale), trend: trend, isDemo: true)
         }
 
         func setTodoCompleted(id: String, completed: Bool, date: Date) async throws {
@@ -92,7 +93,10 @@ import Foundation
             if end >= currentEnd {
                 let keys: [String.LocalizationValue] =
                     period == .weekly
-                    ? ["calendar.demo.week.1", "calendar.demo.week.2", "calendar.demo.week.3", "calendar.demo.week.4"]
+                    ? [
+                        "calendar.demo.week.1", "calendar.demo.week.2", "calendar.demo.week.3",
+                        "calendar.demo.week.4",
+                    ]
                     : [
                         "calendar.demo.month.1", "calendar.demo.month.2", "calendar.demo.month.3",
                         "calendar.demo.month.4", "calendar.demo.month.5", "calendar.demo.month.6",
@@ -101,7 +105,8 @@ import Foundation
                     let id = "period.\(period.rawValue).\(key).\(index)"
                     return HomeEntry(
                         id: id, kind: .todo, title: AppLocalization.string(title, locale: locale),
-                        detail: AppLocalization.string("calendar.demo.period.detail", locale: locale), date: end,
+                        detail: AppLocalization.string("calendar.demo.period.detail", locale: locale),
+                        date: end,
                         isCompleted: completedOverrides[id]
                             ?? (end == currentEnd && index < (period == .weekly ? 2 : 3)))
                 }
@@ -121,7 +126,8 @@ import Foundation
         private func entries(for day: Date, locale: Locale) -> [HomeEntry] {
             let dates = HomeCalendar(calendar: calendar)
             var additional = createdEntries.filter { calendar.isDate($0.date, inSameDayAs: day) }
-            for period in CalendarTodoPeriod.allCases where dates.periodEnd(period, containing: day) == day {
+            for period in CalendarTodoPeriod.allCases
+            where dates.periodEnd(period, containing: day) == day {
                 additional += periodEntries(period, containing: day, locale: locale)
             }
             additional = additional.map { entry in
@@ -131,7 +137,9 @@ import Foundation
             }
             guard day <= today else { return additional.sorted { $0.date < $1.date } }
             let seed = calendar.ordinality(of: .day, in: .era, for: day) ?? 1
-            func text(_ key: String.LocalizationValue) -> String { AppLocalization.string(key, locale: locale) }
+            func text(_ key: String.LocalizationValue) -> String {
+                AppLocalization.string(key, locale: locale)
+            }
             func entry(
                 _ suffix: String, _ kind: HomeEntry.Kind, _ title: String.LocalizationValue,
                 _ detail: String.LocalizationValue, _ hour: Int, _ minute: Int = 0,
@@ -150,7 +158,9 @@ import Foundation
                 entry(
                     "coffee", .expense, "home.demo.coffee", "home.demo.expense_detail", 9, 30,
                     amount: 1800 + seed % 4 * 300),
-                entry("focus", .focus, "home.demo.focus", "home.demo.focus_detail", 10, duration: 35 + seed % 5 * 15),
+                entry(
+                    "focus", .focus, "home.demo.focus", "home.demo.focus_detail", 10,
+                    duration: 35 + seed % 5 * 15),
                 entry("document", .document, "home.demo.document", "home.demo.document_detail", 11, 20),
                 entry(
                     "lunch", .expense, "home.demo.lunch", "home.demo.expense_detail", 12, 10,
@@ -159,12 +169,20 @@ import Foundation
                 entry("walk", .todo, "home.demo.walk", "home.demo.todo_detail", 18, 30),
             ]
             if calendar.isDate(day, inSameDayAs: today) {
-                sample.append(entry("meeting", .schedule, "calendar.demo.schedule", "calendar.demo.room", 14, 30))
-                var photo = entry("photo", .photo, "calendar.demo.photo", "calendar.demo.photo.detail", 17, 10)
+                sample.append(
+                    entry("meeting", .schedule, "calendar.demo.schedule", "calendar.demo.room", 14, 30))
+                sample.append(
+                    entry(
+                        "income", .income, "calendar.demo.income", "calendar.demo.income.detail", 18,
+                        amount: 26000))
+            }
+            // 历史样例图片必须和当日记录来自同一数据源，月格不能自行伪造封面。
+            let daysAgo = calendar.dateComponents([.day], from: day, to: today).day ?? 0
+            if [0, 2, 5, 12].contains(daysAgo) {
+                var photo = entry(
+                    "photo", .photo, "calendar.demo.photo", "calendar.demo.photo.detail", 17, 10)
                 photo.sampleImageNames = ["PolaroidLandscape"]
                 sample.append(photo)
-                sample.append(
-                    entry("income", .income, "calendar.demo.income", "calendar.demo.income.detail", 18, amount: 26000))
             }
             return (sample + additional).sorted { $0.date < $1.date }
         }
