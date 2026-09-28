@@ -200,7 +200,7 @@ final class CalendarNoteMotion: ObservableObject {
     }
 
     /// 将倾斜与瞬时晃动映射为有上限的纸张位移，避免大幅甩动影响阅读和点击。
-    static func response(
+    nonisolated static func response(
         gravityX: Double, angularVelocityX: Double, angularVelocityZ: Double,
         accelerationX: Double, accelerationY: Double
     ) -> (rotation: Double, lift: Double) {

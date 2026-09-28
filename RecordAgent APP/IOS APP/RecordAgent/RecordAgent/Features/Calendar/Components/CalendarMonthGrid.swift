@@ -53,11 +53,19 @@ struct CalendarMonthGrid: View {
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
                     .foregroundStyle(
-                        hasPhoto
-                            ? .white
-                            : selected
-                                ? CalendarPalette.accent
-                                : sameMonth ? CalendarPalette.ink : CalendarPalette.secondary.opacity(0.7))
+                        selected
+                            ? (hasPhoto ? CalendarPalette.ink : .white)
+                            : hasPhoto
+                                ? .white
+                                : sameMonth ? CalendarPalette.ink : CalendarPalette.secondary.opacity(0.7)
+                    )
+                    .padding(.horizontal, selected ? 6 : 0)
+                    .padding(.vertical, selected ? 2 : 0)
+                    .background {
+                        if selected {
+                            Capsule().fill(hasPhoto ? Color.white.opacity(0.9) : CalendarPalette.accent)
+                        }
+                    }
                 HStack(spacing: 3) {
                     ForEach(Array((marker?.kinds ?? []).enumerated()), id: \.offset) { _, kind in
                         Circle().fill(kind.calendarColor).frame(width: 4, height: 4)

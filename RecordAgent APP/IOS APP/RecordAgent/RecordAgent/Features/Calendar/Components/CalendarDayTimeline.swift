@@ -45,25 +45,30 @@ struct CalendarDayTimeline: View {
                     GeometryReader { geometry in
                         Canvas { context, _ in
                             var path = Path()
-                            var previous: (index: Int, point: CGPoint)?
+                            var previous: (index: Int, frame: CGRect)?
                             for (index, entry) in entries.enumerated() {
                                 guard let anchor = anchors[entry.id] else {
                                     previous = nil
                                     continue
                                 }
                                 let frame = geometry[anchor]
-                                let point = CGPoint(x: frame.midX, y: frame.midY)
                                 if let previous, previous.index + 1 == index {
-                                    let distance = point.y - previous.point.y
-                                    let drift: CGFloat = index.isMultiple(of: 2) ? 11 : -9
-                                    path.move(to: previous.point)
+                                    // 线段只连接两个图标外缘；图标本身保留空白，形成穿线节点。
+                                    let start = CGPoint(x: previous.frame.midX, y: previous.frame.midY + 15)
+                                    let end = CGPoint(x: frame.midX, y: frame.midY - 15)
+                                    let distance = end.y - start.y
+                                    let swing =
+                                        min(27, max(10, distance * 0.2))
+                                        * TimelineRail.bend(for: index)
+                                    path.move(to: start)
                                     path.addCurve(
-                                        to: point,
+                                        to: end,
                                         control1: CGPoint(
-                                            x: previous.point.x + drift, y: previous.point.y + distance * 0.36),
-                                        control2: CGPoint(x: point.x - drift * 0.7, y: point.y - distance * 0.32))
+                                            x: TimelineRail.clamp(start.x + swing), y: start.y + distance * 0.32),
+                                        control2: CGPoint(
+                                            x: TimelineRail.clamp(end.x + swing), y: end.y - distance * 0.32))
                                 }
-                                previous = (index, point)
+                                previous = (index, frame)
                             }
                             context.stroke(
                                 path, with: .color(CalendarPalette.secondary.opacity(0.42)),
@@ -102,17 +107,22 @@ struct CalendarDayTimeline: View {
 
     private func timelineRow(_ entry: HomeEntry, index: Int) -> some View {
         HStack(alignment: .top, spacing: 4) {
-            Image(systemName: entry.kind.calendarSymbol)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(entry.kind.calendarColor)
-                .frame(width: 28, height: 44)
-                .scrollTransition(.animated(.smooth(duration: 0.5)), axis: .vertical) { [reduceMotion] content, phase in
-                    content
-                        .scaleEffect(reduceMotion || phase.isIdentity ? 1 : 0.55)
-                        .opacity(reduceMotion || phase.isIdentity ? 1 : 0.35)
-                }
-                .anchorPreference(key: TimelineNodeAnchors.self, value: .bounds) { [entry.id: $0] }
-                .accessibilityHidden(true)
+            HStack(spacing: 0) {
+                Color.clear.frame(width: TimelineRail.center(for: index) - 14)
+                Image(systemName: entry.kind.calendarSymbol)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(entry.kind.calendarColor)
+                    .frame(width: 28, height: 44)
+                    .anchorPreference(key: TimelineNodeAnchors.self, value: .bounds) { [entry.id: $0] }
+                Spacer(minLength: 0)
+            }
+            .frame(width: TimelineRail.width, height: 44)
+            .scrollTransition(.animated(.smooth(duration: 0.5)), axis: .vertical) { [reduceMotion] content, phase in
+                content
+                    .scaleEffect(reduceMotion || phase.isIdentity ? 1 : 0.55)
+                    .opacity(reduceMotion || phase.isIdentity ? 1 : 0.35)
+            }
+            .accessibilityHidden(true)
             HStack(alignment: .top, spacing: 4) {
                 Button {
                     onOpen(entry)
@@ -223,4 +233,14 @@ private struct TimelineNodeAnchors: PreferenceKey {
     ) {
         value.merge(nextValue(), uniquingKeysWith: { _, newest in newest })
     }
+}
+
+private enum TimelineRail {
+    static let width: CGFloat = 76
+    private static let centers: [CGFloat] = [28, 46, 47, 31, 54, 42, 26, 36, 53, 40]
+    private static let bends: [CGFloat] = [-1, 1, 1, -1, -1, 1, -1, 1, 1, -1]
+
+    static func center(for index: Int) -> CGFloat { centers[index % centers.count] }
+    static func bend(for index: Int) -> CGFloat { bends[index % bends.count] }
+    static func clamp(_ x: CGFloat) -> CGFloat { min(width - 8, max(8, x)) }
 }
