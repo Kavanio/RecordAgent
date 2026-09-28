@@ -18,15 +18,15 @@
 .grid span { width: 100%; border-top: 1px dashed var(--border-subtle); opacity: .65; }
 .grid span:last-child { border-top-style: solid; opacity: 1; }
 .bars { position: relative; display: flex; height: 240px; }
-.barGroup { --bar-color: #78a5e5; --bar-top: #a5c4ef; flex: 1; min-width: 78px; display: flex; flex-direction: column; align-items: center; padding: 0; border: 0; background: transparent; font-family: var(--font-sans); cursor: pointer; }
-.barGroup[data-color='1'] { --bar-color: #79b4a4; --bar-top: #acd6c9; }
-.barGroup[data-color='2'] { --bar-color: #a391d2; --bar-top: #c7bbe5; }
-.barGroup[data-color='3'] { --bar-color: #d7a76c; --bar-top: #ebcca4; }
-.barGroup[data-color='4'] { --bar-color: #ce8d9e; --bar-top: #e5b8c3; }
-.barGroup[data-color='5'] { --bar-color: #73aebd; --bar-top: #a9d1da; }
+.barGroup { --bar-color: #57758A; flex: 1; min-width: 78px; display: flex; flex-direction: column; align-items: center; padding: 0; border: 0; background: transparent; font-family: var(--font-sans); cursor: pointer; }
+.barGroup[data-color='1'] { --bar-color: #6F8E7D; }
+.barGroup[data-color='2'] { --bar-color: #A48562; }
+.barGroup[data-color='3'] { --bar-color: #826F90; }
+.barGroup[data-color='4'] { --bar-color: #B07770; }
+.barGroup[data-color='5'] { --bar-color: #598A8A; }
 .barSlot { position: relative; display: block; width: 100%; height: 200px; border-radius: 8px 8px 0 0; transition: background 200ms; }
 .barEnvelope { position: absolute; bottom: 0; left: 50%; width: min(36px, 48%); transform: translateX(-50%); transition: filter 220ms, width 220ms, opacity 220ms; }
-.bar { display: block; height: 100%; width: 100%; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, var(--bar-top), var(--bar-color)); transform-origin: center bottom; animation: grow 650ms cubic-bezier(.2,.75,.25,1) both; }
+.bar { display: block; height: 100%; width: 100%; border-radius: 4px 4px 0 0; background: var(--bar-color); transform-origin: center bottom; animation: grow 650ms cubic-bezier(.2,.75,.25,1) both; }
 .barValue { position: absolute; left: 50%; transform: translateX(-50%); color: var(--text-secondary); font-size: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; animation: reveal 500ms 180ms both; transition: opacity 180ms; }
 .xLabel { width: 100%; max-width: 110px; padding: 12px 5px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--text-secondary); transition: color 200ms; }
 .barGroup[data-selected='true'] .barSlot { background: color-mix(in srgb, var(--bar-color) 6%, transparent); }
