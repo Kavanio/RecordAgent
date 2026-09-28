@@ -41,7 +41,7 @@ struct CalendarDayTimeline: View {
                         }
                     }
                 }
-                .backgroundPreferenceValue(TimelineNodeAnchors.self) { anchors in
+                .overlayPreferenceValue(TimelineNodeAnchors.self) { anchors in
                     GeometryReader { geometry in
                         Canvas { context, _ in
                             var path = Path()
@@ -66,11 +66,12 @@ struct CalendarDayTimeline: View {
                                 previous = (index, point)
                             }
                             context.stroke(
-                                path, with: .color(CalendarPalette.secondary.opacity(0.23)),
-                                style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [1, 6]))
+                                path, with: .color(CalendarPalette.secondary.opacity(0.42)),
+                                style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [2, 5]))
                         }
                     }
                     .accessibilityHidden(true)
+                    .allowsHitTesting(false)
                 }
             }
         }
