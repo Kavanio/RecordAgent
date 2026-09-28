@@ -18,12 +18,12 @@
 .grid span { width: 100%; border-top: 1px dashed var(--border-subtle); opacity: .65; }
 .grid span:last-child { border-top-style: solid; opacity: 1; }
 .bars { position: relative; display: flex; height: 240px; }
-.barGroup { --bar-color: #57758A; flex: 1; min-width: 78px; display: flex; flex-direction: column; align-items: center; padding: 0; border: 0; background: transparent; font-family: var(--font-sans); cursor: pointer; }
-.barGroup[data-color='1'] { --bar-color: #6F8E7D; }
-.barGroup[data-color='2'] { --bar-color: #A48562; }
-.barGroup[data-color='3'] { --bar-color: #826F90; }
-.barGroup[data-color='4'] { --bar-color: #B07770; }
-.barGroup[data-color='5'] { --bar-color: #598A8A; }
+.barGroup { --bar-color: #2457A5; flex: 1; min-width: 78px; display: flex; flex-direction: column; align-items: center; padding: 0; border: 0; background: transparent; font-family: var(--font-sans); cursor: pointer; }
+.barGroup[data-color='1'] { --bar-color: #0D766E; }
+.barGroup[data-color='2'] { --bar-color: #B75B35; }
+.barGroup[data-color='3'] { --bar-color: #6B4B91; }
+.barGroup[data-color='4'] { --bar-color: #A83F5D; }
+.barGroup[data-color='5'] { --bar-color: #8C6A10; }
 .barSlot { position: relative; display: block; width: 100%; height: 200px; border-radius: 8px 8px 0 0; transition: background 200ms; }
 .barEnvelope { position: absolute; bottom: 0; left: 50%; width: min(36px, 48%); transform: translateX(-50%); transition: filter 220ms, width 220ms, opacity 220ms; }
 .bar { display: block; height: 100%; width: 100%; border-radius: 4px 4px 0 0; background: var(--bar-color); transform-origin: center bottom; animation: grow 650ms cubic-bezier(.2,.75,.25,1) both; }

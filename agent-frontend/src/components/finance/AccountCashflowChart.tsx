@@ -57,7 +57,7 @@ export const AccountCashflowChart: React.FC<AccountCashflowChartProps> = ({ acco
               onKeyDown={(event) => { if (event.key === 'Escape') setActive(null); }}>
               <span className={styles.barSlot}>
                 <span className={styles.barValue} style={{ bottom: `calc(${item.value / ceiling * 100}% + 9px)` }}>{compact(item.value)}</span>
-                <span className={styles.barEnvelope} style={{ height: `${item.value / ceiling * 100}%` }}>
+                <span className={styles.barEnvelope} style={{ height: `${item.value / ceiling * 100}%`, minHeight: item.value > 0 ? 4 : undefined }}>
                   <span className={styles.bar} style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }} />
                 </span>
               </span>
