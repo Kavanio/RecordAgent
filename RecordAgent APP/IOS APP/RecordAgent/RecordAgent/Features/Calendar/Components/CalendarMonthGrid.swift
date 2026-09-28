@@ -6,8 +6,6 @@ struct CalendarMonthGrid: View {
     let markers: [CalendarDayMarker]
     let onSelect: (Date) -> Void
     let onShiftMonth: (Int) -> Void
-    @ScaledMetric(relativeTo: .body) private var cellHeight = 44.0
-
     private var days: [Date] { dates.monthGrid(containing: selectedDate) }
 
     var body: some View {
@@ -67,7 +65,7 @@ struct CalendarMonthGrid: View {
                 .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: max(44, cellHeight))
+            .aspectRatio(1, contentMode: .fit)
             .background {
                 if let name = marker?.sampleImageName {
                     GeometryReader { geometry in
@@ -80,12 +78,6 @@ struct CalendarMonthGrid: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay {
-                if selected && hasPhoto {
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(CalendarPalette.accent, lineWidth: 2)
-                }
-            }
             .overlay(alignment: .bottom) {
                 if dates.calendar.isDateInToday(date) && !selected {
                     Capsule().fill(CalendarPalette.accent).frame(width: 12, height: 2).padding(.bottom, 2)

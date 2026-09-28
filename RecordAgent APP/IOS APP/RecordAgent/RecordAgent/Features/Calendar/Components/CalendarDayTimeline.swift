@@ -102,23 +102,9 @@ struct CalendarDayTimeline: View {
     private func timelineRow(_ entry: HomeEntry, index: Int) -> some View {
         HStack(alignment: .top, spacing: 4) {
             Image(systemName: entry.kind.calendarSymbol)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(entry.kind.calendarColor)
-                .frame(width: 26, height: 26)
-                .background {
-                    RoundedRectangle(cornerRadius: 9)
-                        .fill(Color(uiColor: .systemBackground))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 9)
-                                .fill(entry.kind.calendarColor.opacity(0.13))
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 9)
-                                .strokeBorder(entry.kind.calendarColor.opacity(0.35), lineWidth: 1)
-                        }
-                }
                 .frame(width: 28, height: 44)
-                .offset(x: TimelineThread.horizontalOffset(for: index))
                 .scrollTransition(.animated(.smooth(duration: 0.5)), axis: .vertical) { [reduceMotion] content, phase in
                     content
                         .scaleEffect(reduceMotion || phase.isIdentity ? 1 : 0.55)
@@ -235,12 +221,5 @@ private struct TimelineNodeAnchors: PreferenceKey {
         value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]
     ) {
         value.merge(nextValue(), uniquingKeysWith: { _, newest in newest })
-    }
-}
-
-private enum TimelineThread {
-    static func horizontalOffset(for index: Int) -> CGFloat {
-        let offsets: [CGFloat] = [-3, 4, -1, 5, -4, 2, 0]
-        return offsets[index % offsets.count]
     }
 }

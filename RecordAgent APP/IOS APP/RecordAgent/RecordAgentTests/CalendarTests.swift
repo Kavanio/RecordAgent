@@ -27,6 +27,19 @@ final class CalendarTests: XCTestCase {
         XCTAssertEqual(CalendarTimelineSpacing.gap(between: morning, and: morning), 12)
     }
 
+    func testNoteMotionIsBoundedEvenForLargeSensorReadings() {
+        let strong = CalendarNoteMotion.response(
+            gravityX: 1, angularVelocityX: 8, angularVelocityZ: 8,
+            accelerationX: 4, accelerationY: -4)
+        XCTAssertEqual(strong.rotation, 6)
+        XCTAssertEqual(strong.lift, 5)
+        let opposite = CalendarNoteMotion.response(
+            gravityX: -1, angularVelocityX: -8, angularVelocityZ: -8,
+            accelerationX: -4, accelerationY: 4)
+        XCTAssertEqual(opposite.rotation, -6)
+        XCTAssertEqual(opposite.lift, -5)
+    }
+
     func testMonthGridIncludesWholeMondayWeeksAcrossYearAndLeapDay() {
         let dates = HomeCalendar(calendar: calendar)
         let january = dates.monthGrid(containing: date(2027, 1, 12))

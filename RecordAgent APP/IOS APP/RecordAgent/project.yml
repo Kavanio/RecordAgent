@@ -25,6 +25,7 @@ targets:
       path: RecordAgent/App/Info.plist
       properties:
         UILaunchScreen: {}
+        NSMotionUsageDescription: "用于让日历便签随手机移动轻微摇晃。 / Used to gently move calendar notes with your phone."
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
 

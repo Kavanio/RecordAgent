@@ -20,6 +20,8 @@
 	<string>1</string>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>NSMotionUsageDescription</key>
+	<string>用于让日历便签随手机移动轻微摇晃。 / Used to gently move calendar notes with your phone.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

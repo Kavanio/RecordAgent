@@ -4,6 +4,7 @@ import SwiftUI
 struct CalendarView: View {
     @ObservedObject var home: HomeViewModel
     @StateObject private var model: CalendarViewModel
+    @StateObject private var noteMotion = CalendarNoteMotion()
     @State private var showsMonthPicker = false
     @State private var showsCreate = false
     @State private var selectedEntry: HomeEntry?
@@ -12,6 +13,7 @@ struct CalendarView: View {
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     init(home: HomeViewModel, service: any CalendarDataServiceProtocol) {
         self.home = home
@@ -42,7 +44,8 @@ struct CalendarView: View {
                         repeating: GridItem(.flexible(), spacing: 14), count: typeSize.isAccessibilitySize ? 1 : 2)
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 20) {
                         ForEach(model.groups) { group in
-                            CalendarStickyTodoNote(group: group, savingIDs: pendingTodoIDs, onToggle: toggle)
+                            CalendarStickyTodoNote(
+                                group: group, savingIDs: pendingTodoIDs, onToggle: toggle, motion: noteMotion)
                         }
                     }
                     .padding(.top, 8)
@@ -59,6 +62,11 @@ struct CalendarView: View {
         }
         .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .tint(CalendarPalette.accent)
+        .onAppear(perform: updateNoteMotion)
+        .onDisappear { noteMotion.stop() }
+        .onChange(of: scenePhase) { _, _ in updateNoteMotion() }
+        .onChange(of: reduceMotion) { _, _ in updateNoteMotion() }
+        .onChange(of: model.groups.count) { _, _ in updateNoteMotion() }
         .task(id: LoadKey(date: home.selectedDate, locale: locale.identifier)) {
             await model.load(for: home.selectedDate, locale: locale)
         }
@@ -109,6 +117,14 @@ struct CalendarView: View {
             Button("common.confirm", role: .cancel) {}
         } message: {
             Text("home.write.failed_detail")
+        }
+    }
+
+    private func updateNoteMotion() {
+        if scenePhase == .active && !reduceMotion && !model.groups.isEmpty {
+            noteMotion.start()
+        } else {
+            noteMotion.stop()
         }
     }
 

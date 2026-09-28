@@ -1,3 +1,4 @@
+import CoreMotion
 import SwiftUI
 
 /// 两种周期共用纸张、胶带和卷角；进度只从当前周期实例计算。
@@ -5,6 +6,7 @@ struct CalendarStickyTodoNote: View {
     let group: CalendarTodoGroup
     let savingIDs: Set<String>
     let onToggle: (HomeEntry) -> Void
+    @ObservedObject var motion: CalendarNoteMotion
     @AppStorage("calendar.week.expanded") private var weekExpanded = false
     @AppStorage("calendar.month.expanded") private var monthExpanded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -15,6 +17,7 @@ struct CalendarStickyTodoNote: View {
     private var expanded: Bool { group.period == .weekly ? weekExpanded : monthExpanded }
     private var swayDirection: Double { group.period == .weekly ? 1 : -1 }
     private var motionEnabled: Bool { isVisible && scenePhase == .active && !reduceMotion }
+    private var motionScale: Double { group.period == .weekly ? 1 : 0.85 }
     private var paper: Color {
         group.period == .weekly
             ? Color(red: 1, green: 0.95, blue: 0.69) : Color(red: 0.89, green: 0.96, blue: 0.76)
@@ -93,11 +96,14 @@ struct CalendarStickyTodoNote: View {
                 .accessibilityHidden(true)
                 .allowsHitTesting(false)
         }
-        .rotationEffect(.degrees(motionEnabled ? (isSwaying ? 0.65 : -0.45) * swayDirection : 0), anchor: .top)
-        .offset(x: motionEnabled ? (isSwaying ? 1 : -1) * swayDirection : 0)
+        .rotationEffect(
+            .degrees(motionEnabled ? (isSwaying ? 1.2 : -1) * swayDirection + motion.rotation * motionScale : 0),
+            anchor: .top
+        )
+        .offset(x: motionEnabled ? (isSwaying ? 2 : -2) * swayDirection : 0)
         .opacity(hasEntered ? 1 : 0)
-        .scaleEffect(hasEntered ? 1 : 0.97, anchor: .top)
-        .offset(y: hasEntered ? 0 : 16)
+        .scaleEffect(hasEntered ? 1 : 0.92, anchor: .top)
+        .offset(y: (hasEntered ? 0 : 28) + (motionEnabled ? motion.lift * motionScale : 0))
         .onAppear(perform: enter)
         .onDisappear(perform: stop)
         .onChange(of: reduceMotion) { _, value in
@@ -149,5 +155,58 @@ private struct NoteFold: Shape {
             path.addQuadCurve(
                 to: CGPoint(x: 0, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
         }
+    }
+}
+
+/// 只在日历可见且应用活跃时采样；传感器不可用时便签仍保留轻微静态摇摆。
+@MainActor
+final class CalendarNoteMotion: ObservableObject {
+    @Published private(set) var rotation = 0.0
+    @Published private(set) var lift = 0.0
+    private let manager = CMMotionManager()
+
+    func start() {
+        guard manager.isDeviceMotionAvailable, !manager.isDeviceMotionActive else { return }
+        manager.deviceMotionUpdateInterval = 1.0 / 30.0
+        manager.startDeviceMotionUpdates(to: .main) { [weak self] sample, error in
+            if let error {
+                Task { @MainActor [weak self] in
+                    NSLog("Calendar note motion stopped: %@", error.localizedDescription)
+                    self?.stop()
+                }
+                return
+            }
+            guard let sample else { return }
+            let response = Self.response(
+                gravityX: sample.gravity.x,
+                angularVelocityX: sample.rotationRate.x,
+                angularVelocityZ: sample.rotationRate.z,
+                accelerationX: sample.userAcceleration.x,
+                accelerationY: sample.userAcceleration.y)
+            Task { @MainActor [weak self] in self?.apply(response) }
+        }
+    }
+
+    func stop() {
+        manager.stopDeviceMotionUpdates()
+        rotation = 0
+        lift = 0
+    }
+
+    private func apply(_ response: (rotation: Double, lift: Double)) {
+        guard manager.isDeviceMotionActive else { return }
+        rotation += (response.rotation - rotation) * 0.35
+        lift += (response.lift - lift) * 0.3
+    }
+
+    /// 将倾斜与瞬时晃动映射为有上限的纸张位移，避免大幅甩动影响阅读和点击。
+    static func response(
+        gravityX: Double, angularVelocityX: Double, angularVelocityZ: Double,
+        accelerationX: Double, accelerationY: Double
+    ) -> (rotation: Double, lift: Double) {
+        let rotation =
+            gravityX * 1.2 + angularVelocityX * 1.5
+            + angularVelocityZ * 3 + accelerationX * 3
+        return (min(6, max(-6, rotation)), min(5, max(-5, -accelerationY * 5)))
     }
 }
