@@ -8,6 +8,7 @@ struct CalendarView: View {
     @State private var showsCreate = false
     @State private var selectedEntry: HomeEntry?
     @State private var pendingTodoIDs: Set<String> = []
+    @State private var monthDirection = 0
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -29,7 +30,10 @@ struct CalendarView: View {
                 monthNavigation
                 CalendarMonthGrid(
                     selectedDate: home.selectedDate, dates: home.dates,
-                    markers: model.month?.days ?? [], onSelect: select)
+                    markers: model.month?.days ?? [], onSelect: select, onShiftMonth: shiftMonth
+                )
+                .id(home.dates.startOfMonth(containing: home.selectedDate))
+                .transition(.opacity.combined(with: .offset(x: CGFloat(monthDirection) * 28)))
                 legend
                 if model.monthFailed { retryRow("calendar.month.failed") }
                 if model.notesFailed { retryRow("calendar.notes.failed") }
@@ -61,6 +65,7 @@ struct CalendarView: View {
         .refreshable { await refresh() }
         .sheet(isPresented: $showsMonthPicker) {
             HomeMonthPickerView(selectedDate: home.selectedDate, dates: home.dates) { year, month in
+                monthDirection = 0
                 home.selectMonth(year: year, month: month)
                 showsMonthPicker = false
             }
@@ -125,7 +130,7 @@ struct CalendarView: View {
 
     private var monthNavigation: some View {
         HStack(spacing: 4) {
-            monthStep(-1)
+            Color.clear.frame(width: 44, height: 44).accessibilityHidden(true)
             Spacer(minLength: 0)
             Button {
                 showsMonthPicker = true
@@ -139,24 +144,12 @@ struct CalendarView: View {
             }
             .accessibilityHint("home.month.choose")
             Spacer(minLength: 0)
-            monthStep(1)
             Button("home.today") { select(.now) }
                 .font(.subheadline).foregroundStyle(CalendarPalette.accent)
                 .frame(minWidth: 44, minHeight: 44)
         }
         .buttonStyle(.plain)
         .foregroundStyle(CalendarPalette.ink)
-    }
-
-    private func monthStep(_ offset: Int) -> some View {
-        Button {
-            if let date = home.dates.shiftingMonth(offset, from: home.selectedDate) { select(date) }
-        } label: {
-            Image(systemName: offset < 0 ? "chevron.left" : "chevron.right")
-                .font(.body.weight(.light)).frame(width: 44, height: 44)
-        }
-        .disabled(home.dates.shiftingMonth(offset, from: home.selectedDate) == nil)
-        .accessibilityLabel(Text(offset < 0 ? "calendar.month.previous" : "calendar.month.next"))
     }
 
     private var legend: some View {
@@ -219,7 +212,15 @@ struct CalendarView: View {
     }
 
     private func select(_ date: Date) {
+        let selectedMonth = home.dates.startOfMonth(containing: home.selectedDate)
+        let targetMonth = home.dates.startOfMonth(containing: date)
+        if targetMonth != selectedMonth { monthDirection = targetMonth > selectedMonth ? 1 : -1 }
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { home.selectDate(date) }
+    }
+
+    private func shiftMonth(_ offset: Int) {
+        guard let date = home.dates.shiftingMonth(offset, from: home.selectedDate) else { return }
+        select(date)
     }
 
     private func refresh() async {

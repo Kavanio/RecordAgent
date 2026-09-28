@@ -12,6 +12,21 @@ final class CalendarTests: XCTestCase {
         calendar.date(from: DateComponents(year: year, month: month, day: day))!
     }
 
+    func testTimelineGapsReflectElapsedMinutesAndLimitLongEmptyPeriods() {
+        let morning = date(2026, 9, 26).addingTimeInterval(9 * 3600)
+        let halfHour = morning.addingTimeInterval(30 * 60)
+        let noon = morning.addingTimeInterval(3 * 3600)
+        let evening = morning.addingTimeInterval(12 * 3600)
+        let near = CalendarTimelineSpacing.gap(between: morning, and: halfHour)
+        let middle = CalendarTimelineSpacing.gap(between: morning, and: noon)
+        let far = CalendarTimelineSpacing.gap(between: morning, and: evening)
+        XCTAssertEqual(near, 12)
+        XCTAssertLessThan(near, middle)
+        XCTAssertLessThan(middle, far)
+        XCTAssertEqual(far, 124)
+        XCTAssertEqual(CalendarTimelineSpacing.gap(between: morning, and: morning), 12)
+    }
+
     func testMonthGridIncludesWholeMondayWeeksAcrossYearAndLeapDay() {
         let dates = HomeCalendar(calendar: calendar)
         let january = dates.monthGrid(containing: date(2027, 1, 12))

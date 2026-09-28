@@ -5,6 +5,7 @@ struct CalendarMonthGrid: View {
     let dates: HomeCalendar
     let markers: [CalendarDayMarker]
     let onSelect: (Date) -> Void
+    let onShiftMonth: (Int) -> Void
     @ScaledMetric(relativeTo: .body) private var cellHeight = 44.0
 
     private var days: [Date] { dates.monthGrid(containing: selectedDate) }
@@ -27,6 +28,16 @@ struct CalendarMonthGrid: View {
                 }
             }
         }
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 24).onEnded { value in
+                let horizontal = value.translation.width
+                guard abs(horizontal) > 60,
+                    abs(horizontal) > abs(value.translation.height) * 1.4
+                else { return }
+                onShiftMonth(horizontal < 0 ? 1 : -1)
+            }
+        )
     }
 
     private func dayCell(_ date: Date, marker: CalendarDayMarker?) -> some View {

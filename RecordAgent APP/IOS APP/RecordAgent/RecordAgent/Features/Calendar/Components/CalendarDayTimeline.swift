@@ -7,7 +7,10 @@ struct CalendarDayTimeline: View {
     let onToggle: (HomeEntry) -> Void
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .largeTitle) private var daySize = 60.0
+
+    private var entries: [HomeEntry] { snapshot.entries.sorted { $0.date < $1.date } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -26,10 +29,48 @@ struct CalendarDayTimeline: View {
                     "calendar.day.empty", systemImage: "sun.horizon",
                     description: Text("calendar.day.empty.detail"))
             } else {
-                VStack(spacing: 0) {
-                    ForEach(snapshot.entries.sorted { $0.date < $1.date }) { entry in
-                        timelineRow(entry)
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                        timelineRow(entry, index: index)
+                        if index + 1 < entries.count {
+                            Color.clear.frame(
+                                height: CalendarTimelineSpacing.gap(
+                                    between: entry.date, and: entries[index + 1].date)
+                            )
+                            .accessibilityHidden(true)
+                        }
                     }
+                }
+                .backgroundPreferenceValue(TimelineNodeAnchors.self) { anchors in
+                    GeometryReader { geometry in
+                        Canvas { context, _ in
+                            var path = Path()
+                            var previous: (index: Int, point: CGPoint)?
+                            for (index, entry) in entries.enumerated() {
+                                guard let anchor = anchors[entry.id] else {
+                                    previous = nil
+                                    continue
+                                }
+                                let frame = geometry[anchor]
+                                let point = CGPoint(x: frame.midX, y: frame.midY)
+                                if let previous, previous.index + 1 == index {
+                                    let distance = point.y - previous.point.y
+                                    let drift: CGFloat = index.isMultiple(of: 2) ? 11 : -9
+                                    path.move(to: previous.point)
+                                    path.addCurve(
+                                        to: point,
+                                        control1: CGPoint(
+                                            x: previous.point.x + drift, y: previous.point.y + distance * 0.36),
+                                        control2: CGPoint(x: point.x - drift * 0.7, y: point.y - distance * 0.32))
+                                }
+                                previous = (index, point)
+                            }
+                            context.stroke(
+                                path, with: .color(CalendarPalette.secondary.opacity(0.23)),
+                                style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [1, 6]))
+                        }
+                    }
+                    .accessibilityHidden(true)
                 }
             }
         }
@@ -58,67 +99,71 @@ struct CalendarDayTimeline: View {
         }
     }
 
-    private func timelineRow(_ entry: HomeEntry) -> some View {
+    private func timelineRow(_ entry: HomeEntry, index: Int) -> some View {
         HStack(alignment: .top, spacing: 4) {
-            Button {
-                onOpen(entry)
-            } label: {
-                Group {
-                    if typeSize.isAccessibilitySize {
-                        VStack(alignment: .leading, spacing: 8) {
-                            timeLabel(entry)
-                            entryContent(entry)
-                        }
-                    } else {
-                        HStack(alignment: .top, spacing: 16) {
-                            timeLabel(entry).frame(minWidth: 48, alignment: .leading)
-                            entryContent(entry).frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
+            Circle().fill(entry.kind.calendarColor)
+                .frame(width: 12, height: 12)
+                .overlay(Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 2))
+                .frame(width: 28, height: 44)
+                .offset(x: TimelineThread.horizontalOffset(for: index))
+                .scrollTransition(.animated(.smooth(duration: 0.5)), axis: .vertical) { content, phase in
+                    content
+                        .scaleEffect(reduceMotion || phase.isIdentity ? 1 : 0.55)
+                        .opacity(reduceMotion || phase.isIdentity ? 1 : 0.35)
                 }
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                .padding(.vertical, 8)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("home.entry.open")
-            if entry.kind == .todo {
+                .anchorPreference(key: TimelineNodeAnchors.self, value: .bounds) { [entry.id: $0] }
+                .accessibilityHidden(true)
+            HStack(alignment: .top, spacing: 4) {
                 Button {
-                    onToggle(entry)
+                    onOpen(entry)
                 } label: {
                     Group {
-                        if savingIDs.contains(entry.id) {
-                            ProgressView().controlSize(.small)
+                        if typeSize.isAccessibilitySize {
+                            VStack(alignment: .leading, spacing: 8) {
+                                timeLabel(entry)
+                                entryContent(entry)
+                            }
                         } else {
-                            Image(systemName: entry.isCompleted ? "checkmark.circle.fill" : "circle")
+                            HStack(alignment: .top, spacing: 16) {
+                                timeLabel(entry).frame(minWidth: 48, alignment: .leading)
+                                entryContent(entry).frame(maxWidth: .infinity, alignment: .leading)
+                            }
                         }
                     }
-                    .frame(width: 44, height: 44)
-                    .foregroundStyle(entry.kind.calendarColor)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .disabled(savingIDs.contains(entry.id))
-                .accessibilityLabel(Text(entry.title))
-                .accessibilityValue(Text(entry.isCompleted ? "home.todo.done" : "home.todo.pending"))
-                .accessibilityHint(Text(entry.isCompleted ? "home.todo.undo" : "home.todo.complete"))
+                .accessibilityHint("home.entry.open")
+                if entry.kind == .todo {
+                    Button {
+                        onToggle(entry)
+                    } label: {
+                        Group {
+                            if savingIDs.contains(entry.id) {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(systemName: entry.isCompleted ? "checkmark.circle.fill" : "circle")
+                            }
+                        }
+                        .frame(width: 44, height: 44)
+                        .foregroundStyle(entry.kind.calendarColor)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(savingIDs.contains(entry.id))
+                    .accessibilityLabel(Text(entry.title))
+                    .accessibilityValue(Text(entry.isCompleted ? "home.todo.done" : "home.todo.pending"))
+                    .accessibilityHint(Text(entry.isCompleted ? "home.todo.undo" : "home.todo.complete"))
+                }
+            }
+            .scrollTransition(.animated(.smooth(duration: 0.5)), axis: .vertical) { content, phase in
+                content
+                    .opacity(reduceMotion || phase.isIdentity ? 1 : 0.12)
+                    .offset(y: reduceMotion || phase.isIdentity ? 0 : 26)
             }
         }
-        .padding(.leading, 36)
-        .padding(.bottom, 10)
-        .background(alignment: .leading) {
-            TimelineThread()
-                .stroke(
-                    CalendarPalette.secondary.opacity(0.18),
-                    style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [2, 5])
-                )
-                .frame(width: 26)
-                .overlay(alignment: .top) {
-                    Circle().fill(entry.kind.calendarColor)
-                        .overlay(Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 2))
-                        .frame(width: 11, height: 11).offset(y: 13)
-                }
-                .accessibilityHidden(true)
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func timeLabel(_ entry: HomeEntry) -> some View {
@@ -163,14 +208,24 @@ struct CalendarDayTimeline: View {
     }
 }
 
-private struct TimelineThread: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path { path in
-            path.move(to: CGPoint(x: rect.midX, y: 0))
-            path.addCurve(
-                to: CGPoint(x: rect.midX, y: rect.maxY),
-                control1: CGPoint(x: rect.minX, y: rect.height * 0.3),
-                control2: CGPoint(x: rect.maxX, y: rect.height * 0.7))
-        }
+/// 触控内容有最低高度，空白随相邻事件的真实分钟数增长，并在长间隔时收敛。
+enum CalendarTimelineSpacing {
+    static func gap(between earlier: Date, and later: Date) -> CGFloat {
+        let minutes = max(0, later.timeIntervalSince(earlier) / 60)
+        return min(124, max(12, CGFloat(minutes) * 0.28))
+    }
+}
+
+private struct TimelineNodeAnchors: PreferenceKey {
+    static var defaultValue: [String: Anchor<CGRect>] = [:]
+    static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, newest in newest })
+    }
+}
+
+private enum TimelineThread {
+    static func horizontalOffset(for index: Int) -> CGFloat {
+        let offsets: [CGFloat] = [-3, 4, -1, 5, -4, 2, 0]
+        return offsets[index % offsets.count]
     }
 }
