@@ -104,19 +104,23 @@ struct CalendarStickyTodoNote: View {
     }
 }
 
-/// 模态纸张直接读取 ViewModel 的周期实例，勾选后立即刷新进度与内容。
+/// 居中纸张浮层直接读取 ViewModel 的周期实例，勾选后立即刷新进度与内容。
 struct CalendarStickyTodoDetail: View {
     let period: CalendarTodoPeriod
     @ObservedObject var model: CalendarViewModel
     let savingIDs: Set<String>
     let onToggle: (HomeEntry) -> Void
-    @Environment(\.dismiss) private var dismiss
+    let onClose: () -> Void
 
     private var group: CalendarTodoGroup? { model.groups.first { $0.period == period } }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        GeometryReader { geometry in
+            let width = min(geometry.size.width - 32, (geometry.size.height - 32) * 1122 / 1402, 420)
+            ZStack {
+                Color.black.opacity(0.34)
+                    .ignoresSafeArea()
+                    .onTapGesture(perform: onClose)
                 if let group {
                     StickyNotePaper { size in
                         VStack(alignment: .leading, spacing: 15) {
@@ -162,28 +166,34 @@ struct CalendarStickyTodoDetail: View {
                                     }
                                 }
                             }
-                            .frame(height: size.height * 0.48)
+                            .scrollIndicators(.hidden)
+                            .frame(height: size.height * 0.44)
                         }
                         .padding(.horizontal, size.width * 0.085)
                         .padding(.top, size.height * 0.22)
                         .frame(width: size.width, height: size.height, alignment: .topLeading)
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 28)
-                    .padding(.bottom, 40)
+                    .frame(width: width, height: width * 1402 / 1122)
+                    .overlay(alignment: .topTrailing) {
+                        Button(action: onClose) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(CalendarPalette.paperInk)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("common.close")
+                        .padding(.top, width * 0.20)
+                        .padding(.trailing, width * 0.05)
+                    }
                 } else {
-                    ProgressView("home.loading").frame(maxWidth: .infinity, minHeight: 200)
+                    ProgressView("home.loading")
                 }
             }
-            .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
-            .navigationTitle(Text(period.title))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("common.done") { dismiss() }
-                }
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .accessibilityAction(.escape, onClose)
     }
 }
 

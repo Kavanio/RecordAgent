@@ -46,7 +46,7 @@ struct CalendarView: View {
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 20) {
                         ForEach(model.groups) { group in
                             CalendarStickyTodoNote(
-                                group: group, onOpen: { selectedNotePeriod = group.period }, motion: noteMotion)
+                                group: group, onOpen: { showNote(group.period) }, motion: noteMotion)
                         }
                     }
                     .padding(.top, 8)
@@ -73,6 +73,17 @@ struct CalendarView: View {
             await model.load(for: home.selectedDate, locale: locale)
         }
         .refreshable { await refresh() }
+        .accessibilityHidden(selectedNotePeriod != nil)
+        .overlay {
+            if let period = selectedNotePeriod {
+                CalendarStickyTodoDetail(
+                    period: period, model: model, savingIDs: pendingTodoIDs,
+                    onToggle: toggle, onClose: closeNote
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.94)))
+                .zIndex(1)
+            }
+        }
         .sheet(isPresented: $showsMonthPicker) {
             HomeMonthPickerView(selectedDate: home.selectedDate, dates: home.dates) { year, month in
                 monthDirection = 0
@@ -93,13 +104,6 @@ struct CalendarView: View {
                 home.selectDate(date)
                 await refresh()
             }
-        }
-        .sheet(item: $selectedNotePeriod) { period in
-            CalendarStickyTodoDetail(
-                period: period, model: model, savingIDs: pendingTodoIDs, onToggle: toggle
-            )
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
         }
         .sheet(
             item: $selectedEntry,
@@ -134,6 +138,18 @@ struct CalendarView: View {
             noteMotion.start()
         } else {
             noteMotion.stop()
+        }
+    }
+
+    private func showNote(_ period: CalendarTodoPeriod) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82)) {
+            selectedNotePeriod = period
+        }
+    }
+
+    private func closeNote() {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+            selectedNotePeriod = nil
         }
     }
 
