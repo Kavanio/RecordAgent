@@ -182,7 +182,19 @@ class FinanceServiceIntegrationTest {
         dailyEventService.create(owner, new ExpenseCommand(today, "餐饮", "旧日历花销",
                 new BigDecimal("15.00"), "15:00", "CNY"));
 
+        financeService.createTransaction(owner, first.id(), "income", "工资", "收入测试",
+                new BigDecimal("50.00"), today, LocalTime.NOON);
+        financeService.createTransaction(owner, first.id(), "income", "工资", "往年收入",
+                new BigDecimal("70.00"), today.minusYears(1), LocalTime.NOON);
+        financeService.adjustAccountBalance(owner, first.id(), "increase", new BigDecimal("60.00"), "余额校准");
         var insights = financeService.getExpenseInsights(owner, "month");
+        for (String range : java.util.List.of("week", "month", "year")) {
+            var accounts = financeService.getExpenseInsights(owner, range).accounts();
+            assertEquals(new BigDecimal("50.00"), accounts.stream().filter(item -> item.accountId().equals(first.id()))
+                    .findFirst().orElseThrow().income());
+            assertEquals(0, accounts.stream().filter(item -> item.accountId().equals(second.id()))
+                    .findFirst().orElseThrow().income().signum());
+        }
         assertEquals(new BigDecimal("125.00"), insights.totalExpense());
         assertEquals(new BigDecimal("80.00"), insights.accounts().getFirst().amount());
         assertEquals(new BigDecimal("30.00"), insights.accounts().get(1).amount());

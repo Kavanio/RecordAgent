@@ -78,7 +78,7 @@ export interface FinanceExpenseInsights {
   from: string;
   to: string;
   totalExpense: number;
-  accounts: Array<{ accountId: string; accountName: string; amount: number }>;
+  accounts: Array<{ accountId: string; accountName: string; amount: number; income: number }>;
   transactions: Array<{ id: string; note: string; category: string; date: string; amount: number; source: string }>;
   categories: FinanceExpenseCategory[];
 }

@@ -86,8 +86,8 @@ public class FinanceService {
                 repository.findTransactionCategoryColors(ownerId, "expense"));
     }
 
-    /** 查询期间内各资产账户的支出，以及全口径单笔和分类排行。 */
-    @Transactional(readOnly = true)
+    /** 补齐收益后查询期间内各账户收支，以及全口径支出排行。 */
+    @Transactional
     public ExpenseInsights getExpenseInsights(String ownerId, String range) {
         requireOwner(ownerId);
         String normalizedRange = range == null || range.isBlank() ? "month" : range.trim().toLowerCase();
@@ -96,6 +96,7 @@ public class FinanceService {
         }
         LocalDate today = LocalDate.now();
         LocalDate from = chartStart(normalizedRange, today);
+        settleYieldThrough(ownerId, today);
         var expenses = expenseAnalyticsService.reportExpenses(ownerId, from, today);
         List<RankedExpense> transactions = expenses.stream()
                 .sorted(Comparator.comparing(ExpenseAnalyticsService.ExpenseEntry::amount).reversed()

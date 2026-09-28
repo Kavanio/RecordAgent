@@ -19,7 +19,7 @@ const chart = (range = 'month', totalExpense = 1200) => ({
   days: [{ date: '2026-09-01', total: totalExpense, income: 6000, categories: [{ category: '餐饮', amount: totalExpense }] }],
 });
 const insights = (range = 'month') => ({ range, from: '2026-09-01', to: '2026-09-25', totalExpense: 1200,
-  accounts: [{ accountId: 'wallet', accountName: '日常账户', amount: 1200 }],
+  accounts: [{ accountId: 'wallet', accountName: '日常账户', amount: 1200, income: 6000 }],
   transactions: [{ id: 'meal', note: '午餐', category: '餐饮', date: '2026-09-25', amount: 1200, source: 'finance' }],
   categories: [{ category: '餐饮', amount: 1200 }] });
 function deferred() {
@@ -246,10 +246,10 @@ test('分类请求失败时图表仍直接使用同次响应中的已保存颜�
 test('账户支出柱图与单笔、分类排行可切换，切换期间时隐藏旧数据', async () => {
   await render();
   assert.match(analysis().textContent, /日常账户/);
-  const barChart = analysis().querySelector('[role="img"][aria-label^="账户支出柱状图"]');
+  const barChart = analysis().querySelector('[role="group"][aria-label="账户支出柱状图"]');
   assert.ok(barChart);
   assert.equal(barChart.querySelectorAll('[class*="barGroup"]').length, 1);
-  assert.match(barChart.querySelector('[class*="accountBar"]').getAttribute('style'), /height:/);
+  assert.match(barChart.querySelector('[class*="barEnvelope"]').getAttribute('style'), /height:/);
   assert.match(barChart.textContent, /2000|2,000/);
   assert.match(analysis().textContent, /午餐/);
   await click('支出分类');
@@ -326,4 +326,24 @@ test('取消选色不写入，未修改颜色的记账不会覆盖后端配色',
   form.querySelector('[name="note"]').value = '早餐';
   await React.act(async () => form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
   assert.equal(Object.hasOwn(saved, 'categoryColor'), false);
+});
+
+
+test('账户收入切换显示真实金额，悬浮与键盘可读取占比，排行保持支出口径', async () => {
+  await render();
+  await click('收入');
+  const chart = analysis().querySelector('[aria-label="账户收入柱状图"]');
+  assert.ok(chart);
+  const bar = chart.querySelector('button');
+  assert.match(bar.getAttribute('aria-label'), /6,000\.00/);
+  await React.act(async () => bar.dispatchEvent(new dom.window.MouseEvent('mouseover', { bubbles: true })));
+  assert.match(chart.querySelector('[role="tooltip"]').textContent, /100\.0%/);
+  assert.match(chart.querySelector('[role="tooltip"]').textContent, /6,000\.00/);
+  await React.act(async () => bar.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  assert.equal(chart.querySelector('[role="tooltip"]'), null);
+  await React.act(async () => bar.focus());
+  assert.ok(chart.querySelector('[role="tooltip"]'));
+  assert.match(analysis().textContent, /午餐/);
+  await click('分析本周');
+  assert.ok(analysis().querySelector('[aria-label="账户收入柱状图"]'), '期间切换保留收入模式');
 });

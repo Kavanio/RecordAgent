@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { FinanceChartRange, FinanceExpenseInsights } from '../../types/finance';
 import { Button } from '../common/Button';
+import { AccountCashflowChart } from './AccountCashflowChart';
 import { financeCategoryColor } from './financeCategoryColors';
 import styles from './ExpenseInsightsPanel.module.css';
 
@@ -8,7 +9,6 @@ const ranges: Array<{ value: FinanceChartRange; label: string }> = [
   { value: 'week', label: '本周' }, { value: 'month', label: '本月' }, { value: 'year', label: '今年' },
 ];
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
-const axisMoney = (value: number) => value >= 10000 ? `${Number((value / 10000).toFixed(1))}万` : String(Number(value.toFixed(2)));
 
 interface ExpenseInsightsPanelProps {
   insights: FinanceExpenseInsights | null;
@@ -24,6 +24,7 @@ interface ExpenseInsightsPanelProps {
 export const ExpenseInsightsPanel: React.FC<ExpenseInsightsPanelProps> = ({
   insights, range, loading, error, onRangeChange, onRetry, categoryColors,
 }) => {
+  const [accountMode, setAccountMode] = useState<'expense' | 'income'>('expense');
   const [rankingMode, setRankingMode] = useState<'transactions' | 'categories'>('transactions');
   const visible = !loading && !error && insights?.range === range ? insights : null;
   const accounts = visible?.accounts ?? [];
@@ -33,44 +34,20 @@ export const ExpenseInsightsPanel: React.FC<ExpenseInsightsPanelProps> = ({
       detail: `${entry.category} · ${entry.date.slice(5)}${entry.source === 'calendar' ? ' · 日历' : ''}` }))
     : (visible?.categories ?? []).map((entry) => ({ id: entry.category, label: entry.category,
       category: entry.category, amount: entry.amount, detail: '' }));
-  const accountMax = Math.max(0, ...accounts.map((item) => item.amount));
-  const axisCeiling = accountMax > 0 ? Math.ceil(accountMax * 1.2 / 10 ** Math.floor(Math.log10(accountMax)))
-    * 10 ** Math.floor(Math.log10(accountMax)) : 0;
   const rankMax = Math.max(0, ...entries.map((item) => item.amount));
   const state = error ? <div className={styles.state} role="alert"><span>{error}</span><Button type="button" variant="ghost" size="sm" onClick={onRetry}>重新加载分析</Button></div>
     : loading || !visible ? <p className={styles.state} role="status">正在加载支出分析…</p> : null;
 
   return <section className={styles.section} aria-label="支出分析">
     <div className={styles.heading}>
-      <div><h2>支出分析</h2><p>按自然周、月、年查看账户和支出明细</p></div>
+      <div><h2>收支分析</h2><p>按自然周、月、年查看账户收支与支出排行</p></div>
       <div className={styles.switch} role="group" aria-label="支出分析时间范围">
         {ranges.map((option) => <button key={option.value} type="button" className={range === option.value ? styles.active : ''}
           aria-pressed={range === option.value} aria-label={`分析${option.label}`} onClick={() => onRangeChange(option.value)}>{option.label}</button>)}
       </div>
     </div>
     {state ?? <div className={styles.columns}>
-      <div className={styles.panel}>
-        <div className={styles.panelHeading}><h3>账户支出</h3><span>按资产账户</span></div>
-        {accounts.length && accountMax > 0 ? <div className={styles.barChart} role="img"
-          aria-label={`账户支出柱状图：${accounts.map((item) => `${item.accountName}${money(item.amount)}`).join('，')}`}>
-          <div className={styles.yAxis} aria-hidden="true"><span>{axisMoney(axisCeiling)}</span><span>{axisMoney(axisCeiling / 2)}</span><span>0</span></div>
-          <div className={styles.chartScroll}>
-            <div className={styles.plot} style={{ minWidth: `${Math.max(280, accounts.length * 78)}px` }}>
-              <div className={styles.grid} aria-hidden="true"><span /><span /><span /></div>
-              <div className={styles.bars}>
-                {accounts.map((item) => <div key={item.accountId} className={styles.barGroup} title={`${item.accountName} · ${money(item.amount)}`}>
-                  <div className={styles.barSlot}>
-                    <span className={styles.barValue} style={{ bottom: `calc(${item.amount / axisCeiling * 100}% + 7px)` }}>{axisMoney(item.amount)}</span>
-                    <span className={styles.accountBar} style={{ height: `${item.amount / axisCeiling * 100}%` }} />
-                  </div>
-                  <span className={styles.xLabel}>{item.accountName}</span>
-                </div>)}
-              </div>
-            </div>
-          </div>
-        </div> : <p className={styles.empty}>本期暂无账户支出</p>}
-        <p className={styles.footnote}>旧日历花销未关联资产账户，不计入此图</p>
-      </div>
+      <AccountCashflowChart accounts={accounts} mode={accountMode} onModeChange={setAccountMode} period={range} />
       <div className={styles.panel}>
         <div className={styles.panelHeading}><h3>支出排行</h3><span>含旧日历花销</span></div>
         <div className={styles.modeSwitch} role="group" aria-label="排行方式">

@@ -31,19 +31,21 @@ public class FinanceRepository {
 
     private final JdbcTemplate jdbcTemplate;
 
-    /** 账户支出只统计 expense；划账、余额校准和未绑定账户的旧日历花销不属于账户支出。 */
+    /** 账户收支分别统计 expense 与 income / yield；划账、余额校准和旧日历花销不参与。 */
     public List<AccountExpense> findAccountExpenses(String ownerId, LocalDate from, LocalDate to) {
         return jdbcTemplate.query("""
                 SELECT a.id AS account_id, a.name AS account_name,
-                       COALESCE(SUM(t.amount_minor), 0) AS amount_minor
+                       COALESCE(SUM(CASE WHEN t.transaction_type = 'expense' THEN t.amount_minor ELSE 0 END), 0) AS amount_minor,
+                       COALESCE(SUM(CASE WHEN t.transaction_type IN ('income', 'yield') THEN t.amount_minor ELSE 0 END), 0) AS income_minor
                 FROM finance_account a
                 LEFT JOIN finance_transaction t ON t.account_id = a.id AND t.owner_id = a.owner_id
-                    AND t.transaction_type = 'expense' AND t.transaction_date BETWEEN ? AND ?
+                    AND t.transaction_type IN ('expense', 'income', 'yield') AND t.transaction_date BETWEEN ? AND ?
                 WHERE a.owner_id = ?
                 GROUP BY a.id, a.name, a.created_at
                 ORDER BY amount_minor DESC, a.created_at, a.id
                 """, (rs, rowNum) -> new AccountExpense(rs.getString("account_id"),
-                rs.getString("account_name"), BigDecimal.valueOf(rs.getLong("amount_minor"), 2)),
+                rs.getString("account_name"), BigDecimal.valueOf(rs.getLong("amount_minor"), 2),
+                BigDecimal.valueOf(rs.getLong("income_minor"), 2)),
                 from.toString(), to.toString(), ownerId);
     }
 
