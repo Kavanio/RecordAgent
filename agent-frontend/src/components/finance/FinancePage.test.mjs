@@ -19,7 +19,7 @@ const chart = (range = 'month', totalExpense = 1200) => ({
   days: [{ date: '2026-09-01', total: totalExpense, income: 6000, categories: [{ category: '餐饮', amount: totalExpense }] }],
 });
 const insights = (range = 'month') => ({ range, from: '2026-09-01', to: '2026-09-25', totalExpense: 1200,
-  accounts: [{ accountId: 'wallet', accountName: '日常账户', amount: 1200, income: 6000 }],
+  accounts: [{ accountId: 'wallet', accountName: '日常账户', accountType: 'wechat_balance', amount: 1200, income: 6000 }],
   transactions: [{ id: 'meal', note: '午餐', category: '餐饮', date: '2026-09-25', amount: 1200, source: 'finance' }],
   categories: [{ category: '餐饮', amount: 1200 }] });
 function deferred() {
@@ -261,6 +261,25 @@ test('账户支出柱图与单笔、分类排行可切换，切换期间时隐�
   assert.doesNotMatch(analysis().textContent, /1,200\.00/);
   await React.act(async () => week.resolve(response(insights('week'))));
   assert.match(analysis().textContent, /1,200\.00/);
+});
+
+test('账户柱图按账户品牌着色，未知银行保留中性色，收入切换不改变品牌', async () => {
+  const normal = respond;
+  const accounts = [
+    { accountId: 'wechat', accountName: '微信余额', accountType: 'wechat_balance' },
+    { accountId: 'alipay', accountName: '支付宝余额宝', accountType: 'alipay_yuebao' },
+    { accountId: 'cmb', accountName: '招商银行万事达卡', accountType: 'bank' },
+    { accountId: 'abc', accountName: '农业银行6779', accountType: 'bank' },
+    { accountId: 'ccb', accountName: '建设银行4939', accountType: 'bank' },
+    { accountId: 'unknown', accountName: '其他银行', accountType: 'bank' },
+  ].map((account) => ({ ...account, amount: 100, income: 50 }));
+  respond = (url) => url.pathname.endsWith('/expense-insights')
+    ? response({ ...insights(url.searchParams.get('range')), accounts }) : normal(url);
+  await render();
+  const brands = () => [...analysis().querySelectorAll('[class*="barGroup"]')].map((bar) => bar.dataset.brand);
+  assert.deepEqual(brands(), ['wechat', 'alipay', 'cmb', 'abc', 'ccb', 'bank']);
+  await click('收入');
+  assert.deepEqual(brands(), ['wechat', 'alipay', 'cmb', 'abc', 'ccb', 'bank']);
 });
 
 test('新增自定义分类选色随记账提交，重新打开页面后读取保存的颜色', async () => {

@@ -197,6 +197,7 @@ class FinanceServiceIntegrationTest {
         }
         assertEquals(new BigDecimal("125.00"), insights.totalExpense());
         assertEquals(new BigDecimal("80.00"), insights.accounts().getFirst().amount());
+        assertEquals("bank", insights.accounts().getFirst().accountType());
         assertEquals(new BigDecimal("30.00"), insights.accounts().get(1).amount());
         assertEquals("打车", insights.transactions().getFirst().note());
         assertEquals(new BigDecimal("45.00"), insights.categories().stream()

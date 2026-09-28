@@ -1,9 +1,19 @@
 import React, { useId, useRef, useState } from 'react';
-import type { FinanceExpenseInsights } from '../../types/finance';
+import type { FinanceAccountType, FinanceExpenseInsights } from '../../types/finance';
 import styles from './AccountCashflowChart.module.css';
 
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
 const compact = (value: number) => value >= 10000 ? `${Number((value / 10000).toFixed(1))}万` : String(Number(value.toFixed(2)));
+
+const accountBrand = (type: FinanceAccountType, name: string) => {
+  if (type.startsWith('wechat')) return 'wechat';
+  if (type.startsWith('alipay')) return 'alipay';
+  if (type !== 'bank') return 'other';
+  if (/招商银行|招行/.test(name)) return 'cmb';
+  if (/农业银行|农行/.test(name)) return 'abc';
+  if (/建设银行|建行/.test(name)) return 'ccb';
+  return 'bank';
+};
 
 interface AccountCashflowChartProps {
   accounts: FinanceExpenseInsights['accounts'];
@@ -12,7 +22,7 @@ interface AccountCashflowChartProps {
   period: string;
 }
 
-/** 账户收支柱图：稳定配色、错峰入场及鼠标和键盘共用的金额明细。 */
+/** 账户收支柱图：按账户品牌着色、错峰入场及鼠标和键盘共用的金额明细。 */
 export const AccountCashflowChart: React.FC<AccountCashflowChartProps> = ({ accounts, mode, onModeChange, period }) => {
   const host = useRef<HTMLDivElement>(null);
   const tooltipId = useId();
@@ -23,8 +33,6 @@ export const AccountCashflowChart: React.FC<AccountCashflowChartProps> = ({ acco
   const unit = maximum > 0 ? 10 ** Math.floor(Math.log10(maximum)) : 1;
   const ceiling = maximum > 0 ? Math.ceil(maximum * 1.25 / unit) * unit : 1;
   const total = rows.reduce((sum, item) => sum + item.value, 0);
-  // 按 ID 固定分配颜色，切换期间、收支或排序都不会改变账户颜色。
-  const colorIds = accounts.map((item) => item.accountId).sort();
   const selected = rows.find((item) => item.accountId === active?.id);
   const show = (id: string, element: HTMLElement) => {
     const bounds = host.current?.getBoundingClientRect();
@@ -49,7 +57,7 @@ export const AccountCashflowChart: React.FC<AccountCashflowChartProps> = ({ acco
           <div className={styles.grid} aria-hidden="true">{[0, 1, 2, 3, 4].map((tick) => <span key={tick} />)}</div>
           <div key={`${mode}-${period}`} className={styles.bars} data-active={active !== null}>
             {rows.map((item, index) => <button type="button" key={item.accountId} className={styles.barGroup}
-              data-color={colorIds.indexOf(item.accountId) % 6} data-selected={active?.id === item.accountId}
+              data-brand={accountBrand(item.accountType, item.accountName)} data-selected={active?.id === item.accountId}
               aria-label={`${item.accountName}${label}${money(item.value)}`}
               aria-describedby={active?.id === item.accountId ? tooltipId : undefined}
               onMouseEnter={(event) => show(item.accountId, event.currentTarget)}

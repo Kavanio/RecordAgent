@@ -80,7 +80,8 @@ public final class FinanceDtos {
     }
 
     /** 账户图、单笔排行和分类排行共用同一次期间查询。 */
-    public record AccountExpenseResponse(String accountId, String accountName, BigDecimal amount, BigDecimal income) {}
+    public record AccountExpenseResponse(String accountId, String accountName, String accountType,
+                                         BigDecimal amount, BigDecimal income) {}
     public record RankedExpenseResponse(String id, String note, String category, LocalDate date,
                                         BigDecimal amount, String source) {}
     public record ExpenseInsightsResponse(String range, LocalDate from, LocalDate to,
@@ -131,7 +132,7 @@ public final class FinanceDtos {
     public static ExpenseInsightsResponse from(ExpenseInsights insights) {
         return new ExpenseInsightsResponse(insights.range(), insights.from(), insights.to(), insights.totalExpense(),
                 insights.accounts().stream().map(account -> new AccountExpenseResponse(
-                        account.accountId(), account.accountName(), account.amount(), account.income())).toList(),
+                        account.accountId(), account.accountName(), account.accountType(), account.amount(), account.income())).toList(),
                 insights.transactions().stream().map(entry -> new RankedExpenseResponse(
                         entry.id(), entry.note(), entry.category(), entry.date(), entry.amount(), entry.source())).toList(),
                 insights.categories().stream().map(item -> new ExpenseCategoryResponse(

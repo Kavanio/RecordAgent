@@ -56,7 +56,8 @@ public final class FinanceModels {
                                 BigDecimal amount, String source) {}
 
     /** 资产账户在指定期间的支出与收入合计（收入含收益）。 */
-    public record AccountExpense(String accountId, String accountName, BigDecimal amount, BigDecimal income) {}
+    public record AccountExpense(String accountId, String accountName, String accountType,
+                                 BigDecimal amount, BigDecimal income) {}
 
     /** 周、月、年账户支出及两种排行共用同一期间和支出事实。 */
     public record ExpenseInsights(String range, LocalDate from, LocalDate to,
