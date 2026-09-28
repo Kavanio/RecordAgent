@@ -5,6 +5,7 @@ struct CalendarDayTimeline: View {
     let savingIDs: Set<String>
     let onOpen: (HomeEntry) -> Void
     let onToggle: (HomeEntry) -> Void
+    @Environment(\.calendar) private var calendar
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -14,15 +15,22 @@ struct CalendarDayTimeline: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .center, spacing: 18) {
                     dayNumber
-                    dayHeading
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(snapshot.date, format: .dateTime.month(.abbreviated))
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(CalendarPalette.secondary)
+                        Text(snapshot.date, format: .dateTime.weekday(.wide))
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(CalendarPalette.ink)
+                    }
+                    Spacer(minLength: 0)
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    dayNumber
-                    dayHeading
-                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(snapshot.date, format: .dateTime.month().day().weekday(.wide)))
+                daySummary
             }
             if snapshot.entries.isEmpty {
                 ContentUnavailableView(
@@ -83,26 +91,47 @@ struct CalendarDayTimeline: View {
     }
 
     private var dayNumber: some View {
-        Text(snapshot.date, format: .dateTime.day())
-            .font(.system(size: daySize, weight: .light, design: .serif).italic())
+        Text(calendar.component(.day, from: snapshot.date), format: .number)
+            .font(.system(size: daySize, weight: .light, design: .serif))
+            .monospacedDigit()
             .foregroundStyle(
                 LinearGradient(
                     colors: [CalendarPalette.accent.opacity(0.45), CalendarPalette.accent],
                     startPoint: .topLeading, endPoint: .bottomTrailing)
             )
-            .accessibilityHidden(true)
+            .fixedSize()
     }
 
-    private var dayHeading: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(snapshot.date, format: .dateTime.month().day().weekday(.wide))
-                .font(.headline).foregroundStyle(CalendarPalette.ink)
-            Text(
-                "calendar.day.summary \(snapshot.completedTodos) \(snapshot.todos.count) \(HomeFormat.money(snapshot.expenseInCents, locale: locale)) \(snapshot.entries.filter { $0.kind == .schedule }.count)"
-            )
-            .font(.caption).foregroundStyle(CalendarPalette.secondary)
-            .fixedSize(horizontal: false, vertical: true)
+    private var daySummary: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 24) {
+                summaryMetric("calendar.kind.todo", value: "\(snapshot.completedTodos)/\(snapshot.todos.count)")
+                summaryMetric("calendar.kind.expense", value: HomeFormat.money(snapshot.expenseInCents, locale: locale))
+                summaryMetric(
+                    "calendar.kind.schedule",
+                    value: "\(snapshot.entries.filter { $0.kind == .schedule }.count)"
+                )
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            VStack(alignment: .leading, spacing: 10) {
+                summaryMetric("calendar.kind.todo", value: "\(snapshot.completedTodos)/\(snapshot.todos.count)")
+                summaryMetric("calendar.kind.expense", value: HomeFormat.money(snapshot.expenseInCents, locale: locale))
+                summaryMetric(
+                    "calendar.kind.schedule",
+                    value: "\(snapshot.entries.filter { $0.kind == .schedule }.count)"
+                )
+            }
         }
+    }
+
+    private func summaryMetric(_ title: LocalizedStringKey, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.caption2).foregroundStyle(CalendarPalette.secondary)
+            Text(verbatim: value)
+                .font(.subheadline.weight(.medium).monospacedDigit())
+                .foregroundStyle(CalendarPalette.ink)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private func timelineRow(_ entry: HomeEntry, index: Int) -> some View {
