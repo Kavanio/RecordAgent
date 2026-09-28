@@ -11,14 +11,24 @@
 .panel { min-width: 0; }
 .panelHeading h3 { margin: 0; color: var(--text-primary); font-size: 12px; font-weight: 600; }
 .panelHeading span, .footnote { color: var(--text-muted); font-size: 10px; }
-.list { display: flex; flex-direction: column; gap: 18px; margin-top: 25px; }
-.row { min-width: 0; }
+.barChart { display: flex; gap: 10px; height: 244px; margin-top: 24px; min-width: 0; }
+.yAxis { display: flex; flex: 0 0 34px; height: 190px; flex-direction: column; justify-content: space-between; align-items: flex-end; color: var(--text-muted); font-size: 9px; font-variant-numeric: tabular-nums; }
+.chartScroll { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; }
+.plot { position: relative; height: 228px; }
+.grid { position: absolute; inset: 0 0 auto; display: flex; height: 190px; flex-direction: column; justify-content: space-between; pointer-events: none; }
+.grid span { width: 100%; border-top: 1px dashed var(--border-subtle); }
+.grid span:last-child { border-top-style: solid; }
+.bars { position: relative; z-index: 1; display: flex; height: 228px; }
+.barGroup { flex: 1; min-width: 78px; display: flex; flex-direction: column; align-items: center; }
+.barSlot { position: relative; width: 100%; height: 190px; }
+.accountBar { position: absolute; bottom: 0; left: 50%; width: min(32px, 48%); transform: translateX(-50%); background: #8FA8CF; border-radius: 5px 5px 0 0; }
+.barValue { position: absolute; left: 50%; transform: translateX(-50%); color: var(--text-secondary); font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xLabel { display: block; width: 100%; max-width: 100px; padding: 12px 5px 0; overflow: hidden; color: var(--text-secondary); font-size: 10px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .rowHeading { min-width: 0; color: var(--text-primary); font-size: 11px; line-height: 1.4; }
 .rowHeading > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rowHeading strong { flex-shrink: 0; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .track { height: 5px; margin-top: 9px; overflow: hidden; border-radius: 999px; background: var(--bg-surface); }
 .track > span { display: block; height: 100%; border-radius: inherit; }
-.accountBar { background: #8FA8CF; }
 .modeSwitch { display: inline-flex; gap: 18px; margin-top: 21px; border-bottom: 1px solid var(--border-subtle); }
 .modeSwitch button { padding: 0 0 9px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-muted); font: 500 11px var(--font-sans); cursor: pointer; }
 .modeSwitch button:hover { color: var(--text-primary); }

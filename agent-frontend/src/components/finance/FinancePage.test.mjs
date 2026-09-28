@@ -246,6 +246,11 @@ test('分类请求失败时图表仍直接使用同次响应中的已保存颜�
 test('账户支出柱图与单笔、分类排行可切换，切换期间时隐藏旧数据', async () => {
   await render();
   assert.match(analysis().textContent, /日常账户/);
+  const barChart = analysis().querySelector('[role="img"][aria-label^="账户支出柱状图"]');
+  assert.ok(barChart);
+  assert.equal(barChart.querySelectorAll('[class*="barGroup"]').length, 1);
+  assert.match(barChart.querySelector('[class*="accountBar"]').getAttribute('style'), /height:/);
+  assert.match(barChart.textContent, /2000|2,000/);
   assert.match(analysis().textContent, /午餐/);
   await click('支出分类');
   assert.doesNotMatch(analysis().textContent, /午餐/);

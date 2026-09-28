@@ -8,6 +8,7 @@ const ranges: Array<{ value: FinanceChartRange; label: string }> = [
   { value: 'week', label: '本周' }, { value: 'month', label: '本月' }, { value: 'year', label: '今年' },
 ];
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
+const axisMoney = (value: number) => value >= 10000 ? `${Number((value / 10000).toFixed(1))}万` : String(Number(value.toFixed(2)));
 
 interface ExpenseInsightsPanelProps {
   insights: FinanceExpenseInsights | null;
@@ -33,6 +34,8 @@ export const ExpenseInsightsPanel: React.FC<ExpenseInsightsPanelProps> = ({
     : (visible?.categories ?? []).map((entry) => ({ id: entry.category, label: entry.category,
       category: entry.category, amount: entry.amount, detail: '' }));
   const accountMax = Math.max(0, ...accounts.map((item) => item.amount));
+  const axisCeiling = accountMax > 0 ? Math.ceil(accountMax * 1.2 / 10 ** Math.floor(Math.log10(accountMax)))
+    * 10 ** Math.floor(Math.log10(accountMax)) : 0;
   const rankMax = Math.max(0, ...entries.map((item) => item.amount));
   const state = error ? <div className={styles.state} role="alert"><span>{error}</span><Button type="button" variant="ghost" size="sm" onClick={onRetry}>重新加载分析</Button></div>
     : loading || !visible ? <p className={styles.state} role="status">正在加载支出分析…</p> : null;
@@ -48,11 +51,23 @@ export const ExpenseInsightsPanel: React.FC<ExpenseInsightsPanelProps> = ({
     {state ?? <div className={styles.columns}>
       <div className={styles.panel}>
         <div className={styles.panelHeading}><h3>账户支出</h3><span>按资产账户</span></div>
-        {accounts.length && accountMax > 0 ? <div className={styles.list} role="list" aria-label="各账户支出">
-          {accounts.map((item) => <div key={item.accountId} className={styles.row} role="listitem">
-            <div className={styles.rowHeading}><span title={item.accountName}>{item.accountName}</span><strong>{money(item.amount)}</strong></div>
-            <div className={styles.track} role="img" aria-label={`${item.accountName}支出${money(item.amount)}`}><span className={styles.accountBar} style={{ width: `${item.amount / accountMax * 100}%` }} /></div>
-          </div>)}
+        {accounts.length && accountMax > 0 ? <div className={styles.barChart} role="img"
+          aria-label={`账户支出柱状图：${accounts.map((item) => `${item.accountName}${money(item.amount)}`).join('，')}`}>
+          <div className={styles.yAxis} aria-hidden="true"><span>{axisMoney(axisCeiling)}</span><span>{axisMoney(axisCeiling / 2)}</span><span>0</span></div>
+          <div className={styles.chartScroll}>
+            <div className={styles.plot} style={{ minWidth: `${Math.max(280, accounts.length * 78)}px` }}>
+              <div className={styles.grid} aria-hidden="true"><span /><span /><span /></div>
+              <div className={styles.bars}>
+                {accounts.map((item) => <div key={item.accountId} className={styles.barGroup} title={`${item.accountName} · ${money(item.amount)}`}>
+                  <div className={styles.barSlot}>
+                    <span className={styles.barValue} style={{ bottom: `calc(${item.amount / axisCeiling * 100}% + 7px)` }}>{axisMoney(item.amount)}</span>
+                    <span className={styles.accountBar} style={{ height: `${item.amount / axisCeiling * 100}%` }} />
+                  </div>
+                  <span className={styles.xLabel}>{item.accountName}</span>
+                </div>)}
+              </div>
+            </div>
+          </div>
         </div> : <p className={styles.empty}>本期暂无账户支出</p>}
         <p className={styles.footnote}>旧日历花销未关联资产账户，不计入此图</p>
       </div>
