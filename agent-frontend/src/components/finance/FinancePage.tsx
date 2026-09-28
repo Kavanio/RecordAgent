@@ -1,8 +1,8 @@
 import { TopBarAction } from '../common/TopBarAction';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowClockwiseIcon, ArrowsLeftRightIcon, CaretRightIcon, PencilSimpleIcon, PlusIcon, SparkleIcon, WalletIcon } from '@phosphor-icons/react';
-import { createFinanceAccount, createFinanceBalanceAdjustment, createFinanceTransaction, createFinanceTransfer, fetchFinanceCategories, fetchFinanceExpenseChart, fetchFinanceOverview, fetchFinanceTransactions, updateFinanceTransaction } from '../../services/financeApi';
-import type { CreateFinanceAccountInput, CreateFinanceBalanceAdjustmentInput, CreateFinanceTransactionInput, CreateFinanceTransferInput, FinanceAccount, FinanceCategoryOptions, FinanceChartRange, FinanceExpenseChart, FinanceOverview, FinanceTransaction } from '../../types/finance';
+import { createFinanceAccount, createFinanceBalanceAdjustment, createFinanceTransaction, createFinanceTransfer, fetchFinanceCategories, fetchFinanceExpenseChart, fetchFinanceExpenseInsights, fetchFinanceOverview, fetchFinanceTransactions, updateFinanceTransaction } from '../../services/financeApi';
+import type { CreateFinanceAccountInput, CreateFinanceBalanceAdjustmentInput, CreateFinanceTransactionInput, CreateFinanceTransferInput, FinanceAccount, FinanceCategoryOptions, FinanceChartRange, FinanceExpenseChart, FinanceExpenseInsights, FinanceOverview, FinanceTransaction } from '../../types/finance';
 import { Button } from '../common/Button';
 import { useMessage } from '../common/Message';
 import { TopBar } from '../common/TopBar';
@@ -17,6 +17,7 @@ import { TransactionModal } from './TransactionModal';
 import { TransferModal } from './TransferModal';
 import { AssetDetailModal } from './AssetDetailModal';
 import { FinanceSummary } from './FinanceSummary';
+import { ExpenseInsightsPanel } from './ExpenseInsightsPanel';
 
 function money(value: number): string {
   return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
@@ -29,6 +30,10 @@ export const FinancePage: React.FC = () => {
   const [categoryOptions, setCategoryOptions] = useState<FinanceCategoryOptions>({ expense: [], income: [] });
   const [chart, setChart] = useState<FinanceExpenseChart | null>(null);
   const [chartRange, setChartRange] = useState<FinanceChartRange>('month');
+  const [insights, setInsights] = useState<FinanceExpenseInsights | null>(null);
+  const [insightsRange, setInsightsRange] = useState<FinanceChartRange>('month');
+  const [isInsightsLoading, setIsInsightsLoading] = useState(true);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
@@ -46,6 +51,7 @@ export const FinancePage: React.FC = () => {
   const [isTransactionsLoading, setIsTransactionsLoading] = useState(false);
   const [transactionsError, setTransactionsError] = useState<string | null>(null);
   const chartRequestId = useRef(0);
+  const insightsRequestId = useRef(0);
   const overviewRequestId = useRef(0);
   const categoriesRequestId = useRef(0);
 
@@ -94,13 +100,29 @@ export const FinancePage: React.FC = () => {
     }
   }, []);
 
+  const loadInsights = useCallback(async (range: FinanceChartRange) => {
+    const requestId = ++insightsRequestId.current;
+    setIsInsightsLoading(true);
+    setInsightsError(null);
+    try {
+      const nextInsights = await fetchFinanceExpenseInsights(range);
+      if (requestId === insightsRequestId.current) setInsights(nextInsights);
+    } catch (cause) {
+      if (requestId === insightsRequestId.current) setInsightsError(cause instanceof Error ? cause.message : '支出分析加载失败，请稍后重试。');
+    } finally {
+      if (requestId === insightsRequestId.current) setIsInsightsLoading(false);
+    }
+  }, []);
+
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { void loadCategories(); }, [loadCategories]);
   useEffect(() => { void loadChart(chartRange); }, [chartRange, loadChart]);
+  useEffect(() => { void loadInsights(insightsRange); }, [insightsRange, loadInsights]);
   useEffect(() => () => {
     overviewRequestId.current += 1;
     categoriesRequestId.current += 1;
     chartRequestId.current += 1;
+    insightsRequestId.current += 1;
   }, []);
   const recentTransactions = overview?.transactions.slice(0, 5) ?? [];
 
@@ -144,7 +166,7 @@ export const FinancePage: React.FC = () => {
 
   const submitAccount = async (input: CreateFinanceAccountInput) => {
     await createFinanceAccount(input);
-    await load();
+    await Promise.all([load(), loadInsights(insightsRange)]);
     setIsAccountModalOpen(false);
     showMessage('success', '资产账户已添加');
   };
@@ -156,14 +178,14 @@ export const FinancePage: React.FC = () => {
       await createFinanceTransaction(input);
     }
     void loadCategories();
-    await Promise.all([load(), loadChart(chartRange), ...(isTransactionDrawerOpen ? [loadAllTransactions()] : [])]);
+    await Promise.all([load(), loadChart(chartRange), loadInsights(insightsRange), ...(isTransactionDrawerOpen ? [loadAllTransactions()] : [])]);
     showMessage('success', editingTransaction ? '流水已更新，账户余额已同步调整' : '流水已保存');
     closeTransactionModal();
   };
 
   const submitTransfer = async (input: CreateFinanceTransferInput) => {
     await createFinanceTransfer(input);
-    await Promise.all([load(), loadChart(chartRange), ...(isTransactionDrawerOpen ? [loadAllTransactions()] : [])]);
+    await Promise.all([load(), loadChart(chartRange), loadInsights(insightsRange), ...(isTransactionDrawerOpen ? [loadAllTransactions()] : [])]);
     setIsTransferModalOpen(false);
     showMessage('success', '划账已完成，双方账户余额已同步调整');
   };
@@ -184,7 +206,7 @@ export const FinancePage: React.FC = () => {
   return <main className={styles.workspace}>
     <TopBar icon={<WalletIcon size={16} />} title="财务" subtitle="资产与收支" actions={<>
       <TopBarAction iconOnly title="刷新财务数据" aria-label="刷新财务数据"
-        onClick={() => void Promise.all([load(), loadCategories(), loadChart(chartRange)])} disabled={isLoading || isChartLoading}>
+        onClick={() => void Promise.all([load(), loadCategories(), loadChart(chartRange), loadInsights(insightsRange)])} disabled={isLoading || isChartLoading || isInsightsLoading}>
         <ArrowClockwiseIcon size={14} className={isLoading || isChartLoading ? styles.spinning : ''} />
       </TopBarAction>
       <TopBarAction type="button" variant="outline" icon={<PlusIcon size={13} weight="bold" />} onClick={openAccountModal}>添加账户</TopBarAction>
@@ -207,6 +229,9 @@ export const FinancePage: React.FC = () => {
 
         <SpendingTrendChart chart={chart} range={chartRange} loading={isChartLoading} error={chartError}
           onRangeChange={setChartRange} onRetry={() => void loadChart(chartRange)} categoryColors={categoryOptions.colors?.expense} />
+
+        <ExpenseInsightsPanel insights={insights} range={insightsRange} loading={isInsightsLoading} error={insightsError}
+          onRangeChange={setInsightsRange} onRetry={() => void loadInsights(insightsRange)} categoryColors={categoryOptions.colors?.expense} />
 
         {overview && <div className={styles.financeLayout}>
           <section className={styles.historyPanel}>

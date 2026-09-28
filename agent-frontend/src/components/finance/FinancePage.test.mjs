@@ -18,6 +18,10 @@ const chart = (range = 'month', totalExpense = 1200) => ({
   range, from: '2026-09-01', to: '2026-09-25', totalExpense, totalIncome: 6000,
   days: [{ date: '2026-09-01', total: totalExpense, income: 6000, categories: [{ category: '餐饮', amount: totalExpense }] }],
 });
+const insights = (range = 'month') => ({ range, from: '2026-09-01', to: '2026-09-25', totalExpense: 1200,
+  accounts: [{ accountId: 'wallet', accountName: '日常账户', amount: 1200 }],
+  transactions: [{ id: 'meal', note: '午餐', category: '餐饮', date: '2026-09-25', amount: 1200, source: 'finance' }],
+  categories: [{ category: '餐饮', amount: 1200 }] });
 function deferred() {
   let resolve, reject;
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
@@ -60,6 +64,7 @@ beforeEach(() => {
     if (url.pathname.endsWith('/overview')) return response(overview);
     if (url.pathname.endsWith('/categories')) return response({ expense: [], income: [] });
     if (url.pathname.endsWith('/expense-chart')) return response(chart(url.searchParams.get('range')));
+    if (url.pathname.endsWith('/expense-insights')) return response(insights(url.searchParams.get('range')));
     throw new Error(`未预期请求：${url}`);
   };
   globalThis.fetch = async (url, init) => respond(new URL(String(url)), init);
@@ -83,6 +88,7 @@ async function click(name) {
 const summary = () => container.querySelector('[aria-label="本月财务概览"]');
 const trend = () => [...container.querySelectorAll('section')].find((item) => item.querySelector('h2')?.textContent === '收支趋势');
 const totals = () => [...trend().querySelectorAll('dd')].map((item) => item.textContent);
+const analysis = () => container.querySelector('section[aria-label="支出分析"]');
 async function selectCategory(value) {
   const select = [...document.querySelectorAll('select')].find((item) => [...item.options].some((option) => option.value === '__custom_category__'));
   await React.act(async () => {
@@ -235,6 +241,21 @@ test('分类请求失败时图表仍直接使用同次响应中的已保存颜�
   };
   await render();
   assert.equal(trend().querySelector('[data-finance-category="餐饮"]').getAttribute('fill'), '#A855F7');
+});
+
+test('账户支出柱图与单笔、分类排行可切换，切换期间时隐藏旧数据', async () => {
+  await render();
+  assert.match(analysis().textContent, /日常账户/);
+  assert.match(analysis().textContent, /午餐/);
+  await click('支出分类');
+  assert.doesNotMatch(analysis().textContent, /午餐/);
+  assert.match(analysis().textContent, /餐饮/);
+  const normal = respond, week = deferred();
+  respond = (url) => url.pathname.endsWith('/expense-insights') && url.searchParams.get('range') === 'week' ? week.promise : normal(url);
+  await click('分析本周');
+  assert.doesNotMatch(analysis().textContent, /1,200\.00/);
+  await React.act(async () => week.resolve(response(insights('week'))));
+  assert.match(analysis().textContent, /1,200\.00/);
 });
 
 test('新增自定义分类选色随记账提交，重新打开页面后读取保存的颜色', async () => {

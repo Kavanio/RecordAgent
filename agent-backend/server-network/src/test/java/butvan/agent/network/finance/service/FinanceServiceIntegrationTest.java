@@ -168,6 +168,32 @@ class FinanceServiceIntegrationTest {
     }
 
     @Test
+    void expenseInsightsSeparateAccountSpendFromLegacyExpensesAndExcludeTransfers() {
+        String owner = "finance-insights-user";
+        LocalDate today = LocalDate.now();
+        var first = financeService.createAccount(owner, "日常", "bank", "CNY", new BigDecimal("500.00"), false, BigDecimal.ZERO);
+        var second = financeService.createAccount(owner, "备用", "bank", "CNY", new BigDecimal("200.00"), false, BigDecimal.ZERO);
+        financeService.createTransaction(owner, first.id(), "expense", "餐饮", "午餐",
+                new BigDecimal("30.00"), today, LocalTime.NOON);
+        financeService.createTransaction(owner, second.id(), "expense", "交通", "打车",
+                new BigDecimal("80.00"), today, LocalTime.of(13, 0));
+        financeService.transfer(owner, first.id(), second.id(), new BigDecimal("20.00"),
+                "划账", today, LocalTime.of(14, 0));
+        dailyEventService.create(owner, new ExpenseCommand(today, "餐饮", "旧日历花销",
+                new BigDecimal("15.00"), "15:00", "CNY"));
+
+        var insights = financeService.getExpenseInsights(owner, "month");
+        assertEquals(new BigDecimal("125.00"), insights.totalExpense());
+        assertEquals(new BigDecimal("80.00"), insights.accounts().getFirst().amount());
+        assertEquals(new BigDecimal("30.00"), insights.accounts().get(1).amount());
+        assertEquals("打车", insights.transactions().getFirst().note());
+        assertEquals(new BigDecimal("45.00"), insights.categories().stream()
+                .filter(item -> item.category().equals("餐饮")).findFirst().orElseThrow().amount());
+        assertEquals(0, financeService.getExpenseInsights("other-insights-user", "month").totalExpense().signum());
+        assertThrows(IllegalArgumentException.class, () -> financeService.getExpenseInsights(owner, "decade"));
+    }
+
+    @Test
     void expenseCannotOverdrawAccount() {
         FinanceAccount account = financeService.createAccount(
                 "finance-overdraft-user", "现金", "cash", "CNY", new BigDecimal("20.00"), false, BigDecimal.ZERO);

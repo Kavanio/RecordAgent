@@ -84,6 +84,15 @@ public class FinanceController {
                 financeService.getExpenseChart(currentUserProvider.currentUserId(), range)));
     }
 
+    /** 当前用户的周、月、年支出分析，仅返回支出排行所需的字段。 */
+    @ApiLog("查询账户支出与支出排行")
+    @GetMapping("/expense-insights")
+    public Result<FinanceDtos.ExpenseInsightsResponse> expenseInsights(
+            @RequestParam(defaultValue = "month") String range) {
+        return Result.success(FinanceDtos.from(
+                financeService.getExpenseInsights(currentUserProvider.currentUserId(), range)));
+    }
+
     @ApiLog("创建资产账户")
     @PostMapping("/accounts")
     public Result<AccountResponse> createAccount(@RequestBody CreateAccountRequest request) {
