@@ -8,6 +8,7 @@ struct CalendarView: View {
     @State private var showsMonthPicker = false
     @State private var showsCreate = false
     @State private var selectedEntry: HomeEntry?
+    @State private var selectedNotePeriod: CalendarTodoPeriod?
     @State private var pendingTodoIDs: Set<String> = []
     @State private var monthDirection = 0
     @Environment(\.locale) private var locale
@@ -45,7 +46,7 @@ struct CalendarView: View {
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 20) {
                         ForEach(model.groups) { group in
                             CalendarStickyTodoNote(
-                                group: group, savingIDs: pendingTodoIDs, onToggle: toggle, motion: noteMotion)
+                                group: group, onOpen: { selectedNotePeriod = group.period }, motion: noteMotion)
                         }
                     }
                     .padding(.top, 8)
@@ -67,6 +68,7 @@ struct CalendarView: View {
         .onChange(of: scenePhase) { _, _ in updateNoteMotion() }
         .onChange(of: reduceMotion) { _, _ in updateNoteMotion() }
         .onChange(of: model.groups.count) { _, _ in updateNoteMotion() }
+        .onChange(of: selectedNotePeriod) { _, _ in updateNoteMotion() }
         .task(id: LoadKey(date: home.selectedDate, locale: locale.identifier)) {
             await model.load(for: home.selectedDate, locale: locale)
         }
@@ -91,6 +93,13 @@ struct CalendarView: View {
                 home.selectDate(date)
                 await refresh()
             }
+        }
+        .sheet(item: $selectedNotePeriod) { period in
+            CalendarStickyTodoDetail(
+                period: period, model: model, savingIDs: pendingTodoIDs, onToggle: toggle
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
         .sheet(
             item: $selectedEntry,
@@ -121,7 +130,7 @@ struct CalendarView: View {
     }
 
     private func updateNoteMotion() {
-        if scenePhase == .active && !reduceMotion && !model.groups.isEmpty {
+        if scenePhase == .active && !reduceMotion && !model.groups.isEmpty && selectedNotePeriod == nil {
             noteMotion.start()
         } else {
             noteMotion.stop()
