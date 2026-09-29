@@ -25,7 +25,9 @@ struct HomeDayContentView: View {
             } else if let snapshot = viewModel.snapshot {
                 if showsSummary {
                     HomeDaySummaryView(snapshot: snapshot, category: $viewModel.category)
-                    HomeTrendChartView(points: snapshot.trend)
+                    if !snapshot.trend.isEmpty {
+                        HomeTrendChartView(points: snapshot.trend)
+                    }
                 } else {
                     HStack {
                         Text(snapshot.date, format: .dateTime.month().day().weekday())
@@ -35,7 +37,7 @@ struct HomeDayContentView: View {
                             Text("home.demo.badge").font(.caption2).foregroundStyle(.secondary)
                         }
                     }
-                    if fixedCategory == .finance || fixedCategory == .record {
+                    if !snapshot.trend.isEmpty && (fixedCategory == .finance || fixedCategory == .record) {
                         HomeTrendChartView(
                             points: snapshot.trend,
                             metric: fixedCategory == .record ? .focus : .expense)

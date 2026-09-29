@@ -8,6 +8,7 @@ public final class KeychainService: Sendable {
     private let serviceName = "com.butvan.recordagent"
     private let tokenKey = "auth_bearer_token"
     private let emailKey = "saved_login_email"
+    private let apiSessionKey = "api_auth_session"
 
     public init() {}
 
@@ -37,6 +38,29 @@ public final class KeychainService: Sendable {
 
     public func clearSavedEmail() {
         delete(key: emailKey)
+    }
+
+    /// 真实 API 的会话与服务器来源一同保存，避免误用旧的 Mock Token 或其他环境凭据。
+    func saveAPISession(_ session: AuthSession, server: String) -> Bool {
+        guard let data = try? JSONEncoder().encode(StoredAPISession(server: server, session: session)),
+              let value = String(data: data, encoding: .utf8)
+        else { return false }
+        return save(key: apiSessionKey, value: value)
+    }
+
+    func getAPISession(server: String) -> AuthSession? {
+        guard let value = getString(key: apiSessionKey), let data = value.data(using: .utf8),
+              let stored = try? JSONDecoder().decode(StoredAPISession.self, from: data),
+              stored.server == server
+        else { return nil }
+        return stored.session
+    }
+
+    func clearAPISession() { delete(key: apiSessionKey) }
+
+    private struct StoredAPISession: Codable {
+        let server: String
+        let session: AuthSession
     }
 
     // MARK: - 底层 Keychain API

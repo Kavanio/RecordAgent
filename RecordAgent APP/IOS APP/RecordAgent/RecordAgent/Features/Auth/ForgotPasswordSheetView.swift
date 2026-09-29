@@ -2,6 +2,7 @@ import SwiftUI
 
 /// 忘记密码/找回密码弹窗视图
 public struct ForgotPasswordSheetView: View {
+    let authService: AuthServiceProtocol
     @Environment(\.dismiss) private var dismiss
     @State private var email: String = ""
     @State private var code: String = ""
@@ -9,6 +10,8 @@ public struct ForgotPasswordSheetView: View {
     @State private var isSubmitting: Bool = false
     @State private var isSuccess: Bool = false
     @State private var countdown: Int = 0
+    @State private var isSendingCode = false
+    @State private var errorMessage: String?
 
     public var body: some View {
         NavigationStack {
@@ -51,7 +54,7 @@ public struct ForgotPasswordSheetView: View {
                                         .foregroundColor(AppColors.primaryBlue)
                                 }
                             }
-                            .disabled(countdown > 0 || email.isEmpty)
+                            .disabled(countdown > 0 || email.isEmpty || isSendingCode)
                         )
                     )
 
@@ -94,25 +97,54 @@ public struct ForgotPasswordSheetView: View {
                 }
             }
         }
+        .alert(Text("common.alert.title"), isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("common.ok", role: .cancel) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
     }
 
     private func startCountdown() {
-        countdown = 60
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-            if countdown > 1 {
-                countdown -= 1
-            } else {
-                countdown = 0
-                timer.invalidate()
+        if let error = AuthValidator.validateEmail(email) {
+            errorMessage = error.localizedDescription
+            return
+        }
+        isSendingCode = true
+        Task {
+            defer { isSendingCode = false }
+            do {
+                try await authService.sendVerificationCode(email: email, purpose: .resetPassword)
+                countdown = 60
+                while countdown > 0 {
+                    try await Task.sleep(for: .seconds(1))
+                    countdown -= 1
+                }
+            } catch {
+                if !(error is CancellationError) { errorMessage = error.localizedDescription }
             }
         }
     }
 
     private func submitReset() {
+        if let error = AuthValidator.validateEmail(email)
+            ?? AuthValidator.validateCode(code)
+            ?? AuthValidator.validatePassword(newPassword) {
+            errorMessage = error.localizedDescription
+            return
+        }
         isSubmitting = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            isSubmitting = false
-            isSuccess = true
+        Task {
+            defer { isSubmitting = false }
+            do {
+                try await authService.resetPassword(
+                    email: email, code: code, newPassword: newPassword)
+                isSuccess = true
+            } catch {
+                if !(error is CancellationError) { errorMessage = error.localizedDescription }
+            }
         }
     }
 }

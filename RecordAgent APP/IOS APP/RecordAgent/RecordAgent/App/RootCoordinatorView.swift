@@ -12,7 +12,11 @@ public struct RootCoordinatorView: View {
 
     public var body: some View {
         Group {
-            if authViewModel.isAuthenticated {
+            if authViewModel.isRestoringSession {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+            } else if authViewModel.isAuthenticated {
                 MainTabView(
                     homeService: environment.homeService,
                     calendarService: environment.calendarService,
@@ -29,6 +33,9 @@ public struct RootCoordinatorView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: authViewModel.isAuthenticated)
+        .onReceive(NotificationCenter.default.publisher(for: .apiSessionExpired)) { _ in
+            authViewModel.isAuthenticated = false
+        }
     }
 }
 

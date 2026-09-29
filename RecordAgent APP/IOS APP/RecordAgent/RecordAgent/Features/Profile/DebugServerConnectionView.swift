@@ -52,25 +52,7 @@ struct DebugServerConnectionView: View {
     @MainActor
     private func checkConnection() async {
         result = .checking
-        guard let baseURL = URL(string: serverAddress.trimmingCharacters(in: .whitespacesAndNewlines)),
-              let scheme = baseURL.scheme?.lowercased(),
-              ["http", "https"].contains(scheme),
-              baseURL.host != nil,
-              let url = URL(string: "/actuator/health", relativeTo: baseURL)?.absoluteURL
-        else {
-            result = .failed
-            return
-        }
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 8
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            let healthy = (response as? HTTPURLResponse)?.statusCode == 200
-                && String(data: data, encoding: .utf8)?.contains("\"UP\"") == true
-            result = healthy ? .connected : .failed
-        } catch {
-            result = .failed
-        }
+        result = await DebugServerProbe().isHealthy(address: serverAddress) ? .connected : .failed
     }
 }
 #endif

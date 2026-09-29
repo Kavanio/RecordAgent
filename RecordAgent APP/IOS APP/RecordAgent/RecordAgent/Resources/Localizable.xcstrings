@@ -1,6 +1,48 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
+    "api.error.conflict" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This item changed. Refresh and try again." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "内容已更新，请刷新后重试" } }
+      }
+    },
+    "api.error.login" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Please sign in again." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请重新登录" } }
+      }
+    },
+    "api.error.network" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cannot connect to the server." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无法连接服务器" } }
+      }
+    },
+    "api.error.request" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Request failed. Check your input and try again." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请求失败，请检查输入后重试" } }
+      }
+    },
+    "api.error.response" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Server response could not be read." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "服务器响应无法读取" } }
+      }
+    },
+    "api.error.server_address" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Set the server address first." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请先设置服务器地址" } }
+      }
+    },
+    "api.error.unavailable" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This service is not available yet." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "该功能暂不可用" } }
+      }
+    },
     "debug.server.address" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Computer address" } },
@@ -295,13 +337,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Password must be at least 6 characters"
+            "value" : "Password must be at least 8 characters"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "密码长度至少需要 6 位"
+            "value" : "密码长度至少需要 8 位"
           }
         }
       }

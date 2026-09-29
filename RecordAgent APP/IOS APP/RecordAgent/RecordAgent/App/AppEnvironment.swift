@@ -29,21 +29,16 @@ public final class AppEnvironment: ObservableObject {
     }
 
     public init(
-        authService: AuthServiceProtocol = MockAuthService(),
+        authService: AuthServiceProtocol? = nil,
         keychain: KeychainService = .shared
     ) {
-        self.authService = authService
+        let client = APIClient(keychain: keychain)
+        self.authService = authService ?? APIAuthService(client: client, keychain: keychain)
         self.keychain = keychain
-        #if DEBUG
-            let sharedData = MockHomeDataService()
-            self.homeService = sharedData
-            self.calendarService = sharedData
-            self.profileOverviewService = MockProfileOverviewService()
-        #else
-            self.homeService = UnavailableHomeDataService()
-            self.calendarService = UnavailableHomeDataService()
-            self.profileOverviewService = UnavailableProfileOverviewService()
-        #endif
+        let sharedData = APICalendarDataService(client: client)
+        self.homeService = sharedData
+        self.calendarService = sharedData
+        self.profileOverviewService = UnavailableProfileOverviewService()
         self.profileActivityService = HomeProfileActivityService(homeService: homeService)
         self.profileAppearanceService = LocalProfileAppearanceService()
 

@@ -145,6 +145,7 @@ struct CalendarView: View {
                 set: {
                     if !$0 {
                         model.showWriteError = false
+                        model.writeErrorMessage = nil
                         home.showWriteError = false
                     }
                 }
@@ -152,7 +153,11 @@ struct CalendarView: View {
         ) {
             Button("common.confirm", role: .cancel) {}
         } message: {
-            Text("home.write.failed_detail")
+            if let message = model.writeErrorMessage {
+                Text(verbatim: message)
+            } else {
+                Text("home.write.failed_detail")
+            }
         }
     }
 

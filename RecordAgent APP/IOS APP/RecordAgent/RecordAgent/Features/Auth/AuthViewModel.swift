@@ -20,6 +20,7 @@ public final class AuthViewModel: ObservableObject {
     @Published public var agreementType: AgreementType = .privacy
     @Published public var showForgotPasswordSheet: Bool = false
     @Published public var isAuthenticated: Bool = false
+    @Published public var isRestoringSession: Bool = true
 
     // MARK: - 验证码倒计时
     @Published public var countdownSeconds: Int = 0
@@ -29,7 +30,7 @@ public final class AuthViewModel: ObservableObject {
     private let authService: AuthServiceProtocol
     private let keychain: KeychainService
 
-    public init(authService: AuthServiceProtocol = MockAuthService(), keychain: KeychainService = .shared) {
+    public init(authService: AuthServiceProtocol, keychain: KeychainService = .shared) {
         self.authService = authService
         self.keychain = keychain
 
@@ -41,9 +42,13 @@ public final class AuthViewModel: ObservableObject {
             self.rememberMe = false
         }
 
-        // 检查是否已有活跃会话
-        if authService.getCurrentSession() != nil {
-            self.isAuthenticated = true
+        Task {
+            do {
+                isAuthenticated = try await authService.restoreSession() != nil
+            } catch {
+                isAuthenticated = false
+            }
+            isRestoringSession = false
         }
     }
 
@@ -144,7 +149,8 @@ public final class AuthViewModel: ObservableObject {
 
         Task {
             do {
-                try await authService.sendVerificationCode(email: email)
+                try await authService.sendVerificationCode(
+                    email: email, purpose: authMode == .register ? .register : .login)
                 startCountdown()
             } catch {
                 presentError(error.localizedDescription)
