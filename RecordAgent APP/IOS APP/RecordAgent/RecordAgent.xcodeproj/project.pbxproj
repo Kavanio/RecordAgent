@@ -43,6 +43,7 @@
 		6FB8B6B1B8FF66D363351D55 /* RootCoordinatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796CC2DACFE191DA60E9CC0D /* RootCoordinatorView.swift */; };
 		70EE0698E4D8BCA973BF8D24 /* HomeDataServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D022953ACA931CDDA079236 /* HomeDataServiceProtocol.swift */; };
 		727AE941C325EBE3EB631CE6 /* HomeEntryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99715FD50D7BFDC430C24281 /* HomeEntryListView.swift */; };
+		74E1FBB99983B1D50D4EF15B /* CalendarScheduleCreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC6BB70A035B2F4505C305C /* CalendarScheduleCreateView.swift */; };
 		780D68A9D8F663B6F7960627 /* HomeBannerCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F4A2AC03806192C06685F34 /* HomeBannerCardView.swift */; };
 		799A036EACA5C4B00DD700D5 /* MockAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C185DC38613AF4D9F5F551E /* MockAuthService.swift */; };
 		7A82B6D6C3D2A42E64CCC705 /* AppTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 471CBFCBD11AEF7E20394FAF /* AppTextField.swift */; };
@@ -52,6 +53,8 @@
 		8ADBC7AF0FADDB11017FBB01 /* WorkspacePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3F24544D71C6812973AF6E /* WorkspacePreviewView.swift */; };
 		8FEF83022D678C8F183013E1 /* ForgotPasswordSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4A56B24BA776F5BC2439B6 /* ForgotPasswordSheetView.swift */; };
 		91775C853A0357E3DA858247 /* HomeDayContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB405D900533B283BE85D391 /* HomeDayContentView.swift */; };
+		99378F02844A1C5E81684772 /* CalendarTodoCreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0FFB9A77E9B9AE47825655 /* CalendarTodoCreateView.swift */; };
+		99A8D3DC231117D698F1546F /* CalendarNoteCreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 939CC978C4138BCB3B2ED79C /* CalendarNoteCreateView.swift */; };
 		9DAD14A04E3998AFFB9A46E7 /* CalendarMonthGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1DCBD410FC63E7BA131097 /* CalendarMonthGrid.swift */; };
 		9E9C2086B7E24252FBC9DC52 /* AuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45BA8B8C8FD692C0A8061F9 /* AuthTests.swift */; };
 		A17F2752B5FB20D69B0E1577 /* WeekCalendarStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC77894B27C506A97A9EE3A4 /* WeekCalendarStripView.swift */; };
@@ -137,9 +140,12 @@
 		796CC2DACFE191DA60E9CC0D /* RootCoordinatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootCoordinatorView.swift; sourceTree = "<group>"; };
 		7A67CE1C6375C9228A92C1A3 /* CalendarModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarModels.swift; sourceTree = "<group>"; };
 		7A70F26A979A2EFCE438F32B /* ProfileOverviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileOverviewTests.swift; sourceTree = "<group>"; };
+		7EC6BB70A035B2F4505C305C /* CalendarScheduleCreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarScheduleCreateView.swift; sourceTree = "<group>"; };
 		8B6E69EE4CFF5B586798D2BB /* AppSettingsGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsGroup.swift; sourceTree = "<group>"; };
 		8EC995C0168EA611728C8C4E /* CalendarDataServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDataServiceProtocol.swift; sourceTree = "<group>"; };
+		8F0FFB9A77E9B9AE47825655 /* CalendarTodoCreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTodoCreateView.swift; sourceTree = "<group>"; };
 		91E9C8C3103949632D9C0A39 /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
+		939CC978C4138BCB3B2ED79C /* CalendarNoteCreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarNoteCreateView.swift; sourceTree = "<group>"; };
 		948757F93523D4259A3EB62F /* HomeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeTests.swift; sourceTree = "<group>"; };
 		97F72CFDD0A0243734ACF0CF /* ProfileAppearanceViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAppearanceViewModel.swift; sourceTree = "<group>"; };
 		992857CF3D41AE57D33B3338 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
@@ -326,7 +332,10 @@
 			children = (
 				4896A3228C5701131E6865B2 /* CalendarCreateChooserView.swift */,
 				CC6B60429C63664B770D4CFF /* CalendarCreateEntryView.swift */,
+				939CC978C4138BCB3B2ED79C /* CalendarNoteCreateView.swift */,
 				29DB6EF9B9A700862F49679F /* CalendarPresentation.swift */,
+				7EC6BB70A035B2F4505C305C /* CalendarScheduleCreateView.swift */,
+				8F0FFB9A77E9B9AE47825655 /* CalendarTodoCreateView.swift */,
 				F623A6CBD581E4808C64EC32 /* CalendarView.swift */,
 				724D65EFD953B4919B602CA5 /* CalendarViewModel.swift */,
 				B41999B575D13F86EB04483E /* Components */,
@@ -594,8 +603,11 @@
 				2C3808B14F5A13F277570FBC /* CalendarDayTimeline.swift in Sources */,
 				3E4BD241A8F9F09A29441EAB /* CalendarModels.swift in Sources */,
 				9DAD14A04E3998AFFB9A46E7 /* CalendarMonthGrid.swift in Sources */,
+				99A8D3DC231117D698F1546F /* CalendarNoteCreateView.swift in Sources */,
 				F04D0EA2343FBC1EBB67350A /* CalendarPresentation.swift in Sources */,
+				74E1FBB99983B1D50D4EF15B /* CalendarScheduleCreateView.swift in Sources */,
 				64B74B0C3E293B3019C47BBA /* CalendarStickyTodoNote.swift in Sources */,
+				99378F02844A1C5E81684772 /* CalendarTodoCreateView.swift in Sources */,
 				E13E935FAD5B24DF0FE1978E /* CalendarView.swift in Sources */,
 				46766BE9714F5315ED7903E5 /* CalendarViewModel.swift in Sources */,
 				A7BA422D38D132EEF98A172E /* ColorTokens.swift in Sources */,

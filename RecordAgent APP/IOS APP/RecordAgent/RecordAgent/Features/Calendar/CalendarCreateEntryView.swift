@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 只协调保存与错误状态；三种记录各自拥有独立的编辑布局。
 struct CalendarCreateEntryView: View {
     @ObservedObject var model: CalendarViewModel
     let dates: HomeCalendar
@@ -11,8 +12,7 @@ struct CalendarCreateEntryView: View {
 
     init(
         model: CalendarViewModel, kind: CalendarEntryDraft.Kind, date: Date, dates: HomeCalendar,
-        isDemo: Bool,
-        onCreated: @escaping (CalendarEntryDraft) async -> Void
+        isDemo: Bool, onCreated: @escaping (CalendarEntryDraft) async -> Void
     ) {
         self.model = model
         self.dates = dates
@@ -22,56 +22,64 @@ struct CalendarCreateEntryView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                TextField("calendar.create.title", text: $draft.title)
-                TextField("calendar.create.detail", text: $draft.detail, axis: .vertical).lineLimit(3...6)
-                DatePicker(
-                    "home.date.choose", selection: $draft.date, in: dates.supportedDateTimes,
-                    displayedComponents: [.date, .hourAndMinute])
-                if draft.kind == .todo {
-                    Picker("calendar.create.repeat", selection: $draft.period) {
-                        Text("calendar.repeat.none").tag(Optional<CalendarTodoPeriod>.none)
-                        Text("calendar.repeat.week").tag(Optional(CalendarTodoPeriod.weekly))
-                        Text("calendar.repeat.month").tag(Optional(CalendarTodoPeriod.monthly))
-                    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                switch draft.kind {
+                case .todo:
+                    CalendarTodoCreateView(draft: $draft, dates: dates)
+                case .schedule:
+                    CalendarScheduleCreateView(draft: $draft, dates: dates)
+                case .note:
+                    CalendarNoteCreateView(draft: $draft, dates: dates)
                 }
-            } footer: {
-                if draft.kind == .todo && draft.period != nil { Text("calendar.create.period_hint") }
+                if isDemo {
+                    Text("home.demo.footer")
+                        .font(.footnote)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
             }
-            if isDemo {
-                Section { Text("home.demo.footer").font(.footnote).foregroundStyle(.secondary) }
-            }
+            .frame(maxWidth: 640, alignment: .leading)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 26)
+            .padding(.top, 28)
+            .padding(.bottom, 28)
         }
         .disabled(isSubmitting)
+        .scrollDismissesKeyboard(.interactively)
+        .background { Color(uiColor: .systemBackground).ignoresSafeArea() }
         .navigationTitle(draft.kind.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
+            ToolbarItem(placement: .confirmationAction) {
                 Button("common.cancel") { dismiss() }.disabled(isSubmitting)
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button {
-                    guard !isSubmitting else { return }
-                    isSubmitting = true
-                    Task {
-                        defer { isSubmitting = false }
-                        let submitted = draft
-                        if await model.create(submitted) {
-                            await onCreated(submitted)
-                        }
-                    }
-                } label: {
-                    if isSubmitting { ProgressView() } else { Text("calendar.save") }
-                }
-                .disabled(!draft.isValid || isSubmitting)
-            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            AppButton("calendar.save", iconName: "checkmark", isLoading: isSubmitting,
+                      isEnabled: draft.isValid, action: save)
+                .frame(maxWidth: 640)
+                .padding(.horizontal, 26)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity)
+                .background(.regularMaterial)
         }
         .interactiveDismissDisabled(isSubmitting)
         .alert("home.write.failed", isPresented: $model.showWriteError) {
             Button("common.confirm", role: .cancel) {}
         } message: {
             Text("home.write.failed_detail")
+        }
+    }
+
+    private func save() {
+        guard draft.isValid && !isSubmitting else { return }
+        isSubmitting = true
+        Task {
+            defer { isSubmitting = false }
+            let submitted = draft
+            if await model.create(submitted) {
+                await onCreated(submitted)
+            }
         }
     }
 }
