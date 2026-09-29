@@ -1,7 +1,6 @@
 package com.butvan.recordagent.bootstrap;
 
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -20,7 +19,7 @@ public class ApiLogAspect {
     /** 使用毫秒耗时记录接口开始、完成和失败。 */
     @Around("@annotation(apiLog)")
     public Object logApi(ProceedingJoinPoint joinPoint, ApiLog apiLog) throws Throwable {
-        String requestId = UUID.randomUUID().toString();
+        String requestId = RequestIdFilter.currentRequestId();
         String endpoint = request.getMethod() + " " + joinPoint.getSignature().toShortString();
         long started = System.nanoTime();
         log.info("[API-LOG] START RequestId={} Description={} Endpoint={} ClientIp={} Params=[redacted]",

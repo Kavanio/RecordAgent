@@ -4,6 +4,18 @@
 
 当前只完成规划中的第 1 阶段工程底座：入口、数据库连接、`V1` 迁移、健康检查和默认拒绝业务请求的安全配置。业务域包随实际功能落地时创建。`/api/v1` 业务接口、账户认证、领域表及附件存储尚未实现；不要把当前健康状态当作业务已就绪。
 
+## 基础设施复用盘点
+
+| `server-network` 能力 | 本工程处理方式 |
+| --- | --- |
+| `@ApiLog`、`ApiLogAspect` | 沿用标注与切面方式；本工程日志只输出接口名、脱敏参数标记、服务端请求 ID、客户端 IP、状态与耗时，不导入 Agent 类型或请求正文。 |
+| `Result`、`ApiExceptionHandler` | 沿用统一错误处理思路；本工程使用实际 HTTP 状态和稳定的 `{ code, message, requestId }` 错误体，避免桌面端 HTTP 200 包装错误的语义。 |
+| SQLite 数据源与 Flyway 装配 | 复用 Spring JDBC/Flyway 技术栈，由 Spring Boot 管理 PostgreSQL 连接和事务；不复制本地 SQLite 配置与迁移。 |
+| `CorsConfig` | 桌面端的通配源配置不适合公网服务；当前 iOS 原生客户端无需 CORS，未来有浏览器客户端时再按域名配置。 |
+| `BlobStore`、邮件发送接口 | 接口边界可供后续文件和账户阶段参考；存储位置与邮件供应商尚未定案，当前不引入桌面端路径和本机配置。 |
+
+HTTP 请求由服务端生成 `X-Request-Id`，错误体使用同一个 `requestId`。通用错误码包括 `INVALID_ARGUMENT`、`UNAUTHENTICATED`、`FORBIDDEN`、`NOT_FOUND`、`VERSION_CONFLICT`、`RATE_LIMITED`、`SERVICE_UNAVAILABLE` 和 `INTERNAL_ERROR`；iOS 按 `code` 本地化显示。成功响应由各接口返回明确的 DTO，不添加空泛的通用包装。
+
 ## 本地启动
 
 1. 安装 Java 21、Maven 3.9+ 和 Docker，确保 Docker 服务正在运行。

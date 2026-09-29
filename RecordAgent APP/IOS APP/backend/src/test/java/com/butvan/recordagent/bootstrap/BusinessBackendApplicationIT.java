@@ -2,6 +2,8 @@ package com.butvan.recordagent.bootstrap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -43,11 +46,14 @@ class BusinessBackendApplicationIT {
     @Autowired
     private TestRestTemplate restTemplate;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @LocalServerPort
     private int port;
 
     @Test
-    void migratesFreshDatabaseAndExposesOnlyHealth() {
+    void migratesFreshDatabaseAndExposesOnlyHealth() throws Exception {
         Integer migrationCount = jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM flyway_schema_history WHERE success = true", Integer.class);
         assertThat(migrationCount).isEqualTo(1);
@@ -57,7 +63,13 @@ class BusinessBackendApplicationIT {
                 .isEqualTo(1);
         assertThat(restTemplate.getForEntity("http://localhost:" + port + "/actuator/health", String.class)
                 .getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(restTemplate.getForEntity("http://localhost:" + port + "/api/v1/me", String.class)
-                .getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        ResponseEntity<String> unauthorized = restTemplate.getForEntity(
+                "http://localhost:" + port + "/api/v1/me", String.class);
+        assertThat(unauthorized.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        String requestId = unauthorized.getHeaders().getFirst(RequestIdFilter.HEADER_NAME);
+        assertThat(requestId).isNotBlank();
+        JsonNode error = objectMapper.readTree(unauthorized.getBody());
+        assertThat(error.path("code").asText()).isEqualTo("UNAUTHENTICATED");
+        assertThat(error.path("requestId").asText()).isEqualTo(requestId);
     }
 }
