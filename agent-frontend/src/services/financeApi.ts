@@ -8,6 +8,7 @@ import type {
   FinanceChartRange,
   FinanceCategoryOptions,
   FinanceExpenseChart,
+  FinanceExpenseInsights,
   FinanceOverview,
   FinanceTransaction,
   FinanceTransferResponse,
@@ -68,6 +69,11 @@ export function normalizeFinanceExpenseChart(chart: CompatibleFinanceExpenseChar
 export async function fetchFinanceExpenseChart(range: FinanceChartRange): Promise<FinanceExpenseChart> {
   const chart = await financeRequest<CompatibleFinanceExpenseChart>(`/agent/finance/expense-chart?range=${range}`);
   return normalizeFinanceExpenseChart(chart);
+}
+
+/** 查询账户支出及单笔、分类排行榜。 */
+export function fetchFinanceExpenseInsights(range: FinanceChartRange): Promise<FinanceExpenseInsights> {
+  return financeRequest<FinanceExpenseInsights>(`/agent/finance/expense-insights?range=${range}`);
 }
 
 /** 新建微信、支付宝、银行卡、现金或其他账户。 */

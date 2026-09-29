@@ -20,6 +20,8 @@ import { RECORD_TYPES } from './recordTypes';
 import { LoadingTree } from '../common/LoadingTree';
 import { TopBar } from '../common/TopBar';
 import { Button } from '../common/Button';
+import { TextInput } from '../common/TextInput';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { useMessage } from '../common/Message';
 import { Modal } from '../common/Modal';
 import styles from './RecordPage.module.css';
@@ -72,7 +74,42 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
   const [trashEntries, setTrashEntries] = useState<RecordEntry[] | null>(null);
   const [clearingTrash, setClearingTrash] = useState(false);
   const [confirmClearTrash, setConfirmClearTrash] = useState(false);
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
+  const [importingBackup, setImportingBackup] = useState(false);
+  const [deleteTabTarget, setDeleteTabTarget] = useState<RecordTab | null>(null);
+  const [deletingTab, setDeletingTab] = useState(false);
   const range = useMemo(() => { const from = new Date(today); from.setFullYear(from.getFullYear() - 1); const to = new Date(today); to.setFullYear(to.getFullYear() + 1); return { from: formatDate(from), to: formatDate(to) }; }, [today]);
+
+  const handleConfirmImport = async () => {
+    if (!pendingImportFile) return;
+    setImportingBackup(true);
+    try {
+      const count = await importRecordBackup(pendingImportFile);
+      await load();
+      showMessage('success', `已恢复 ${count} 条资料`);
+      setPendingImportFile(null);
+    } catch (reason) {
+      showMessage('error', reason instanceof Error ? reason.message : '导入失败');
+    } finally {
+      setImportingBackup(false);
+    }
+  };
+
+  const handleConfirmDeleteTab = async () => {
+    if (!deleteTabTarget) return;
+    setDeletingTab(true);
+    try {
+      await deleteRecordTab(deleteTabTarget.id);
+      setActiveTabId('all');
+      await load();
+      showMessage('success', `已删除分类“${deleteTabTarget.name}”`);
+      setDeleteTabTarget(null);
+    } catch (reason) {
+      showMessage('error', reason instanceof Error ? reason.message : '删除失败');
+    } finally {
+      setDeletingTab(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -243,9 +280,9 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
       <div className={styles.search}><MagnifyingGlassIcon size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="搜索资料" placeholder="搜索标题或正文…" /></div>
     } actions={<>
         <TopBarAction iconOnly aria-label="导出备份" onClick={() => void exportRecordBackup()} title="导出备份"><DownloadSimpleIcon size={14} /></TopBarAction>
-        <TopBarAction iconOnly aria-label="导入备份" title="导入备份" onClick={() => importInputRef.current?.click()}><UploadSimpleIcon size={14} /></TopBarAction><input ref={importInputRef} hidden type="file" aria-label="导入备份" accept=".zip,application/zip" onChange={async (event) => {
+        <TopBarAction iconOnly aria-label="导入备份" title="导入备份" onClick={() => importInputRef.current?.click()}><UploadSimpleIcon size={14} /></TopBarAction><input ref={importInputRef} hidden type="file" aria-label="导入备份" accept=".zip,application/zip" onChange={(event) => {
           const file = event.target.files?.[0]; if (!file) return;
-          if (window.confirm('导入会替换当前全部资料，确定继续吗？')) try { const count = await importRecordBackup(file); await load(); showMessage('success', `已恢复 ${count} 条资料`); } catch (reason) { showMessage('error', reason instanceof Error ? reason.message : '导入失败'); }
+          setPendingImportFile(file);
           event.target.value = '';
         }} />
         <TopBarAction iconOnly aria-label="回收站" onClick={() => void fetchRecordTrash().then(setTrashEntries)} title="回收站"><TrashIcon size={14} /></TopBarAction>
@@ -267,7 +304,7 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
 
       <section className={styles.library}>
         <div className={styles.libraryHeader}><div><h2>{activeTab?.name ?? '全部资料'}</h2><span>{visibleRecords.length} 篇</span></div>
-          {activeTab && !activeTab.systemKey && <button className={styles.deleteTabButton} onClick={async () => { if (window.confirm(`删除 Tab“${activeTab.name}”？其中资料仍会保留在全部资料中。`)) { await deleteRecordTab(activeTab.id); setActiveTabId('all'); await load(); } }}>删除 Tab</button>}
+          {activeTab && !activeTab.systemKey && <button className={styles.deleteTabButton} onClick={() => setDeleteTabTarget(activeTab)}>删除 Tab</button>}
         </div>
         <nav className={styles.tabs} aria-label="资料分类">
           <button aria-pressed={activeTabId === 'all'} className={activeTabId === 'all' ? styles.activeTab : ''} onClick={() => setActiveTabId('all')}>全部</button>
@@ -297,7 +334,7 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
     <Modal open={isNewTabModalOpen} title="新建 Tab" onClose={closeNewTabModal} width={420} centered>
       <form className={styles.newTabDialog} onSubmit={submitNewTab}>
         <label htmlFor="new-record-tab">Tab 名称</label>
-        <input ref={newTabInputRef} id="new-record-tab" value={newTabName} onChange={(event) => setNewTabName(event.target.value)}
+        <TextInput ref={newTabInputRef} id="new-record-tab" value={newTabName} onChange={(event) => setNewTabName(event.target.value)}
           placeholder="例如：项目复盘" maxLength={20} required disabled={creatingTab} />
         <span className={styles.inputHint}>最多 20 个字符</span>
         <div className={styles.dialogActions}>
@@ -306,5 +343,29 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
         </div>
       </form>
     </Modal>
+
+    <ConfirmDialog
+      open={Boolean(pendingImportFile)}
+      title="确认恢复资料备份"
+      tone="warning"
+      confirmText="确认覆盖导入"
+      confirmVariant="primary"
+      busy={importingBackup}
+      description="导入将使用备份文件内容合并与替换当前资料库，建议提前导出备份以防丢失。确定要继续导入吗？"
+      onClose={() => { if (!importingBackup) setPendingImportFile(null); }}
+      onConfirm={() => void handleConfirmImport()}
+    />
+
+    <ConfirmDialog
+      open={Boolean(deleteTabTarget)}
+      title="确认删除分类"
+      tone="danger"
+      confirmText="删除分类"
+      confirmVariant="danger"
+      busy={deletingTab}
+      description={`确定要删除 Tab“${deleteTabTarget?.name}”吗？分类下的全部资料仍会保留在“全部”中，不会被丢弃。`}
+      onClose={() => { if (!deletingTab) setDeleteTabTarget(null); }}
+      onConfirm={() => void handleConfirmDeleteTab()}
+    />
   </main>;
 }

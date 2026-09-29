@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { CalendarDotsIcon, MagnifyingGlassIcon, PencilSimpleIcon, WalletIcon } from '@phosphor-icons/react';
 import type { FinanceAccount, FinanceTransaction } from '../../types/finance';
 import { Drawer } from '../common/Drawer';
+import { Select } from '../common/Select';
+import { Button } from '../common/Button';
 import { TransactionTypeIcon } from './TransactionTypeIcon';
 import styles from './TransactionDrawer.module.css';
 
@@ -87,47 +89,58 @@ export const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
   >
     <div className={styles.filters} role="search" aria-label="筛选流水">
       <div className={styles.filterRow}>
-        <label>
-          <span>支付分类</span>
-          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} aria-label="按支付分类筛选">
-            <option value="">全部分类</option>
-            {availableCategories.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>资产支付</span>
-          <select value={selectedAccountId} onChange={(e) => setSelectedAccountId(e.target.value)} aria-label="按资产支付账户筛选">
-            <option value="">全部资产账户</option>
-            {availableAccounts.map((acc) => (
-              <option key={acc.id} value={acc.id}>{acc.name}</option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.typeField}>
-          <span>类型</span>
-          <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)} aria-label="按收支类型筛选">
-            <option value="all">全部</option>
-            <option value="expense">支出</option>
-            <option value="income">收入</option>
-            <option value="yield">收益</option>
-            <option value="transfer">划账</option>
-            <option value="adjustment">余额校准</option>
-          </select>
-        </label>
+        <Select
+          label="支付分类"
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          aria-label="按支付分类筛选"
+          fieldSize="sm"
+          fullWidth
+          options={[
+            { value: '', label: '全部分类' },
+            ...availableCategories.map((cat) => ({ value: cat, label: cat })),
+          ]}
+        />
+        <Select
+          label="资产支付"
+          value={selectedAccountId}
+          onChange={(e) => setSelectedAccountId(e.target.value)}
+          aria-label="按资产支付账户筛选"
+          fieldSize="sm"
+          fullWidth
+          options={[
+            { value: '', label: '全部资产账户' },
+            ...availableAccounts.map((acc) => ({ value: acc.id, label: acc.name })),
+          ]}
+        />
+        <Select
+          label="类型"
+          value={selectedType}
+          onChange={(e) => setSelectedType(e.target.value)}
+          aria-label="按收支类型筛选"
+          fieldSize="sm"
+          fullWidth
+          options={[
+            { value: 'all', label: '全部' },
+            { value: 'expense', label: '支出' },
+            { value: 'income', label: '收入' },
+            { value: 'yield', label: '收益' },
+            { value: 'transfer', label: '划账' },
+            { value: 'adjustment', label: '余额校准' },
+          ]}
+        />
       </div>
 
       <div className={styles.filterRowBottom}>
         <label><span>日期</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
         <label className={styles.searchField}><span>说明搜索</span><div><MagnifyingGlassIcon size={14} aria-hidden="true" /><input type="search" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索流水说明" /></div></label>
-        {hasActiveFilter && <button type="button" className={styles.clearButton} onClick={resetFilters}>清除筛选</button>}
+        {hasActiveFilter && <Button variant="ghost" size="sm" onClick={resetFilters}>清除筛选</Button>}
       </div>
     </div>
 
     <div className={styles.list} aria-live="polite">
       {loading ? <div className={styles.state}>正在读取全部流水…</div>
-        : error ? <div className={styles.state}><strong>流水加载失败</strong><p>{error}</p><button type="button" onClick={onRetry}>重新加载</button></div>
+        : error ? <div className={styles.state}><strong>流水加载失败</strong><p>{error}</p><Button variant="outline" size="sm" onClick={onRetry}>重新加载</Button></div>
           : filtered.length ? filtered.map((transaction) => {
             const isExpense = transaction.transactionType === 'expense';
             const isTransferOut = transaction.transactionType === 'transfer_out';

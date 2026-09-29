@@ -1,6 +1,7 @@
 package butvan.agent.network.finance.repository;
 
 import butvan.agent.network.finance.model.FinanceModels.FinanceAccount;
+import butvan.agent.network.finance.model.FinanceModels.AccountExpense;
 import butvan.agent.network.finance.model.FinanceModels.FinanceTransaction;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -29,6 +30,24 @@ public class FinanceRepository {
     }
 
     private final JdbcTemplate jdbcTemplate;
+
+    /** 账户收支分别统计 expense 与 income / yield；划账、余额校准和旧日历花销不参与。 */
+    public List<AccountExpense> findAccountExpenses(String ownerId, LocalDate from, LocalDate to) {
+        return jdbcTemplate.query("""
+                SELECT a.id AS account_id, a.name AS account_name, a.account_type AS account_type,
+                       COALESCE(SUM(CASE WHEN t.transaction_type = 'expense' THEN t.amount_minor ELSE 0 END), 0) AS amount_minor,
+                       COALESCE(SUM(CASE WHEN t.transaction_type IN ('income', 'yield') THEN t.amount_minor ELSE 0 END), 0) AS income_minor
+                FROM finance_account a
+                LEFT JOIN finance_transaction t ON t.account_id = a.id AND t.owner_id = a.owner_id
+                    AND t.transaction_type IN ('expense', 'income', 'yield') AND t.transaction_date BETWEEN ? AND ?
+                WHERE a.owner_id = ?
+                GROUP BY a.id, a.name, a.account_type, a.created_at
+                ORDER BY amount_minor DESC, a.created_at, a.id
+                """, (rs, rowNum) -> new AccountExpense(rs.getString("account_id"),
+                rs.getString("account_name"), rs.getString("account_type"), BigDecimal.valueOf(rs.getLong("amount_minor"), 2),
+                BigDecimal.valueOf(rs.getLong("income_minor"), 2)),
+                from.toString(), to.toString(), ownerId);
+    }
 
     /** 查询用户在指定收支类型中使用过的分类。 */
     public List<String> findTransactionCategories(String ownerId, String transactionType) {

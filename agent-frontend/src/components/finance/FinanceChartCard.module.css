@@ -1,0 +1,9 @@
+.card.card { min-width: 0; display: flex; flex-direction: column; padding: 24px; border: 1px solid color-mix(in srgb, var(--border-subtle) 65%, var(--bg-app)); border-radius: 20px; background: var(--bg-app); transition: none; }
+.heading { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.title { min-width: 0; }
+.title h3 { margin: 0; color: var(--text-primary); font-size: 13px; font-weight: 600; letter-spacing: -.01em; line-height: 1.5; }
+.title p { margin: 5px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
+.body { flex: 1; min-width: 0; }
+.footer { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-top: 20px; padding-top: 14px; border-top: 1px solid color-mix(in srgb, var(--border-subtle) 55%, var(--bg-app)); color: var(--text-secondary); font-size: 10px; line-height: 1.7; }
+.footer > p { margin: 0; }
+@container finance (max-width: 580px) { .card.card { padding: 20px 16px; border-radius: 16px; } }

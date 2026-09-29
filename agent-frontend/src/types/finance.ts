@@ -72,6 +72,17 @@ export interface FinanceExpenseChart {
   categoryColors?: Record<string, string>;
 }
 
+/** 账户支出与两种排行的同期间数据；账户图仅包含已绑定账户的支出。 */
+export interface FinanceExpenseInsights {
+  range: FinanceChartRange;
+  from: string;
+  to: string;
+  totalExpense: number;
+  accounts: Array<{ accountId: string; accountName: string; accountType?: FinanceAccountType; amount: number; income: number }>;
+  transactions: Array<{ id: string; note: string; category: string; date: string; amount: number; source: string }>;
+  categories: FinanceExpenseCategory[];
+}
+
 export interface CreateFinanceAccountInput {
   name: string;
   accountType: FinanceAccountType;

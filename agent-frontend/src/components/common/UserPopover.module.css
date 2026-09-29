@@ -88,6 +88,19 @@
   background-color: #f1f5f9;
 }
 
+.shortcutKey {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.dangerItem {
+  color: #ef4444;
+}
+
+.dangerItem svg {
+  color: #ef4444;
+}
+
 @keyframes slideUp {
   from {
     opacity: 0;

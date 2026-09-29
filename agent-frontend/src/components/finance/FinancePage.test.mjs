@@ -18,6 +18,10 @@ const chart = (range = 'month', totalExpense = 1200) => ({
   range, from: '2026-09-01', to: '2026-09-25', totalExpense, totalIncome: 6000,
   days: [{ date: '2026-09-01', total: totalExpense, income: 6000, categories: [{ category: '餐饮', amount: totalExpense }] }],
 });
+const insights = (range = 'month') => ({ range, from: '2026-09-01', to: '2026-09-25', totalExpense: 1200,
+  accounts: [{ accountId: 'wallet', accountName: '日常账户', accountType: 'wechat_balance', amount: 1200, income: 6000 }],
+  transactions: [{ id: 'meal', note: '午餐', category: '餐饮', date: '2026-09-25', amount: 1200, source: 'finance' }],
+  categories: [{ category: '餐饮', amount: 1200 }] });
 function deferred() {
   let resolve, reject;
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
@@ -60,6 +64,7 @@ beforeEach(() => {
     if (url.pathname.endsWith('/overview')) return response(overview);
     if (url.pathname.endsWith('/categories')) return response({ expense: [], income: [] });
     if (url.pathname.endsWith('/expense-chart')) return response(chart(url.searchParams.get('range')));
+    if (url.pathname.endsWith('/expense-insights')) return response(insights(url.searchParams.get('range')));
     throw new Error(`未预期请求：${url}`);
   };
   globalThis.fetch = async (url, init) => respond(new URL(String(url)), init);
@@ -83,6 +88,7 @@ async function click(name) {
 const summary = () => container.querySelector('[aria-label="本月财务概览"]');
 const trend = () => [...container.querySelectorAll('section')].find((item) => item.querySelector('h2')?.textContent === '收支趋势');
 const totals = () => [...trend().querySelectorAll('dd')].map((item) => item.textContent);
+const analysis = () => container.querySelector('section[aria-label="支出分析"]');
 async function selectCategory(value) {
   const select = [...document.querySelectorAll('select')].find((item) => [...item.options].some((option) => option.value === '__custom_category__'));
   await React.act(async () => {
@@ -237,6 +243,62 @@ test('分类请求失败时图表仍直接使用同次响应中的已保存颜�
   assert.equal(trend().querySelector('[data-finance-category="餐饮"]').getAttribute('fill'), '#A855F7');
 });
 
+test('账户支出柱图与单笔、分类排行可切换，切换期间时隐藏旧数据', async () => {
+  await render();
+  const cards = [...analysis().querySelectorAll('[role="region"]')];
+  assert.equal(cards.length, 2);
+  assert.match(analysis().textContent, /日常账户/);
+  const barChart = analysis().querySelector('[role="group"][aria-label="账户支出柱状图"]');
+  assert.ok(barChart);
+  assert.equal(barChart.querySelectorAll('[class*="barGroup"]').length, 1);
+  assert.match(barChart.querySelector('[class*="barEnvelope"]').getAttribute('style'), /height:/);
+  assert.match(barChart.textContent, /2000|2,000/);
+  assert.match(analysis().textContent, /午餐/);
+  await click('支出分类');
+  assert.doesNotMatch(analysis().textContent, /午餐/);
+  assert.match(analysis().textContent, /餐饮/);
+  const normal = respond, week = deferred();
+  respond = (url) => url.pathname.endsWith('/expense-insights') && url.searchParams.get('range') === 'week' ? week.promise : normal(url);
+  await click('分析本周');
+  assert.deepEqual([...analysis().querySelectorAll('[role="region"]')], cards, '切换周期时保留两张卡片');
+  assert.equal(analysis().querySelectorAll('[role="status"]').length, 2);
+  assert.doesNotMatch(analysis().textContent, /1,200\.00/);
+  await React.act(async () => week.resolve(response(insights('week'))));
+  assert.deepEqual([...analysis().querySelectorAll('[role="region"]')], cards);
+  assert.match(analysis().textContent, /1,200\.00/);
+});
+
+test('账户柱图按账户品牌着色，未知银行保留中性色，收入切换不改变品牌', async () => {
+  const normal = respond;
+  const accounts = [
+    { accountId: 'wechat', accountName: '微信余额', accountType: 'wechat_balance' },
+    { accountId: 'alipay', accountName: '支付宝余额宝', accountType: 'alipay_yuebao' },
+    { accountId: 'cmb', accountName: '招商银行万事达卡', accountType: 'bank' },
+    { accountId: 'abc', accountName: '农业银行6779', accountType: 'bank' },
+    { accountId: 'ccb', accountName: '建设银行4939', accountType: 'bank' },
+    { accountId: 'unknown', accountName: '其他银行', accountType: 'bank' },
+  ].map((account) => ({ ...account, amount: 100, income: 50 }));
+  respond = (url) => url.pathname.endsWith('/expense-insights')
+    ? response({ ...insights(url.searchParams.get('range')), accounts }) : normal(url);
+  await render();
+  const brands = () => [...analysis().querySelectorAll('[class*="barGroup"]')].map((bar) => bar.dataset.brand);
+  assert.deepEqual(brands(), ['wechat', 'alipay', 'cmb', 'abc', 'ccb', 'bank']);
+  await click('收入');
+  assert.deepEqual(brands(), ['wechat', 'alipay', 'cmb', 'abc', 'ccb', 'bank']);
+});
+
+test('旧版支出分析响应缺少账户类型时仍能展示账户柱图', async () => {
+  const normal = respond;
+  respond = (url) => url.pathname.endsWith('/expense-insights')
+    ? response({ ...insights(url.searchParams.get('range')), accounts: [
+      { accountId: 'wechat', accountName: '微信余额', amount: 100, income: 50 },
+      { accountId: 'bank', accountName: '招商银行万事达卡', amount: 80, income: 20 },
+    ] }) : normal(url);
+  await render();
+  const bars = [...analysis().querySelectorAll('[class*="barGroup"]')];
+  assert.deepEqual(bars.map((bar) => bar.dataset.brand), ['wechat', 'cmb']);
+});
+
 test('新增自定义分类选色随记账提交，重新打开页面后读取保存的颜色', async () => {
   const normal = respond;
   let saved;
@@ -300,4 +362,24 @@ test('取消选色不写入，未修改颜色的记账不会覆盖后端配色',
   form.querySelector('[name="note"]').value = '早餐';
   await React.act(async () => form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
   assert.equal(Object.hasOwn(saved, 'categoryColor'), false);
+});
+
+
+test('账户收入切换显示真实金额，悬浮与键盘可读取占比，排行保持支出口径', async () => {
+  await render();
+  await click('收入');
+  const chart = analysis().querySelector('[aria-label="账户收入柱状图"]');
+  assert.ok(chart);
+  const bar = chart.querySelector('button');
+  assert.match(bar.getAttribute('aria-label'), /6,000\.00/);
+  await React.act(async () => bar.dispatchEvent(new dom.window.MouseEvent('mouseover', { bubbles: true })));
+  assert.match(chart.querySelector('[role="tooltip"]').textContent, /100\.0%/);
+  assert.match(chart.querySelector('[role="tooltip"]').textContent, /6,000\.00/);
+  await React.act(async () => bar.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  assert.equal(chart.querySelector('[role="tooltip"]'), null);
+  await React.act(async () => bar.focus());
+  assert.ok(chart.querySelector('[role="tooltip"]'));
+  assert.match(analysis().textContent, /午餐/);
+  await click('分析本周');
+  assert.ok(analysis().querySelector('[aria-label="账户收入柱状图"]'), '期间切换保留收入模式');
 });

@@ -4,6 +4,7 @@ import butvan.agent.network.finance.model.FinanceModels.FinanceAccount;
 import butvan.agent.network.finance.model.FinanceModels.FinanceOverview;
 import butvan.agent.network.finance.model.FinanceModels.FinanceTransaction;
 import butvan.agent.network.finance.model.FinanceModels.ExpenseChart;
+import butvan.agent.network.finance.model.FinanceModels.ExpenseInsights;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -78,6 +79,16 @@ public final class FinanceDtos {
             List<ExpenseChartDayResponse> days, Map<String, String> categoryColors) {
     }
 
+    /** 账户图、单笔排行和分类排行共用同一次期间查询。 */
+    public record AccountExpenseResponse(String accountId, String accountName, String accountType,
+                                         BigDecimal amount, BigDecimal income) {}
+    public record RankedExpenseResponse(String id, String note, String category, LocalDate date,
+                                        BigDecimal amount, String source) {}
+    public record ExpenseInsightsResponse(String range, LocalDate from, LocalDate to,
+                                          BigDecimal totalExpense, List<AccountExpenseResponse> accounts,
+                                          List<RankedExpenseResponse> transactions,
+                                          List<ExpenseCategoryResponse> categories) {}
+
     /** 分类名称保持兼容，colors 按 expense / income 返回已保存的颜色覆盖。 */
     public record TransactionCategoryOptionsResponse(
             List<String> expense, List<String> income, Map<String, Map<String, String>> colors) {
@@ -116,5 +127,15 @@ public final class FinanceDtos {
                 chart.days().stream().map(day -> new ExpenseChartDayResponse(
                         day.date(), day.total(), day.income(), day.categories().stream()
                         .map(item -> new ExpenseCategoryResponse(item.category(), item.amount())).toList())).toList(), chart.categoryColors());
+    }
+
+    public static ExpenseInsightsResponse from(ExpenseInsights insights) {
+        return new ExpenseInsightsResponse(insights.range(), insights.from(), insights.to(), insights.totalExpense(),
+                insights.accounts().stream().map(account -> new AccountExpenseResponse(
+                        account.accountId(), account.accountName(), account.accountType(), account.amount(), account.income())).toList(),
+                insights.transactions().stream().map(entry -> new RankedExpenseResponse(
+                        entry.id(), entry.note(), entry.category(), entry.date(), entry.amount(), entry.source())).toList(),
+                insights.categories().stream().map(item -> new ExpenseCategoryResponse(
+                        item.category(), item.amount())).toList());
     }
 }

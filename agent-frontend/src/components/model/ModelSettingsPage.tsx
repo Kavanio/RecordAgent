@@ -5,7 +5,7 @@ import { Button } from '../common/Button';
 import { Select } from '../common/Select';
 import { FormField } from '../common/FormField';
 import { TextInput } from '../common/TextInput';
-import { Modal } from '../common/Modal';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { Badge } from '../common/Badge';
 import { Toggle } from '../common/Toggle';
 import { useMessage } from '../common/Message';
@@ -1019,25 +1019,22 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
             )}
 
             {/* 删除确认弹窗 */}
-            <Modal
+            <ConfirmDialog
               open={showDeleteModal}
               title="确认删除模型"
+              tone="danger"
+              confirmVariant="danger"
+              confirmText="删除"
+              description={
+                <>
+                  确定要删除模型 <strong>{selectedModel?.name || selectedModel?.id}</strong> 吗？
+                  <br />
+                  删除后将从配置文件中移除，无法在对话中继续使用此模型。
+                </>
+              }
               onClose={() => setShowDeleteModal(false)}
-            >
-              <div style={{ padding: '8px 0', fontSize: 14, color: '#374151', lineHeight: 1.6 }}>
-                确定要删除模型 <strong>{selectedModel?.name || selectedModel?.id}</strong> 吗？
-                <br />
-                删除后将从配置文件中移除，无法在对话中继续使用此模型。
-              </div>
-              <div className={styles.modalActions}>
-                <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
-                  取消
-                </Button>
-                <Button variant="danger" onClick={handleConfirmDelete}>
-                  删除
-                </Button>
-              </div>
-            </Modal>
+              onConfirm={handleConfirmDelete}
+            />
           </div>
         )}
 

@@ -4,6 +4,8 @@ import butvan.agent.network.daily.service.ExpenseAnalyticsService;
 import butvan.agent.network.finance.model.FinanceModels.ExpenseCategoryAmount;
 import butvan.agent.network.finance.model.FinanceModels.ExpenseChart;
 import butvan.agent.network.finance.model.FinanceModels.ExpenseChartDay;
+import butvan.agent.network.finance.model.FinanceModels.ExpenseInsights;
+import butvan.agent.network.finance.model.FinanceModels.RankedExpense;
 import butvan.agent.network.finance.model.FinanceModels.FinanceAccount;
 import butvan.agent.network.finance.model.FinanceModels.CashflowSummary;
 import butvan.agent.network.finance.model.FinanceModels.FinanceOverview;
@@ -69,13 +71,7 @@ public class FinanceService {
         requireOwner(ownerId);
         String normalizedRange = range == null || range.isBlank() ? "month" : range.trim().toLowerCase();
         LocalDate today = LocalDate.now();
-        LocalDate from = switch (normalizedRange) {
-            case "today" -> today;
-            case "week" -> today.minusDays(today.getDayOfWeek().getValue() - 1L);
-            case "month" -> today.withDayOfMonth(1);
-            case "year" -> today.withDayOfYear(1);
-            default -> throw new IllegalArgumentException("图表时间范围仅支持 today、week、month 或 year");
-        };
+        LocalDate from = chartStart(normalizedRange, today);
         settleYieldThrough(ownerId, today);
         var analysis = expenseAnalyticsService.analyze(ownerId, from, today);
         Map<LocalDate, BigDecimal> incomeByDate = repository
@@ -88,6 +84,47 @@ public class FinanceService {
         BigDecimal totalIncome = incomeByDate.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         return new ExpenseChart(normalizedRange, from, today, analysis.totalExpense(), totalIncome, days,
                 repository.findTransactionCategoryColors(ownerId, "expense"));
+    }
+
+    /** 补齐收益后查询期间内各账户收支，以及全口径支出排行。 */
+    @Transactional
+    public ExpenseInsights getExpenseInsights(String ownerId, String range) {
+        requireOwner(ownerId);
+        String normalizedRange = range == null || range.isBlank() ? "month" : range.trim().toLowerCase();
+        if (!Set.of("week", "month", "year").contains(normalizedRange)) {
+            throw new IllegalArgumentException("支出分析时间范围仅支持 week、month 或 year");
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate from = chartStart(normalizedRange, today);
+        settleYieldThrough(ownerId, today);
+        var expenses = expenseAnalyticsService.reportExpenses(ownerId, from, today);
+        List<RankedExpense> transactions = expenses.stream()
+                .sorted(Comparator.comparing(ExpenseAnalyticsService.ExpenseEntry::amount).reversed()
+                        .thenComparing(ExpenseAnalyticsService.ExpenseEntry::date, Comparator.reverseOrder())
+                        .thenComparing(ExpenseAnalyticsService.ExpenseEntry::id))
+                .map(entry -> new RankedExpense(entry.id(), entry.note(), entry.category(),
+                        entry.date(), entry.amount(), entry.source())).toList();
+        Map<String, BigDecimal> byCategory = expenses.stream().collect(Collectors.toMap(
+                ExpenseAnalyticsService.ExpenseEntry::category,
+                ExpenseAnalyticsService.ExpenseEntry::amount, BigDecimal::add));
+        List<ExpenseCategoryAmount> categories = byCategory.entrySet().stream()
+                .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed()
+                        .thenComparing(Map.Entry::getKey))
+                .map(entry -> new ExpenseCategoryAmount(entry.getKey(), entry.getValue())).toList();
+        BigDecimal total = expenses.stream().map(ExpenseAnalyticsService.ExpenseEntry::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new ExpenseInsights(normalizedRange, from, today,
+                repository.findAccountExpenses(ownerId, from, today), transactions, categories, total);
+    }
+
+    private LocalDate chartStart(String range, LocalDate today) {
+        return switch (range) {
+            case "today" -> today;
+            case "week" -> today.minusDays(today.getDayOfWeek().getValue() - 1L);
+            case "month" -> today.withDayOfMonth(1);
+            case "year" -> today.withDayOfYear(1);
+            default -> throw new IllegalArgumentException("图表时间范围仅支持 today、week、month 或 year");
+        };
     }
 
     private List<FinanceTransaction> findRecentTransactions(String ownerId) {

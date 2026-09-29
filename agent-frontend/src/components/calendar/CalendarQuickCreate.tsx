@@ -11,6 +11,8 @@ import {
 import type { CalendarRecordDraft, TodoPriority, TodoRecurrence } from '../../types/calendar';
 import { Modal } from '../common/Modal';
 import { Select } from '../common/Select';
+import { Button } from '../common/Button';
+import { TextInput } from '../common/TextInput';
 import { TimeWheelPicker } from './TimeWheelPicker';
 import styles from './CalendarQuickCreate.module.css';
 
@@ -144,7 +146,10 @@ export const CalendarQuickCreate: React.FC<CalendarQuickCreateProps> = ({ select
             </div>
 
             {activeKind === 'todo' && <>
-              <label className={styles.field}>待办内容<input name="title" required autoFocus placeholder="例如：整理项目笔记" /></label>
+              <label className={styles.field}>
+                <span>待办内容</span>
+                <TextInput name="title" required autoFocus placeholder="例如：整理项目笔记" />
+              </label>
               <div className={styles.fieldRowThree}>
                 <div className={styles.field}><span>时间（选填）</span><TimeWheelPicker name="time" ariaLabel="待办时间" /></div>
                 <Select name="priority" label="优先级" options={PRIORITY_OPTIONS} defaultValue="medium" fieldSize="md" fullWidth />
@@ -176,17 +181,23 @@ export const CalendarQuickCreate: React.FC<CalendarQuickCreateProps> = ({ select
             </>}
 
             {activeKind === 'schedule' && <>
-              <label className={styles.field}>日程名称<input name="title" required autoFocus placeholder="例如：产品评审会" /></label>
+              <label className={styles.field}>
+                <span>日程名称</span>
+                <TextInput name="title" required autoFocus placeholder="例如：产品评审会" />
+              </label>
               <div className={styles.fieldRow}>
                 <div className={styles.field}><span>开始（选填）</span><TimeWheelPicker name="startTime" ariaLabel="日程开始时间" /></div>
                 <div className={styles.field}><span>结束（选填）</span><TimeWheelPicker name="endTime" ariaLabel="日程结束时间" /></div>
               </div>
-              <label className={styles.field}>地点<input name="location" placeholder="选填" /></label>
+              <label className={styles.field}>
+                <span>地点</span>
+                <TextInput name="location" placeholder="选填" />
+              </label>
             </>}
 
             <div className={styles.formActions}>
-              <button type="button" className={styles.cancelButton} onClick={closeModal}>取消</button>
-              <button type="submit" className={styles.submitButton}>{saving ? '保存中…' : `保存到 ${selectedDateLabel}`}</button>
+              <Button type="button" variant="outline" onClick={closeModal} disabled={saving}>取消</Button>
+              <Button type="submit" variant="primary" disabled={saving}>{saving ? '保存中…' : `保存到 ${selectedDateLabel}`}</Button>
             </div>
             </fieldset>
           </form>

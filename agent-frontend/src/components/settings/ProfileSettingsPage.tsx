@@ -6,6 +6,7 @@ import type { DailyTokenUsage, TokenUsageOverview } from '../../types/tokenUsage
 import { formatTokenCount } from '../chat/tokenUsageFormat';
 import { Button } from '../common/Button';
 import { useMessage } from '../common/Message';
+import { SettingsPageLayout } from './SettingsPageLayout';
 import styles from './ProfileSettingsPage.module.css';
 
 interface ProfileSettingsPageProps {
@@ -87,13 +88,15 @@ export function ProfileSettingsPage({ accountStatus, onAccountStatusChange }: Pr
   const avatarText = accountStatus?.maskedEmail?.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '').slice(0, 1).toUpperCase() || 'B';
 
   return (
-    <section className={styles.page} aria-labelledby="profile-title">
-      <header className={styles.topBar}>
-        <h1 id="profile-title">个人资料</h1>
+    <SettingsPageLayout
+      title="个人资料"
+      description="查看本机用户状态与本地 Token 消耗总览。"
+      actions={
         <Button variant="ghost" icon={<RefreshCw size={14} />} onClick={() => void load()} disabled={loading}>
           {loading ? '正在刷新' : '刷新统计'}
         </Button>
-      </header>
+      }
+    >
 
       <div className={styles.identity}>
         <button
@@ -204,7 +207,7 @@ export function ProfileSettingsPage({ accountStatus, onAccountStatusChange }: Pr
           </section>
         </div>
       )}
-    </section>
+    </SettingsPageLayout>
   );
 }
 
