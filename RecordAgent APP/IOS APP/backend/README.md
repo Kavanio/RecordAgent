@@ -2,7 +2,7 @@
 
 本目录是独立 Maven 根工程，使用 Java 21、Spring Boot 3.5.16、PostgreSQL 17.11、Spring JDBC、Flyway 和 Spring Security。版本锁定参考 [Spring Boot 稳定版本列表](https://docs.spring.io/spring-boot/spring-projects.html)、[系统要求](https://docs.spring.io/spring-boot/system-requirements.html)及 [PostgreSQL 支持周期](https://www.postgresql.org/support/versioning/)。不依赖桌面端 Maven 工程或 SQLite。
 
-当前只完成规划中的第 1 阶段工程底座：入口、领域包边界、数据库连接、`V1` 迁移、健康检查和默认拒绝业务请求的安全配置。`/api/v1` 业务接口、账户认证、领域表及附件存储尚未实现；不要把当前健康状态当作业务已就绪。
+当前只完成规划中的第 1 阶段工程底座：入口、数据库连接、`V1` 迁移、健康检查和默认拒绝业务请求的安全配置。业务域包随实际功能落地时创建。`/api/v1` 业务接口、账户认证、领域表及附件存储尚未实现；不要把当前健康状态当作业务已就绪。
 
 ## 本地启动
 
