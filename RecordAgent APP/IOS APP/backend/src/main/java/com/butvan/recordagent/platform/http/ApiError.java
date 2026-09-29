@@ -1,4 +1,6 @@
-package com.butvan.recordagent.bootstrap;
+package com.butvan.recordagent.platform.http;
+
+import com.butvan.recordagent.platform.observability.RequestIdFilter;
 
 /** 面向客户端的稳定错误结构；不包含异常栈或敏感请求内容。 */
 public record ApiError(String code, String message, String requestId) {

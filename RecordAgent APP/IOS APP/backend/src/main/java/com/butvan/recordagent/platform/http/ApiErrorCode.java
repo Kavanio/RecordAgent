@@ -1,4 +1,4 @@
-package com.butvan.recordagent.bootstrap;
+package com.butvan.recordagent.platform.http;
 
 import org.springframework.http.HttpStatus;
 

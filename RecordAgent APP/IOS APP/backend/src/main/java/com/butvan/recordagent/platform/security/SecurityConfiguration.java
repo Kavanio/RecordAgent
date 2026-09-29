@@ -1,5 +1,6 @@
-package com.butvan.recordagent.bootstrap;
+package com.butvan.recordagent.platform.security;
 
+import com.butvan.recordagent.platform.http.ApiErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import org.springframework.context.annotation.Bean;

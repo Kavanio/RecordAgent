@@ -1,4 +1,4 @@
-package com.butvan.recordagent.bootstrap;
+package com.butvan.recordagent.platform.http;
 
 /** 由领域服务抛出的预期业务错误；公开响应只使用稳定错误码。 */
 public class ApiException extends RuntimeException {

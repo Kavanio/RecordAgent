@@ -1,4 +1,4 @@
-package com.butvan.recordagent.bootstrap;
+package com.butvan.recordagent.platform.observability;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

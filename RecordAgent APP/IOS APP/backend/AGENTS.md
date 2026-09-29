@@ -2,6 +2,14 @@
 
 本文件适用于当前目录及全部子目录，叠加仓库根目录 `AGENTS.md`。开发或修改本项目时先读取 [后端开发规划.md](后端开发规划.md)，核对当前阶段、接口和数据归属。
 
+## 目录与包结构
+
+- 本目录是独立 Maven 根工程；启动类固定在 `com.butvan.recordagent` 根包。根包不放业务逻辑，避免组件扫描范围和包职责含糊。
+- 直接子包按业务能力组织：`account`、`calendar`、`finance`、`record`、`study`、`file`、`overview`、后续 `automation`。只在实际功能落地时创建包，不提交空包或占位文件。
+- 每个业务模块按实际复杂度建立 `api`（Controller 与 DTO）、`application`（用例与事务）、`domain`（规则与模型）、`persistence`（PostgreSQL Adapter）。不要求无内容的四层目录；跨模块只依赖公开接口，不直接调用别人的 `persistence` 或实体。
+- 非业务横切代码归 `platform`：`http` 管统一错误与协议，`security` 管认证过滤与授权装配，`observability` 管请求关联和安全日志。不得把新增能力继续堆在旧 `bootstrap` 包或泛用 `common`、`utils` 中。
+- `src/main/resources/db/migration/` 只放按版本递增的 PostgreSQL 迁移；测试包镜像生产包，端到端测试可放根包。目录移动时同步修正包名、导入、测试和本文件。
+
 - 本目录是独立的 Spring Boot + PostgreSQL 多用户业务后端；初期服务 iOS，后续承接桌面业务。Agent 编排、模型调用、桌面 sidecar 和本机操作能力归属其他项目。
 - 以日历、财务、资料、记录、任务等业务域划分代码。Controller 只处理协议、认证结果和 DTO；业务规则在领域服务；数据库与附件通过各自 Adapter 访问。跨域组合通过公开服务接口，不直接查询其他领域表。
 - 所有业务读写从已认证请求取得稳定用户 ID；查询、更新、删除及文件访问必须校验所有权。客户端传入的用户 ID、邮箱或文件路径不得作为授权依据。
@@ -11,7 +19,7 @@
 - HTTP 错误统一使用实际状态码及 `{ code, message, requestId }`；`code` 是稳定的客户端分支依据，`requestId` 由服务端生成并通过 `X-Request-Id` 返回。禁止向客户端或日志输出异常原文、用户输入及凭据。
 - 每个阶段至少验证认证隔离、领域不变量、PostgreSQL 迁移及主要 HTTP 错误路径；用真实 PostgreSQL 的隔离测试环境验证持久化行为，不以桌面 SQLite 测试替代。
 
-本目录已建立独立 Maven 工程与第 1 阶段数据库底座；账户、业务 API、领域表与部署环境仍按规划分阶段建立。新增稳定子目录规则时在对应目录建立中文 `AGENTS.md`，并更新本文件的子级索引。
+本目录已建立独立 Maven 工程与第 1 阶段数据库底座；账户、业务 API、领域表与部署环境仍按规划分阶段建立。新增更具体的子目录规则时在对应目录建立中文 `AGENTS.md`，并更新本文件的子级索引。
 
 ## 子级 DOX 索引
 

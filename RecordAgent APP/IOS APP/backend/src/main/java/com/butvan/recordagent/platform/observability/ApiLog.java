@@ -1,4 +1,4 @@
-package com.butvan.recordagent.bootstrap;
+package com.butvan.recordagent.platform.observability;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

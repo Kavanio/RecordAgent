@@ -1,5 +1,6 @@
-package com.butvan.recordagent.bootstrap;
+package com.butvan.recordagent.platform.http;
 
+import com.butvan.recordagent.platform.observability.RequestIdFilter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;

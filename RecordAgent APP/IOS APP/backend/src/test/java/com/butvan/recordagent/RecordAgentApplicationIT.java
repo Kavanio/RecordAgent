@@ -1,5 +1,6 @@
-package com.butvan.recordagent.bootstrap;
+package com.butvan.recordagent;
 
+import com.butvan.recordagent.platform.observability.RequestIdFilter;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -22,7 +23,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 /** 以隔离的真实 PostgreSQL 校验启动迁移及最小 HTTP 暴露面。 */
 @Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class BusinessBackendApplicationIT {
+class RecordAgentApplicationIT {
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
             System.getProperty("test.postgres.image", "postgres:17.11"))

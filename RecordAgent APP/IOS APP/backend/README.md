@@ -4,6 +4,24 @@
 
 当前只完成规划中的第 1 阶段工程底座：入口、数据库连接、`V1` 迁移、健康检查和默认拒绝业务请求的安全配置。业务域包随实际功能落地时创建。`/api/v1` 业务接口、账户认证、领域表及附件存储尚未实现；不要把当前健康状态当作业务已就绪。
 
+## 目录规范
+
+Spring Boot [建议将启动类放在根包、按领域组织子包](https://docs.spring.io/spring-boot/reference/using/structuring-your-code.html)；[Spring Modulith](https://docs.spring.io/spring-modulith/reference/fundamentals.html) 也以根包的直接子包识别模块。本工程采用这一布局，具体规则以 [AGENTS.md](AGENTS.md) 为准：
+
+```text
+src/main/java/com/butvan/recordagent/
+├── RecordAgentApplication.java  # 组合根与组件扫描起点
+├── platform/                    # 跨业务的 HTTP、安全、可观测性
+│   ├── http/                    # 错误码、错误 DTO、异常映射
+│   ├── security/                # 安全过滤与授权装配
+│   └── observability/           # 请求 ID、接口日志
+├── account/                     # 实现账户时创建
+├── calendar/                    # 实现日历时创建
+└── ...                          # finance、record、study、file、overview 等按需创建
+```
+
+业务模块内部按实际代码建立 `api`、`application`、`domain`、`persistence`，不预建空目录。`src/test/java` 镜像对应生产包；Flyway 脚本位于 `src/main/resources/db/migration`。
+
 ## 基础设施复用盘点
 
 | `server-network` 能力 | 本工程处理方式 |
@@ -27,6 +45,6 @@ HTTP 请求由服务端生成 `X-Request-Id`，错误体使用同一个 `request
 
 ## 验证
 
-运行 `mvn verify`。`BusinessBackendApplicationIT` 使用 Testcontainers 启动独立 PostgreSQL，验证空库迁移、重复迁移、健康检查和业务入口拒绝访问；执行该集成测试需要可用的 Docker 服务。默认镜像为 `postgres:17.11`；镜像仓库不可用时，可用 `-Dtest.postgres.image=postgres:17` 指向本机已有的兼容镜像，仍需在正式环境用锁定版本复核。`mvn package -DskipTests` 仅验证编译与打包，不能代替数据库集成测试。
+运行 `mvn verify`。`RecordAgentApplicationIT` 使用 Testcontainers 启动独立 PostgreSQL，验证空库迁移、重复迁移、健康检查和业务入口拒绝访问；执行该集成测试需要可用的 Docker 服务。默认镜像为 `postgres:17.11`；镜像仓库不可用时，可用 `-Dtest.postgres.image=postgres:17` 指向本机已有的兼容镜像，仍需在正式环境用锁定版本复核。`mvn package -DskipTests` 仅验证编译与打包，不能代替数据库集成测试。
 
 后续先完成[后端开发规划.md](后端开发规划.md)的第 0 阶段契约盘点，再逐域创建新的迁移与 API。所有 REST 方法需使用 `@ApiLog`；日志只记录脱敏元数据，不能包含请求正文或凭据。
