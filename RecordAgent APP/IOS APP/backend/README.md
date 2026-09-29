@@ -39,7 +39,9 @@ HTTP 请求由服务端生成 `X-Request-Id`，错误体使用同一个 `request
 1. 安装 Java 21、Maven 3.9+ 和 Docker，确保 Docker 服务正在运行。
 2. 复制 `.env.example` 为 `.env`，设置仅用于本地的数据库用户名和随机密码。`compose.yaml` 只读取其中的数据库用户名和密码。
 3. 在本目录运行 `docker compose --env-file .env up -d postgres`。
-4. 将 `.env` 的三个 `RECORDAGENT_DB_*` 变量导出到当前 shell，然后运行 `mvn spring-boot:run`。应用启动时 Flyway 自动迁移空库；访问 `http://localhost:8080/actuator/health` 查看健康状态。
+4. 在本目录运行 `mvn spring-boot:run`。Spring Boot 会从当前工作目录导入被 Git 忽略的 `.env`；应用启动时 Flyway 自动迁移空库。访问 `http://localhost:9090/actuator/health` 查看健康状态。也可由部署环境变量覆盖 `.env` 中的值。
+
+连接已有 PostgreSQL 服务时，将 `.env` 中的 `RECORDAGENT_DB_URL` 设为目标数据库的 JDBC URL，并填写对应数据库用户名和密码；数据库必须先存在，且账号需有执行 Flyway 迁移的权限。`.env` 权限建议设为仅当前用户可读写（`chmod 600 .env`）。数据库密码与服务器地址不写入源码、示例配置或提交记录。
 
 数据库只绑定本机回环地址。部署环境须通过环境变量注入数据库连接，不使用本地 Compose 配置。`V1` 建立独立 `record_agent` schema，后续迁移脚本需明确使用该 schema；Flyway 历史表仍位于 `public`。已执行的迁移脚本不可修改。
 

@@ -1,6 +1,8 @@
 spring:
   application:
     name: recordagent-business-backend
+  config:
+    import: optional:file:./.env[.properties]
   datasource:
     url: ${RECORDAGENT_DB_URL}
     username: ${RECORDAGENT_DB_USER}
@@ -11,6 +13,8 @@ spring:
   sql:
     init:
       mode: never
+server:
+  port: ${RECORDAGENT_SERVER_PORT:9090}
 management:
   endpoints:
     web:
