@@ -245,6 +245,8 @@ test('分类请求失败时图表仍直接使用同次响应中的已保存颜�
 
 test('账户支出柱图与单笔、分类排行可切换，切换期间时隐藏旧数据', async () => {
   await render();
+  const cards = [...analysis().querySelectorAll('[role="region"]')];
+  assert.equal(cards.length, 2);
   assert.match(analysis().textContent, /日常账户/);
   const barChart = analysis().querySelector('[role="group"][aria-label="账户支出柱状图"]');
   assert.ok(barChart);
@@ -258,8 +260,11 @@ test('账户支出柱图与单笔、分类排行可切换，切换期间时隐�
   const normal = respond, week = deferred();
   respond = (url) => url.pathname.endsWith('/expense-insights') && url.searchParams.get('range') === 'week' ? week.promise : normal(url);
   await click('分析本周');
+  assert.deepEqual([...analysis().querySelectorAll('[role="region"]')], cards, '切换周期时保留两张卡片');
+  assert.equal(analysis().querySelectorAll('[role="status"]').length, 2);
   assert.doesNotMatch(analysis().textContent, /1,200\.00/);
   await React.act(async () => week.resolve(response(insights('week'))));
+  assert.deepEqual([...analysis().querySelectorAll('[role="region"]')], cards);
   assert.match(analysis().textContent, /1,200\.00/);
 });
 

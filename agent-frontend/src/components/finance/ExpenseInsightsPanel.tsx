@@ -29,17 +29,14 @@ export const ExpenseInsightsPanel: React.FC<ExpenseInsightsPanelProps> = ({
   const [accountMode, setAccountMode] = useState<'expense' | 'income'>('expense');
   const [rankingMode, setRankingMode] = useState<'transactions' | 'categories'>('transactions');
   const visible = !loading && !error && insights?.range === range ? insights : null;
-  const state = error ? <div className={styles.state} role="alert"><span>{error}</span><Button type="button" variant="ghost" size="sm" onClick={onRetry}>重新加载分析</Button></div>
-    : loading || !visible ? <p className={styles.state} role="status">正在加载收支分析…</p> : null;
-
   return <section className={styles.section} aria-label="支出分析">
     <div className={styles.heading}>
       <div><h2>收支分析</h2><p>{visible ? `${visible.from.replaceAll('-', '.')} — ${visible.to.replaceAll('-', '.')}` : '按自然周、月、年查看账户收支与支出排行'}</p></div>
       <FinanceChartTabs label="支出分析时间范围" value={range} options={ranges} onChange={onRangeChange} />
     </div>
-    {state ?? (visible && <div className={styles.columns}>
-      <AccountCashflowChart accounts={visible.accounts} mode={accountMode} onModeChange={setAccountMode} period={range} />
+    {error ? <div className={styles.state} role="alert"><span>{error}</span><Button type="button" variant="ghost" size="sm" onClick={onRetry}>重新加载分析</Button></div> : <div className={styles.columns}>
+      <AccountCashflowChart accounts={visible?.accounts ?? []} loading={!visible} mode={accountMode} onModeChange={setAccountMode} />
       <ExpenseRankingChart insights={visible} mode={rankingMode} onModeChange={setRankingMode} categoryColors={categoryColors} />
-    </div>)}
+    </div>}
   </section>;
 };

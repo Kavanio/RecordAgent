@@ -1,4 +1,4 @@
-import React, { useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import type { FinanceAccountType, FinanceExpenseInsights } from '../../types/finance';
 import { FinanceChartCard } from './FinanceChartCard';
 import { FinanceChartTabs } from './FinanceChartTabs';
@@ -22,16 +22,17 @@ const accountBrand = (type: FinanceAccountType | undefined, name: string) => {
 
 interface AccountCashflowChartProps {
   accounts: FinanceExpenseInsights['accounts'];
+  loading?: boolean;
   mode: 'expense' | 'income';
   onModeChange: (mode: 'expense' | 'income') => void;
-  period: string;
 }
 
 /** 账户收支柱图：金额优先、低饱和品牌色与鼠标和键盘共用的金额明细。 */
-export const AccountCashflowChart: React.FC<AccountCashflowChartProps> = ({ accounts, mode, onModeChange, period }) => {
+export const AccountCashflowChart: React.FC<AccountCashflowChartProps> = ({ accounts, loading = false, mode, onModeChange }) => {
   const host = useRef<HTMLDivElement>(null);
   const tooltipId = useId();
   const [active, setActive] = useState<{ id: string; left: number } | null>(null);
+  useEffect(() => { if (loading) setActive(null); }, [loading]);
   const label = mode === 'expense' ? '支出' : '收入';
   const rows = accounts.map((account) => ({ ...account, value: mode === 'expense' ? account.amount : account.income }));
   const maximum = Math.max(0, ...rows.map((item) => item.value));
@@ -62,6 +63,10 @@ export const AccountCashflowChart: React.FC<AccountCashflowChartProps> = ({ acco
     actions={<FinanceChartTabs label="账户收支类型" value={mode} options={modes}
       onChange={(next) => { setActive(null); onModeChange(next); }} />}
     footer={mode === 'income' ? '包含自动收益，不含账户划转与余额校准' : '旧日历花销未关联资产账户，不计入此图'}>
+    {loading ? <div className={styles.loadingContent} role="status" aria-label={`正在加载账户${label}分析`}>
+      <span className={styles.loadingAmount} aria-hidden="true" />
+      <div className={styles.loadingColumns} aria-hidden="true"><i /><i /><i /><i /></div>
+    </div> : <>
     <div className={styles.summary}>
       <div className={styles.total}>
         <span>账户{label}合计</span>
@@ -75,7 +80,7 @@ export const AccountCashflowChart: React.FC<AccountCashflowChartProps> = ({ acco
       <div className={styles.plotViewport}>
         <div className={styles.plot}>
           <div className={styles.grid} aria-hidden="true">{[0, 1, 2, 3, 4].map((tick) => <span key={tick} />)}</div>
-          <div key={`${mode}-${period}`} className={styles.bars} data-active={active !== null}
+          <div className={styles.bars} data-active={active !== null}
             style={{ gap: Math.min(12, 50 / Math.max(1, rows.length - 1)) }}>
             {rows.map((item, index) => <button type="button" key={item.accountId} className={styles.barGroup}
               data-brand={accountBrand(item.accountType, item.accountName)} data-selected={active?.id === item.accountId}
@@ -109,5 +114,6 @@ export const AccountCashflowChart: React.FC<AccountCashflowChartProps> = ({ acco
       <span className={styles.emptyGlyph} aria-hidden="true"><i /><i /><i /></span>
       <p>本期暂无账户{label}</p><span>关联账户的{label}会在这里汇总</span>
     </div>}
+    </>}
   </FinanceChartCard>;
 };

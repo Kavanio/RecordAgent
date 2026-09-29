@@ -9,7 +9,7 @@ import styles from './ExpenseRankingChart.module.css';
 type RankingMode = 'transactions' | 'categories';
 
 interface ExpenseRankingChartProps {
-  insights: FinanceExpenseInsights;
+  insights: FinanceExpenseInsights | null;
   mode: RankingMode;
   onModeChange: (mode: RankingMode) => void;
   categoryColors?: Record<string, string>;
@@ -22,7 +22,7 @@ const percentage = (value: number) => value > 0 && value < .1 ? '<0.1%' : `${val
 
 /** 支出排行榜：以全口径支出计算占比，金额、分类配色与来源始终保持一致。 */
 export function ExpenseRankingChart({ insights, mode, onModeChange, categoryColors }: ExpenseRankingChartProps) {
-  const entries = mode === 'transactions'
+  const entries = !insights ? [] : mode === 'transactions'
     ? insights.transactions.map((entry) => ({ id: entry.id, label: entry.note || entry.category,
       category: entry.category, amount: entry.amount,
       detail: `${entry.category} · ${entry.date.slice(5).replace('-', '/')}${entry.source === 'calendar' ? ' · 日历' : ''}` }))
@@ -33,6 +33,10 @@ export function ExpenseRankingChart({ insights, mode, onModeChange, categoryColo
   return <FinanceChartCard title="支出排行" subtitle="看清每一笔，了解钱花在哪里"
     actions={<FinanceChartTabs label="排行方式" value={mode} options={modes} onChange={onModeChange} />}
     footer={<><span>按金额从高到低</span><span>含旧日历花销</span></>}>
+    {!insights ? <div className={styles.loadingContent} role="status" aria-label="正在加载支出排行">
+      <span className={styles.loadingAmount} aria-hidden="true" />
+      <div className={styles.loadingRows} aria-hidden="true"><i /><i /><i /></div>
+    </div> : <>
     <div className={styles.summary}>
       <div className={styles.total}><span>本期支出合计</span>
         <div className={styles.amount} aria-label={`本期支出合计${money(insights.totalExpense)}`}><span>¥</span><strong>{amount(insights.totalExpense)}</strong></div>
@@ -57,5 +61,6 @@ export function ExpenseRankingChart({ insights, mode, onModeChange, categoryColo
         })}
       </ol>
     </> : <div className={styles.empty}><ChartBarHorizontalIcon size={26} weight="light" aria-hidden="true" /><strong>本期暂无支出记录</strong><span>记录支出后，在这里查看分布与排行</span></div>}
+    </>}
   </FinanceChartCard>;
 }
