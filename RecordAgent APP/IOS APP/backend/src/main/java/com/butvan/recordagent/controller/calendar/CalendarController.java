@@ -1,8 +1,8 @@
-package com.butvan.recordagent.controller.todo;
+package com.butvan.recordagent.controller.calendar;
 
-import com.butvan.recordagent.dto.todo.CalendarDtos;
+import com.butvan.recordagent.dto.calendar.CalendarDtos;
 
-import com.butvan.recordagent.service.todo.TodoService;
+import com.butvan.recordagent.service.calendar.TodoService;
 import com.butvan.recordagent.annotation.ApiLog;
 import com.butvan.recordagent.security.AuthenticatedUser;
 import jakarta.validation.Valid;

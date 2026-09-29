@@ -1,4 +1,4 @@
-package com.butvan.recordagent.repository.todo;
+package com.butvan.recordagent.repository.calendar;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 /** 以 owner_id 约束每次待办查询和写入。 */
 @Repository
 @RequiredArgsConstructor
-public class TodoStore {
+public class TodoRepository {
     private final JdbcTemplate jdbc;
 
     public record Row(UUID id, String title, String detail, LocalDate date, LocalTime time,

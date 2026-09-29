@@ -1,6 +1,7 @@
-package com.butvan.recordagent.repository.auth;
+package com.butvan.recordagent.service.mail.impl;
 
-import com.butvan.recordagent.service.auth.VerificationMailPort;
+import com.butvan.recordagent.service.mail.MailService;
+
 import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +14,7 @@ import org.springframework.stereotype.Component;
 /** SMTP 发送适配器；邮件凭据仅由部署环境注入。 */
 @Component
 @RequiredArgsConstructor
-public class SmtpVerificationMailAdapter implements VerificationMailPort {
+public class MailServiceImpl implements MailService {
     private final JavaMailSender sender;
 
     @Value("${recordagent.mail.from:}")

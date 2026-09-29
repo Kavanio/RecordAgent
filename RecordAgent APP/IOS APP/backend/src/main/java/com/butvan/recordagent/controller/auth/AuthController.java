@@ -2,7 +2,7 @@ package com.butvan.recordagent.controller.auth;
 
 import com.butvan.recordagent.dto.auth.AuthDtos;
 
-import com.butvan.recordagent.service.auth.AccountService;
+import com.butvan.recordagent.service.auth.AuthService;
 import com.butvan.recordagent.annotation.ApiLog;
 import com.butvan.recordagent.security.AuthenticatedUser;
 import jakarta.validation.Valid;
@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class AuthController {
-    private final AccountService accounts;
+    private final AuthService accounts;
 
     @ApiLog("发送邮箱验证码")
     @PostMapping("/auth/codes")

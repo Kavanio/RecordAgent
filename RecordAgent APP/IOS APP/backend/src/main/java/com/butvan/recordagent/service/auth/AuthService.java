@@ -1,12 +1,12 @@
 package com.butvan.recordagent.service.auth;
 
 import com.butvan.recordagent.dto.auth.AuthDtos;
-import com.butvan.recordagent.repository.auth.AccountStore;
+import com.butvan.recordagent.repository.auth.AuthRepository;
 import java.util.Optional;
 import java.util.UUID;
 
 /** 邮箱身份、验证码和可撤销的随机令牌会话服务接口。 */
-public interface AccountService {
+public interface AuthService {
 
     /** 发送邮箱验证码。 */
     AuthDtos.CodeResponse sendCode(AuthDtos.CodeRequest request);
@@ -33,5 +33,5 @@ public interface AccountService {
     AuthDtos.User user(UUID userId);
 
     /** 验证 Bearer Token 并读取会话。 */
-    Optional<AccountStore.SessionRow> accessSession(String token);
+    Optional<AuthRepository.SessionRow> accessSession(String token);
 }

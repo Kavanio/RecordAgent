@@ -1,8 +1,9 @@
-package com.butvan.recordagent.service.todo.impl;
+package com.butvan.recordagent.service.calendar.impl;
 
-import com.butvan.recordagent.dto.todo.CalendarDtos;
-import com.butvan.recordagent.repository.todo.TodoStore;
-import com.butvan.recordagent.service.todo.TodoService;
+import com.butvan.recordagent.repository.calendar.TodoRepository;
+
+import com.butvan.recordagent.dto.calendar.CalendarDtos;
+import com.butvan.recordagent.service.calendar.TodoService;
 import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
 import java.time.LocalDate;
@@ -20,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class TodoServiceImpl implements TodoService {
-    private final TodoStore store;
+    private final TodoRepository store;
 
     @Override
     @Transactional
@@ -58,7 +59,7 @@ public class TodoServiceImpl implements TodoService {
         for (int index = 1; index <= month.lengthOfMonth(); index++) {
             LocalDate date = month.atDay(index);
             List<String> titles = candidates.stream().filter(row -> occurs(row, date))
-                    .limit(3).map(TodoStore.Row::title).toList();
+                    .limit(3).map(TodoRepository.Row::title).toList();
             int count = (int) candidates.stream().filter(row -> occurs(row, date)).count();
             if (count > 0) days.add(new CalendarDtos.MonthDay(date, count, titles));
         }
@@ -77,7 +78,7 @@ public class TodoServiceImpl implements TodoService {
         return new CalendarDtos.Occurrence(id, date, request.completed(), row.version() + 1);
     }
 
-    private static boolean occurs(TodoStore.Row row, LocalDate date) {
+    private static boolean occurs(TodoRepository.Row row, LocalDate date) {
         if (date.isBefore(row.date())) return false;
         return switch (row.recurrence()) {
             case "none" -> date.equals(row.date());
@@ -89,7 +90,7 @@ public class TodoServiceImpl implements TodoService {
         };
     }
 
-    private static LocalDate period(TodoStore.Row row, LocalDate date) {
+    private static LocalDate period(TodoRepository.Row row, LocalDate date) {
         return switch (row.recurrence()) {
             case "weekly" -> date.minusDays(date.getDayOfWeek().getValue() - 1L);
             case "monthly" -> date.withDayOfMonth(1);

@@ -1,6 +1,6 @@
-package com.butvan.recordagent.service.todo;
+package com.butvan.recordagent.service.calendar;
 
-import com.butvan.recordagent.dto.todo.CalendarDtos;
+import com.butvan.recordagent.dto.calendar.CalendarDtos;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.UUID;

@@ -1,6 +1,6 @@
 package com.butvan.recordagent.security;
 
-import com.butvan.recordagent.service.auth.AccountService;
+import com.butvan.recordagent.service.auth.AuthService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,7 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 @RequiredArgsConstructor
 public class BearerAuthenticationFilter extends OncePerRequestFilter {
-    private final AccountService accounts;
+    private final AuthService accounts;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)

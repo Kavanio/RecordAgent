@@ -14,7 +14,7 @@ import org.springframework.stereotype.Repository;
 /** 账户表的 SQL 适配器，凭据字段只以摘要形式持久化。 */
 @Repository
 @RequiredArgsConstructor
-public class AccountStore {
+public class AuthRepository {
     private final JdbcTemplate jdbc;
 
     public record LoginRow(UUID id, String email, String passwordHash, String nickname,

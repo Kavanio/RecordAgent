@@ -1,9 +1,10 @@
 package com.butvan.recordagent.service.auth.impl;
 
+import com.butvan.recordagent.service.mail.MailService;
+
 import com.butvan.recordagent.dto.auth.AuthDtos;
-import com.butvan.recordagent.repository.auth.AccountStore;
-import com.butvan.recordagent.service.auth.AccountService;
-import com.butvan.recordagent.service.auth.VerificationMailPort;
+import com.butvan.recordagent.repository.auth.AuthRepository;
+import com.butvan.recordagent.service.auth.AuthService;
 import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
 import java.nio.charset.StandardCharsets;
@@ -24,12 +25,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** 邮箱身份、验证码和可撤销的随机令牌会话实现。 */
 @Service
 @RequiredArgsConstructor
-public class AccountServiceImpl implements AccountService {
+public class AuthServiceImpl implements AuthService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int MAX_ATTEMPTS = 5;
-    private final AccountStore store;
+    private final AuthRepository store;
     private final PasswordEncoder encoder;
-    private final VerificationMailPort mail;
+    private final MailService mail;
     private final TransactionTemplate transactions;
 
     @Override
@@ -122,7 +123,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public Optional<AccountStore.SessionRow> accessSession(String token) {
+    public Optional<AuthRepository.SessionRow> accessSession(String token) {
         return store.accessSession(hash(token));
     }
 
