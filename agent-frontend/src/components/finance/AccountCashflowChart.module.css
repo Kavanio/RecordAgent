@@ -20,13 +20,13 @@
 .unit { position: absolute; top: 20px; left: 0; color: var(--text-muted); font-size: 10px; }
 .yAxis { flex: 0 0 36px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; height: 196px; color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
 .yAxis span { line-height: 0; }
-.scroll { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--border-subtle) transparent; }
-.plot { position: relative; height: 238px; }
+.plotViewport { flex: 1; min-width: 0; overflow: clip; }
+.plot { position: relative; width: 100%; height: 238px; }
 .grid { position: absolute; inset: 0 0 auto; display: flex; flex-direction: column; justify-content: space-between; height: 196px; pointer-events: none; }
 .grid span { width: 100%; border-top: 1px dashed color-mix(in srgb, var(--border-subtle) 70%, transparent); }
 .grid span:last-child { border-top-style: solid; border-color: var(--border-subtle); }
-.bars { position: relative; display: flex; justify-content: center; gap: 14px; height: 238px; }
-.barGroup { --bar-color: #9ba6b6; flex: 0 1 100px; min-width: 78px; max-width: 110px; display: flex; flex-direction: column; align-items: center; padding: 0; border: 0; background: transparent; font-family: var(--font-sans); cursor: pointer; }
+.bars { position: relative; display: flex; justify-content: center; width: 100%; height: 238px; }
+.barGroup { --bar-color: #9ba6b6; flex: 1 1 0; min-width: 0; max-width: 110px; display: flex; flex-direction: column; align-items: center; padding: 0; border: 0; background: transparent; font-family: var(--font-sans); cursor: pointer; }
 .barGroup[data-brand='wechat'] { --bar-color: #77b69b; }
 .barGroup[data-brand='alipay'] { --bar-color: #80a8df; }
 .barGroup[data-brand='cmb'] { --bar-color: #c48390; }
@@ -36,6 +36,7 @@
 .barEnvelope { position: absolute; bottom: 0; left: 50%; width: min(46px, 54%); transform: translateX(-50%); transition: opacity 180ms, filter 180ms; }
 .bar { display: block; height: 100%; width: 100%; border-radius: 9px 9px 3px 3px; background: var(--bar-color); transform-origin: center bottom; animation: grow 500ms cubic-bezier(.2,.75,.25,1) both; }
 .barValue { position: absolute; left: 50%; transform: translateX(-50%); color: var(--text-secondary); font-size: 11px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; animation: reveal 350ms 100ms both; }
+.chart[data-dense='true'] .barValue { display: none; }
 .xLabel { width: 100%; padding: 14px 3px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--text-secondary); transition: color 180ms; }
 .barGroup[data-selected='true'] .barSlot { background: color-mix(in srgb, var(--bar-color) 7%, transparent); }
 .barGroup[data-selected='true'] .barEnvelope { filter: saturate(1.2); }

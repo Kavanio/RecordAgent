@@ -41,7 +41,7 @@ export function ExpenseRankingChart({ insights, mode, onModeChange, categoryColo
     </div>
     {entries.length > 0 ? <>
       <div className={styles.listHeading}><span>{mode === 'transactions' ? '支出明细' : '分类分布'}</span><span>金额 / 占本期支出</span></div>
-      <ol className={styles.ranking} aria-label={mode === 'transactions' ? '单笔支出排行' : '支出分类排行'} tabIndex={0}>
+      <ol className={styles.ranking} aria-label={mode === 'transactions' ? '单笔支出排行' : '支出分类排行'}>
         {entries.map((entry, index) => {
           const share = insights.totalExpense > 0 ? Math.max(0, Math.min(100, entry.amount / insights.totalExpense * 100)) : 0;
           return <li key={entry.id} className={styles.row}

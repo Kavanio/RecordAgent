@@ -69,13 +69,14 @@ export const AccountCashflowChart: React.FC<AccountCashflowChartProps> = ({ acco
       </div>
       <div className={styles.accountCount}><strong>{activeCount}<span> / {rows.length}</span></strong><span>有{label}账户</span></div>
     </div>
-    {maximum > 0 ? <><div ref={host} className={styles.chart} role="group" aria-label={`账户${label}柱状图`} onMouseLeave={restoreFocusedAccount}>
+    {maximum > 0 ? <><div ref={host} className={styles.chart} data-dense={rows.length > 6} role="group" aria-label={`账户${label}柱状图`} onMouseLeave={restoreFocusedAccount}>
       <span className={styles.unit}>元</span>
       <div className={styles.yAxis} aria-hidden="true">{[1, .75, .5, .25, 0].map((ratio) => <span key={ratio}>{compact(ceiling * ratio)}</span>)}</div>
-      <div className={styles.scroll} onScroll={restoreFocusedAccount}>
-        <div className={styles.plot} style={{ minWidth: Math.max(200, rows.length * 94) }}>
+      <div className={styles.plotViewport}>
+        <div className={styles.plot}>
           <div className={styles.grid} aria-hidden="true">{[0, 1, 2, 3, 4].map((tick) => <span key={tick} />)}</div>
-          <div key={`${mode}-${period}`} className={styles.bars} data-active={active !== null}>
+          <div key={`${mode}-${period}`} className={styles.bars} data-active={active !== null}
+            style={{ gap: Math.min(12, 50 / Math.max(1, rows.length - 1)) }}>
             {rows.map((item, index) => <button type="button" key={item.accountId} className={styles.barGroup}
               data-brand={accountBrand(item.accountType, item.accountName)} data-selected={active?.id === item.accountId}
               data-account-id={item.accountId}

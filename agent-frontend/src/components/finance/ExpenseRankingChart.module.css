@@ -8,8 +8,7 @@
 .count strong { color: var(--text-primary); font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .count span { color: var(--text-secondary); font-size: 10px; }
 .listHeading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; color: var(--text-secondary); font-size: 10px; }
-.ranking { height: 292px; margin: 0; padding: 0 6px 0 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-gutter: stable; list-style: none; border-radius: 8px; }
-.ranking:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 4px; }
+.ranking { margin: 0; padding: 0; list-style: none; }
 .row { display: flex; align-items: flex-start; gap: 12px; padding: 16px 0; border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 45%, var(--bg-app)); }
 .row:last-child { border-bottom: 0; }
 .ordinal { display: grid; place-items: center; flex: 0 0 26px; height: 26px; margin-top: 1px; border-radius: 8px; color: var(--text-muted); font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
