@@ -7,7 +7,7 @@
 - 本目录是独立 Maven 根工程；启动类固定在 `com.butvan.recordagent` 根包。根包不放业务逻辑，避免组件扫描范围和包职责含糊。
 - 工程采用标准水平分层组织业务代码与横切基础设施：
   - `controller`：REST Controller 控制层，负责 HTTP 协议、参数接收、身份获取和 DTO 返回；每个方法须遵循根目录 `@ApiLog` 规范。
-  - `service`：业务用例与服务层，负责事务边界、用例编排与核心业务规则。
+  - `service`：业务服务接口，子包 `service/impl` 存放对应的 Service 实现类；负责事务边界、用例编排与核心业务规则。
   - `repository`：数据访问与存储 Adapter，以 SQL 或 Spring JDBC 访问权威数据库；`repository/mapper` 统一管理表列到不可变实体的 RowMapper。
   - `entity`：与 `record` schema 表列对应的持久化行快照实体；不直接作为 API 响应。
   - `dto`：客户端与服务端的请求/响应数据传输对象。
