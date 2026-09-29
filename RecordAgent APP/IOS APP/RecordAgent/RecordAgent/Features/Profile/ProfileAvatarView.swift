@@ -6,8 +6,6 @@ struct ProfileAvatarView: View {
     let name: String?
     let avatarURLString: String?
     var imageData: Data? = nil
-    var size: CGFloat = 72
-    var showBorder: Bool = true
 
     private var avatarURL: URL? {
         guard let avatarURLString,
@@ -34,14 +32,9 @@ struct ProfileAvatarView: View {
                 placeholder
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: 62, height: 62)
         .clipShape(Circle())
-        .overlay {
-            if showBorder {
-                Circle().strokeBorder(Color.white, lineWidth: 2.5)
-            }
-        }
-        .shadow(color: Color.black.opacity(0.18), radius: 6, x: 0, y: 3)
+        .overlay(Circle().strokeBorder(AppColors.primaryBlue.opacity(0.12), lineWidth: 1))
         .accessibilityHidden(true)
     }
 
