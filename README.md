@@ -286,7 +286,7 @@ node scripts/sync-version.mjs --check
 这个仓库把文档当作工程边界，而不是完成代码后的补充说明。
 
 - 修改文件前先阅读根目录以及目标路径上更近的 `AGENTS.md`。
-- 新功能从 `main` 创建独立分支，流向为 `feature/*` → `main` → `develop`。
+- iOS App 与独立业务后端的代码使用 `ios-app/*` 分支，桌面端与本地 Agent/后端的代码使用 `desktop/*` 分支；均从 `main` 创建，完成后流向 `main` → `develop`。
 - Controller 只负责协议适配；业务逻辑进入 Service 或明确的领域组件。
 - 前端 API 必须经过 `services`；可复用交互必须沉淀为统一组件。
 - 新增 Tool 时同时确认权限、能力分组、Schema 暴露方式、幂等性和测试。
