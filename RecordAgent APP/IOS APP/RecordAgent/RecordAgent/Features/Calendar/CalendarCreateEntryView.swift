@@ -61,7 +61,7 @@ struct CalendarCreateEntryView: View {
                 .padding(.horizontal, 26)
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity)
-                .background(.regularMaterial)
+                .background { Color(uiColor: .systemBackground).ignoresSafeArea(edges: .bottom) }
         }
         .interactiveDismissDisabled(isSubmitting)
         .alert("home.write.failed", isPresented: $model.showWriteError) {
