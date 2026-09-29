@@ -10,15 +10,19 @@ import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import jakarta.servlet.http.HttpServletResponse;
 
-/** 在账户认证落地前关闭全部业务入口，仅公开健康状态。 */
+/** 公开认证入口，其余业务接口必须先验证 Bearer 会话。 */
 @Configuration
 public class SecurityConfiguration {
 
-    /** 默认拒绝业务请求，防止新增 Controller 意外公开。 */
+    /** 未匹配的业务请求仍默认要求认证。 */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper,
+            BearerAuthenticationFilter bearerFilter) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -29,9 +33,17 @@ public class SecurityConfiguration {
                                 writeError(response, HttpStatus.FORBIDDEN, ApiErrorCode.FORBIDDEN, objectMapper)))
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .anyRequest().denyAll())
+                        .requestMatchers("/api/v1/auth/codes", "/api/v1/auth/register",
+                                "/api/v1/auth/password-login", "/api/v1/auth/code-login",
+                                "/api/v1/auth/refresh").permitAll()
+                        .anyRequest().authenticated())
+                .addFilterBefore(bearerFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
+
+    /** BCrypt 提供带随机盐的自适应密码与验证码摘要。 */
+    @Bean
+    public PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
 
     private void writeError(HttpServletResponse response, HttpStatus status, ApiErrorCode code,
             ObjectMapper objectMapper) throws IOException {

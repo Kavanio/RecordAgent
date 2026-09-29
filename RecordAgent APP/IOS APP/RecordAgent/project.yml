@@ -26,6 +26,9 @@ targets:
       properties:
         UILaunchScreen: {}
         NSMotionUsageDescription: "用于让日历便签随手机移动轻微摇晃。 / Used to gently move calendar notes with your phone."
+        NSLocalNetworkUsageDescription: "用于在测试阶段连接同一局域网内电脑上的 RecordAgent 后端。 / Connect to the RecordAgent backend on your computer for testing."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
 

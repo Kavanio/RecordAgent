@@ -22,6 +22,8 @@
 
 ## 2. 统一 HTTP 契约
 
+> 部分 P0 接口已实现，逐项状态与联调方法见 [接口实现进度与局域网联调.md](接口实现进度与局域网联调.md)；下表保留目标接口全集。
+
 前缀 `/api/v1`；除注册、验证码和登录外均需 `Authorization: Bearer <accessToken>`。用户 ID 只取服务端认证结果，客户端的邮箱或 URL 参数不得作为所有权依据。成功响应直接返回明确 DTO；错误使用实际 HTTP 状态和 `{ code, message, requestId }`，并带 `X-Request-Id`。常用错误：`INVALID_ARGUMENT` 400、`UNAUTHENTICATED` 401、`FORBIDDEN` 403、`NOT_FOUND` 404、`VERSION_CONFLICT` 409、`RATE_LIMITED` 429、`SERVICE_UNAVAILABLE` 503。资源 ID 猜测不得泄露他人记录。
 
 日期使用 `YYYY-MM-DD`，月份 `YYYY-MM`，带时间的事件使用 ISO 8601 与 IANA `timeZone`；金额用整数分。列表提供有上限的 `limit` 与游标。所有修改返回稳定 `id` 和递增 `version`；更新/删除带 `expectedVersion`，冲突返回 409。分页、正文长度、附件大小与可用日期范围由服务端校验。

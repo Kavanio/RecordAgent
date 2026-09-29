@@ -7,6 +7,14 @@ spring:
     url: ${RECORDAGENT_DB_URL}
     username: ${RECORDAGENT_DB_USER}
     password: ${RECORDAGENT_DB_PASSWORD}
+  mail:
+    host: ${RECORDAGENT_MAIL_HOST:localhost}
+    port: ${RECORDAGENT_MAIL_PORT:25}
+    username: ${RECORDAGENT_MAIL_USER:}
+    password: ${RECORDAGENT_MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${RECORDAGENT_MAIL_AUTH:false}
+      mail.smtp.starttls.enable: ${RECORDAGENT_MAIL_STARTTLS:false}
   flyway:
     enabled: true
     baseline-on-migrate: false
@@ -15,7 +23,14 @@ spring:
       mode: never
 server:
   port: ${RECORDAGENT_SERVER_PORT:9090}
+  address: ${RECORDAGENT_SERVER_ADDRESS:127.0.0.1}
+recordagent:
+  mail:
+    from: ${RECORDAGENT_MAIL_FROM:}
 management:
+  health:
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:

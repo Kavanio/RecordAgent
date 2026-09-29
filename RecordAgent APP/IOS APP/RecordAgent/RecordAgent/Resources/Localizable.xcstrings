@@ -1,6 +1,48 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
+    "debug.server.address" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Computer address" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "电脑地址" } }
+      }
+    },
+    "debug.server.check" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Check connection" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "检测连接" } }
+      }
+    },
+    "debug.server.checking" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connecting…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在连接…" } }
+      }
+    },
+    "debug.server.connected" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connected" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连接成功" } }
+      }
+    },
+    "debug.server.failed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connection failed. Check the address and network." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "连接失败，请检查地址和网络" } }
+      }
+    },
+    "debug.server.placeholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "http://192.168.1.10:9090" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "http://192.168.1.10:9090" } }
+      }
+    },
+    "debug.server.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Test server" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "测试服务器" } }
+      }
+    },
     "—" : {
 
     },
