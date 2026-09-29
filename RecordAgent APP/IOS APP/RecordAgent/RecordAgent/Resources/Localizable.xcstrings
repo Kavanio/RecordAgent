@@ -604,6 +604,48 @@
         }
       }
     },
+    "calendar.create.choose" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Create something" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "添加内容" } }
+      }
+    },
+    "calendar.create.choose.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "What would you like to add today?" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择今天想记录的内容" } }
+      }
+    },
+    "calendar.create.finance" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Record a transaction" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "记一笔" } }
+      }
+    },
+    "calendar.create.note" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Write a journal" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "写手记" } }
+      }
+    },
+    "calendar.create.schedule" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add an event" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "添加日程" } }
+      }
+    },
+    "calendar.create.todo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New to-do" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新建待办" } }
+      }
+    },
     "calendar.create.detail" : {
       "extractionState" : "manual",
       "localizations" : {

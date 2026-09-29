@@ -46,9 +46,9 @@ extension HomeEntry.Kind {
 extension CalendarEntryDraft.Kind {
     var title: LocalizedStringKey {
         switch self {
-        case .todo: return "calendar.kind.todo"
-        case .schedule: return "calendar.kind.schedule"
-        case .note: return "calendar.kind.note"
+        case .todo: return "calendar.create.todo"
+        case .schedule: return "calendar.create.schedule"
+        case .note: return "calendar.create.note"
         }
     }
 }
