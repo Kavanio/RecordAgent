@@ -1,4 +1,4 @@
-package com.butvan.recordagent.service.impl.todo;
+package com.butvan.recordagent.service.todo.impl;
 
 import com.butvan.recordagent.dto.todo.CalendarDtos;
 import com.butvan.recordagent.repository.todo.TodoStore;

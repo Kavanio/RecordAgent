@@ -1,4 +1,4 @@
-package com.butvan.recordagent.service.impl.auth;
+package com.butvan.recordagent.service.auth.impl;
 
 import com.butvan.recordagent.dto.auth.AuthDtos;
 import com.butvan.recordagent.repository.auth.AccountStore;

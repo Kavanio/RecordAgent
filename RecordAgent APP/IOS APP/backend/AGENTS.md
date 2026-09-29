@@ -7,8 +7,7 @@
 - 本目录是独立 Maven 根工程；启动类固定在 `com.butvan.recordagent` 根包。根包不放业务逻辑，避免组件扫描范围和包职责含糊。
 - 工程采用标准水平分层，且在 Controller、Service、Mapper、Repository 等业务层内部，统一按业务领域（如 `auth`、`todo`、`finance`、`record` 等）细分二级子包：
   - `controller.<module>`：REST Controller 控制层，负责接收参数、认证鉴权与响应返回（如 `controller.auth`、`controller.todo`）；每个方法标注 `@ApiLog`。
-  - `service.<module>`：业务服务接口层（如 `service.auth`、`service.todo`）。
-  - `service.impl.<module>`：业务服务实现类，存放具体用例事务与业务逻辑（如 `service.impl.auth`、`service.impl.todo`）。
+  - `service.<module>`：业务服务接口（如 `service.auth`、`service.todo`），其具体用例事务与业务逻辑实现类统一内聚在子包 `service.<module>.impl` 中（如 `service.auth.impl.AccountServiceImpl`、`service.todo.impl.TodoServiceImpl`）。
   - `repository.<module>`：数据访问与存储 Adapter，以 SQL / JDBC 访问权威数据库（如 `repository.auth`、`repository.todo`）。
   - `repository.mapper.<module>`：Spring JDBC RowMapper 列映射（如 `repository.mapper.auth`、`repository.mapper.todo`）。
   - `dto.<module>`：请求与响应数据传输对象（如 `dto.auth`、`dto.todo`）。
