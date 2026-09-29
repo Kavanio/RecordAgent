@@ -11,6 +11,7 @@
   - `repository.<module>`：数据持久层，以 SQL / JDBC 访问权威数据库（如 `repository.auth.AuthRepository`、`repository.calendar.TodoRepository`）。
   - `repository.mapper.<module>`：Spring JDBC RowMapper 列映射（如 `repository.mapper.auth`、`repository.mapper.calendar`）。
   - `dto.<module>`：请求与响应数据传输对象（如 `dto.auth`、`dto.calendar`）。
+  - `storage.file`：二进制存储 seam；`service.file` 管理文件元数据、校验、所有权和生命周期，业务模块仅使用文件 ID。
   - `entity`：与表列对应的持久化行快照实体，不直接暴露给 API。
   - `security`、`annotation`、`aspect`、`handler`、`filter`：认证授权、日志切面、统一异常处理与通用过滤器等横切基础设施。
 - 严禁提交空包或占位目录，不得保留无代码的残留目录。
@@ -21,11 +22,12 @@
 - 所有业务读写从已认证请求取得稳定用户 ID；查询、更新、删除及文件访问必须校验所有权。客户端传入的用户 ID、邮箱或文件路径不得作为授权依据。
 - PostgreSQL 是结构化业务数据的权威存储；数据库名及业务 schema 名均为 `record`，结构变更只通过版本化迁移脚本。金额用最小货币单位整数，日期、时间和 IANA 时区分开表达；写入提供版本冲突语义，跨表不变量在事务内维护。
 - 附件只以稳定文件 ID 关联业务对象，二进制内容经受控存储 Adapter 读写。密码、验证码、令牌、数据库和邮件凭据不得出现在源码、提交文件、日志或 API 响应中。
+- 本机开发文件默认写入 `data/files/objects/`（可由 `RECORDAGENT_FILE_ROOT` 覆盖），属于运行态数据，不入库、不提交；当前图片接口仅接受不超过 2 MB 的 JPEG，读取必须先验证文件所有权。
 - 新增或修改 API 时同步维护 HTTP 方法、路径、请求和响应 DTO、错误码、鉴权要求与 iOS 映射；每个 REST Controller 方法遵守根目录 `@ApiLog` 约束，日志对敏感字段脱敏。
 - HTTP 错误统一使用实际状态码及 `{ code, message, requestId }`；`code` 是稳定的客户端分支依据，`requestId` 由服务端生成并通过 `X-Request-Id` 返回。禁止向客户端或日志输出异常原文、用户输入及凭据。
 - 每个阶段至少验证认证隔离、领域不变量、PostgreSQL 迁移及主要 HTTP 错误路径；用真实 PostgreSQL 的隔离测试环境验证持久化行为，不以桌面 SQLite 测试替代。
 
-本目录已建立独立 Maven 工程与版本化领域表；表结构和事实归属见 [数据库设计.md](数据库设计.md)。账户及业务 API、部署环境仍按规划分阶段建立。新增更具体的子目录规则时在对应目录建立中文 `AGENTS.md`，并更新本文件的子级索引。
+本目录已建立独立 Maven 工程与版本化领域表；表结构和事实归属见 [数据库设计.md](数据库设计.md)。账户、日历、收支、个人总览与资料图片 API 已开始接入；任务与完整工作台仍按规划分阶段建立。新增更具体的子目录规则时在对应目录建立中文 `AGENTS.md`，并更新本文件的子级索引。
 
 ## 子级 DOX 索引
 

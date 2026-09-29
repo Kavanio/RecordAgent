@@ -4,6 +4,7 @@ import SwiftUI
 struct CalendarView: View {
     @ObservedObject var home: HomeViewModel
     @StateObject private var model: CalendarViewModel
+    let financeService: any FinanceServiceProtocol
     @StateObject private var noteMotion = CalendarNoteMotion()
     @State private var showsMonthPicker = false
     @State private var showsCreate = false
@@ -17,8 +18,10 @@ struct CalendarView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-    init(home: HomeViewModel, service: any CalendarDataServiceProtocol) {
+    init(home: HomeViewModel, service: any CalendarDataServiceProtocol,
+         financeService: any FinanceServiceProtocol) {
         self.home = home
+        self.financeService = financeService
         _model = StateObject(wrappedValue: CalendarViewModel(service: service))
     }
 
@@ -105,7 +108,13 @@ struct CalendarView: View {
                     onSelectFinance: { showsFinanceCreate = true }
                 )
                 .navigationDestination(isPresented: $showsFinanceCreate) {
-                    CalendarFinanceCreateView(date: home.selectedDate, dates: home.dates)
+                    CalendarFinanceCreateView(date: home.selectedDate, dates: home.dates,
+                                              service: financeService) {
+                        Task {
+                            await refresh()
+                            showsCreate = false
+                        }
+                    }
                 }
                 .navigationDestination(for: CalendarEntryDraft.Kind.self) { kind in
                     CalendarCreateEntryView(

@@ -1,16 +1,25 @@
 import SwiftUI
 
-/// 日历的收支记录页；账户与流水服务接入前不提供虚假的保存操作。
+/// 日历收支记录页；保存后从服务端重新读取账户与当日投影。
 struct CalendarFinanceCreateView: View {
     let dates: HomeCalendar
+    let onSaved: () -> Void
+    @StateObject private var model: FinanceCreateViewModel
     @State private var entryType: EntryType = .expense
     @State private var amount = ""
     @State private var category = ""
     @State private var note = ""
     @State private var date: Date
+    @State private var showsAccountForm = false
+    @State private var accountName = ""
+    @State private var openingBalance = ""
+    @State private var showsError = false
 
-    init(date: Date, dates: HomeCalendar) {
+    init(date: Date, dates: HomeCalendar, service: any FinanceServiceProtocol,
+         onSaved: @escaping () -> Void) {
         self.dates = dates
+        self.onSaved = onSaved
+        _model = StateObject(wrappedValue: FinanceCreateViewModel(service: service))
         _date = State(initialValue: date)
     }
 
@@ -52,9 +61,23 @@ struct CalendarFinanceCreateView: View {
                     TextField("calendar.finance.category", text: $category)
                         .financeInputStyle()
                     field("calendar.finance.account", icon: "creditcard") {
-                        Text("calendar.finance.account_unavailable")
-                            .foregroundStyle(CalendarPalette.secondary)
+                        if model.isLoading {
+                            ProgressView()
+                        } else if model.accounts.isEmpty {
+                            Text("calendar.finance.no_accounts")
+                                .foregroundStyle(CalendarPalette.secondary)
+                        } else {
+                            Picker("calendar.finance.account", selection: $model.selectedAccountID) {
+                                ForEach(model.accounts) { account in
+                                    Text(account.name).tag(Optional(account.id))
+                                }
+                            }
+                            .pickerStyle(.menu)
+                        }
                     }
+                    Button("calendar.finance.add_account") { showsAccountForm = true }
+                        .font(.subheadline)
+                        .frame(minHeight: 44)
                     TextField("calendar.finance.note", text: $note, axis: .vertical)
                         .lineLimit(2...4)
                         .financeInputStyle()
@@ -73,13 +96,50 @@ struct CalendarFinanceCreateView: View {
         .background { Color(uiColor: .systemBackground).ignoresSafeArea() }
         .navigationTitle("calendar.create.finance")
         .navigationBarTitleDisplayMode(.inline)
+        .task { await model.loadAccounts() }
+        .onChange(of: model.errorMessage) { _, message in showsError = message != nil }
+        .alert("calendar.finance.add_account", isPresented: $showsAccountForm) {
+            TextField("calendar.finance.account_name", text: $accountName)
+            TextField("calendar.finance.opening_balance", text: $openingBalance)
+                .keyboardType(.decimalPad)
+            Button("common.cancel", role: .cancel) {}
+            Button("common.confirm") {
+                Task {
+                    if await model.createAccount(name: accountName, openingBalance: openingBalance) {
+                        accountName = ""
+                        openingBalance = ""
+                    }
+                }
+            }
+        }
+        .alert("calendar.finance.save_failed", isPresented: $showsError) {
+            Button("common.confirm", role: .cancel) { model.errorMessage = nil }
+        } message: {
+            Text(model.errorMessage ?? "")
+        }
         .safeAreaInset(edge: .bottom) {
-            AppButton("calendar.finance.save", iconName: "checkmark", isEnabled: false, action: {})
+            AppButton("calendar.finance.save", iconName: "checkmark", isLoading: model.isSaving,
+                      isEnabled: model.selectedAccountID != nil && FinanceAmount.cents(amount) != nil,
+                      action: save)
                 .frame(maxWidth: 640)
                 .padding(.horizontal, 26)
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity)
                 .background { Color(uiColor: .systemBackground).ignoresSafeArea(edges: .bottom) }
+        }
+    }
+
+    private func save() {
+        guard let cents = FinanceAmount.cents(amount), let account = model.selectedAccountID else { return }
+        let selected = model.accounts.first { $0.id == account }
+        if entryType == .expense && cents > (selected?.balanceInCents ?? 0) {
+            model.errorMessage = String(localized: "calendar.finance.insufficient_balance")
+            return
+        }
+        Task {
+            let draft = FinanceTransactionDraft(accountId: account, type: entryType.rawValue,
+                category: category, note: note, amountInCents: cents, date: date)
+            if await model.save(draft) { onSaved() }
         }
     }
 
@@ -96,6 +156,75 @@ struct CalendarFinanceCreateView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(AppColors.segmentBarBg, in: RoundedRectangle(cornerRadius: 14))
         }
+    }
+}
+
+@MainActor
+private final class FinanceCreateViewModel: ObservableObject {
+    @Published var accounts: [FinanceAccount] = []
+    @Published var selectedAccountID: String?
+    @Published var isLoading = false
+    @Published var isSaving = false
+    @Published var errorMessage: String?
+    private let service: any FinanceServiceProtocol
+
+    init(service: any FinanceServiceProtocol) { self.service = service }
+
+    func loadAccounts() async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            accounts = try await service.accounts()
+            if selectedAccountID == nil { selectedAccountID = accounts.first?.id }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func createAccount(name: String, openingBalance: String) async -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let cents = FinanceAmount.cents(openingBalance, allowsZero: true) else {
+            errorMessage = String(localized: "calendar.finance.invalid_amount")
+            return false
+        }
+        do {
+            let account = try await service.createAccount(name: trimmed, openingBalanceInCents: cents)
+            accounts.append(account)
+            selectedAccountID = account.id
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func save(_ draft: FinanceTransactionDraft) async -> Bool {
+        guard !isSaving else { return false }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            try await service.createTransaction(draft)
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+}
+
+private enum FinanceAmount {
+    static func cents(_ input: String, allowsZero: Bool = false) -> Int64? {
+        let parts = input.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".").split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count <= 2, let whole = Int64(parts[0]), whole >= 0,
+              parts.count == 1 || parts[1].count <= 2 else { return nil }
+        let fraction = parts.count == 2 ? String(parts[1]).padding(toLength: 2, withPad: "0", startingAt: 0) : "00"
+        guard let fractional = Int64(fraction) else { return nil }
+        let (scaled, overflow) = whole.multipliedReportingOverflow(by: 100)
+        guard !overflow else { return nil }
+        let (total, sumOverflow) = scaled.addingReportingOverflow(fractional)
+        guard !sumOverflow, allowsZero || total > 0 else { return nil }
+        return total
     }
 }
 

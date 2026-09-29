@@ -57,6 +57,7 @@ struct MainTabView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let user: AuthUser?
     let calendarService: any CalendarDataServiceProtocol
+    let financeService: any FinanceServiceProtocol
     let profileOverviewService: any ProfileOverviewServiceProtocol
     let profileActivityService: any ProfileActivityServiceProtocol
     let profileAppearanceService: any ProfileAppearanceServiceProtocol
@@ -65,6 +66,7 @@ struct MainTabView: View {
     init(
         homeService: any HomeDataServiceProtocol,
         calendarService: any CalendarDataServiceProtocol,
+        financeService: any FinanceServiceProtocol,
         profileOverviewService: any ProfileOverviewServiceProtocol,
         profileActivityService: any ProfileActivityServiceProtocol,
         profileAppearanceService: any ProfileAppearanceServiceProtocol,
@@ -73,6 +75,7 @@ struct MainTabView: View {
     ) {
         _homeModel = StateObject(wrappedValue: HomeViewModel(service: homeService))
         self.calendarService = calendarService
+        self.financeService = financeService
         self.profileOverviewService = profileOverviewService
         self.profileActivityService = profileActivityService
         self.profileAppearanceService = profileAppearanceService
@@ -92,7 +95,7 @@ struct MainTabView: View {
                 HomeView(viewModel: homeModel)
                     .transition(pageTransition)
             case .calendar:
-                CalendarView(home: homeModel, service: calendarService)
+                CalendarView(home: homeModel, service: calendarService, financeService: financeService)
                 .transition(pageTransition)
             case .workspace:
                 WorkspaceHubView { selectedTab = $0 }

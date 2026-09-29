@@ -1495,6 +1495,13 @@
         }
       }
     },
+    "calendar.finance.add_account": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Add account"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "添加账户"}}}},
+    "calendar.finance.account_name": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Account name"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "账户名称"}}}},
+    "calendar.finance.insufficient_balance": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "The amount exceeds this account's balance"}}, "zh-Hans": {"stringUnit": {"state": "金额超过账户余额"}}}},
+    "calendar.finance.invalid_amount": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Enter a valid name and amount"}}, "zh-Hans": {"stringUnit": {"state": "请输入有效的名称和金额"}}}},
+    "calendar.finance.no_accounts": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Add an account first"}}, "zh-Hans": {"stringUnit": {"state": "请先添加账户"}}}},
+    "calendar.finance.opening_balance": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Opening balance"}}, "zh-Hans": {"stringUnit": {"state": "期初余额"}}}},
+    "calendar.finance.save_failed": {"extractionState": "manual", "localizations": {"en": {"stringUnit": {"state": "translated", "value": "Could not save"}}, "zh-Hans": {"stringUnit": {"state": "保存失败"}}}},
     "calendar.finance.account": {
       "extractionState": "manual",
       "localizations": {
@@ -1688,13 +1695,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Saving unavailable"
+            "value": "Save entry"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "暂无法保存"
+            "value": "保存记录"
           }
         }
       }

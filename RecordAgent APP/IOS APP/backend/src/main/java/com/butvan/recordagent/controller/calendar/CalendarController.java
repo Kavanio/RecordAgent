@@ -1,8 +1,14 @@
 package com.butvan.recordagent.controller.calendar;
 
 import com.butvan.recordagent.dto.calendar.CalendarDtos;
+import com.butvan.recordagent.dto.calendar.CalendarProjectionDtos;
+import com.butvan.recordagent.dto.calendar.ScheduleDtos;
 
+import com.butvan.recordagent.service.calendar.CalendarProjectionService;
+import com.butvan.recordagent.service.calendar.ScheduleService;
 import com.butvan.recordagent.service.calendar.TodoService;
+import com.butvan.recordagent.service.record.JournalService;
+import com.butvan.recordagent.dto.record.JournalDtos;
 import com.butvan.recordagent.annotation.ApiLog;
 import com.butvan.recordagent.security.AuthenticatedUser;
 import jakarta.validation.Valid;
@@ -26,6 +32,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class CalendarController {
     private final TodoService todos;
+    private final ScheduleService schedules;
+    private final JournalService journals;
+    private final CalendarProjectionService projection;
 
     @ApiLog("创建待办")
     @PostMapping("/todos")
@@ -34,18 +43,32 @@ public class CalendarController {
         return todos.create(user.userId(), request);
     }
 
-    @ApiLog("读取日历当日待办")
+    @ApiLog("读取日历当日事项")
     @GetMapping("/days/{date}")
-    public CalendarDtos.Day day(@AuthenticationPrincipal AuthenticatedUser user,
+    public CalendarProjectionDtos.Day day(@AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable LocalDate date, @RequestParam String timeZone) {
-        return todos.day(user.userId(), date, timeZone);
+        return projection.day(user.userId(), date, timeZone);
     }
 
-    @ApiLog("读取月历待办摘要")
+    @ApiLog("读取月历事项摘要")
     @GetMapping("/months/{month}")
-    public CalendarDtos.Month month(@AuthenticationPrincipal AuthenticatedUser user,
+    public CalendarProjectionDtos.Month month(@AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable YearMonth month, @RequestParam String timeZone) {
-        return todos.month(user.userId(), month, timeZone);
+        return projection.month(user.userId(), month, timeZone);
+    }
+
+    @ApiLog("创建日程")
+    @PostMapping("/schedules")
+    public ScheduleDtos.Created createSchedule(@AuthenticationPrincipal AuthenticatedUser user,
+            @Valid @RequestBody ScheduleDtos.Create request) {
+        return schedules.create(user.userId(), request);
+    }
+
+    @ApiLog("创建手记")
+    @PostMapping("/journals")
+    public JournalDtos.Created createJournal(@AuthenticationPrincipal AuthenticatedUser user,
+            @Valid @RequestBody JournalDtos.Create request) {
+        return journals.create(user.userId(), request);
     }
 
     @ApiLog("更新待办实例完成状态")

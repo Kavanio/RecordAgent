@@ -20,6 +20,7 @@ public struct RootCoordinatorView: View {
                 MainTabView(
                     homeService: environment.homeService,
                     calendarService: environment.calendarService,
+                    financeService: environment.financeService,
                     profileOverviewService: environment.profileOverviewService,
                     profileActivityService: environment.profileActivityService,
                     profileAppearanceService: environment.profileAppearanceService,

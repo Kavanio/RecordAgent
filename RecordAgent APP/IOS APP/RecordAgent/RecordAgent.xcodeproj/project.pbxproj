@@ -34,6 +34,7 @@
 		54657A9C598377A4326F65D1 /* DebugServerProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD37759A01CD95CDDBE57BD9 /* DebugServerProbe.swift */; };
 		5802934A14B6122BAB7902FB /* HomeDaySummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2625C1A16D135CBB6DE3A90E /* HomeDaySummaryView.swift */; };
 		59A7C367FD6E2205508CCC6D /* APIAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52DB28223A53A39FA0462EE /* APIAuthService.swift */; };
+		7C124A7645CC4389A76F0943 /* APIFinanceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC494596C314B89BD7C41A2 /* APIFinanceService.swift */; };
 		5C9BC76F7F806C2978494A92 /* AgreementSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A33E9D0CED73615452B250D /* AgreementSheetView.swift */; };
 		5DADE1EB0D5571E8181F7E70 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C869A20A145E5C3DA6C52EE6 /* LoginView.swift */; };
 		6307E3F4176DDC788F7839D3 /* ProfileAppearanceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECE9E044DB0AAB4B9FCC1FEA /* ProfileAppearanceService.swift */; };
@@ -114,6 +115,7 @@
 		15F878D74A4798939888FDFE /* AuthServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServiceProtocol.swift; sourceTree = "<group>"; };
 		16354743E5B38DFB50E82DC7 /* HomeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeModels.swift; sourceTree = "<group>"; };
 		19598AC53B9349D20F89DFAE /* APICalendarDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APICalendarDataService.swift; sourceTree = "<group>"; };
+		BFC494596C314B89BD7C41A2 /* APIFinanceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIFinanceService.swift; sourceTree = "<group>"; };
 		1A33E9D0CED73615452B250D /* AgreementSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgreementSheetView.swift; sourceTree = "<group>"; };
 		240BEF1B120C5F0D2C478D4F /* HomePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomePresentation.swift; sourceTree = "<group>"; };
 		251E8C4858304290ABB30D70 /* HomeHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeaderView.swift; sourceTree = "<group>"; };
@@ -269,6 +271,14 @@
 				8EC995C0168EA611728C8C4E /* CalendarDataServiceProtocol.swift */,
 			);
 			path = Calendar;
+			sourceTree = "<group>";
+		};
+		D708ACBA24D6492599022332 /* Finance */ = {
+			isa = PBXGroup;
+			children = (
+				BFC494596C314B89BD7C41A2 /* APIFinanceService.swift */,
+			);
+			path = Finance;
 			sourceTree = "<group>";
 		};
 		2F7E6F20F89CC8881EEDE0DC /* Auth */ = {
@@ -480,6 +490,7 @@
 				AE37940F20B85BF62FBFE804 /* API */,
 				A1FE52778E8D90883C780D32 /* Auth */,
 				2F4806672F40E8DBB58A83B4 /* Calendar */,
+				D708ACBA24D6492599022332 /* Finance */,
 				A3F844F6F76CBDEEA7492C1B /* Home */,
 				59CB12CCCE759D92E436D98C /* Localization */,
 				1EA2FFD9ECFFFBF268B2142C /* Profile */,
@@ -618,6 +629,7 @@
 			files = (
 				59A7C367FD6E2205508CCC6D /* APIAuthService.swift in Sources */,
 				95FC7219F69F050391AF9827 /* APICalendarDataService.swift in Sources */,
+				7C124A7645CC4389A76F0943 /* APIFinanceService.swift in Sources */,
 				D1447D817B4FB0A77059400F /* APIClient.swift in Sources */,
 				D07A63A3BB844E53BA2C9E80 /* APIConfiguration.swift in Sources */,
 				5C9BC76F7F806C2978494A92 /* AgreementSheetView.swift in Sources */,

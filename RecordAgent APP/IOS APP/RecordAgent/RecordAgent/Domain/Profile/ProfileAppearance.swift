@@ -1,6 +1,6 @@
 import Foundation
 
-/// 个人资料的设备端展示副本；服务端账户资料接通后由服务实现负责同步。
+/// 昵称和个人图片的展示模型；服务端资料接口是权威事实。
 struct ProfileAppearance: Equatable, Sendable {
     var nickname: String?
     var avatarData: Data?

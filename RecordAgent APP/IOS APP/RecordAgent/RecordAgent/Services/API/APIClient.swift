@@ -145,7 +145,7 @@ actor APIClient {
         request.httpMethod = method
         request.httpBody = body
         request.timeoutInterval = 12
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("*/*", forHTTPHeaderField: "Accept")
         if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         do {

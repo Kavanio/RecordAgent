@@ -12,6 +12,7 @@ public final class AppEnvironment: ObservableObject {
     public let keychain: KeychainService
     let homeService: any HomeDataServiceProtocol
     let calendarService: any CalendarDataServiceProtocol
+    let financeService: any FinanceServiceProtocol
     let profileOverviewService: any ProfileOverviewServiceProtocol
     let profileActivityService: any ProfileActivityServiceProtocol
     let profileAppearanceService: any ProfileAppearanceServiceProtocol
@@ -38,9 +39,10 @@ public final class AppEnvironment: ObservableObject {
         let sharedData = APICalendarDataService(client: client)
         self.homeService = sharedData
         self.calendarService = sharedData
-        self.profileOverviewService = UnavailableProfileOverviewService()
+        self.financeService = APIFinanceService(client: client)
+        self.profileOverviewService = APIProfileOverviewService(client: client)
         self.profileActivityService = HomeProfileActivityService(homeService: homeService)
-        self.profileAppearanceService = LocalProfileAppearanceService()
+        self.profileAppearanceService = APIProfileAppearanceService(client: client)
 
         // 从 UserDefaults 读取持久化的语言偏好，默认跟随系统
         if let savedRaw = UserDefaults.standard.string(forKey: languageStorageKey),

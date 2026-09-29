@@ -27,6 +27,8 @@ server:
 recordagent:
   mail:
     from: ${RECORDAGENT_MAIL_FROM:}
+  files:
+    root: ${RECORDAGENT_FILE_ROOT:./data/files/objects}
 management:
   health:
     mail:

@@ -125,22 +125,23 @@ struct HomeProfileActivityService: ProfileActivityServiceProtocol {
             return ProfileActivityMonth(days: [], isDemo: false)
         }
         let today = calendar.startOfDay(for: .now)
-        let fifteenDaysAgo = calendar.date(byAdding: .day, value: -14, to: today) ?? interval.start
-        let queryStart = min(interval.start, fifteenDaysAgo)
-        let queryEnd = max(min(today, interval.end.addingTimeInterval(-1)), today)
-
-        guard queryEnd >= queryStart else {
-            return ProfileActivityMonth(days: [], isDemo: false)
+        var requestedDates = Set<Date>()
+        var cursor = calendar.startOfDay(for: interval.start)
+        while cursor < interval.end && cursor <= today {
+            requestedDates.insert(cursor)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
         }
-        let count = calendar.dateComponents([.day], from: queryStart, to: queryEnd).day ?? 0
+        for offset in 0..<15 {
+            if let recent = calendar.date(byAdding: .day, value: -offset, to: today) {
+                requestedDates.insert(recent)
+            }
+        }
         var days: [ProfileActivityMonth.Day] = []
         var demo = false
-        for offset in 0...min(count, 45) {
+        for date in requestedDates.sorted() {
             try Task.checkCancellation()
-            guard let date = calendar.date(byAdding: .day, value: offset, to: queryStart) else {
-                continue
-            }
-            let snapshot = try await homeService.snapshot(for: date, locale: locale)
+            let snapshot = try await homeService.snapshot(for: date, locale: locale, includeTrend: false)
             demo = demo || snapshot.isDemo
             let entries = snapshot.entries.filter {
                 $0.kind == .document || $0.kind == .focus || ($0.kind == .todo && $0.isCompleted)
