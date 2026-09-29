@@ -6,21 +6,9 @@ struct CalendarNoteCreateView: View {
     let dates: HomeCalendar
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("calendar.create.note.identity")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(CalendarPalette.accent)
-                Text(draft.date, format: .dateTime.year().month(.wide).day().weekday(.wide))
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(CalendarPalette.ink)
-                Text("calendar.create.note.subtitle")
-                    .font(.subheadline)
-                    .foregroundStyle(CalendarPalette.secondary)
-            }
-
+        VStack(alignment: .leading, spacing: 20) {
             TextField("calendar.create.note.title", text: $draft.title)
-                .font(.system(size: 27, weight: .medium))
+                .font(.system(size: 22, weight: .medium))
                 .submitLabel(.next)
                 .padding(.vertical, 12)
                 .overlay(alignment: .bottom) { Rectangle().fill(AppColors.inputBorder).frame(height: 1) }
@@ -41,18 +29,9 @@ struct CalendarNoteCreateView: View {
             .font(.body)
             .foregroundStyle(CalendarPalette.ink)
 
-            HStack {
-                DatePicker("home.date.choose", selection: $draft.date,
-                           in: dates.supportedDateTimes, displayedComponents: .date)
-                    .datePickerStyle(.compact)
-                Spacer(minLength: 0)
-                HStack(spacing: 3) {
-                    Text(draft.detail.count, format: .number)
-                    Text("calendar.create.note.characters")
-                }
-                .font(.footnote)
-                .foregroundStyle(CalendarPalette.secondary)
-            }
+            DatePicker("home.date.choose", selection: $draft.date,
+                       in: dates.supportedDateTimes, displayedComponents: .date)
+                .datePickerStyle(.compact)
         }
     }
 }

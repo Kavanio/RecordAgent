@@ -16,19 +16,7 @@ struct CalendarFinanceCreateView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Image(systemName: "creditcard")
-                        .font(.system(size: 35, weight: .ultraLight))
-                        .foregroundStyle(AppColors.overviewExpense)
-                    Text("calendar.finance.heading")
-                        .font(.system(size: 31, weight: .semibold))
-                        .foregroundStyle(CalendarPalette.ink)
-                    Text("calendar.finance.subtitle")
-                        .font(.subheadline)
-                        .foregroundStyle(CalendarPalette.secondary)
-                }
-
+            VStack(alignment: .leading, spacing: 24) {
                 HStack(spacing: 8) {
                     ForEach(EntryType.allCases) { type in
                         Button { entryType = type } label: {
@@ -49,10 +37,10 @@ struct CalendarFinanceCreateView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(CalendarPalette.secondary)
                     HStack(alignment: .firstTextBaseline, spacing: 5) {
-                        Text("¥").font(.title.weight(.medium))
+                        Text("¥").font(.title3.weight(.medium))
                         TextField("0.00", text: $amount)
                             .keyboardType(.decimalPad)
-                            .font(.system(size: 42, weight: .medium, design: .rounded))
+                            .font(.system(size: 32, weight: .medium, design: .rounded))
                             .accessibilityLabel("calendar.finance.amount")
                     }
                     .foregroundStyle(CalendarPalette.ink)
@@ -61,28 +49,19 @@ struct CalendarFinanceCreateView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 20) {
-                    field("calendar.finance.category", icon: "square.grid.2x2") {
-                        TextField("calendar.finance.category_placeholder", text: $category)
-                    }
+                    TextField("calendar.finance.category", text: $category)
+                        .financeInputStyle()
                     field("calendar.finance.account", icon: "creditcard") {
                         Text("calendar.finance.account_unavailable")
                             .foregroundStyle(CalendarPalette.secondary)
                     }
-                    field("calendar.finance.note", icon: "text.alignleft") {
-                        TextField("calendar.finance.note_placeholder", text: $note, axis: .vertical)
-                            .lineLimit(2...4)
-                    }
-                    field("calendar.finance.date", icon: "calendar") {
-                        DatePicker("home.date.choose", selection: $date,
-                                   in: dates.supportedDateTimes, displayedComponents: [.date, .hourAndMinute])
-                            .datePickerStyle(.compact)
-                    }
+                    TextField("calendar.finance.note", text: $note, axis: .vertical)
+                        .lineLimit(2...4)
+                        .financeInputStyle()
+                    DatePicker("calendar.finance.date", selection: $date,
+                               in: dates.supportedDateTimes, displayedComponents: [.date, .hourAndMinute])
+                        .datePickerStyle(.compact)
                 }
-
-                Label("calendar.finance.unavailable", systemImage: "info.circle")
-                    .font(.footnote)
-                    .foregroundStyle(CalendarPalette.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: 640, alignment: .leading)
             .frame(maxWidth: .infinity)
@@ -117,6 +96,14 @@ struct CalendarFinanceCreateView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(AppColors.segmentBarBg, in: RoundedRectangle(cornerRadius: 14))
         }
+    }
+}
+
+private extension View {
+    func financeInputStyle() -> some View {
+        self.padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AppColors.segmentBarBg, in: RoundedRectangle(cornerRadius: 14))
     }
 }
 
