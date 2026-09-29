@@ -15,7 +15,7 @@ struct CalendarCreateChooserView: View {
                 HStack {
                     Spacer()
                     Button("common.cancel") { dismiss() }
-                        .font(.subheadline)
+                        .font(.title3.weight(.semibold))
                         .frame(minHeight: 44)
                 }
                 VStack(alignment: .leading, spacing: 8) {
