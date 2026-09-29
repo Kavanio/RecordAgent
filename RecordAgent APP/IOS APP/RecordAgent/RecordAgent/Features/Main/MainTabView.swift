@@ -34,7 +34,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .finance: return "chart.pie"
         case .library: return "books.vertical"
         case .record: return "timer"
-        case .tasks: return "bell.badge"
+        case .tasks: return "bell"
         case .profile: return "person.crop.circle"
         }
     }

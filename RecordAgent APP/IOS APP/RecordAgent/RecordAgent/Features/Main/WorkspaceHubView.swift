@@ -1,61 +1,53 @@
 import SwiftUI
 
-/// 将四个低频业务入口收纳为一个清晰的目录，保留独立业务语义。
+/// 工作台以四个独立入口呈现业务域，保持与底部导航一致的选中语义。
 struct WorkspaceHubView: View {
     let onSelect: (AppTab) -> Void
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize = 40.0
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("tab.workspace")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .foregroundStyle(AppColors.textPrimary)
-                    .padding(.bottom, 10)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("tab.workspace")
+                        .font(.system(size: 38, weight: .bold))
+                        .foregroundStyle(AppColors.textPrimary)
 
-                Text("workspace.hub.subtitle")
-                    .font(.subheadline)
-                    .foregroundStyle(AppColors.textSecondary)
-                    .padding(.bottom, 44)
+                    Text("workspace.hub.subtitle")
+                        .font(.subheadline)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.bottom, 64)
 
-                ForEach(Array(AppTab.workspaceTabs.enumerated()), id: \.element) { index, tab in
-                    Button { onSelect(tab) } label: {
-                        HStack(spacing: 18) {
-                            Text(index + 1, format: .number.precision(.integerLength(2)))
-                                .font(.caption.monospacedDigit().weight(.medium))
-                                .foregroundStyle(AppColors.textTertiary)
-                                .frame(width: 22, alignment: .leading)
+                LazyVGrid(columns: columns, alignment: .center, spacing: 52) {
+                    ForEach(AppTab.workspaceTabs) { tab in
+                        Button { onSelect(tab) } label: {
+                            VStack(spacing: 10) {
+                                Image(systemName: tab.icon)
+                                    .font(.system(size: iconSize, weight: .ultraLight))
+                                    .frame(height: iconSize + 8)
 
-                            Image(systemName: tab.icon)
-                                .font(.system(size: 21, weight: .light))
-                                .foregroundStyle(AppColors.primaryBlue)
-                                .frame(width: 30)
-
-                            Text(tab.title)
-                                .font(.title3.weight(.medium))
-                                .foregroundStyle(AppColors.textPrimary)
-
-                            Spacer(minLength: 0)
-
-                            Image(systemName: "arrow.up.right")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(AppColors.textTertiary)
+                                Text(tab.title)
+                                    .font(.headline)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                            }
+                            .foregroundStyle(AppColors.textPrimary)
+                            .frame(maxWidth: .infinity, minHeight: 88)
+                            .contentShape(Rectangle())
                         }
-                        .frame(minHeight: 84)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    if index < AppTab.workspaceTabs.count - 1 {
-                        Rectangle()
-                            .fill(AppColors.inputBorder)
-                            .frame(height: 1)
+                        .buttonStyle(.plain)
                     }
                 }
             }
-            .padding(.horizontal, 28)
-            .padding(.top, 42)
+            .padding(.horizontal, 32)
+            .padding(.top, 68)
+            .padding(.bottom, 40)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background { HomeCanvas() }
+        .background { Color(uiColor: .systemBackground).ignoresSafeArea() }
     }
 }
