@@ -53,6 +53,7 @@
 		8ADBC7AF0FADDB11017FBB01 /* WorkspacePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3F24544D71C6812973AF6E /* WorkspacePreviewView.swift */; };
 		8FEF83022D678C8F183013E1 /* ForgotPasswordSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4A56B24BA776F5BC2439B6 /* ForgotPasswordSheetView.swift */; };
 		91775C853A0357E3DA858247 /* HomeDayContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB405D900533B283BE85D391 /* HomeDayContentView.swift */; };
+		9375F5173B9F0041E5D68852 /* CalendarFinanceCreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 389CCF6F74DCE12415953CE2 /* CalendarFinanceCreateView.swift */; };
 		99378F02844A1C5E81684772 /* CalendarTodoCreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0FFB9A77E9B9AE47825655 /* CalendarTodoCreateView.swift */; };
 		99A8D3DC231117D698F1546F /* CalendarNoteCreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 939CC978C4138BCB3B2ED79C /* CalendarNoteCreateView.swift */; };
 		9DAD14A04E3998AFFB9A46E7 /* CalendarMonthGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1DCBD410FC63E7BA131097 /* CalendarMonthGrid.swift */; };
@@ -117,6 +118,7 @@
 		316F6A00C92707A55BE2CAF6 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		35C6E2B0B2F43D7C34CE4805 /* RecordAgent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RecordAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		364230326B4B17D57744561E /* AuthModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthModels.swift; sourceTree = "<group>"; };
+		389CCF6F74DCE12415953CE2 /* CalendarFinanceCreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFinanceCreateView.swift; sourceTree = "<group>"; };
 		38A17AEF10F8FB1939FA36EC /* WorkspaceHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceHubView.swift; sourceTree = "<group>"; };
 		3C185DC38613AF4D9F5F551E /* MockAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAuthService.swift; sourceTree = "<group>"; };
 		3EAAB8C4F0F5388B480CF8BD /* CalendarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTests.swift; sourceTree = "<group>"; };
@@ -332,6 +334,7 @@
 			children = (
 				4896A3228C5701131E6865B2 /* CalendarCreateChooserView.swift */,
 				CC6B60429C63664B770D4CFF /* CalendarCreateEntryView.swift */,
+				389CCF6F74DCE12415953CE2 /* CalendarFinanceCreateView.swift */,
 				939CC978C4138BCB3B2ED79C /* CalendarNoteCreateView.swift */,
 				29DB6EF9B9A700862F49679F /* CalendarPresentation.swift */,
 				7EC6BB70A035B2F4505C305C /* CalendarScheduleCreateView.swift */,
@@ -601,6 +604,7 @@
 				7A8664E888B55610157F058D /* CalendarCreateEntryView.swift in Sources */,
 				6BEFFE97EF11CFF03A2C6D27 /* CalendarDataServiceProtocol.swift in Sources */,
 				2C3808B14F5A13F277570FBC /* CalendarDayTimeline.swift in Sources */,
+				9375F5173B9F0041E5D68852 /* CalendarFinanceCreateView.swift in Sources */,
 				3E4BD241A8F9F09A29441EAB /* CalendarModels.swift in Sources */,
 				9DAD14A04E3998AFFB9A46E7 /* CalendarMonthGrid.swift in Sources */,
 				99A8D3DC231117D698F1546F /* CalendarNoteCreateView.swift in Sources */,

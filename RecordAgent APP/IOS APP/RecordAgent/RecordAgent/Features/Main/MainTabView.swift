@@ -92,9 +92,7 @@ struct MainTabView: View {
                 HomeView(viewModel: homeModel)
                     .transition(pageTransition)
             case .calendar:
-                CalendarView(home: homeModel, service: calendarService) {
-                    selectedTab = .finance
-                }
+                CalendarView(home: homeModel, service: calendarService)
                 .transition(pageTransition)
             case .workspace:
                 WorkspaceHubView { selectedTab = $0 }

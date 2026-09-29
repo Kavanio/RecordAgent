@@ -8,7 +8,7 @@ struct CalendarView: View {
     @State private var showsMonthPicker = false
     @State private var showsCreate = false
     @State private var createPath: [CalendarEntryDraft.Kind] = []
-    @State private var opensFinanceAfterCreate = false
+    @State private var showsFinanceCreate = false
     @State private var selectedEntry: HomeEntry?
     @State private var selectedNotePeriod: CalendarTodoPeriod?
     @State private var pendingTodoIDs: Set<String> = []
@@ -17,14 +17,8 @@ struct CalendarView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-    let onOpenFinance: () -> Void
-
-    init(
-        home: HomeViewModel, service: any CalendarDataServiceProtocol,
-        onOpenFinance: @escaping () -> Void
-    ) {
+    init(home: HomeViewModel, service: any CalendarDataServiceProtocol) {
         self.home = home
-        self.onOpenFinance = onOpenFinance
         _model = StateObject(wrappedValue: CalendarViewModel(service: service))
     }
 
@@ -101,24 +95,18 @@ struct CalendarView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
-        .sheet(
-            isPresented: $showsCreate,
-            onDismiss: {
-                createPath = []
-                if opensFinanceAfterCreate {
-                    opensFinanceAfterCreate = false
-                    onOpenFinance()
-                }
-            }
-        ) {
+        .sheet(isPresented: $showsCreate, onDismiss: {
+            createPath = []
+            showsFinanceCreate = false
+        }) {
             NavigationStack(path: $createPath) {
                 CalendarCreateChooserView(
                     onSelect: { createPath.append($0) },
-                    onSelectFinance: {
-                        opensFinanceAfterCreate = true
-                        showsCreate = false
-                    }
+                    onSelectFinance: { showsFinanceCreate = true }
                 )
+                .navigationDestination(isPresented: $showsFinanceCreate) {
+                    CalendarFinanceCreateView(date: home.selectedDate, dates: home.dates)
+                }
                 .navigationDestination(for: CalendarEntryDraft.Kind.self) { kind in
                     CalendarCreateEntryView(
                         model: model, kind: kind, date: home.selectedDate, dates: home.dates,
