@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: recordagent-business-backend
+  datasource:
+    url: ${RECORDAGENT_DB_URL}
+    username: ${RECORDAGENT_DB_USER}
+    password: ${RECORDAGENT_DB_PASSWORD}
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+  sql:
+    init:
+      mode: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
