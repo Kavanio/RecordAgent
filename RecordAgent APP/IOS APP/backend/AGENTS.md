@@ -5,9 +5,17 @@
 ## 目录与包结构
 
 - 本目录是独立 Maven 根工程；启动类固定在 `com.butvan.recordagent` 根包。根包不放业务逻辑，避免组件扫描范围和包职责含糊。
-- 直接子包按业务能力组织：`account`、`calendar`、`finance`、`record`、`study`、`file`、`overview`、后续 `automation`。只在实际功能落地时创建包，不提交空包或占位文件。
-- 每个业务模块按实际复杂度建立 `api`（Controller 与 DTO）、`application`（用例与事务）、`domain`（规则与模型）、`persistence`（PostgreSQL Adapter）。不要求无内容的四层目录；跨模块只依赖公开接口，不直接调用别人的 `persistence` 或实体。
-- 非业务横切代码归 `platform`：`http` 管统一错误与协议，`security` 管认证过滤与授权装配，`observability` 管请求关联和安全日志。不得把新增能力继续堆在旧 `bootstrap` 包或泛用 `common`、`utils` 中。
+- 工程采用标准水平分层组织业务代码与横切基础设施：
+  - `controller`：REST Controller 控制层，负责 HTTP 协议、参数接收、身份获取和 DTO 返回；每个方法须遵循根目录 `@ApiLog` 规范。
+  - `service`：业务用例与服务层，负责事务边界、用例编排与核心业务规则。
+  - `repository`：数据访问与存储 Adapter，以 SQL 或 Spring JDBC 访问权威数据库；`repository/mapper` 统一管理表列到不可变实体的 RowMapper。
+  - `entity`：与 `record` schema 表列对应的持久化行快照实体；不直接作为 API 响应。
+  - `dto`：客户端与服务端的请求/响应数据传输对象。
+  - `security`：认证授权、Token 过滤器、安全配置与上下文用户模型。
+  - `annotation` 与 `aspect`：自定义注解（如 `@ApiLog`）及其切面实现。
+  - `handler`：全局异常处理器（`ApiExceptionHandler`）、统一错误模型（`ApiError`）与错误码（`ApiErrorCode`）。
+  - `filter`：请求链路追踪等通用 Servlet 过滤器（如 `RequestIdFilter`）。
+- 严禁提交空包或占位目录，不得保留无代码的残留目录。
 - `src/main/resources/db/migration/` 当前以单个 `V1` 作为新建空库基线；后续结构调整新增递增版本，不再改写已应用脚本。合并前已有 Flyway 历史的数据库须另行制定兼容迁移，不得直接套用新基线或用 `repair` 掩盖差异。测试包镜像生产包，端到端测试可放根包。目录移动时同步修正包名、导入、测试和本文件。
 
 - 本目录是独立的 Spring Boot + PostgreSQL 多用户业务后端；初期服务 iOS，后续承接桌面业务。Agent 编排、模型调用、桌面 sidecar 和本机操作能力归属其他项目。

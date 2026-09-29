@@ -1,8 +1,14 @@
 package com.butvan.recordagent;
 
-import com.butvan.recordagent.platform.observability.RequestIdFilter;
+import com.butvan.recordagent.filter.RequestIdFilter;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.butvan.recordagent.repository.mapper.AccountRowMappers;
+import com.butvan.recordagent.repository.mapper.CalendarRowMappers;
+import com.butvan.recordagent.repository.mapper.FileRowMappers;
+import com.butvan.recordagent.repository.mapper.FinanceRowMappers;
+import com.butvan.recordagent.repository.mapper.RecordRowMappers;
+import com.butvan.recordagent.repository.mapper.StudyRowMappers;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
@@ -124,6 +130,73 @@ class RecordAgentApplicationIT {
                 INSERT INTO record.study_session(id, owner_id, title, started_at, timezone)
                 VALUES (?, ?, 'writing', now(), 'Asia/Shanghai')
                 """, UUID.randomUUID(), alice))).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void mapsRepresentativeRowsFromEveryBusinessDomain() {
+        UUID ownerId = UUID.randomUUID();
+        insertUser(ownerId);
+        var user = jdbcTemplate.queryForObject(
+                "SELECT * FROM record.app_user WHERE id = ?", AccountRowMappers.APP_USER, ownerId);
+        assertThat(user.id()).isEqualTo(ownerId);
+        assertThat(user.createdAt()).isNotNull();
+
+        UUID calendarEntryId = UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO record.calendar_entry(id, owner_id, entry_type, event_date, title)
+                VALUES (?, ?, 'todo', current_date, 'review')
+                """, calendarEntryId, ownerId);
+        jdbcTemplate.update("INSERT INTO record.calendar_todo(entry_id, recurrence) VALUES (?, 'daily')",
+                calendarEntryId);
+        var todo = jdbcTemplate.queryForObject(
+                "SELECT * FROM record.calendar_todo WHERE entry_id = ?",
+                CalendarRowMappers.CALENDAR_TODO, calendarEntryId);
+        assertThat(todo.recurrence()).isEqualTo("daily");
+        assertThat(todo.todoTime()).isNull();
+
+        UUID accountId = UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO record.finance_account(id, owner_id, name, account_type, currency)
+                VALUES (?, ?, 'cash', 'cash', 'CNY')
+                """, accountId, ownerId);
+        var account = jdbcTemplate.queryForObject(
+                "SELECT * FROM record.finance_account WHERE id = ?",
+                FinanceRowMappers.FINANCE_ACCOUNT, accountId);
+        assertThat(account.annualRatePercent()).isNotNull();
+        assertThat(account.balanceMinor()).isZero();
+
+        UUID recordId = UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO record.record_entry(id, owner_id, record_date, record_type)
+                VALUES (?, ?, current_date, 'journal')
+                """, recordId, ownerId);
+        var entry = jdbcTemplate.queryForObject(
+                "SELECT * FROM record.record_entry WHERE id = ?",
+                RecordRowMappers.RECORD_ENTRY, recordId);
+        assertThat(entry.ownerId()).isEqualTo(ownerId);
+        assertThat(entry.trashedAt()).isNull();
+
+        UUID sessionId = UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO record.study_session(id, owner_id, title, started_at, timezone)
+                VALUES (?, ?, 'reading', now(), 'Asia/Shanghai')
+                """, sessionId, ownerId);
+        var session = jdbcTemplate.queryForObject(
+                "SELECT * FROM record.study_session WHERE id = ?",
+                StudyRowMappers.STUDY_SESSION, sessionId);
+        assertThat(session.startedAt()).isNotNull();
+        assertThat(session.endedAt()).isNull();
+
+        UUID fileId = UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO record.file_asset
+                    (id, owner_id, original_name, media_type, size_bytes, backend_type, storage_key, status)
+                VALUES (?, ?, 'note.txt', 'text/plain', 12, 'local', ?, 'available')
+                """, fileId, ownerId, UUID.randomUUID().toString());
+        var file = jdbcTemplate.queryForObject(
+                "SELECT * FROM record.file_asset WHERE id = ?", FileRowMappers.FILE_ASSET, fileId);
+        assertThat(file.sizeBytes()).isEqualTo(12);
+        assertThat(file.deletedAt()).isNull();
     }
 
     private void insertUser(UUID id) {
