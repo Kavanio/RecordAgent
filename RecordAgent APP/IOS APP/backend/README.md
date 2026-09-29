@@ -2,7 +2,7 @@
 
 本目录是独立 Maven 根工程，使用 Java 21、Spring Boot 3.5.16、PostgreSQL 17.11、Spring JDBC、Flyway 和 Spring Security。版本锁定参考 [Spring Boot 稳定版本列表](https://docs.spring.io/spring-boot/spring-projects.html)、[系统要求](https://docs.spring.io/spring-boot/system-requirements.html)及 [PostgreSQL 支持周期](https://www.postgresql.org/support/versioning/)。不依赖桌面端 Maven 工程或 SQLite。
 
-当前只完成规划中的第 1 阶段工程底座：入口、数据库连接、`V1` 迁移、健康检查和默认拒绝业务请求的安全配置。业务域包随实际功能落地时创建。`/api/v1` 业务接口、账户认证、领域表及附件存储尚未实现；不要把当前健康状态当作业务已就绪。
+当前已完成工程底座及 `V1`～`V7` 的账户、日历、财务、资料、学习和文件表结构，设计见 [数据库设计.md](数据库设计.md)。业务域包随实际功能落地时创建。`/api/v1` 业务接口、账户认证及附件二进制存储尚未实现；不要把当前健康状态当作业务已就绪。
 
 ## 目录规范
 
@@ -43,7 +43,7 @@ HTTP 请求由服务端生成 `X-Request-Id`，错误体使用同一个 `request
 
 连接已有 PostgreSQL 服务时，将 `.env` 中的 `RECORDAGENT_DB_URL` 设为目标数据库的 JDBC URL，并填写对应数据库用户名和密码；数据库必须先存在，且账号需有执行 Flyway 迁移的权限。`.env` 权限建议设为仅当前用户可读写（`chmod 600 .env`）。数据库密码与服务器地址不写入源码、示例配置或提交记录。
 
-数据库只绑定本机回环地址。部署环境须通过环境变量注入数据库连接，不使用本地 Compose 配置。`V1` 建立独立 `record_agent` schema，后续迁移脚本需明确使用该 schema；Flyway 历史表仍位于 `public`。已执行的迁移脚本不可修改。
+本地 Compose 数据库只绑定本机回环地址。部署环境须通过环境变量注入数据库连接，不使用本地 Compose 配置。`V1` 建立独立 `record_agent` schema，`V2`～`V7` 建立业务表；Flyway 历史表仍位于 `public`。已执行的迁移脚本不可修改。
 
 ## 验证
 
