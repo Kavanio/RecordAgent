@@ -29,7 +29,7 @@ class RecordAgentApplicationIT {
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
             System.getProperty("test.postgres.image", "postgres:17.11"))
-            .withDatabaseName("recordagent_test")
+            .withDatabaseName("record")
             .withUsername("recordagent_test")
             .withPassword(java.util.UUID.randomUUID().toString());
 
@@ -62,7 +62,7 @@ class RecordAgentApplicationIT {
         assertThat(migrationCount).isEqualTo(1);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'record_agent'", Integer.class))
+                "SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'record'", Integer.class))
                 .isEqualTo(1);
         assertThat(restTemplate.getForEntity("http://localhost:" + port + "/actuator/health", String.class)
                 .getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -85,43 +85,43 @@ class RecordAgentApplicationIT {
 
         UUID recordId = UUID.randomUUID();
         jdbcTemplate.update("""
-                INSERT INTO record_agent.record_entry(id, owner_id, record_date, record_type)
+                INSERT INTO record.record_entry(id, owner_id, record_date, record_type)
                 VALUES (?, ?, current_date, 'journal')
                 """, recordId, alice);
         UUID bobTag = UUID.randomUUID();
         jdbcTemplate.update("""
-                INSERT INTO record_agent.record_tag(id, owner_id, name) VALUES (?, ?, 'tag')
+                INSERT INTO record.record_tag(id, owner_id, name) VALUES (?, ?, 'tag')
                 """, bobTag, bob);
         assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> jdbcTemplate.update("""
-                INSERT INTO record_agent.record_entry_tag(owner_id, record_id, tag_id)
+                INSERT INTO record.record_entry_tag(owner_id, record_id, tag_id)
                 VALUES (?, ?, ?)
                 """, alice, recordId, bobTag))).isInstanceOf(DataIntegrityViolationException.class);
 
         UUID bobFile = UUID.randomUUID();
         jdbcTemplate.update("""
-                INSERT INTO record_agent.file_asset
+                INSERT INTO record.file_asset
                     (id, owner_id, original_name, media_type, size_bytes, backend_type, storage_key, status)
                 VALUES (?, ?, 'photo.png', 'image/png', 1, 'local', ?, 'available')
                 """, bobFile, bob, UUID.randomUUID().toString());
         assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> jdbcTemplate.update("""
-                INSERT INTO record_agent.record_file(owner_id, record_id, file_id)
+                INSERT INTO record.record_file(owner_id, record_id, file_id)
                 VALUES (?, ?, ?)
                 """, alice, recordId, bobFile))).isInstanceOf(DataIntegrityViolationException.class);
 
         UUID accountId = UUID.randomUUID();
         assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> jdbcTemplate.update("""
-                INSERT INTO record_agent.finance_account
+                INSERT INTO record.finance_account
                     (id, owner_id, name, account_type, currency, balance_minor)
                 VALUES (?, ?, 'wallet', 'cash', 'CNY', -1)
                 """, accountId, alice))).isInstanceOf(DataIntegrityViolationException.class);
 
         UUID firstSession = UUID.randomUUID();
         jdbcTemplate.update("""
-                INSERT INTO record_agent.study_session(id, owner_id, title, started_at, timezone)
+                INSERT INTO record.study_session(id, owner_id, title, started_at, timezone)
                 VALUES (?, ?, 'reading', now(), 'Asia/Shanghai')
                 """, firstSession, alice);
         assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> jdbcTemplate.update("""
-                INSERT INTO record_agent.study_session(id, owner_id, title, started_at, timezone)
+                INSERT INTO record.study_session(id, owner_id, title, started_at, timezone)
                 VALUES (?, ?, 'writing', now(), 'Asia/Shanghai')
                 """, UUID.randomUUID(), alice))).isInstanceOf(DataIntegrityViolationException.class);
     }
@@ -129,7 +129,7 @@ class RecordAgentApplicationIT {
     private void insertUser(UUID id) {
         String unique = id.toString();
         jdbcTemplate.update("""
-                INSERT INTO record_agent.app_user
+                INSERT INTO record.app_user
                     (id, email_normalized, password_hash, display_name, display_name_normalized)
                 VALUES (?, ?, 'test-hash', ?, ?)
                 """, id, unique + "@example.test", unique, unique);

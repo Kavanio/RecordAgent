@@ -41,9 +41,9 @@ HTTP 请求由服务端生成 `X-Request-Id`，错误体使用同一个 `request
 3. 在本目录运行 `docker compose --env-file .env up -d postgres`。
 4. 在本目录运行 `mvn spring-boot:run`。Spring Boot 会从当前工作目录导入被 Git 忽略的 `.env`；应用启动时 Flyway 自动迁移空库。访问 `http://localhost:9090/actuator/health` 查看健康状态。也可由部署环境变量覆盖 `.env` 中的值。
 
-连接已有 PostgreSQL 服务时，将 `.env` 中的 `RECORDAGENT_DB_URL` 设为目标数据库的 JDBC URL，并填写对应数据库用户名和密码；数据库必须先存在，且账号需有执行 Flyway 迁移的权限。`.env` 权限建议设为仅当前用户可读写（`chmod 600 .env`）。数据库密码与服务器地址不写入源码、示例配置或提交记录。
+数据库统一命名为 `record`，本地连接示例为 `jdbc:postgresql://localhost:5432/record`。连接已有 PostgreSQL 服务时，将 `.env` 中的 `RECORDAGENT_DB_URL` 指向该数据库，并填写对应用户名和密码；数据库必须先存在，且账号需有执行 Flyway 迁移的权限。`.env` 权限建议设为仅当前用户可读写（`chmod 600 .env`）。数据库密码与服务器地址不写入源码、示例配置或提交记录。若本地 Compose 数据卷已用旧数据库名初始化，修改 `POSTGRES_DB` 不会自动重命名该库，需另行迁移已有数据。
 
-本地 Compose 数据库只绑定本机回环地址。部署环境须通过环境变量注入数据库连接，不使用本地 Compose 配置。单个 `V1` 同时建立 `record_agent` schema 和业务表；Flyway 历史表仍位于 `public`。该文件仅适用于空库。若数据库已执行合并前的 V1～V7，Flyway 校验会因 V1 校验和变化而失败，必须另行制定兼容迁移或在确认可清除数据的隔离环境中重建；不得对已有数据执行 `repair` 以掩盖差异。后续已执行的迁移脚本不可改写。
+本地 Compose 数据库只绑定本机回环地址。部署环境须通过环境变量注入数据库连接，不使用本地 Compose 配置。单个 `V1` 同时建立 `record` schema 和业务表；Flyway 历史表仍位于 `public`。该文件仅适用于空库。若数据库已执行合并前的 V1～V7，Flyway 校验会因 V1 校验和变化而失败，必须另行制定兼容迁移或在确认可清除数据的隔离环境中重建；不得对已有数据执行 `repair` 以掩盖差异。后续已执行的迁移脚本不可改写。
 
 ## 验证
 

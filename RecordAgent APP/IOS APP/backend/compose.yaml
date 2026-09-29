@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:17.11
     environment:
-      POSTGRES_DB: recordagent
+      POSTGRES_DB: record
       POSTGRES_USER: ${RECORDAGENT_DB_USER:?set RECORDAGENT_DB_USER}
       POSTGRES_PASSWORD: ${RECORDAGENT_DB_PASSWORD:?set RECORDAGENT_DB_PASSWORD}
     ports:
