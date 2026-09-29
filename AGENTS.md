@@ -15,6 +15,8 @@
 
 本项目是基于 `React + Tauri` 桌面端、`Spring Boot + AgentScope Java` 后端的智能体应用。目录必须按职责稳定划分，禁止把临时代码、构建产物、运行态数据或跨层实现混入业务源码。
 
+iOS 业务后端规划为独立 Spring Boot 项目，以 PostgreSQL 保存多用户业务数据；当前 `agent-backend/` 继续服务桌面端并使用本地 SQLite。新项目初期仅供 iOS 使用，后续桌面业务功能迁入同一服务，Agent 再独立拆分；新项目的仓库位置和工程目录在创建时确定，不得把其代码混入现有桌面 sidecar 模块。
+
 | 目录 | 职责与约束 |
 | --- | --- |
 | `agent-frontend/` | React、TypeScript、Vite 与 Tauri 桌面端代码；仅放置前端构建、展示和桌面壳层相关内容。 |
