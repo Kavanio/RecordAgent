@@ -1,8 +1,8 @@
-package com.butvan.recordagent.repository;
+package com.butvan.recordagent.repository.auth;
 
-import com.butvan.recordagent.dto.AuthDtos;
+import com.butvan.recordagent.dto.auth.AuthDtos;
 
-import com.butvan.recordagent.dto.AuthDtos.User;
+import com.butvan.recordagent.dto.auth.AuthDtos.User;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;

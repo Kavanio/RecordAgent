@@ -1,8 +1,8 @@
-package com.butvan.recordagent.service.impl;
+package com.butvan.recordagent.service.impl.todo;
 
-import com.butvan.recordagent.dto.CalendarDtos;
-import com.butvan.recordagent.repository.TodoStore;
-import com.butvan.recordagent.service.TodoService;
+import com.butvan.recordagent.dto.todo.CalendarDtos;
+import com.butvan.recordagent.repository.todo.TodoStore;
+import com.butvan.recordagent.service.todo.TodoService;
 import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
 import java.time.LocalDate;

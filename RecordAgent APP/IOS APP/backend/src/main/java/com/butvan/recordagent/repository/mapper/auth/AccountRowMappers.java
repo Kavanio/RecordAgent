@@ -1,4 +1,4 @@
-package com.butvan.recordagent.repository.mapper;
+package com.butvan.recordagent.repository.mapper.auth;
 
 import com.butvan.recordagent.entity.AppUserEntity;
 import com.butvan.recordagent.entity.EmailChallengeEntity;

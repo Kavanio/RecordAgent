@@ -1,6 +1,6 @@
 package com.butvan.recordagent.security;
 
-import com.butvan.recordagent.service.AccountService;
+import com.butvan.recordagent.service.auth.AccountService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

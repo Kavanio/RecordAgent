@@ -1,4 +1,4 @@
-package com.butvan.recordagent.dto;
+package com.butvan.recordagent.dto.todo;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

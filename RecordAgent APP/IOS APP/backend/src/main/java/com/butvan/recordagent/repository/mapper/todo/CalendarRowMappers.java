@@ -1,4 +1,4 @@
-package com.butvan.recordagent.repository.mapper;
+package com.butvan.recordagent.repository.mapper.todo;
 
 import com.butvan.recordagent.entity.CalendarEntryEntity;
 import com.butvan.recordagent.entity.CalendarTodoEntity;

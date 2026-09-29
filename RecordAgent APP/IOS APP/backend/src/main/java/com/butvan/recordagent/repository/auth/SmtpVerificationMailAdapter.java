@@ -1,6 +1,6 @@
-package com.butvan.recordagent.repository;
+package com.butvan.recordagent.repository.auth;
 
-import com.butvan.recordagent.service.VerificationMailPort;
+import com.butvan.recordagent.service.auth.VerificationMailPort;
 import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
 import lombok.RequiredArgsConstructor;

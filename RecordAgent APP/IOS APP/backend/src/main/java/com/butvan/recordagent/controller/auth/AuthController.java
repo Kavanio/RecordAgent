@@ -1,8 +1,8 @@
-package com.butvan.recordagent.controller;
+package com.butvan.recordagent.controller.auth;
 
-import com.butvan.recordagent.dto.AuthDtos;
+import com.butvan.recordagent.dto.auth.AuthDtos;
 
-import com.butvan.recordagent.service.AccountService;
+import com.butvan.recordagent.service.auth.AccountService;
 import com.butvan.recordagent.annotation.ApiLog;
 import com.butvan.recordagent.security.AuthenticatedUser;
 import jakarta.validation.Valid;

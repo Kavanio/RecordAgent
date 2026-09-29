@@ -1,7 +1,7 @@
-package com.butvan.recordagent.service;
+package com.butvan.recordagent.service.auth;
 
-import com.butvan.recordagent.dto.AuthDtos;
-import com.butvan.recordagent.repository.AccountStore;
+import com.butvan.recordagent.dto.auth.AuthDtos;
+import com.butvan.recordagent.repository.auth.AccountStore;
 import java.util.Optional;
 import java.util.UUID;
 

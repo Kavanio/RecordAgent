@@ -3,12 +3,12 @@ package com.butvan.recordagent;
 import com.butvan.recordagent.filter.RequestIdFilter;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.butvan.recordagent.repository.mapper.AccountRowMappers;
-import com.butvan.recordagent.repository.mapper.CalendarRowMappers;
-import com.butvan.recordagent.repository.mapper.FileRowMappers;
-import com.butvan.recordagent.repository.mapper.FinanceRowMappers;
-import com.butvan.recordagent.repository.mapper.RecordRowMappers;
-import com.butvan.recordagent.repository.mapper.StudyRowMappers;
+import com.butvan.recordagent.repository.mapper.auth.AccountRowMappers;
+import com.butvan.recordagent.repository.mapper.todo.CalendarRowMappers;
+import com.butvan.recordagent.repository.mapper.file.FileRowMappers;
+import com.butvan.recordagent.repository.mapper.finance.FinanceRowMappers;
+import com.butvan.recordagent.repository.mapper.record.RecordRowMappers;
+import com.butvan.recordagent.repository.mapper.study.StudyRowMappers;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package com.butvan.recordagent.repository.mapper;
+package com.butvan.recordagent.repository.mapper.file;
 
 import com.butvan.recordagent.entity.FileAssetEntity;
 import com.butvan.recordagent.entity.RecordFileEntity;

@@ -5,16 +5,15 @@
 ## 目录与包结构
 
 - 本目录是独立 Maven 根工程；启动类固定在 `com.butvan.recordagent` 根包。根包不放业务逻辑，避免组件扫描范围和包职责含糊。
-- 工程采用标准水平分层组织业务代码与横切基础设施：
-  - `controller`：REST Controller 控制层，负责 HTTP 协议、参数接收、身份获取和 DTO 返回；每个方法须遵循根目录 `@ApiLog` 规范。
-  - `service`：业务服务接口，子包 `service/impl` 存放对应的 Service 实现类；负责事务边界、用例编排与核心业务规则。
-  - `repository`：数据访问与存储 Adapter，以 SQL 或 Spring JDBC 访问权威数据库；`repository/mapper` 统一管理表列到不可变实体的 RowMapper。
-  - `entity`：与 `record` schema 表列对应的持久化行快照实体；不直接作为 API 响应。
-  - `dto`：客户端与服务端的请求/响应数据传输对象。
-  - `security`：认证授权、Token 过滤器、安全配置与上下文用户模型。
-  - `annotation` 与 `aspect`：自定义注解（如 `@ApiLog`）及其切面实现。
-  - `handler`：全局异常处理器（`ApiExceptionHandler`）、统一错误模型（`ApiError`）与错误码（`ApiErrorCode`）。
-  - `filter`：请求链路追踪等通用 Servlet 过滤器（如 `RequestIdFilter`）。
+- 工程采用标准水平分层，且在 Controller、Service、Mapper、Repository 等业务层内部，统一按业务领域（如 `auth`、`todo`、`finance`、`record` 等）细分二级子包：
+  - `controller.<module>`：REST Controller 控制层，负责接收参数、认证鉴权与响应返回（如 `controller.auth`、`controller.todo`）；每个方法标注 `@ApiLog`。
+  - `service.<module>`：业务服务接口层（如 `service.auth`、`service.todo`）。
+  - `service.impl.<module>`：业务服务实现类，存放具体用例事务与业务逻辑（如 `service.impl.auth`、`service.impl.todo`）。
+  - `repository.<module>`：数据访问与存储 Adapter，以 SQL / JDBC 访问权威数据库（如 `repository.auth`、`repository.todo`）。
+  - `repository.mapper.<module>`：Spring JDBC RowMapper 列映射（如 `repository.mapper.auth`、`repository.mapper.todo`）。
+  - `dto.<module>`：请求与响应数据传输对象（如 `dto.auth`、`dto.todo`）。
+  - `entity`：与表列对应的持久化行快照实体，不直接暴露给 API。
+  - `security`、`annotation`、`aspect`、`handler`、`filter`：认证授权、日志切面、统一异常处理与通用过滤器等横切基础设施。
 - 严禁提交空包或占位目录，不得保留无代码的残留目录。
 - `src/main/resources/db/migration/` 当前以单个 `V1` 作为新建空库基线；后续结构调整新增递增版本，不再改写已应用脚本。合并前已有 Flyway 历史的数据库须另行制定兼容迁移，不得直接套用新基线或用 `repair` 掩盖差异。测试包镜像生产包，端到端测试可放根包。目录移动时同步修正包名、导入、测试和本文件。
 

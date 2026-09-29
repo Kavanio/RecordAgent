@@ -1,9 +1,9 @@
-package com.butvan.recordagent.service.impl;
+package com.butvan.recordagent.service.impl.auth;
 
-import com.butvan.recordagent.dto.AuthDtos;
-import com.butvan.recordagent.repository.AccountStore;
-import com.butvan.recordagent.service.AccountService;
-import com.butvan.recordagent.service.VerificationMailPort;
+import com.butvan.recordagent.dto.auth.AuthDtos;
+import com.butvan.recordagent.repository.auth.AccountStore;
+import com.butvan.recordagent.service.auth.AccountService;
+import com.butvan.recordagent.service.auth.VerificationMailPort;
 import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
 import java.nio.charset.StandardCharsets;

@@ -1,4 +1,4 @@
-package com.butvan.recordagent.repository.mapper;
+package com.butvan.recordagent.repository.mapper.finance;
 
 import com.butvan.recordagent.entity.FinanceAccountEntity;
 import com.butvan.recordagent.entity.FinanceCategoryEntity;

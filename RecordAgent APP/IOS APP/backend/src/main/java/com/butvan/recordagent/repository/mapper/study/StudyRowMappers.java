@@ -1,4 +1,4 @@
-package com.butvan.recordagent.repository.mapper;
+package com.butvan.recordagent.repository.mapper.study;
 
 import com.butvan.recordagent.entity.StudyCategoryEntity;
 import com.butvan.recordagent.entity.StudySessionEntity;
