@@ -59,7 +59,7 @@ class RecordAgentApplicationIT {
     void migratesFreshDatabaseAndExposesOnlyHealth() throws Exception {
         Integer migrationCount = jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM flyway_schema_history WHERE success = true", Integer.class);
-        assertThat(migrationCount).isEqualTo(7);
+        assertThat(migrationCount).isEqualTo(1);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'record_agent'", Integer.class))

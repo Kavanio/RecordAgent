@@ -8,7 +8,7 @@
 - 直接子包按业务能力组织：`account`、`calendar`、`finance`、`record`、`study`、`file`、`overview`、后续 `automation`。只在实际功能落地时创建包，不提交空包或占位文件。
 - 每个业务模块按实际复杂度建立 `api`（Controller 与 DTO）、`application`（用例与事务）、`domain`（规则与模型）、`persistence`（PostgreSQL Adapter）。不要求无内容的四层目录；跨模块只依赖公开接口，不直接调用别人的 `persistence` 或实体。
 - 非业务横切代码归 `platform`：`http` 管统一错误与协议，`security` 管认证过滤与授权装配，`observability` 管请求关联和安全日志。不得把新增能力继续堆在旧 `bootstrap` 包或泛用 `common`、`utils` 中。
-- `src/main/resources/db/migration/` 只放按版本递增的 PostgreSQL 迁移；测试包镜像生产包，端到端测试可放根包。目录移动时同步修正包名、导入、测试和本文件。
+- `src/main/resources/db/migration/` 当前以单个 `V1` 作为新建空库基线；后续结构调整新增递增版本，不再改写已应用脚本。合并前已有 Flyway 历史的数据库须另行制定兼容迁移，不得直接套用新基线或用 `repair` 掩盖差异。测试包镜像生产包，端到端测试可放根包。目录移动时同步修正包名、导入、测试和本文件。
 
 - 本目录是独立的 Spring Boot + PostgreSQL 多用户业务后端；初期服务 iOS，后续承接桌面业务。Agent 编排、模型调用、桌面 sidecar 和本机操作能力归属其他项目。
 - 以日历、财务、资料、记录、任务等业务域划分代码。Controller 只处理协议、认证结果和 DTO；业务规则在领域服务；数据库与附件通过各自 Adapter 访问。跨域组合通过公开服务接口，不直接查询其他领域表。
