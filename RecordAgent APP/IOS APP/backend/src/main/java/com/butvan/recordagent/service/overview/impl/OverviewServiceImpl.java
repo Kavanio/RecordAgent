@@ -1,16 +1,14 @@
 package com.butvan.recordagent.service.overview.impl;
 
 import com.butvan.recordagent.dto.overview.OverviewDtos;
-import com.butvan.recordagent.handler.ApiErrorCode;
-import com.butvan.recordagent.handler.ApiException;
 import com.butvan.recordagent.service.calendar.TodoService;
 import com.butvan.recordagent.service.finance.FinanceService;
 import com.butvan.recordagent.service.overview.OverviewService;
 import com.butvan.recordagent.service.record.JournalService;
 import com.butvan.recordagent.service.study.StudyService;
+import com.butvan.recordagent.service.time.BusinessTimeZone;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -30,7 +28,7 @@ public class OverviewServiceImpl implements OverviewService {
     @Override
     @Transactional(readOnly = true)
     public OverviewDtos.DayTrend dayTrend(UUID owner, LocalDate date, String zone) {
-        validateZone(zone);
+        BusinessTimeZone.parse(zone);
         List<OverviewDtos.TrendDay> trend = new ArrayList<>(7);
         for (int offset = 6; offset >= 0; offset--) {
             LocalDate day = date.minusDays(offset);
@@ -45,7 +43,7 @@ public class OverviewServiceImpl implements OverviewService {
     @Override
     @Transactional(readOnly = true)
     public OverviewDtos.Profile profile(UUID owner, YearMonth month, String zone) {
-        validateZone(zone);
+        BusinessTimeZone.parse(zone);
         var financeSummary = finance.summary(owner);
         var documentSummary = journals.summary(owner);
         long todoCount = 0;
@@ -60,10 +58,5 @@ public class OverviewServiceImpl implements OverviewService {
                 financeSummary.totalExpenseInCents(), study.totalMinutes(owner),
                 documentSummary.documentCount(), documentSummary.characterCount(),
                 completed, todoCount, null, null, null);
-    }
-
-    private static void validateZone(String zone) {
-        try { ZoneId.of(zone); }
-        catch (Exception exception) { throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid time zone"); }
     }
 }

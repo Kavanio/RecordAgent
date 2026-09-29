@@ -1,13 +1,11 @@
 package com.butvan.recordagent.service.record.impl;
 
 import com.butvan.recordagent.dto.record.JournalDtos;
-import com.butvan.recordagent.handler.ApiErrorCode;
-import com.butvan.recordagent.handler.ApiException;
 import com.butvan.recordagent.repository.record.JournalRepository;
 import com.butvan.recordagent.service.record.JournalService;
+import com.butvan.recordagent.service.time.BusinessTimeZone;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -23,8 +21,7 @@ public class JournalServiceImpl implements JournalService {
     @Override
     @Transactional
     public JournalDtos.Created create(UUID owner, JournalDtos.Create request) {
-        try { ZoneId.of(request.timeZone()); }
-        catch (Exception exception) { throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid time zone"); }
+        BusinessTimeZone.parse(request.timeZone());
         UUID id = UUID.randomUUID();
         store.create(id, owner, request.date(), request.title().strip(),
                 request.body() == null ? "" : request.body().strip());

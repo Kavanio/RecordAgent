@@ -5,9 +5,9 @@ import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
 import com.butvan.recordagent.repository.finance.FinanceRepository;
 import com.butvan.recordagent.service.finance.FinanceService;
+import com.butvan.recordagent.service.time.BusinessTimeZone;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -44,8 +44,7 @@ public class FinanceServiceImpl implements FinanceService {
         if (!List.of("expense", "income").contains(request.type())) {
             throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid transaction type");
         }
-        try { ZoneId.of(request.timeZone()); }
-        catch (Exception exception) { throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid time zone"); }
+        BusinessTimeZone.parse(request.timeZone());
         var account = store.lockAccount(owner, request.accountId())
                 .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "account not found"));
         long balance;
@@ -56,7 +55,9 @@ public class FinanceServiceImpl implements FinanceService {
         } catch (ArithmeticException exception) {
             throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "amount overflow");
         }
-        if (balance < 0) throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "insufficient balance");
+        if (balance < 0) {
+            throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "insufficient balance");
+        }
         String categoryName = request.category() == null ? "" : request.category().strip();
         UUID category = categoryName.isEmpty() ? null : store.category(owner, request.type(), categoryName);
         UUID id = UUID.randomUUID();

@@ -1,12 +1,12 @@
 package com.butvan.recordagent.service.auth.impl;
 
-import com.butvan.recordagent.service.mail.MailService;
-
 import com.butvan.recordagent.dto.auth.AuthDtos;
-import com.butvan.recordagent.repository.auth.AuthRepository;
-import com.butvan.recordagent.service.auth.AuthService;
 import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
+import com.butvan.recordagent.repository.auth.AuthRepository;
+import com.butvan.recordagent.service.auth.AuthService;
+import com.butvan.recordagent.service.mail.MailService;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -28,6 +28,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class AuthServiceImpl implements AuthService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final int MAX_ATTEMPTS = 5;
+    private static final int CODE_VALIDITY_MINUTES = 10;
+    private static final int CODE_RETRY_SECONDS = 60;
+    private static final int ACCESS_TOKEN_MINUTES = 15;
+    private static final int REFRESH_TOKEN_DAYS = 30;
+
     private final AuthRepository store;
     private final PasswordEncoder encoder;
     private final MailService mail;
@@ -37,27 +42,36 @@ public class AuthServiceImpl implements AuthService {
     public AuthDtos.CodeResponse sendCode(AuthDtos.CodeRequest request) {
         String email = normalize(request.email());
         String purpose = request.purpose();
-        if (!purpose.equals("register") && !purpose.equals("login") && !purpose.equals("reset_password")) {
+        if (!"register".equals(purpose) && !"login".equals(purpose)
+                && !"reset_password".equals(purpose)) {
             throw error(ApiErrorCode.INVALID_ARGUMENT);
         }
-        if (store.lastChallengeAt(email, purpose).filter(time -> time.isAfter(now().minusMinutes(1))).isPresent()) {
-            throw error(ApiErrorCode.RATE_LIMITED);
-        }
-        byte[] digits = new byte[4];
-        RANDOM.nextBytes(digits);
-        int number = (int) (Integer.toUnsignedLong(java.nio.ByteBuffer.wrap(digits).getInt()) % 1_000_000);
-        String code = "%06d".formatted(number);
-        mail.send(email, code);
-        store.createChallenge(UUID.randomUUID(), email, purpose, encoder.encode(code), now().plusMinutes(10));
-        return new AuthDtos.CodeResponse(60);
+        return transactions.execute(status -> {
+            // 邮件发送与数据库登记保持在同一临界区，避免并发请求同时通过 60 秒频率检查。
+            // SMTP 调用期间事务仍占用连接；后续改异步发送时需由持久化队列维持同等顺序语义。
+            store.lockChallengeRequest(email, purpose);
+            if (store.lastChallengeAt(email, purpose)
+                    .filter(time -> time.isAfter(now().minusSeconds(CODE_RETRY_SECONDS))).isPresent()) {
+                throw error(ApiErrorCode.RATE_LIMITED);
+            }
+            String code = generateCode();
+            mail.send(email, code);
+            store.createChallenge(UUID.randomUUID(), email, purpose, encoder.encode(code),
+                    now().plusMinutes(CODE_VALIDITY_MINUTES));
+            return new AuthDtos.CodeResponse(CODE_RETRY_SECONDS);
+        });
     }
 
     @Override
     public AuthDtos.Session register(AuthDtos.RegisterRequest request) {
         String email = normalize(request.email());
         AuthDtos.Session result = transactions.execute(status -> {
-            if (!verify(email, "register", request.code())) return null;
-            if (store.findByEmail(email).isPresent()) throw error(ApiErrorCode.VERSION_CONFLICT);
+            if (!verify(email, "register", request.code())) {
+                return null;
+            }
+            if (store.findByEmail(email).isPresent()) {
+                throw error(ApiErrorCode.VERSION_CONFLICT);
+            }
             UUID id = UUID.randomUUID();
             String nickname = "用户" + id.toString().substring(0, 8);
             try {
@@ -67,7 +81,9 @@ public class AuthServiceImpl implements AuthService {
             }
             return issue(store.user(id).orElseThrow());
         });
-        if (result == null) throw error(ApiErrorCode.INVALID_ARGUMENT);
+        if (result == null) {
+            throw error(ApiErrorCode.INVALID_ARGUMENT);
+        }
         return result;
     }
 
@@ -84,10 +100,14 @@ public class AuthServiceImpl implements AuthService {
     public AuthDtos.Session codeLogin(AuthDtos.CodeLoginRequest request) {
         String email = normalize(request.email());
         AuthDtos.Session result = transactions.execute(status -> {
-            if (!verify(email, "login", request.code())) return null;
+            if (!verify(email, "login", request.code())) {
+                return null;
+            }
             return store.findByEmail(email).map(row -> issue(row.user())).orElse(null);
         });
-        if (result == null) throw error(ApiErrorCode.UNAUTHENTICATED);
+        if (result == null) {
+            throw error(ApiErrorCode.UNAUTHENTICATED);
+        }
         return result;
     }
 
@@ -105,17 +125,25 @@ public class AuthServiceImpl implements AuthService {
     public void resetPassword(AuthDtos.ResetPasswordRequest request) {
         String email = normalize(request.email());
         Boolean changed = transactions.execute(status -> {
-            if (!verify(email, "reset_password", request.code())) return false;
+            if (!verify(email, "reset_password", request.code())) {
+                return false;
+            }
             var account = store.findByEmail(email).orElse(null);
-            if (account == null) return false;
+            if (account == null) {
+                return false;
+            }
             store.changePassword(account.id(), encoder.encode(request.newPassword()));
             return true;
         });
-        if (!Boolean.TRUE.equals(changed)) throw error(ApiErrorCode.UNAUTHENTICATED);
+        if (!Boolean.TRUE.equals(changed)) {
+            throw error(ApiErrorCode.UNAUTHENTICATED);
+        }
     }
 
     @Override
-    public void logout(UUID sessionId) { store.revokeSession(sessionId); }
+    public void logout(UUID sessionId) {
+        store.revokeSession(sessionId);
+    }
 
     @Override
     public AuthDtos.User user(UUID userId) {
@@ -129,10 +157,15 @@ public class AuthServiceImpl implements AuthService {
 
     private boolean verify(String email, String purpose, String code) {
         var challenge = store.latestChallenge(email, purpose);
-        if (challenge.isEmpty()) return false;
+        if (challenge.isEmpty()) {
+            return false;
+        }
         var row = challenge.get();
-        if (row.expiresAt().isBefore(now()) || row.attempts() >= MAX_ATTEMPTS) return false;
+        if (!row.expiresAt().isAfter(now()) || row.attempts() >= MAX_ATTEMPTS) {
+            return false;
+        }
         if (!encoder.matches(code, row.hash())) {
+            // 校验失败时仍提交尝试次数，达到上限后旧验证码不可再用。
             store.failedChallenge(row.id());
             return false;
         }
@@ -143,13 +176,27 @@ public class AuthServiceImpl implements AuthService {
     private AuthDtos.Session issue(AuthDtos.User user) {
         String access = token();
         String refresh = token();
-        OffsetDateTime expires = now().plusMinutes(15);
-        store.createSession(UUID.randomUUID(), user.id(), hash(access), hash(refresh), expires, now().plusDays(30));
+        OffsetDateTime expires = now().plusMinutes(ACCESS_TOKEN_MINUTES);
+        store.createSession(UUID.randomUUID(), user.id(), hash(access), hash(refresh), expires,
+                now().plusDays(REFRESH_TOKEN_DAYS));
         return new AuthDtos.Session(access, refresh, expires, user);
     }
 
-    private static String normalize(String email) { return email.strip().toLowerCase(Locale.ROOT); }
-    private static OffsetDateTime now() { return OffsetDateTime.now(ZoneOffset.UTC); }
+    private static String generateCode() {
+        byte[] digits = new byte[4];
+        RANDOM.nextBytes(digits);
+        int number = (int) (Integer.toUnsignedLong(ByteBuffer.wrap(digits).getInt()) % 1_000_000);
+        return "%06d".formatted(number);
+    }
+
+    private static String normalize(String email) {
+        return email.strip().toLowerCase(Locale.ROOT);
+    }
+
+    private static OffsetDateTime now() {
+        return OffsetDateTime.now(ZoneOffset.UTC);
+    }
+
     private static String token() {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);
@@ -163,5 +210,7 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalStateException(exception);
         }
     }
-    private static ApiException error(ApiErrorCode code) { return new ApiException(code, code.name()); }
+    private static ApiException error(ApiErrorCode code) {
+        return new ApiException(code, code.name());
+    }
 }

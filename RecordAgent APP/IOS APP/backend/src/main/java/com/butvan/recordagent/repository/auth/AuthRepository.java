@@ -1,7 +1,5 @@
 package com.butvan.recordagent.repository.auth;
 
-import com.butvan.recordagent.dto.auth.AuthDtos;
-
 import com.butvan.recordagent.dto.auth.AuthDtos.User;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -9,7 +7,9 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCallback;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /** 账户表的 SQL 适配器，凭据字段只以摘要形式持久化。 */
 @Repository
@@ -23,6 +23,22 @@ public class AuthRepository {
     }
     public record Challenge(UUID id, String hash, OffsetDateTime expiresAt, int attempts) {}
     public record SessionRow(UUID id, UUID userId, OffsetDateTime expiresAt) {}
+
+    /**
+     * 在当前事务内串行化同一邮箱和用途的验证码申请。
+     * PostgreSQL 事务级 advisory lock 会在提交或回滚后自动释放，无需持久化锁记录。
+     */
+    public void lockChallengeRequest(String email, String purpose) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalStateException("验证码申请锁必须在数据库事务内获取");
+        }
+        jdbc.execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
+                (PreparedStatementCallback<Void>) statement -> {
+                    statement.setString(1, "recordagent:challenge:" + purpose + ":" + email);
+                    statement.execute();
+                    return null;
+                });
+    }
 
     /** 按规范化邮箱查找账户。 */
     public Optional<LoginRow> findByEmail(String email) {

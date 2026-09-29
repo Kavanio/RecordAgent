@@ -5,6 +5,7 @@ import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
 import com.butvan.recordagent.repository.calendar.ScheduleRepository;
 import com.butvan.recordagent.service.calendar.ScheduleService;
+import com.butvan.recordagent.service.time.BusinessTimeZone;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -23,9 +24,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Override
     @Transactional
     public ScheduleDtos.Created create(UUID owner, ScheduleDtos.Create request) {
-        ZoneId zone;
-        try { zone = ZoneId.of(request.timeZone()); }
-        catch (Exception exception) { throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid time zone"); }
+        ZoneId zone = BusinessTimeZone.parse(request.timeZone());
         var start = request.startAt().atZoneSameInstant(zone);
         var end = request.endAt() == null ? null : request.endAt().atZoneSameInstant(zone);
         if (end != null && (!end.toLocalDate().equals(start.toLocalDate()) || !end.isAfter(start))) {

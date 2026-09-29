@@ -1,10 +1,9 @@
 package com.butvan.recordagent.service.study.impl;
 
 import com.butvan.recordagent.dto.study.StudyDtos;
-import com.butvan.recordagent.handler.ApiErrorCode;
-import com.butvan.recordagent.handler.ApiException;
 import com.butvan.recordagent.repository.study.StudyRepository;
 import com.butvan.recordagent.service.study.StudyService;
+import com.butvan.recordagent.service.time.BusinessTimeZone;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -25,9 +24,7 @@ public class StudyServiceImpl implements StudyService {
     @Override
     @Transactional(readOnly = true)
     public List<StudyDtos.Session> day(UUID owner, LocalDate date, String timeZone) {
-        ZoneId zone;
-        try { zone = ZoneId.of(timeZone); }
-        catch (Exception exception) { throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid time zone"); }
+        ZoneId zone = BusinessTimeZone.parse(timeZone);
         var start = date.atStartOfDay(zone);
         var end = date.plusDays(1).atStartOfDay(zone);
         return store.overlapping(owner, start.toOffsetDateTime(), end.toOffsetDateTime(), 200).stream().map(row -> {
@@ -43,9 +40,7 @@ public class StudyServiceImpl implements StudyService {
     @Override
     @Transactional(readOnly = true)
     public List<StudyDtos.Session> month(UUID owner, YearMonth month, String timeZone) {
-        ZoneId zone;
-        try { zone = ZoneId.of(timeZone); }
-        catch (Exception exception) { throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid time zone"); }
+        ZoneId zone = BusinessTimeZone.parse(timeZone);
         var start = month.atDay(1).atStartOfDay(zone);
         var end = month.plusMonths(1).atDay(1).atStartOfDay(zone);
         List<StudyDtos.Session> result = new ArrayList<>();
@@ -54,8 +49,11 @@ public class StudyServiceImpl implements StudyService {
                     ? row.start().toInstant() : start.toInstant();
             var last = row.end().toInstant().isBefore(end.toInstant())
                     ? row.end().toInstant() : end.toInstant();
-            if (!last.isAfter(first)) continue;
+            if (!last.isAfter(first)) {
+                continue;
+            }
             LocalDate day = first.atZone(zone).toLocalDate();
+            // 区间右端不包含在统计内，减 1ns 可避免午夜结束时多生成次日记录。
             LocalDate finalDay = last.minusNanos(1).atZone(zone).toLocalDate();
             while (!day.isAfter(finalDay)) {
                 var dayStart = day.atStartOfDay(zone).toInstant();
