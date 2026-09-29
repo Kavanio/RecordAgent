@@ -21,6 +21,7 @@
 		36FAE18011B45939C219A13C /* AppLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81D3AEE5339AA82A8F478E0 /* AppLocalization.swift */; };
 		3D2FC92D5A9D8212B7E89C87 /* MockHomeDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB96ED547C773F77C8F43D8 /* MockHomeDataService.swift */; };
 		3E4BD241A8F9F09A29441EAB /* CalendarModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A67CE1C6375C9228A92C1A3 /* CalendarModels.swift */; };
+		40F672220D015B45BDEAA0C7 /* DebugServerConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6012E702A98F05DBAE1225DF /* DebugServerConnectionView.swift */; };
 		433FF65C6B5A1967ECD2A3AA /* ProfileAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6572CA91FAB9DA37184C3B74 /* ProfileAppearance.swift */; };
 		434B5513CF0BBE14FC7FEBFE /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30E522FE5316059D06E41FDA /* HomeView.swift */; };
 		43F1AA2E1AB923977FC019CD /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74F9AEFBB6DCCB6FFF1B31B7 /* HomeViewModel.swift */; };
@@ -116,7 +117,7 @@
 		30D8148D0A4898B1CF02CF13 /* HomeMonthPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeMonthPickerView.swift; sourceTree = "<group>"; };
 		30E522FE5316059D06E41FDA /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		316F6A00C92707A55BE2CAF6 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
-		35C6E2B0B2F43D7C34CE4805 /* RecordAgent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RecordAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		35C6E2B0B2F43D7C34CE4805 /* RecordAgent.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RecordAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		364230326B4B17D57744561E /* AuthModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthModels.swift; sourceTree = "<group>"; };
 		389CCF6F74DCE12415953CE2 /* CalendarFinanceCreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFinanceCreateView.swift; sourceTree = "<group>"; };
 		38A17AEF10F8FB1939FA36EC /* WorkspaceHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceHubView.swift; sourceTree = "<group>"; };
@@ -132,6 +133,7 @@
 		5822CFAAA03F1C990C85803B /* ProfileActivitySection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileActivitySection.swift; sourceTree = "<group>"; };
 		58C22A855FCFEFB8EDFDF4FD /* ProfileIdentityHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileIdentityHeader.swift; sourceTree = "<group>"; };
 		5D34B49D05F054474081DA25 /* RecordAgentApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordAgentApp.swift; sourceTree = "<group>"; };
+		6012E702A98F05DBAE1225DF /* DebugServerConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugServerConnectionView.swift; sourceTree = "<group>"; };
 		6572CA91FAB9DA37184C3B74 /* ProfileAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileAppearance.swift; sourceTree = "<group>"; };
 		6759F1F642B350C1896DEC3F /* RecordAgentTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RecordAgentTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6D022953ACA931CDDA079236 /* HomeDataServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeDataServiceProtocol.swift; sourceTree = "<group>"; };
@@ -188,6 +190,7 @@
 		037640E6E7A8ADAA30677C1E /* Profile */ = {
 			isa = PBXGroup;
 			children = (
+				6012E702A98F05DBAE1225DF /* DebugServerConnectionView.swift */,
 				086ACD0A8430894BBFE305F8 /* ProfileAboutView.swift */,
 				479C3ABB16CFF4049D98FBE7 /* ProfileAccountView.swift */,
 				5822CFAAA03F1C990C85803B /* ProfileActivitySection.swift */,
@@ -547,6 +550,7 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					241DEF2237432EBD35DE8734 = {
+						DevelopmentTeam = 7JWU292AKK;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -615,6 +619,7 @@
 				E13E935FAD5B24DF0FE1978E /* CalendarView.swift in Sources */,
 				46766BE9714F5315ED7903E5 /* CalendarViewModel.swift in Sources */,
 				A7BA422D38D132EEF98A172E /* ColorTokens.swift in Sources */,
+				40F672220D015B45BDEAA0C7 /* DebugServerConnectionView.swift in Sources */,
 				8FEF83022D678C8F183013E1 /* ForgotPasswordSheetView.swift in Sources */,
 				780D68A9D8F663B6F7960627 /* HomeBannerCardView.swift in Sources */,
 				70EE0698E4D8BCA973BF8D24 /* HomeDataServiceProtocol.swift in Sources */,
