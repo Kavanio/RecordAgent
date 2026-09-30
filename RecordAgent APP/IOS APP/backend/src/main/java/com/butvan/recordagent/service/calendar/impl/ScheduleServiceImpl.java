@@ -1,10 +1,13 @@
 package com.butvan.recordagent.service.calendar.impl;
 
 import com.butvan.recordagent.dto.calendar.ScheduleDtos;
+import com.butvan.recordagent.dto.query.DailySummary;
+import com.butvan.recordagent.dto.query.Page;
 import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
 import com.butvan.recordagent.repository.calendar.ScheduleRepository;
 import com.butvan.recordagent.service.calendar.ScheduleService;
+import com.butvan.recordagent.service.query.ReadBounds;
 import com.butvan.recordagent.service.time.BusinessTimeZone;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -20,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ScheduleServiceImpl implements ScheduleService {
     private final ScheduleRepository store;
-    private final com.butvan.recordagent.service.query.ReadBounds bounds;
+    private final ReadBounds bounds;
 
     @Override
     @Transactional
@@ -28,32 +31,43 @@ public class ScheduleServiceImpl implements ScheduleService {
         ZoneId zone = BusinessTimeZone.parse(request.timeZone());
         var start = request.startAt().atZoneSameInstant(zone);
         var end = request.endAt() == null ? null : request.endAt().atZoneSameInstant(zone);
-        if (end != null && (!end.toLocalDate().equals(start.toLocalDate()) || !end.isAfter(start))) {
+        if (end != null
+                && (!end.toLocalDate().equals(start.toLocalDate()) || !end.isAfter(start))) {
             throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid schedule end");
         }
         UUID id = UUID.randomUUID();
-        store.create(id, owner, request.title().strip(), request.detail(), start.toLocalDate(),
-                start.toLocalTime(), end == null ? null : end.toLocalTime(), zone.getId());
+        store.create(
+                id,
+                owner,
+                request.title().strip(),
+                request.detail(),
+                start.toLocalDate(),
+                start.toLocalTime(),
+                end == null ? null : end.toLocalTime(),
+                zone.getId());
         return new ScheduleDtos.Created(id, 0);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ScheduleDtos.Schedule> day(UUID owner, LocalDate date) {
-        return bounds.requireComplete(store.between(owner, date, date.plusDays(1), bounds.dayLimit() + 1), bounds.dayLimit());
+        return bounds.requireComplete(
+                store.between(owner, date, date.plusDays(1), bounds.dayLimit() + 1),
+                bounds.dayLimit());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<com.butvan.recordagent.service.query.DailySummary> month(UUID owner, YearMonth month) {
+    public List<DailySummary> month(UUID owner, YearMonth month) {
         return store.monthSummary(owner, month.atDay(1), month.plusMonths(1).atDay(1));
     }
+
     /** 单页只读取 limit+1 条以识别是否还有记录。 */
     @Override
     @Transactional(readOnly = true)
-    public com.butvan.recordagent.dto.query.Page<ScheduleDtos.Schedule> page(UUID owner, LocalDate date, int offset, int limit) {
+    public Page<ScheduleDtos.Schedule> page(UUID owner, LocalDate date, int offset, int limit) {
         bounds.validatePage(offset, limit);
-        return bounds.page(store.between(owner, date, date.plusDays(1), limit + 1, offset), offset, limit);
+        return bounds.page(
+                store.between(owner, date, date.plusDays(1), limit + 1, offset), offset, limit);
     }
-
 }

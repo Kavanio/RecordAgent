@@ -9,6 +9,4 @@ public record UserMediaEntity(
         UUID avatarFileId,
         UUID backgroundFileId,
         Long version,
-        OffsetDateTime updatedAt
-) {
-}
+        OffsetDateTime updatedAt) {}

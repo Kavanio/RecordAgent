@@ -17,6 +17,5 @@ public final class FinanceRowMappers {
     public static final RowMapper<FinanceTransactionEntity> FINANCE_TRANSACTION =
             DataClassRowMapper.newInstance(FinanceTransactionEntity.class);
 
-    private FinanceRowMappers() {
-    }
+    private FinanceRowMappers() {}
 }

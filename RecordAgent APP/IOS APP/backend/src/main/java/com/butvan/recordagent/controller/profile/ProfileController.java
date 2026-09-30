@@ -28,7 +28,8 @@ public class ProfileController {
 
     @ApiLog("更新本人昵称和图片")
     @PatchMapping
-    public ProfileDtos.Appearance update(@AuthenticationPrincipal AuthenticatedUser user,
+    public ProfileDtos.Appearance update(
+            @AuthenticationPrincipal AuthenticatedUser user,
             @Valid @RequestBody ProfileDtos.Update request) {
         return profiles.update(user.userId(), request);
     }

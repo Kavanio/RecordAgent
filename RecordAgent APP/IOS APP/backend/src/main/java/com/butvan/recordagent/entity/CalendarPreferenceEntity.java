@@ -11,6 +11,4 @@ public record CalendarPreferenceEntity(
         Boolean weeklyNoteExpanded,
         Boolean monthlyNoteExpanded,
         Long version,
-        OffsetDateTime updatedAt
-) {
-}
+        OffsetDateTime updatedAt) {}

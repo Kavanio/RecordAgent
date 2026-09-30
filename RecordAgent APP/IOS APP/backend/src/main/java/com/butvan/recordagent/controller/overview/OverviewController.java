@@ -23,15 +23,19 @@ public class OverviewController {
 
     @ApiLog("读取七日收支和专注趋势")
     @GetMapping("/days/{date}")
-    public OverviewDtos.DayTrend dayTrend(@AuthenticationPrincipal AuthenticatedUser user,
-            @PathVariable LocalDate date, @RequestParam String timeZone) {
+    public OverviewDtos.DayTrend dayTrend(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable LocalDate date,
+            @RequestParam String timeZone) {
         return overview.dayTrend(user.userId(), date, timeZone);
     }
 
     @ApiLog("读取个人累计统计")
     @GetMapping("/profile")
-    public OverviewDtos.Profile profile(@AuthenticationPrincipal AuthenticatedUser user,
-            @RequestParam YearMonth month, @RequestParam String timeZone) {
+    public OverviewDtos.Profile profile(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @RequestParam YearMonth month,
+            @RequestParam String timeZone) {
         return overview.profile(user.userId(), month, timeZone);
     }
 }

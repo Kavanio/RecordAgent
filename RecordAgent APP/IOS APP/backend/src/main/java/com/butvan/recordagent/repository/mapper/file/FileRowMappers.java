@@ -1,8 +1,8 @@
 package com.butvan.recordagent.repository.mapper.file;
 
+import com.butvan.recordagent.entity.CalendarFileEntity;
 import com.butvan.recordagent.entity.FileAssetEntity;
 import com.butvan.recordagent.entity.RecordFileEntity;
-import com.butvan.recordagent.entity.CalendarFileEntity;
 import com.butvan.recordagent.entity.UserMediaEntity;
 import org.springframework.jdbc.core.DataClassRowMapper;
 import org.springframework.jdbc.core.RowMapper;
@@ -21,6 +21,5 @@ public final class FileRowMappers {
     public static final RowMapper<UserMediaEntity> USER_MEDIA =
             DataClassRowMapper.newInstance(UserMediaEntity.class);
 
-    private FileRowMappers() {
-    }
+    private FileRowMappers() {}
 }

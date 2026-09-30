@@ -22,6 +22,4 @@ public record RecordEntryEntity(
         OffsetDateTime trashedAt,
         Long version,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
-) {
-}
+        OffsetDateTime updatedAt) {}

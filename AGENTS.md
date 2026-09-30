@@ -49,7 +49,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 - 一个文件只承担一个清晰职责；页面编排、可复用组件、请求服务、领域类型和样式不得无边界混写。
 - 重命名、移动或删除文件后，必须同步更新所有导入、文档、测试和相关 `AGENTS.md` 索引。
 - 桌面端打包采用 Tauri sidecar 方案：统一入口为 `scripts/build-app.sh`（内部执行 `pnpm tauri build`，由 beforeBuildCommand 调用 `agent-backend/scripts/package-sidecar.sh` 生成后端 sidecar）；`pnpm tauri dev` 不打包、不拉起 sidecar，开发时后端在 IDEA 等本机环境启动（默认 8081）。打包模式下 Tauri（`src-tauri/src/backend.rs`）负责启动、健康检查与退出清理，端口动态分配；前端 API 地址由 `services/api.ts` 统一获取，禁止在组件中硬编码后端地址或端口。
-- 发布采用完整 SemVer git tag（`v<major>.<minor>.<patch>`）驱动：根目录 `VERSION` 是桌面端版本唯一来源，必须先同步到前端包与 Tauri 配置；GitHub Actions 先校验版本、构建并验证 sidecar，再上传 macOS / Linux / Windows 安装包至草稿 Release。PR 与 `develop` 推送只执行构建验证，不创建 Release；Windows 的 sidecar 由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
+- 发布采用完整 SemVer git tag（`v<major>.<minor>.<patch>`）驱动：根目录 `VERSION` 是桌面端版本唯一来源，必须先同步到前端包与 Tauri 配置；GitHub Actions 先校验版本、构建并验证 sidecar，再上传 macOS / Linux / Windows 安装包至草稿 Release。PR 与 `develop` 推送只执行构建验证，不创建 Release；独立 iOS 业务后端由 `.github/workflows/verify-ios-backend.yml` 按路径触发格式、单元测试及 PostgreSQL 集成验证；Windows 的 sidecar 由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
 
 ### 分支管理策略
 

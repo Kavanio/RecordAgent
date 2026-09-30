@@ -1,12 +1,17 @@
 package com.butvan.recordagent.service.calendar.impl;
 
 import com.butvan.recordagent.dto.calendar.CalendarProjectionDtos;
+import com.butvan.recordagent.dto.query.DailySummary;
+import com.butvan.recordagent.dto.query.Page;
+import com.butvan.recordagent.handler.ApiErrorCode;
+import com.butvan.recordagent.handler.ApiException;
 import com.butvan.recordagent.service.calendar.CalendarProjectionService;
 import com.butvan.recordagent.service.calendar.ScheduleService;
 import com.butvan.recordagent.service.calendar.TodoService;
 import com.butvan.recordagent.service.finance.FinanceService;
 import com.butvan.recordagent.service.record.JournalService;
 import com.butvan.recordagent.service.study.StudyService;
+import com.butvan.recordagent.service.time.BusinessTimeZone;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -32,8 +37,12 @@ public class CalendarProjectionServiceImpl implements CalendarProjectionService 
     @Override
     @Transactional(readOnly = true)
     public CalendarProjectionDtos.Day day(UUID owner, LocalDate date, String zone) {
-        return new CalendarProjectionDtos.Day(date, todos.day(owner, date, zone).todos(),
-                schedules.day(owner, date), journals.day(owner, date), finance.day(owner, date),
+        return new CalendarProjectionDtos.Day(
+                date,
+                todos.day(owner, date, zone).todos(),
+                schedules.day(owner, date),
+                journals.day(owner, date),
+                finance.day(owner, date),
                 study.day(owner, date, zone));
     }
 
@@ -51,15 +60,21 @@ public class CalendarProjectionServiceImpl implements CalendarProjectionService 
         addSummaries(days, journals.month(owner, month));
         addSummaries(days, finance.month(owner, month));
         addSummaries(days, study.month(owner, month, zone));
-        List<CalendarProjectionDtos.MonthDay> result = days.entrySet().stream().map(item ->
-                new CalendarProjectionDtos.MonthDay(item.getKey(), item.getValue().count,
-                        List.copyOf(item.getValue().titles), List.copyOf(item.getValue().kinds))).toList();
+        List<CalendarProjectionDtos.MonthDay> result =
+                days.entrySet().stream()
+                        .map(
+                                item ->
+                                        new CalendarProjectionDtos.MonthDay(
+                                                item.getKey(),
+                                                item.getValue().count,
+                                                List.copyOf(item.getValue().titles),
+                                                List.copyOf(item.getValue().kinds)))
+                        .toList();
         return new CalendarProjectionDtos.Month(month.toString(), result);
     }
 
     /** 各领域完整计数相加，标题仍受月历最多三条的展示契约限制。 */
-    private static void addSummaries(Map<LocalDate, DaySummary> days,
-            List<com.butvan.recordagent.service.query.DailySummary> rows) {
+    private static void addSummaries(Map<LocalDate, DaySummary> days, List<DailySummary> rows) {
         for (var row : rows) {
             DaySummary summary = days.computeIfAbsent(row.date(), ignored -> new DaySummary());
             summary.count = Math.addExact(summary.count, row.count());
@@ -77,19 +92,20 @@ public class CalendarProjectionServiceImpl implements CalendarProjectionService 
             if (title != null && !title.isBlank() && titles.size() < 3) titles.add(title);
         }
     }
+
     /** 固定领域路由；领域服务各自维护所有权、排序及数量约束。 */
     @Override
     @Transactional(readOnly = true)
-    public com.butvan.recordagent.dto.query.Page<?> page(UUID owner, LocalDate date, String kind, String zone, int offset, int limit) {
-        com.butvan.recordagent.service.time.BusinessTimeZone.parse(zone);
+    public Page<?> page(
+            UUID owner, LocalDate date, String kind, String zone, int offset, int limit) {
+        BusinessTimeZone.parse(zone);
         return switch (kind) {
-            case "todo" -> todos.page(owner,date,zone,offset,limit);
-            case "schedule" -> schedules.page(owner,date,offset,limit);
-            case "journal" -> journals.page(owner,date,offset,limit);
-            case "finance" -> finance.page(owner,date,offset,limit);
-            case "study" -> study.page(owner,date,zone,offset,limit);
-            default -> throw new com.butvan.recordagent.handler.ApiException(com.butvan.recordagent.handler.ApiErrorCode.INVALID_ARGUMENT,"invalid kind");
+            case "todo" -> todos.page(owner, date, zone, offset, limit);
+            case "schedule" -> schedules.page(owner, date, offset, limit);
+            case "journal" -> journals.page(owner, date, offset, limit);
+            case "finance" -> finance.page(owner, date, offset, limit);
+            case "study" -> study.page(owner, date, zone, offset, limit);
+            default -> throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid kind");
         };
     }
-
 }

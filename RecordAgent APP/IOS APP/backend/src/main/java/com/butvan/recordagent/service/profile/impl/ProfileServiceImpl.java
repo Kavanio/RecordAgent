@@ -22,7 +22,8 @@ public class ProfileServiceImpl implements ProfileService {
     @Override
     @Transactional(readOnly = true)
     public ProfileDtos.Appearance appearance(UUID owner) {
-        return store.appearance(owner).orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "user not found"));
+        return store.appearance(owner)
+                .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "user not found"));
     }
 
     @Override
@@ -34,8 +35,10 @@ public class ProfileServiceImpl implements ProfileService {
         }
         if (request.avatarFileId() != null) files.requireOwned(owner, request.avatarFileId());
         if (request.coverFileId() != null) files.requireOwned(owner, request.coverFileId());
-        String name = request.nickname() == null || request.nickname().isBlank()
-                ? current.nickname() : request.nickname().strip();
+        String name =
+                request.nickname() == null || request.nickname().isBlank()
+                        ? current.nickname()
+                        : request.nickname().strip();
         try {
             if (!store.updateName(owner, name, request.expectedVersion())) {
                 throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "profile version changed");

@@ -1,11 +1,11 @@
 package com.butvan.recordagent.storage.file;
 
+import com.butvan.recordagent.config.BusinessProperties;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.UUID;
-import com.butvan.recordagent.config.BusinessProperties;
 import org.springframework.stereotype.Component;
 
 /** 本机开发阶段的文件对象存储；目录由部署配置提供。 */
@@ -24,10 +24,16 @@ public class LocalBlobStore implements BlobStore {
     }
 
     @Override
-    public byte[] read(UUID id) throws IOException { return Files.readAllBytes(path(id)); }
+    public byte[] read(UUID id) throws IOException {
+        return Files.readAllBytes(path(id));
+    }
 
     @Override
-    public void delete(UUID id) throws IOException { Files.deleteIfExists(path(id)); }
+    public void delete(UUID id) throws IOException {
+        Files.deleteIfExists(path(id));
+    }
 
-    private Path path(UUID id) { return root.resolve(id.toString()).normalize(); }
+    private Path path(UUID id) {
+        return root.resolve(id.toString()).normalize();
+    }
 }

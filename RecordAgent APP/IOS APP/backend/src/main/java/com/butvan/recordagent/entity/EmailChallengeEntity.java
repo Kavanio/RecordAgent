@@ -12,6 +12,4 @@ public record EmailChallengeEntity(
         OffsetDateTime expiresAt,
         OffsetDateTime consumedAt,
         Integer attemptCount,
-        OffsetDateTime createdAt
-) {
-}
+        OffsetDateTime createdAt) {}

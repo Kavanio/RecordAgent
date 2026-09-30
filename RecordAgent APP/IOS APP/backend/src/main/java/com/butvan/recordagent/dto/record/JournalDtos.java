@@ -10,8 +10,13 @@ import java.util.UUID;
 public final class JournalDtos {
     private JournalDtos() {}
 
-    public record Create(@NotNull LocalDate date, @NotBlank @Size(max = 240) String title,
-            @Size(max = 100000) String body, @NotBlank String timeZone) {}
+    public record Create(
+            @NotNull LocalDate date,
+            @NotBlank @Size(max = 240) String title,
+            @Size(max = 100000) String body,
+            @NotBlank String timeZone) {}
+
     public record Created(UUID id, long version) {}
+
     public record Journal(UUID id, LocalDate date, String title, String body, long version) {}
 }

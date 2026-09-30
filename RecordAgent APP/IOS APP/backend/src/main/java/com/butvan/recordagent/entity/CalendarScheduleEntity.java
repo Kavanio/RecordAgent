@@ -11,6 +11,4 @@ public record CalendarScheduleEntity(
         LocalTime endTime,
         String timezone,
         String location,
-        String recurrenceRule
-) {
-}
+        String recurrenceRule) {}

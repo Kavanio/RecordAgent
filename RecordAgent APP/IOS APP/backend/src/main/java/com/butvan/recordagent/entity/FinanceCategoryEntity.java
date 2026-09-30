@@ -10,6 +10,4 @@ public record FinanceCategoryEntity(
         String transactionType,
         String name,
         String color,
-        OffsetDateTime createdAt
-) {
-}
+        OffsetDateTime createdAt) {}

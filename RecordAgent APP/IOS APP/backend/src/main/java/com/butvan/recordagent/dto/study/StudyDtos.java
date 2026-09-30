@@ -8,5 +8,6 @@ import java.util.UUID;
 public final class StudyDtos {
     private StudyDtos() {}
 
-    public record Session(UUID id, String title, LocalDate date, LocalTime time, long durationMinutes) {}
+    public record Session(
+            UUID id, String title, LocalDate date, LocalTime time, long durationMinutes) {}
 }

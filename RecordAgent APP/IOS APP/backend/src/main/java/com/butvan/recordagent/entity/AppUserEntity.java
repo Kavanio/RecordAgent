@@ -15,6 +15,4 @@ public record AppUserEntity(
         String timezone,
         Long version,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
-) {
-}
+        OffsetDateTime updatedAt) {}

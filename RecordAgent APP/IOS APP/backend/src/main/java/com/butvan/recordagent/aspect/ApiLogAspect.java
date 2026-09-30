@@ -2,7 +2,6 @@ package com.butvan.recordagent.aspect;
 
 import com.butvan.recordagent.annotation.ApiLog;
 import com.butvan.recordagent.filter.RequestIdFilter;
-
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,16 +24,26 @@ public class ApiLogAspect {
         String requestId = RequestIdFilter.currentRequestId();
         String endpoint = request.getMethod() + " " + joinPoint.getSignature().toShortString();
         long started = System.nanoTime();
-        log.info("[API-LOG] START RequestId={} Description={} Endpoint={} ClientIp={} Params=[redacted]",
-                requestId, apiLog.value(), endpoint, request.getRemoteAddr());
+        log.info(
+                "[API-LOG] START RequestId={} Description={} Endpoint={} ClientIp={} Params=[redacted]",
+                requestId,
+                apiLog.value(),
+                endpoint,
+                request.getRemoteAddr());
         try {
             Object result = joinPoint.proceed();
-            log.info("[API-LOG] END RequestId={} Description={} Status=SUCCESS Cost={}ms",
-                    requestId, apiLog.value(), (System.nanoTime() - started) / 1_000_000);
+            log.info(
+                    "[API-LOG] END RequestId={} Description={} Status=SUCCESS Cost={}ms",
+                    requestId,
+                    apiLog.value(),
+                    (System.nanoTime() - started) / 1_000_000);
             return result;
         } catch (Throwable error) {
-            log.warn("[API-LOG] ERROR RequestId={} Description={} Status=ERROR Cost={}ms ErrorType={}",
-                    requestId, apiLog.value(), (System.nanoTime() - started) / 1_000_000,
+            log.warn(
+                    "[API-LOG] ERROR RequestId={} Description={} Status=ERROR Cost={}ms ErrorType={}",
+                    requestId,
+                    apiLog.value(),
+                    (System.nanoTime() - started) / 1_000_000,
                     error.getClass().getSimpleName());
             throw error;
         }

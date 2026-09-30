@@ -26,14 +26,18 @@ public class FileAssetController {
 
     @ApiLog("上传个人资料图片")
     @PostMapping
-    public FileDtos.Uploaded upload(@AuthenticationPrincipal AuthenticatedUser user,
+    public FileDtos.Uploaded upload(
+            @AuthenticationPrincipal AuthenticatedUser user,
             @Valid @RequestBody FileDtos.Upload request) {
         return new FileDtos.Uploaded(files.uploadJpeg(user.userId(), request.jpegBase64()));
     }
 
     @ApiLog("读取本人图片")
     @GetMapping(value = "/{id}/content", produces = MediaType.IMAGE_JPEG_VALUE)
-    public ResponseEntity<byte[]> content(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable UUID id) {
-        return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(files.read(user.userId(), id));
+    public ResponseEntity<byte[]> content(
+            @AuthenticationPrincipal AuthenticatedUser user, @PathVariable UUID id) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(files.read(user.userId(), id));
     }
 }

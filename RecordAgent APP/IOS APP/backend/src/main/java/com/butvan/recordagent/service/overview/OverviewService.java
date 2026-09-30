@@ -9,6 +9,7 @@ import java.util.UUID;
 public interface OverviewService {
     /** 读取截至选中自然日的七日趋势。 */
     OverviewDtos.DayTrend dayTrend(UUID owner, LocalDate date, String timeZone);
+
     /** 读取本人累计值和目标月待办完成率。 */
     OverviewDtos.Profile profile(UUID owner, YearMonth month, String timeZone);
 }

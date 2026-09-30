@@ -21,7 +21,8 @@ public class RequestIdFilter extends OncePerRequestFilter {
 
     /** 不信任客户端传入的 ID，避免日志注入和跨请求混淆。 */
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    protected void doFilterInternal(
+            HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String requestId = UUID.randomUUID().toString();
         request.setAttribute(MDC_KEY, requestId);

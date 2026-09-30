@@ -7,6 +7,7 @@ import java.util.UUID;
 public interface ProfileService {
     /** 读取本人当前资料。 */
     ProfileDtos.Appearance appearance(UUID owner);
+
     /** 原子更新昵称与图片绑定。 */
     ProfileDtos.Appearance update(UUID owner, ProfileDtos.Update request);
 }

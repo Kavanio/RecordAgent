@@ -1,9 +1,9 @@
 package com.butvan.recordagent.repository.mapper.record;
 
-import com.butvan.recordagent.entity.RecordTabEntity;
 import com.butvan.recordagent.entity.RecordEntryEntity;
-import com.butvan.recordagent.entity.RecordTagEntity;
 import com.butvan.recordagent.entity.RecordEntryTagEntity;
+import com.butvan.recordagent.entity.RecordTabEntity;
+import com.butvan.recordagent.entity.RecordTagEntity;
 import org.springframework.jdbc.core.DataClassRowMapper;
 import org.springframework.jdbc.core.RowMapper;
 
@@ -21,6 +21,5 @@ public final class RecordRowMappers {
     public static final RowMapper<RecordEntryTagEntity> RECORD_ENTRY_TAG =
             DataClassRowMapper.newInstance(RecordEntryTagEntity.class);
 
-    private RecordRowMappers() {
-    }
+    private RecordRowMappers() {}
 }

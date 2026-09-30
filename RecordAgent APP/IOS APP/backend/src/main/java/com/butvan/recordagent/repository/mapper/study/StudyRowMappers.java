@@ -13,6 +13,5 @@ public final class StudyRowMappers {
     public static final RowMapper<StudySessionEntity> STUDY_SESSION =
             DataClassRowMapper.newInstance(StudySessionEntity.class);
 
-    private StudyRowMappers() {
-    }
+    private StudyRowMappers() {}
 }

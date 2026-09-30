@@ -18,6 +18,4 @@ public record FinanceAccountEntity(
         LocalDate lastAccrualDate,
         Long version,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
-) {
-}
+        OffsetDateTime updatedAt) {}

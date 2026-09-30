@@ -15,36 +15,49 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @ConfigurationProperties(prefix = "recordagent")
 public class BusinessProperties {
-    @Valid
-    private Auth auth = new Auth();
-    @Valid
-    private Files files = new Files();
-    @Valid
-    private Mail mail = new Mail();
-    @Valid
-    private Reading reading = new Reading();
+    @Valid private Auth auth = new Auth();
+    @Valid private Files files = new Files();
+    @Valid private Mail mail = new Mail();
+    @Valid private Reading reading = new Reading();
 
     /** 会话期限、验证码防重放及登录限流策略。 */
     @Getter
     @Setter
     public static class Auth {
-        @Min(1) @Max(20)
+        @Min(1)
+        @Max(20)
         private int maxCodeAttempts = 5;
-        @Min(1) @Max(60)
+
+        @Min(1)
+        @Max(60)
         private int codeValidityMinutes = 10;
-        @Min(1) @Max(3600)
+
+        @Min(1)
+        @Max(3600)
         private int codeRetrySeconds = 60;
-        @Min(1) @Max(1440)
+
+        @Min(1)
+        @Max(1440)
         private int accessTokenMinutes = 15;
-        @Min(1) @Max(365)
+
+        @Min(1)
+        @Max(365)
         private int refreshTokenDays = 30;
-        @Min(1) @Max(1000)
+
+        @Min(1)
+        @Max(1000)
         private int passwordAttempts = 10;
-        @Min(1) @Max(3600)
+
+        @Min(1)
+        @Max(3600)
         private int passwordWindowSeconds = 60;
-        @Min(1) @Max(1000)
+
+        @Min(1)
+        @Max(1000)
         private int requestAttempts = 60;
-        @Min(1) @Max(3600)
+
+        @Min(1)
+        @Max(3600)
         private int requestWindowSeconds = 60;
     }
 
@@ -52,9 +65,10 @@ public class BusinessProperties {
     @Getter
     @Setter
     public static class Files {
-        @NotBlank
-        private String root = "./data/files/objects";
-        @Min(4) @Max(2_000_000)
+        @NotBlank private String root = "./data/files/objects";
+
+        @Min(4)
+        @Max(2_000_000)
         private int maxImageBytes = 2_000_000;
     }
 
@@ -69,9 +83,12 @@ public class BusinessProperties {
     @Getter
     @Setter
     public static class Reading {
-        @Min(1) @Max(1000)
+        @Min(1)
+        @Max(1000)
         private int dayLimit = 200;
-        @Min(1) @Max(1000)
+
+        @Min(1)
+        @Max(1000)
         private int accountLimit = 100;
     }
 }

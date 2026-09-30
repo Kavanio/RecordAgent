@@ -1,4 +1,4 @@
-package com.butvan.recordagent.service.query;
+package com.butvan.recordagent.dto.query;
 
 import java.time.LocalDate;
 import java.util.List;

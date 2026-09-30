@@ -1,6 +1,6 @@
 package com.butvan.recordagent.repository.mapper.projection;
 
-import com.butvan.recordagent.service.query.DailySummary;
+import com.butvan.recordagent.dto.query.DailySummary;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -13,14 +13,18 @@ public final class DailySummaryMapper {
 
     /** 映射不含正文的领域月摘要。 */
     public static DailySummary map(ResultSet rs, String kind) throws SQLException {
-        return new DailySummary(rs.getObject("day", LocalDate.class), rs.getInt("count"), titles(rs), kind);
+        return new DailySummary(
+                rs.getObject("day", LocalDate.class), rs.getInt("count"), titles(rs), kind);
     }
 
     /** PostgreSQL 标题数组最多三项。 */
     public static List<String> titles(ResultSet rs) throws SQLException {
         var array = rs.getArray("titles");
         if (array == null) return List.of();
-        try { return List.copyOf(Arrays.asList((String[]) array.getArray())); }
-        finally { array.free(); }
+        try {
+            return List.copyOf(Arrays.asList((String[]) array.getArray()));
+        } finally {
+            array.free();
+        }
     }
 }

@@ -1,7 +1,5 @@
 package com.butvan.recordagent.service.auth;
 
-import com.butvan.recordagent.handler.ApiErrorCode;
-import com.butvan.recordagent.handler.ApiException;
 import com.butvan.recordagent.repository.auth.RateLimitRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -19,14 +17,20 @@ public class AuthenticationRateLimiter {
     private final RateLimitRepository repository;
 
     /** 原子领取一次额度，超过限制返回稳定 429；键仅保存摘要。 */
-    @Transactional(propagation=Propagation.REQUIRES_NEW)
-    public boolean consume(String scope,String key,int seconds,int limit) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean consume(String scope, String key, int seconds, int limit) {
         repository.cleanExpired();
-        return repository.consume(scope,digest(key),seconds,limit)<=limit;
+        return repository.consume(scope, digest(key), seconds, limit) <= limit;
     }
 
     private static String digest(String key) {
-        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(key.getBytes(StandardCharsets.UTF_8))); }
-        catch (NoSuchAlgorithmException error) { throw new IllegalStateException("限流摘要失败"); }
+        try {
+            return HexFormat.of()
+                    .formatHex(
+                            MessageDigest.getInstance("SHA-256")
+                                    .digest(key.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("限流摘要失败");
+        }
     }
 }

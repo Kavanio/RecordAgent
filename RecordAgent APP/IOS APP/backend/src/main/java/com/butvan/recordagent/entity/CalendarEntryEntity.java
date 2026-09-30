@@ -14,6 +14,4 @@ public record CalendarEntryEntity(
         String status,
         Long version,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
-) {
-}
+        OffsetDateTime updatedAt) {}

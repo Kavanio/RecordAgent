@@ -9,5 +9,6 @@ public final class FileDtos {
     private FileDtos() {}
 
     public record Upload(@NotBlank @Size(max = 2800000) String jpegBase64) {}
+
     public record Uploaded(UUID id) {}
 }

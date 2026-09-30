@@ -11,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.butvan.recordagent.config.BusinessProperties;
 import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
 import com.butvan.recordagent.repository.file.FileAssetRepository;
@@ -25,30 +26,39 @@ import org.springframework.dao.DataIntegrityViolationException;
 class FileAssetServiceImplTest {
     private final BlobStore blobs = mock(BlobStore.class);
     private final FileAssetRepository metadata = mock(FileAssetRepository.class);
-    private final FileAssetServiceImpl service = new FileAssetServiceImpl(new com.butvan.recordagent.config.BusinessProperties(), blobs, metadata);
+    private final FileAssetServiceImpl service =
+            new FileAssetServiceImpl(new BusinessProperties(), blobs, metadata);
 
     @Test
     void rejectsOversizedBase64BeforeAccessingStorage() {
         String oversized = "A".repeat(2_666_669);
 
         assertThatThrownBy(() -> service.uploadJpeg(UUID.randomUUID(), oversized))
-                .isInstanceOfSatisfying(ApiException.class, error ->
-                        assertThat(error.errorCode()).isEqualTo(ApiErrorCode.INVALID_ARGUMENT));
+                .isInstanceOfSatisfying(
+                        ApiException.class,
+                        error ->
+                                assertThat(error.errorCode())
+                                        .isEqualTo(ApiErrorCode.INVALID_ARGUMENT));
         verifyNoInteractions(blobs, metadata);
     }
 
     @Test
     void removesBlobWhenMetadataWriteFails() throws Exception {
         UUID owner = UUID.randomUUID();
-        String image = Base64.getEncoder().encodeToString(new byte[] {
-                (byte) 0xff, (byte) 0xd8, 0, (byte) 0xff, (byte) 0xd9
-        });
+        String image =
+                Base64.getEncoder()
+                        .encodeToString(
+                                new byte[] {(byte) 0xff, (byte) 0xd8, 0, (byte) 0xff, (byte) 0xd9});
         doThrow(new DataIntegrityViolationException("test failure"))
-                .when(metadata).insert(any(), eq(owner), anyLong(), anyString());
+                .when(metadata)
+                .insert(any(), eq(owner), anyLong(), anyString());
 
         assertThatThrownBy(() -> service.uploadJpeg(owner, image))
-                .isInstanceOfSatisfying(ApiException.class, error ->
-                        assertThat(error.errorCode()).isEqualTo(ApiErrorCode.SERVICE_UNAVAILABLE));
+                .isInstanceOfSatisfying(
+                        ApiException.class,
+                        error ->
+                                assertThat(error.errorCode())
+                                        .isEqualTo(ApiErrorCode.SERVICE_UNAVAILABLE));
         verify(blobs).delete(any());
     }
 }

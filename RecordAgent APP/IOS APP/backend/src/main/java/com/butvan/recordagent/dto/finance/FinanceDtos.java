@@ -12,14 +12,29 @@ import java.util.UUID;
 public final class FinanceDtos {
     private FinanceDtos() {}
 
-    public record CreateAccount(@NotBlank @Size(max = 120) String name,
-            @NotNull @Min(0) Long openingBalanceInCents) {}
+    public record CreateAccount(
+            @NotBlank @Size(max = 120) String name, @NotNull @Min(0) Long openingBalanceInCents) {}
+
     public record Account(UUID id, String name, long balanceInCents, long version) {}
-    public record CreateTransaction(@NotNull UUID accountId, @NotBlank String type,
-            @Size(max = 80) String category, @Size(max = 10000) String note,
-            @NotNull @Min(1) Long amountInCents, @NotNull LocalDate date,
-            @NotNull LocalTime time, @NotBlank String timeZone) {}
-    public record Transaction(UUID id, UUID accountId, String type, String category,
-            String note, long amountInCents, LocalDate date, LocalTime time,
+
+    public record CreateTransaction(
+            @NotNull UUID accountId,
+            @NotBlank String type,
+            @Size(max = 80) String category,
+            @Size(max = 10000) String note,
+            @NotNull @Min(1) Long amountInCents,
+            @NotNull LocalDate date,
+            @NotNull LocalTime time,
+            @NotBlank String timeZone) {}
+
+    public record Transaction(
+            UUID id,
+            UUID accountId,
+            String type,
+            String category,
+            String note,
+            long amountInCents,
+            LocalDate date,
+            LocalTime time,
             long balanceInCents) {}
 }

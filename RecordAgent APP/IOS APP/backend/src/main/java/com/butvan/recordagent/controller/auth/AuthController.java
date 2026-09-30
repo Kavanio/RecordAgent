@@ -1,10 +1,9 @@
 package com.butvan.recordagent.controller.auth;
 
-import com.butvan.recordagent.dto.auth.AuthDtos;
-
-import com.butvan.recordagent.service.auth.AuthService;
 import com.butvan.recordagent.annotation.ApiLog;
+import com.butvan.recordagent.dto.auth.AuthDtos;
 import com.butvan.recordagent.security.AuthenticatedUser;
+import com.butvan.recordagent.service.auth.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -37,7 +36,8 @@ public class AuthController {
 
     @ApiLog("密码登录")
     @PostMapping("/auth/password-login")
-    public AuthDtos.Session passwordLogin(@Valid @RequestBody AuthDtos.PasswordLoginRequest request) {
+    public AuthDtos.Session passwordLogin(
+            @Valid @RequestBody AuthDtos.PasswordLoginRequest request) {
         return accounts.passwordLogin(request);
     }
 
@@ -55,7 +55,8 @@ public class AuthController {
 
     @ApiLog("重置账户密码")
     @PostMapping("/auth/reset-password")
-    public ResponseEntity<Void> resetPassword(@Valid @RequestBody AuthDtos.ResetPasswordRequest request) {
+    public ResponseEntity<Void> resetPassword(
+            @Valid @RequestBody AuthDtos.ResetPasswordRequest request) {
         accounts.resetPassword(request);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }

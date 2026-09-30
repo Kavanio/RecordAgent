@@ -49,7 +49,9 @@ actor APIFinanceService: FinanceServiceProtocol {
         let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: draft.date)
         let date = String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
         let time = String(format: "%02d:%02d:00", parts.hour ?? 0, parts.minute ?? 0)
-        let body = try APIClient.encoder.encode(CreateTransactionRequest(
+        let encoder = APIClient.encoder
+        encoder.outputFormatting = [.sortedKeys]
+        let body = try encoder.encode(CreateTransactionRequest(
             accountId: draft.accountId, type: draft.type,
             category: draft.category.trimmingCharacters(in: .whitespacesAndNewlines),
             note: draft.note, amountInCents: draft.amountInCents,

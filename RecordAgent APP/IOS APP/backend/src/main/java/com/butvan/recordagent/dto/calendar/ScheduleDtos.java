@@ -12,9 +12,22 @@ import java.util.UUID;
 public final class ScheduleDtos {
     private ScheduleDtos() {}
 
-    public record Create(@NotBlank @Size(max = 240) String title, @Size(max = 10000) String detail,
-            @NotNull OffsetDateTime startAt, OffsetDateTime endAt, @NotBlank String timeZone) {}
+    public record Create(
+            @NotBlank @Size(max = 240) String title,
+            @Size(max = 10000) String detail,
+            @NotNull OffsetDateTime startAt,
+            OffsetDateTime endAt,
+            @NotBlank String timeZone) {}
+
     public record Created(UUID id, long version) {}
-    public record Schedule(UUID id, String title, String detail, LocalDate date, LocalTime time,
-            LocalTime endTime, String timeZone, long version) {}
+
+    public record Schedule(
+            UUID id,
+            String title,
+            String detail,
+            LocalDate date,
+            LocalTime time,
+            LocalTime endTime,
+            String timeZone,
+            long version) {}
 }

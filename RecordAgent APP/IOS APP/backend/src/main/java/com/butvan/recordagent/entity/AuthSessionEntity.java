@@ -12,6 +12,4 @@ public record AuthSessionEntity(
         OffsetDateTime expiresAt,
         OffsetDateTime revokedAt,
         OffsetDateTime createdAt,
-        OffsetDateTime lastUsedAt
-) {
-}
+        OffsetDateTime lastUsedAt) {}

@@ -1,10 +1,10 @@
 package com.butvan.recordagent.repository.mapper.calendar;
 
 import com.butvan.recordagent.entity.CalendarEntryEntity;
+import com.butvan.recordagent.entity.CalendarPreferenceEntity;
+import com.butvan.recordagent.entity.CalendarScheduleEntity;
 import com.butvan.recordagent.entity.CalendarTodoEntity;
 import com.butvan.recordagent.entity.TodoCompletionEntity;
-import com.butvan.recordagent.entity.CalendarScheduleEntity;
-import com.butvan.recordagent.entity.CalendarPreferenceEntity;
 import org.springframework.jdbc.core.DataClassRowMapper;
 import org.springframework.jdbc.core.RowMapper;
 
@@ -25,6 +25,5 @@ public final class CalendarRowMappers {
     public static final RowMapper<CalendarPreferenceEntity> CALENDAR_PREFERENCE =
             DataClassRowMapper.newInstance(CalendarPreferenceEntity.class);
 
-    private CalendarRowMappers() {
-    }
+    private CalendarRowMappers() {}
 }

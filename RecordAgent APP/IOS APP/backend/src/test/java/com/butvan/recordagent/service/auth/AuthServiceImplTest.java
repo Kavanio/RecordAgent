@@ -10,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.butvan.recordagent.config.BusinessProperties;
 import com.butvan.recordagent.dto.auth.AuthDtos;
 import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
@@ -20,6 +21,7 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -34,9 +36,19 @@ class AuthServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        when(transactions.execute(any())).thenAnswer(invocation ->
-                ((TransactionCallback<?>) invocation.getArgument(0)).doInTransaction(null));
-        service = new AuthServiceImpl(new com.butvan.recordagent.config.BusinessProperties(), mock(com.butvan.recordagent.service.auth.AuthenticationRateLimiter.class), store, encoder, mail, transactions);
+        when(transactions.execute(any()))
+                .thenAnswer(
+                        invocation ->
+                                ((TransactionCallback<?>) invocation.getArgument(0))
+                                        .doInTransaction(null));
+        service =
+                new AuthServiceImpl(
+                        new BusinessProperties(),
+                        mock(AuthenticationRateLimiter.class),
+                        store,
+                        encoder,
+                        mail,
+                        transactions);
     }
 
     @Test
@@ -49,10 +61,12 @@ class AuthServiceImplTest {
         AuthDtos.CodeRequest request = new AuthDtos.CodeRequest(" Person@Example.Test ", "login");
         assertThat(service.sendCode(request).retryAfterSeconds()).isEqualTo(60);
         assertThatThrownBy(() -> service.sendCode(request))
-                .isInstanceOfSatisfying(ApiException.class, error ->
-                        assertThat(error.errorCode()).isEqualTo(ApiErrorCode.RATE_LIMITED));
+                .isInstanceOfSatisfying(
+                        ApiException.class,
+                        error ->
+                                assertThat(error.errorCode()).isEqualTo(ApiErrorCode.RATE_LIMITED));
 
-        verify(store, org.mockito.Mockito.times(2)).lockChallengeRequest(email, "login");
+        verify(store, Mockito.times(2)).lockChallengeRequest(email, "login");
         verify(mail).send(eq(email), anyString());
         verify(store).createChallenge(any(), eq(email), eq("login"), eq("stored-hash"), any());
     }
@@ -62,11 +76,16 @@ class AuthServiceImplTest {
         String email = "person@example.test";
         when(store.lastChallengeAt(email, "login")).thenReturn(Optional.empty());
         doThrow(new ApiException(ApiErrorCode.SERVICE_UNAVAILABLE, "mail unavailable"))
-                .when(mail).send(eq(email), anyString());
+                .when(mail)
+                .send(eq(email), anyString());
 
         assertThatThrownBy(() -> service.sendCode(new AuthDtos.CodeRequest(email, "login")))
-                .isInstanceOfSatisfying(ApiException.class, error ->
-                        assertThat(error.errorCode()).isEqualTo(ApiErrorCode.SERVICE_UNAVAILABLE));
-        verify(store, org.mockito.Mockito.never()).createChallenge(any(), anyString(), anyString(), anyString(), any());
+                .isInstanceOfSatisfying(
+                        ApiException.class,
+                        error ->
+                                assertThat(error.errorCode())
+                                        .isEqualTo(ApiErrorCode.SERVICE_UNAVAILABLE));
+        verify(store, Mockito.never())
+                .createChallenge(any(), anyString(), anyString(), anyString(), any());
     }
 }

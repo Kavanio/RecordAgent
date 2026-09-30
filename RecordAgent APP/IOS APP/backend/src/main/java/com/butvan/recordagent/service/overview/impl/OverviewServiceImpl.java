@@ -47,9 +47,17 @@ public class OverviewServiceImpl implements OverviewService {
         var documentSummary = journals.summary(owner);
         var progress = todos.progress(owner, month, zone);
         // 尚无历史余额快照，增长率返回 null，客户端不会显示虚构百分比。
-        return new OverviewDtos.Profile(month.toString(), financeSummary.totalAssetsInCents(),
-                financeSummary.totalExpenseInCents(), study.totalMinutes(owner),
-                documentSummary.documentCount(), documentSummary.characterCount(),
-                progress.completed(), progress.total(), null, null, null);
+        return new OverviewDtos.Profile(
+                month.toString(),
+                financeSummary.totalAssetsInCents(),
+                financeSummary.totalExpenseInCents(),
+                study.totalMinutes(owner),
+                documentSummary.documentCount(),
+                documentSummary.characterCount(),
+                progress.completed(),
+                progress.total(),
+                null,
+                null,
+                null);
     }
 }

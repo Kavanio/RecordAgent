@@ -11,6 +11,4 @@ public record CalendarTodoEntity(
         String priority,
         String recurrence,
         Short recurrenceWeekday,
-        Short recurrenceMonthDay
-) {
-}
+        Short recurrenceMonthDay) {}

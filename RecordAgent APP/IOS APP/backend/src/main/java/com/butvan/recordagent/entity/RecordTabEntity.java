@@ -10,6 +10,4 @@ public record RecordTabEntity(
         String name,
         String systemKey,
         Integer sortOrder,
-        OffsetDateTime createdAt
-) {
-}
+        OffsetDateTime createdAt) {}

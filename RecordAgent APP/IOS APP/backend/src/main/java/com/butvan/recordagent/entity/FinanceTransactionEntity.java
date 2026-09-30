@@ -19,6 +19,4 @@ public record FinanceTransactionEntity(
         Long amountMinor,
         String currency,
         String source,
-        OffsetDateTime createdAt
-) {
-}
+        OffsetDateTime createdAt) {}

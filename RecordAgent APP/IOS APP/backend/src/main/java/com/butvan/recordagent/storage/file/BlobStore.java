@@ -7,8 +7,10 @@ import java.util.UUID;
 public interface BlobStore {
     /** 保存一个新对象。 */
     void write(UUID id, byte[] content) throws IOException;
+
     /** 读取已有对象。 */
     byte[] read(UUID id) throws IOException;
+
     /** 清理上传失败的对象。 */
     void delete(UUID id) throws IOException;
 }

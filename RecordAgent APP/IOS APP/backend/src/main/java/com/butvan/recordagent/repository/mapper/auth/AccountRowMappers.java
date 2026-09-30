@@ -1,8 +1,8 @@
 package com.butvan.recordagent.repository.mapper.auth;
 
 import com.butvan.recordagent.entity.AppUserEntity;
-import com.butvan.recordagent.entity.EmailChallengeEntity;
 import com.butvan.recordagent.entity.AuthSessionEntity;
+import com.butvan.recordagent.entity.EmailChallengeEntity;
 import org.springframework.jdbc.core.DataClassRowMapper;
 import org.springframework.jdbc.core.RowMapper;
 
@@ -17,6 +17,5 @@ public final class AccountRowMappers {
     public static final RowMapper<AuthSessionEntity> AUTH_SESSION =
             DataClassRowMapper.newInstance(AuthSessionEntity.class);
 
-    private AccountRowMappers() {
-    }
+    private AccountRowMappers() {}
 }

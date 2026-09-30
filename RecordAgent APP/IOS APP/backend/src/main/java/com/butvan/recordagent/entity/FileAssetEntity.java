@@ -17,6 +17,4 @@ public record FileAssetEntity(
         Long version,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
-        OffsetDateTime deletedAt
-) {
-}
+        OffsetDateTime deletedAt) {}

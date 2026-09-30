@@ -17,9 +17,11 @@ class BusinessTimeZoneTest {
     @Test
     void rejectsInvalidZoneWithoutEchoingInput() {
         assertThatThrownBy(() -> BusinessTimeZone.parse("private-value"))
-                .isInstanceOfSatisfying(ApiException.class, error -> {
-                    assertThat(error.errorCode()).isEqualTo(ApiErrorCode.INVALID_ARGUMENT);
-                    assertThat(error.getMessage()).doesNotContain("private-value");
-                });
+                .isInstanceOfSatisfying(
+                        ApiException.class,
+                        error -> {
+                            assertThat(error.errorCode()).isEqualTo(ApiErrorCode.INVALID_ARGUMENT);
+                            assertThat(error.getMessage()).doesNotContain("private-value");
+                        });
     }
 }

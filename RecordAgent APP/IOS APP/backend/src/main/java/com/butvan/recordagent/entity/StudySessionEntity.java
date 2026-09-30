@@ -16,6 +16,4 @@ public record StudySessionEntity(
         String source,
         Long version,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
-) {
-}
+        OffsetDateTime updatedAt) {}

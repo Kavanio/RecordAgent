@@ -1,52 +1,61 @@
 # RecordAgent 业务后端
 
-本目录是独立 Maven 根工程，使用 Java 21、Spring Boot 3.5.16、PostgreSQL 17.11、Spring JDBC、Flyway 和 Spring Security。版本锁定参考 [Spring Boot 稳定版本列表](https://docs.spring.io/spring-boot/spring-projects.html)、[系统要求](https://docs.spring.io/spring-boot/system-requirements.html)及 [PostgreSQL 支持周期](https://www.postgresql.org/support/versioning/)。不依赖桌面端 Maven 工程或 SQLite。
+独立 Java 21 / Spring Boot 3.5.16 / PostgreSQL / Spring JDBC 工程，不依赖桌面 Agent 或 SQLite。账户、日历、收支、总览和个人图片接口已接入；完整编辑删除、工作台和任务仍按阶段开发。当前接口以 [接口实现进度与局域网联调.md](接口实现进度与局域网联调.md) 为准。
 
-当前已完成工程底座及单个 `V1` 文件中的账户、日历、财务、资料、学习和文件表结构，设计见 [数据库设计.md](数据库设计.md)。业务域包随实际功能落地时创建。`/api/v1` 业务接口、账户认证及附件二进制存储尚未实现；不要把当前健康状态当作业务已就绪。
+## 当前目录与职责
 
-## 目录规范
-
-Spring Boot [建议将启动类放在根包、按领域组织子包](https://docs.spring.io/spring-boot/reference/using/structuring-your-code.html)；[Spring Modulith](https://docs.spring.io/spring-modulith/reference/fundamentals.html) 也以根包的直接子包识别模块。本工程采用这一布局，具体规则以 [AGENTS.md](AGENTS.md) 为准：
+以 [AGENTS.md](AGENTS.md) 为工程契约，采用水平分层，业务层内部按领域组织：
 
 ```text
 src/main/java/com/butvan/recordagent/
-├── RecordAgentApplication.java  # 组合根与组件扫描起点
-├── platform/                    # 跨业务的 HTTP、安全、可观测性
-│   ├── http/                    # 错误码、错误 DTO、异常映射
-│   ├── security/                # 安全过滤与授权装配
-│   └── observability/           # 请求 ID、接口日志
-├── account/                     # 实现账户时创建
-├── calendar/                    # 实现日历时创建
-└── ...                          # finance、record、study、file、overview 等按需创建
+├── RecordAgentApplication.java
+├── config/                 # 启动校验的业务策略配置
+├── controller/<领域>/      # 协议、参数校验与认证身份
+├── service/<领域>/         # 公共业务接口
+│   └── impl/               # 用例、事务和规则
+├── service/query/          # 有界明细读取策略
+├── repository/<领域>/      # PostgreSQL JDBC 适配
+├── repository/mapper/      # 持久化和聚合结果映射
+├── entity/                 # 表行快照，不直接作为 API 响应
+├── dto/<领域>/             # 请求与响应契约
+├── storage/file/           # BlobStore 及本机存储适配
+└── security、filter、handler、annotation、aspect  # 横切基础设施
 ```
+
+Controller 调用 Service，领域服务通过 Repository 读写自己的表，跨领域组合调用公开服务接口。成功直接返回 DTO；错误使用实际 HTTP 状态及 `{code,message,requestId}`。`@ApiLog` 与 `X-Request-Id` 关联请求，日志不记录正文、令牌、密码或财务明细。
+
+## 本地运行
+
+1. 准备 Java 21、Maven 3.9+、Docker；复制 `.env.example` 为仅本地使用的 `.env`，设置独立开发库及 SMTP。
+2. 在本目录执行 `docker compose --env-file .env up -d postgres`，再执行 `mvn spring-boot:run`。
+3. 默认监听 `127.0.0.1:9090`；查看 `/actuator/health`。手机局域网联调及正式 HTTPS 要求见接口进度文档。
+
+数据库名和业务 schema 均为 `record`；部署凭据由环境注入。`.env`、`data/`、构建产物不入库。Flyway 在启动时执行，务必使用专用开发库。V1 是空库基线，V2～V5 按序升级，已有迁移不可改写；旧的其他基线历史需要另定兼容方案，不使用 `repair` 掩盖差异。
+
+## 配置与接口约束
+
+- `config/BusinessProperties` 管理验证码、会话、限流、文件大小和明细上限；非法配置阻止启动，SMTP 显式设置连接、读取和写入超时。
+- 收支写入支持用户范围内的 UUID `Idempotency-Key`，重试同请求重放首次响应；缓存与流水、余额同事务提交。
+- 明细使用上限加一条检测溢出，超限返回 422；分页返回 `{items,nextOffset,hasMore}`。月历只读取完整计数和最多三条标题，趋势使用完整聚合。
+- 认证入口来源及密码登录邮箱限流使用 PostgreSQL 原子计数；生产反向代理信任、HTTPS、网关防护及备份恢复在部署阶段配置。
+
+字段、错误码、分页和兼容行为见接口进度文档；表结构见 [数据库设计.md](数据库设计.md)，优化过程及验证证据见 [工程优化执行记录.md](工程优化执行记录.md)。
+
+## 检查与测试
+
+- `mvn spotless:apply`：统一 Java AOSP 四空格格式、导入和空白。
+- `mvn test`：单元和协议错误测试。
+- `mvn verify`：格式检查、单元测试、打包及真实 PostgreSQL 集成测试；需要 Docker。
+
+默认测试镜像锁定 `postgres:17.11`。镜像仓库不可用时可用 `-Dtest.postgres.image=postgres:17` 指向本地缓存的兼容镜像；此替代不等于锁定版本验收。Testcontainers 使用随机端口与独立数据库，不连接真实用户数据库。独立 CI 见 `.github/workflows/verify-ios-backend.yml`。
+
+## 历史目录说明
+
+以下段落保留旧设计记录，已由上面的当前目录规范替代，不代表当前包路径和接口进度。
+
+<details>
+<summary>旧设计记录</summary>
 
 业务模块内部按实际代码建立 `api`、`application`、`domain`、`persistence`，不预建空目录。`src/test/java` 镜像对应生产包；Flyway 脚本位于 `src/main/resources/db/migration`。
 
-## 基础设施复用盘点
-
-| `server-network` 能力 | 本工程处理方式 |
-| --- | --- |
-| `@ApiLog`、`ApiLogAspect` | 沿用标注与切面方式；本工程日志只输出接口名、脱敏参数标记、服务端请求 ID、客户端 IP、状态与耗时，不导入 Agent 类型或请求正文。 |
-| `Result`、`ApiExceptionHandler` | 沿用统一错误处理思路；本工程使用实际 HTTP 状态和稳定的 `{ code, message, requestId }` 错误体，避免桌面端 HTTP 200 包装错误的语义。 |
-| SQLite 数据源与 Flyway 装配 | 复用 Spring JDBC/Flyway 技术栈，由 Spring Boot 管理 PostgreSQL 连接和事务；不复制本地 SQLite 配置与迁移。 |
-| `CorsConfig` | 桌面端的通配源配置不适合公网服务；当前 iOS 原生客户端无需 CORS，未来有浏览器客户端时再按域名配置。 |
-| `BlobStore`、邮件发送接口 | 接口边界可供后续文件和账户阶段参考；存储位置与邮件供应商尚未定案，当前不引入桌面端路径和本机配置。 |
-
-HTTP 请求由服务端生成 `X-Request-Id`，错误体使用同一个 `requestId`。通用错误码包括 `INVALID_ARGUMENT`、`UNAUTHENTICATED`、`FORBIDDEN`、`NOT_FOUND`、`VERSION_CONFLICT`、`RATE_LIMITED`、`SERVICE_UNAVAILABLE` 和 `INTERNAL_ERROR`；iOS 按 `code` 本地化显示。成功响应由各接口返回明确的 DTO，不添加空泛的通用包装。
-
-## 本地启动
-
-1. 安装 Java 21、Maven 3.9+ 和 Docker，确保 Docker 服务正在运行。
-2. 复制 `.env.example` 为 `.env`，设置仅用于本地的数据库用户名和随机密码。`compose.yaml` 只读取其中的数据库用户名和密码。
-3. 在本目录运行 `docker compose --env-file .env up -d postgres`。
-4. 在本目录运行 `mvn spring-boot:run`。Spring Boot 会从当前工作目录导入被 Git 忽略的 `.env`；应用启动时 Flyway 自动迁移空库。访问 `http://localhost:9090/actuator/health` 查看健康状态。也可由部署环境变量覆盖 `.env` 中的值。
-
-数据库统一命名为 `record`，本地连接示例为 `jdbc:postgresql://localhost:5432/record`。连接已有 PostgreSQL 服务时，将 `.env` 中的 `RECORDAGENT_DB_URL` 指向该数据库，并填写对应用户名和密码；数据库必须先存在，且账号需有执行 Flyway 迁移的权限。`.env` 权限建议设为仅当前用户可读写（`chmod 600 .env`）。数据库密码与服务器地址不写入源码、示例配置或提交记录。若本地 Compose 数据卷已用旧数据库名初始化，修改 `POSTGRES_DB` 不会自动重命名该库，需另行迁移已有数据。
-
-本地 Compose 数据库只绑定本机回环地址。部署环境须通过环境变量注入数据库连接，不使用本地 Compose 配置。单个 `V1` 同时建立 `record` schema 和业务表；Flyway 历史表仍位于 `public`。该文件仅适用于空库。若数据库已执行合并前的 V1～V7，Flyway 校验会因 V1 校验和变化而失败，必须另行制定兼容迁移或在确认可清除数据的隔离环境中重建；不得对已有数据执行 `repair` 以掩盖差异。后续已执行的迁移脚本不可改写。
-
-## 验证
-
-运行 `mvn verify`。`RecordAgentApplicationIT` 使用 Testcontainers 启动独立 PostgreSQL，验证空库迁移、重复迁移、健康检查和业务入口拒绝访问；执行该集成测试需要可用的 Docker 服务。默认镜像为 `postgres:17.11`；镜像仓库不可用时，可用 `-Dtest.postgres.image=postgres:17` 指向本机已有的兼容镜像，仍需在正式环境用锁定版本复核。`mvn package -DskipTests` 仅验证编译与打包，不能代替数据库集成测试。
-
-后续先完成[后端开发规划.md](后端开发规划.md)的第 0 阶段契约盘点，再逐域创建新的迁移与 API。所有 REST 方法需使用 `@ApiLog`；日志只记录脱敏元数据，不能包含请求正文或凭据。
+</details>

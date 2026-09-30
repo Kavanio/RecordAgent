@@ -1,5 +1,6 @@
 package com.butvan.recordagent.service.file.impl;
 
+import com.butvan.recordagent.config.BusinessProperties;
 import com.butvan.recordagent.filter.RequestIdFilter;
 import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
@@ -22,7 +23,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Slf4j
 public class FileAssetServiceImpl implements FileAssetService {
-    private final com.butvan.recordagent.config.BusinessProperties properties;
+    private final BusinessProperties properties;
 
     private final BlobStore blobs;
     private final FileAssetRepository metadata;
@@ -41,8 +42,10 @@ public class FileAssetServiceImpl implements FileAssetService {
         } catch (IllegalArgumentException exception) {
             throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid image encoding");
         }
-        if (content.length < 4 || content.length > maxImageBytes
-                || (content[0] & 0xff) != 0xff || (content[1] & 0xff) != 0xd8
+        if (content.length < 4
+                || content.length > maxImageBytes
+                || (content[0] & 0xff) != 0xff
+                || (content[1] & 0xff) != 0xd8
                 || (content[content.length - 2] & 0xff) != 0xff
                 || (content[content.length - 1] & 0xff) != 0xd9) {
             throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid jpeg image");
@@ -58,11 +61,15 @@ public class FileAssetServiceImpl implements FileAssetService {
             try {
                 blobs.delete(id);
             } catch (IOException cleanupFailure) {
-                log.error("File upload cleanup failed: requestId={} errorType={}",
-                        RequestIdFilter.currentRequestId(), cleanupFailure.getClass().getSimpleName());
+                log.error(
+                        "File upload cleanup failed: requestId={} errorType={}",
+                        RequestIdFilter.currentRequestId(),
+                        cleanupFailure.getClass().getSimpleName());
             }
-            log.error("File upload failed: requestId={} errorType={}",
-                    RequestIdFilter.currentRequestId(), exception.getClass().getSimpleName());
+            log.error(
+                    "File upload failed: requestId={} errorType={}",
+                    RequestIdFilter.currentRequestId(),
+                    exception.getClass().getSimpleName());
             throw new ApiException(ApiErrorCode.SERVICE_UNAVAILABLE, "file unavailable");
         }
     }
@@ -73,8 +80,10 @@ public class FileAssetServiceImpl implements FileAssetService {
         try {
             return blobs.read(id);
         } catch (IOException exception) {
-            log.error("File read failed: requestId={} errorType={}",
-                    RequestIdFilter.currentRequestId(), exception.getClass().getSimpleName());
+            log.error(
+                    "File read failed: requestId={} errorType={}",
+                    RequestIdFilter.currentRequestId(),
+                    exception.getClass().getSimpleName());
             throw new ApiException(ApiErrorCode.SERVICE_UNAVAILABLE, "file unavailable");
         }
     }
