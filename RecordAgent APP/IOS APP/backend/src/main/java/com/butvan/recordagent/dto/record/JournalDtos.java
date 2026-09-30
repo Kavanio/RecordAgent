@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** 手记写入与日历/资料投影契约。 */
+/** 手记写入与资料日历投影契约；Journal 为所有资料类型共用的兼容展示结构。 */
 public final class JournalDtos {
     private JournalDtos() {}
 

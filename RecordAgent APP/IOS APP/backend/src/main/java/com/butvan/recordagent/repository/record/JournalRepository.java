@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/** 资料表中 journal 类型的受控访问。 */
+/** 手记写入与全部资料的日历投影；读取保留用户、日期和回收站边界。 */
 @Repository
 @RequiredArgsConstructor
 public class JournalRepository {
@@ -28,7 +28,7 @@ public class JournalRepository {
                 body);
     }
 
-    /** 用用户 ID、类型和有界日期范围隔离读取。 */
+    /** 用用户 ID 和有界日期范围读取全部资料类型。 */
     public List<JournalDtos.Journal> between(
             UUID owner, LocalDate start, LocalDate end, int limit) {
         return between(owner, start, end, limit, 0);
@@ -39,7 +39,7 @@ public class JournalRepository {
             UUID owner, LocalDate start, LocalDate end, int limit, int offset) {
         return jdbc.query(
                 "SELECT id,record_date,COALESCE(title,''),content_text,version FROM record.record_entry "
-                        + "WHERE owner_id=? AND record_type='journal' AND trashed_at IS NULL "
+                        + "WHERE owner_id=? AND trashed_at IS NULL "
                         + "AND record_date>=? AND record_date<? ORDER BY record_date,created_at,id LIMIT ? OFFSET ?",
                 (rs, index) ->
                         new JournalDtos.Journal(
@@ -71,7 +71,7 @@ public class JournalRepository {
     public List<DailySummary> monthSummary(UUID owner, LocalDate start, LocalDate end) {
         return jdbc.query(
                 """
-                SELECT record_date AS day, count(*) AS count, (array_agg(COALESCE(title,'') ORDER BY created_at,id))[1:3] AS titles FROM record.record_entry WHERE owner_id=? AND record_type='journal' AND trashed_at IS NULL AND record_date>=? AND record_date<? GROUP BY record_date ORDER BY record_date
+                SELECT record_date AS day, count(*) AS count, (array_agg(COALESCE(title,'') ORDER BY created_at,id))[1:3] AS titles FROM record.record_entry WHERE owner_id=? AND trashed_at IS NULL AND record_date>=? AND record_date<? GROUP BY record_date ORDER BY record_date
                 """,
                 (rs, n) -> DailySummaryMapper.map(rs, "journal"),
                 owner,

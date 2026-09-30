@@ -15,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 手记创建与按日投影。 */
+/** 手记创建与全部资料的按日投影。 */
 @Service
 @RequiredArgsConstructor
 public class JournalServiceImpl implements JournalService {

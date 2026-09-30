@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.butvan.recordagent.dto.auth.AuthDtos;
 import com.butvan.recordagent.dto.calendar.CalendarDtos;
 import com.butvan.recordagent.dto.finance.FinanceDtos;
+import com.butvan.recordagent.dto.record.LibraryDtos;
 import com.butvan.recordagent.filter.RequestIdFilter;
 import com.butvan.recordagent.handler.ApiErrorCode;
 import com.butvan.recordagent.handler.ApiException;
@@ -21,6 +22,7 @@ import com.butvan.recordagent.service.calendar.TodoService;
 import com.butvan.recordagent.service.finance.FinanceService;
 import com.butvan.recordagent.service.mail.MailService;
 import com.butvan.recordagent.service.overview.OverviewService;
+import com.butvan.recordagent.service.record.LibraryService;
 import com.butvan.recordagent.service.study.StudyService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -308,6 +310,75 @@ class RecordAgentApplicationIT {
     @Autowired private FinanceService finance;
     @Autowired private OverviewService overview;
     @Autowired private StudyService study;
+    @Autowired private LibraryService library;
+
+    /** 工作台保存的五类资料都进入日历，删除、恢复和改日同步投影且不越权。 */
+    @Test
+    void calendarProjectsAllLibraryTypesAndTracksLibraryChanges() {
+        UUID owner = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+        insertUser(owner);
+        insertUser(other);
+        var date = LocalDate.of(2026, 9, 30);
+        Set<UUID> ids = new HashSet<>();
+        for (String type :
+                new String[] {"quick", "learning", "weekly_review", "reading", "journal"}) {
+            var document =
+                    library.create(
+                            owner,
+                            new LibraryDtos.Save(
+                                    UUID.randomUUID(), date, type, type, "正文", "Asia/Shanghai", 0));
+            ids.add(document.id());
+        }
+        library.create(
+                other,
+                new LibraryDtos.Save(
+                        UUID.randomUUID(), date, "quick", "其他账户", "正文", "Asia/Shanghai", 0));
+        var hidden =
+                library.create(
+                        owner,
+                        new LibraryDtos.Save(
+                                UUID.randomUUID(), date, "quick", "回收站", "正文", "Asia/Shanghai", 0));
+        library.flags(owner, hidden.id(), new LibraryDtos.Flags(hidden.version(), false, true));
+        var day = calendar.day(owner, date, "Asia/Shanghai").journals();
+        assertThat(day).extracting(row -> row.id()).containsExactlyInAnyOrderElementsOf(ids);
+        assertThat(day).allSatisfy(row -> assertThat(row.body()).isEqualTo("正文"));
+        var month = calendar.month(owner, YearMonth.from(date), "Asia/Shanghai").days();
+        assertThat(month).hasSize(1);
+        assertThat(month.getFirst().count()).isEqualTo(5);
+        assertThat(month.getFirst().titles()).hasSize(3);
+        assertThat(month.getFirst().kinds()).containsExactly("journal");
+        var first = calendar.page(owner, date, "journal", "Asia/Shanghai", 0, 3);
+        var last = calendar.page(owner, date, "journal", "Asia/Shanghai", first.nextOffset(), 3);
+        assertThat(first.items()).isEqualTo(day.subList(0, 3));
+        assertThat(last.items()).isEqualTo(day.subList(3, 5));
+        assertThat(last.hasMore()).isFalse();
+        assertThat(calendar.day(owner, date.plusDays(1), "Asia/Shanghai").journals()).isEmpty();
+
+        var restored = library.flags(owner, hidden.id(), new LibraryDtos.Flags(1, false, false));
+        assertThat(calendar.day(owner, date, "Asia/Shanghai").journals()).hasSize(6);
+        library.update(
+                owner,
+                restored.id(),
+                new LibraryDtos.Save(
+                        restored.id(),
+                        date.plusDays(1),
+                        "reading",
+                        "已改日",
+                        restored.body(),
+                        "Asia/Shanghai",
+                        restored.version()));
+        assertThat(calendar.day(owner, date, "Asia/Shanghai").journals()).hasSize(5);
+        assertThat(calendar.day(owner, date.plusDays(1), "Asia/Shanghai").journals())
+                .extracting(row -> row.id())
+                .containsExactly(restored.id());
+        assertThat(
+                        calendar.month(owner, YearMonth.of(2026, 10), "Asia/Shanghai")
+                                .days()
+                                .getFirst()
+                                .count())
+                .isEqualTo(1);
+    }
 
     /** 日详情必须支持空手记列表，分页须实际消费偏移量且保持用户隔离。 */
     @Test
