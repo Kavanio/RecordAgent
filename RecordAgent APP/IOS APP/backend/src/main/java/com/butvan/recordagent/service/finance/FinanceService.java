@@ -42,4 +42,17 @@ public interface FinanceService {
     /** 幂等收支写入；同用户同键同请求返回首次响应，换请求返回 409。null 仅兼容旧客户端。 */
     FinanceDtos.Transaction createTransaction(
             UUID owner, FinanceDtos.CreateTransaction request, UUID requestId);
+
+    /** 全量月度收支统计，不从一页流水推算。 */
+    FinanceDtos.MonthOverview overview(UUID owner, YearMonth month);
+
+    /** 月流水支持收支、账户和关键词筛选，排序与原明细一致。 */
+    Page<FinanceDtos.Transaction> monthPage(
+            UUID owner,
+            YearMonth month,
+            String type,
+            UUID account,
+            String query,
+            int offset,
+            int limit);
 }

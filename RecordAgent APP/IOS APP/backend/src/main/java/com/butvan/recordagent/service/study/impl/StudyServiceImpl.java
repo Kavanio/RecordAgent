@@ -123,4 +123,108 @@ public class StudyServiceImpl implements StudyService {
                         .toList();
         return bounds.page(mapped, offset, limit);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<StudyDtos.Entry> entries(
+            UUID owner, YearMonth month, String zone, String query, int offset, int limit) {
+        bounds.validatePage(offset, limit);
+        if (query.length() > 200)
+            throw new com.butvan.recordagent.handler.ApiException(
+                    com.butvan.recordagent.handler.ApiErrorCode.INVALID_ARGUMENT, "invalid search");
+        var z = BusinessTimeZone.parse(zone);
+        return bounds.page(
+                store.entries(
+                        owner,
+                        month.atDay(1).atStartOfDay(z).toOffsetDateTime(),
+                        month.plusMonths(1).atDay(1).atStartOfDay(z).toOffsetDateTime(),
+                        query.strip(),
+                        offset,
+                        limit + 1),
+                offset,
+                limit);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StudyDtos.Overview overview(UUID owner, YearMonth month, String zone) {
+        var z = BusinessTimeZone.parse(zone);
+        return store.overview(owner, month.atDay(1), month.plusMonths(1).atDay(1), z.getId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StudyDtos.Entry active(UUID owner) {
+        return store.active(owner).orElse(null);
+    }
+
+    @Override
+    @Transactional
+    public StudyDtos.Entry create(UUID owner, StudyDtos.Save s) {
+        BusinessTimeZone.parse(s.timeZone());
+        if (s.title().isBlank()
+                || s.startedAt().toInstant().isAfter(java.time.Instant.now().plusSeconds(60)))
+            throw invalid();
+        if (s.endedAt() != null) validateInterval(s.startedAt(), s.endedAt());
+        store.lockOwner(owner);
+        var previous = store.find(owner, s.id());
+        if (previous.isPresent()) {
+            var p = previous.get();
+            if (p.title().equals(s.title().strip())
+                    && p.startedAt().toInstant().equals(s.startedAt().toInstant())
+                    && java.util.Objects.equals(
+                            p.endedAt() == null ? null : p.endedAt().toInstant(),
+                            s.endedAt() == null ? null : s.endedAt().toInstant())
+                    && p.timeZone().equals(s.timeZone())) return p;
+            throw conflict();
+        }
+        if (s.endedAt() == null && store.active(owner).isPresent()) throw conflict();
+        store.create(owner, s);
+        return store.find(owner, s.id()).orElseThrow();
+    }
+
+    @Override
+    @Transactional
+    public StudyDtos.Entry finish(UUID owner, UUID id, StudyDtos.Finish s) {
+        var p =
+                store.find(owner, id)
+                        .orElseThrow(
+                                () ->
+                                        new com.butvan.recordagent.handler.ApiException(
+                                                com.butvan.recordagent.handler.ApiErrorCode
+                                                        .NOT_FOUND,
+                                                "session not found"));
+        if (p.endedAt() != null && p.endedAt().toInstant().equals(s.endedAt().toInstant()))
+            return p;
+        validateInterval(p.startedAt(), s.endedAt());
+        if (store.finish(owner, id, s.version(), s.endedAt()) == 0) throw conflict();
+        return store.find(owner, id).orElseThrow();
+    }
+
+    @Override
+    @Transactional
+    public void delete(UUID owner, UUID id, long version) {
+        if (store.find(owner, id).isEmpty())
+            throw new com.butvan.recordagent.handler.ApiException(
+                    com.butvan.recordagent.handler.ApiErrorCode.NOT_FOUND, "session not found");
+        if (store.delete(owner, id, version) == 0) throw conflict();
+    }
+
+    private void validateInterval(java.time.OffsetDateTime start, java.time.OffsetDateTime end) {
+        var seconds = Duration.between(start, end).getSeconds();
+        if (seconds < 60
+                || seconds > 7 * 24 * 60 * 60
+                || end.toInstant().isAfter(java.time.Instant.now().plusSeconds(60)))
+            throw invalid();
+    }
+
+    private com.butvan.recordagent.handler.ApiException invalid() {
+        return new com.butvan.recordagent.handler.ApiException(
+                com.butvan.recordagent.handler.ApiErrorCode.INVALID_ARGUMENT, "invalid interval");
+    }
+
+    private com.butvan.recordagent.handler.ApiException conflict() {
+        return new com.butvan.recordagent.handler.ApiException(
+                com.butvan.recordagent.handler.ApiErrorCode.VERSION_CONFLICT, "session changed");
+    }
 }

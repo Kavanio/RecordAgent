@@ -65,4 +65,25 @@ public class FinanceController {
             @RequestParam(defaultValue = "100") int limit) {
         return finance.accountsPage(user.userId(), offset, limit);
     }
+
+    @ApiLog("读取本人财务月度总览")
+    @GetMapping("/overview")
+    public FinanceDtos.MonthOverview overview(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @RequestParam java.time.YearMonth month) {
+        return finance.overview(user.userId(), month);
+    }
+
+    @ApiLog("分页筛选本人月度流水")
+    @GetMapping("/transactions/page")
+    public Page<FinanceDtos.Transaction> monthPage(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @RequestParam java.time.YearMonth month,
+            @RequestParam(defaultValue = "") String type,
+            @RequestParam(required = false) UUID accountId,
+            @RequestParam(defaultValue = "") String query,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "50") int limit) {
+        return finance.monthPage(user.userId(), month, type, accountId, query, offset, limit);
+    }
 }

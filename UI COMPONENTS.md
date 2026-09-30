@@ -182,7 +182,7 @@
 | HomeTrendChartView | `Features/Home/Components/HomeTrendChartView.swift` | Swift Charts | 近七日支出/专注曲线；轻量菜单切换、曲线连续变化、触摸或悬停展示数值 | `[HomeTrendPoint]`、初始指标 | 固定归一坐标、零值、日期与数值悬浮提示；无外框、响应减少动态效果 |
 | HomeEntryListView / HomeEntryDetailView | `Features/Home/Components/HomeEntryListView.swift`、`HomeEntryDetailView.swift` | SwiftUI、HomeEntry | 同一信息流展示待办、日程、收支、资料、图片、专注，点击查看详情 | 列表接收 entries、savingIDs、onToggle、onOpen；详情接收 entry 与 ViewModel，可选 savingIDs/onToggle 统一跨视图写入状态 | 待办完成与详情分离；服务确认后更新、保存中禁用、失败提示、大字体纵排 |
 | MainTabView / MainNavigationBar | `Features/Main/MainTabView.swift`、`MainNavigationBar.swift` | SwiftUI | 四个常驻入口与跨页面日期状态；激活态仅改变图标及文字，底色延伸至安全区 | `homeService`、`calendarService`、`profileOverviewService`、`user: AuthUser?`、异步可失败的 `onLogout`；导航绑定 AppTab | 首页/日历/工作台/我的；轻触反馈、减少动态效果与选中 trait |
-| WorkspaceHubView / WorkspacePreviewView | `Features/Main/WorkspaceHubView.swift`、`WorkspacePreviewView.swift` | SwiftUI、共享按日组件 | 工作台集中进入财务/资料/记录/任务；对应业务分类预览 | Hub 接收 onSelect；Preview 接收 tab、ViewModel、onBack | 业务预览明确未完成，任务入口独立占位 |
+| WorkspaceHubView | `Features/Main/WorkspaceHubView.swift` | SwiftUI | 工作台集中进入财务/资料/记录/任务 | 接收 onSelect；独立工作区可返回 | 极简图标网格；状态由 MainTabView 持有 |
 | CalendarView | `Features/Calendar/CalendarView.swift` | SwiftUI、CalendarViewModel、HomeViewModel、CalendarPalette | 自定义月历、便签、日时间线的独立页面编排 | 注入共享 home 状态与 CalendarDataServiceProtocol；月份选择、月格滑动切月、新增、便签完整列表及详情浮层 | 月标记/便签/日内容独立失败重试；Debug 样例标注；日期共享、筛选独立；深浅色与减少动态效果 |
 | CalendarMonthGrid | `Features/Calendar/Components/CalendarMonthGrid.swift` | SwiftUI、HomeCalendar、CalendarDayMarker | 周一起始的月格，日期高度至少 44 点、最多三类圆点；任何有图片记录的日期显示封面 | selectedDate、dates、markers、onSelect(Date)、onShiftMonth(Int) | 横向滑动切月且不阻断纵向滚动；四/五/六周月份；相邻月弱化、今日下划线、选中日期仅文字变色、无胶囊和格子底色；日期范围禁用与完整日期朗读 |
 | CalendarStickyTodoNote / CalendarStickyTodoDetail | `Features/Calendar/Components/CalendarStickyTodoNote.swift` | SwiftUI、Core Motion、CalendarTodoGroup、`MemoPaper.imageset` | 共用用户提供的便签底图，按原始宽高比保留胶带、纸纹和卷角；日历便签预览两项，居中纸张浮层展示全部条目与详情 | 摘要：group、onOpen、motion；浮层：period、model、savingIDs、onToggle(HomeEntry)、onClose | 周/月共用黄色底图并以标题区分；空组不显示；浮层内容在纸面内滚动且隐藏滚动条并实时刷新进度；入场上浮、静态摇摆与有界设备运动响应；减少动态效果、离页、便签浮层显示或后台时停采 |
@@ -199,3 +199,22 @@
 | AppSettingsGroup / AppSettingsRow | `DesignSystem/Components/AppSettingsGroup.swift`、`AppSettingsRow.swift` | SwiftUI、系统语义颜色 | 原生设置详情统一分组标题、圆角浅底和行留白；调用者放置 Divider 与控件 | `title: LocalizedStringKey`、ViewBuilder 内容 | 动态字号下行内容纵排；适配深浅色；交互由外层 Button/NavigationLink 承载 |
 
 原 iOS `TodayOverviewCardView`、`RecentTodosCardView`、`InspirationCardView` 和 `FloatingActionButton` 已删除，由以上无卡片信息流取代。
+
+## 原生 iOS 四个工作区统一组件
+
+路径相对 `RecordAgent APP/IOS APP/RecordAgent/RecordAgent/`。原 WorkspacePreviewView 已被真实工作区替换，无新增第三方 UI 依赖。
+
+| 组件 | 源码路径 | 样式/依赖 | 核心职责 | 接口契约 | 状态与场景 |
+| --- | --- | --- | --- | --- | --- |
+| WorkspaceScreen | `DesignSystem/Components/WorkspaceComponents.swift` | SwiftUI、系统语义颜色 | 统一导航、大标题、返回与顶部新增 | title、subtitle、onBack、actionTitle/actionSymbol、onAdd、内容 | 安全区、双语、动态字号与深浅色 |
+| WorkspaceSearchField / WorkspaceFilters | 同上 | SwiftUI | 底线搜索、文字筛选与短下划线 | 文本 Binding；Hashable 筛选值 Binding 与标题映射 | 清除搜索、横向滚动、选中无障碍 trait |
+| WorkspaceSection / WorkspaceValue | 同上 | SwiftUI | 分组标题与克制数值信息 | 本地化标题；内容或格式化数值 | 列表与摘要共用层级 |
+| WorkspaceEmptyState / WorkspaceErrorView | 同上 | SwiftUI | 空态与就地重试 | 标题/说明/图标；错误信息与 onRetry | 无内容、无匹配、加载失败 |
+| WorkspaceMonthPicker | 同上 | SwiftUI、HomeCalendar | 月份切换与选择 | date Binding | 公历自然月、月末收敛、44 点触控区 |
+| WorkspaceEditor / WorkspaceTextField | 同上 | SwiftUI | 极简编辑、保存/取消与草稿错误 | title、isValid、异步 onSave；文本 Binding | 保存禁用输入/退出；失败保留草稿 |
+| FinanceWorkspaceView / FinanceWorkspaceViewModel | `Features/Finance/` | 财务 API、统一工作区组件 | 月聚合、账户、筛选分页流水、详情、账户/收支新增 | 父级 model、financeService、onBack/onChanged | 整数分、幂等重试、统计与明细独立 |
+| LibraryWorkspaceView / LibraryWorkspaceViewModel | `Features/Library/` | 资料 API、统一工作区组件 | 摘要、按需正文、纯文本写作、收藏和回收站 | 父级 model、onBack/onChanged | 版本冲突、正文加载与筛选分页 |
+| RecordWorkspaceView / RecordWorkspaceViewModel | `Features/Record/` | 学习 API、TimelineView | 活跃计时恢复、完成/补录、月记录与详情 | 父级 model、onBack/onChanged | 服务端开始时间；结束重试固定；跨日与版本删除 |
+| TasksWorkspaceView / MobileTaskViewModel | `Features/Tasks/` | 任务 API、系统通知协议 | 配置、启停、详情、编辑与设备观察历史 | 父级 model、onBack；登录/前台同步，退出 deactivate | 权限/注册/保存分开；账户及服务器隔离 |
+
+本次按用户要求跳过最终编译、完整测试和本机 Docker 验证，不将静态复核视为真机验收。

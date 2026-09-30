@@ -37,4 +37,10 @@ public final class FinanceDtos {
             LocalDate date,
             LocalTime time,
             long balanceInCents) {}
+
+    public record MonthOverview(
+            long totalAssetsInCents,
+            long expenseInCents,
+            long incomeInCents,
+            long transactionCount) {}
 }

@@ -1,6 +1,7 @@
 package com.butvan.recordagent.repository.study;
 
 import com.butvan.recordagent.dto.query.DailySummary;
+import com.butvan.recordagent.dto.study.StudyDtos;
 import com.butvan.recordagent.repository.mapper.projection.DailySummaryMapper;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -89,5 +90,112 @@ public class StudyRepository {
                 owner,
                 end,
                 start);
+    }
+
+    private static final org.springframework.jdbc.core.RowMapper<StudyDtos.Entry> ENTRY =
+            (r, n) ->
+                    new StudyDtos.Entry(
+                            r.getObject("id", UUID.class),
+                            r.getString("title"),
+                            r.getObject("started_at", OffsetDateTime.class),
+                            r.getObject("ended_at", OffsetDateTime.class),
+                            r.getString("timezone"),
+                            r.getLong("version"));
+
+    /** 用户行锁串行化开始操作，避免同账户有两个活跃计时。 */
+    public void lockOwner(UUID owner) {
+        jdbc.queryForObject(
+                "SELECT id FROM record.app_user WHERE id=? FOR UPDATE", UUID.class, owner);
+    }
+
+    public java.util.Optional<StudyDtos.Entry> find(UUID owner, UUID id) {
+        return jdbc
+                .query(
+                        "SELECT * FROM record.study_session WHERE owner_id=? AND id=?",
+                        ENTRY,
+                        owner,
+                        id)
+                .stream()
+                .findFirst();
+    }
+
+    public java.util.Optional<StudyDtos.Entry> active(UUID owner) {
+        return jdbc
+                .query(
+                        "SELECT * FROM record.study_session WHERE owner_id=? AND ended_at IS NULL",
+                        ENTRY,
+                        owner)
+                .stream()
+                .findFirst();
+    }
+
+    public void create(UUID owner, StudyDtos.Save s) {
+        jdbc.update(
+                "INSERT INTO record.study_session(id,owner_id,title,started_at,ended_at,timezone,source) VALUES(?,?,?,?,?,?,?)",
+                s.id(),
+                owner,
+                s.title().strip(),
+                s.startedAt(),
+                s.endedAt(),
+                s.timeZone(),
+                s.endedAt() == null ? "timer" : "manual");
+    }
+
+    public int finish(UUID owner, UUID id, long version, OffsetDateTime end) {
+        return jdbc.update(
+                "UPDATE record.study_session SET ended_at=?,version=version+1,updated_at=now() WHERE owner_id=? AND id=? AND version=? AND ended_at IS NULL",
+                end,
+                owner,
+                id,
+                version);
+    }
+
+    public int delete(UUID owner, UUID id, long version) {
+        return jdbc.update(
+                "DELETE FROM record.study_session WHERE owner_id=? AND id=? AND version=?",
+                owner,
+                id,
+                version);
+    }
+
+    public List<StudyDtos.Entry> entries(
+            UUID owner,
+            OffsetDateTime start,
+            OffsetDateTime end,
+            String query,
+            int offset,
+            int limit) {
+        return jdbc.query(
+                "SELECT * FROM record.study_session WHERE owner_id=? AND ended_at IS NOT NULL AND started_at<? AND ended_at>? AND POSITION(lower(?) IN lower(title))>0 ORDER BY started_at DESC,id DESC LIMIT ? OFFSET ?",
+                ENTRY,
+                owner,
+                end,
+                start,
+                query,
+                limit,
+                offset);
+    }
+
+    public StudyDtos.Overview overview(UUID owner, LocalDate start, LocalDate end, String zone) {
+        long minutes =
+                minutesBetween(
+                        owner,
+                        start.atStartOfDay(java.time.ZoneId.of(zone)).toOffsetDateTime(),
+                        end.atStartOfDay(java.time.ZoneId.of(zone)).toOffsetDateTime());
+        return jdbc.queryForObject(
+                """
+  SELECT count(*),(SELECT count(DISTINCT d.day) FROM generate_series(?::date,(?::date-1),interval '1 day') d(day)
+  JOIN record.study_session s ON s.owner_id=? AND s.ended_at IS NOT NULL AND s.started_at<((d.day::date+1)::timestamp AT TIME ZONE ?) AND s.ended_at>(d.day::timestamp AT TIME ZONE ?))
+  FROM record.study_session WHERE owner_id=? AND ended_at IS NOT NULL AND started_at<? AND ended_at>?
+  """,
+                (r, n) -> new StudyDtos.Overview(minutes, r.getLong(1), r.getLong(2)),
+                start,
+                end,
+                owner,
+                zone,
+                zone,
+                owner,
+                end.atStartOfDay(java.time.ZoneId.of(zone)).toOffsetDateTime(),
+                start.atStartOfDay(java.time.ZoneId.of(zone)).toOffsetDateTime());
     }
 }

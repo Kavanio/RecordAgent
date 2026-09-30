@@ -247,4 +247,64 @@ public class FinanceRepository {
                 transactionId,
                 response);
     }
+
+    /** 完整月统计，余额为当前账户总余额；仅普通收入/支出进入月收支。 */
+    public FinanceDtos.MonthOverview overview(UUID owner, LocalDate start, LocalDate end) {
+        return jdbc.queryForObject(
+                """
+  SELECT COALESCE((SELECT SUM(balance_minor) FROM record.finance_account WHERE owner_id=?),0),
+  COALESCE(SUM(amount_minor) FILTER(WHERE transaction_type='expense'),0),
+  COALESCE(SUM(amount_minor) FILTER(WHERE transaction_type='income'),0),COUNT(*)
+  FROM record.finance_transaction WHERE owner_id=? AND transaction_date>=? AND transaction_date<?
+  """,
+                (r, n) ->
+                        new FinanceDtos.MonthOverview(
+                                r.getLong(1), r.getLong(2), r.getLong(3), r.getLong(4)),
+                owner,
+                owner,
+                start,
+                end);
+    }
+
+    /** 过滤在数据库执行，列表不会因分页而漏掉搜索匹配。 */
+    public List<FinanceDtos.Transaction> filtered(
+            UUID owner,
+            LocalDate start,
+            LocalDate end,
+            String type,
+            UUID account,
+            String query,
+            int offset,
+            int limit) {
+        return jdbc.query(
+                """
+  SELECT t.id,t.account_id,t.transaction_type,c.name,t.note,t.amount_minor,t.transaction_date,t.transaction_time,a.balance_minor
+  FROM record.finance_transaction t JOIN record.finance_account a ON a.id=t.account_id AND a.owner_id=t.owner_id
+  LEFT JOIN record.finance_category c ON c.id=t.category_id AND c.owner_id=t.owner_id
+  WHERE t.owner_id=? AND t.transaction_date>=? AND t.transaction_date<? AND (?='' OR t.transaction_type=?)
+  AND (?::uuid IS NULL OR t.account_id=?::uuid) AND POSITION(lower(?) IN lower(COALESCE(c.name,'') || ' ' || t.note || ' ' || a.name))>0
+  ORDER BY t.transaction_date DESC,t.transaction_time DESC,t.id DESC LIMIT ? OFFSET ?
+  """,
+                (r, n) ->
+                        new FinanceDtos.Transaction(
+                                r.getObject(1, UUID.class),
+                                r.getObject(2, UUID.class),
+                                r.getString(3),
+                                r.getString(4),
+                                r.getString(5),
+                                r.getLong(6),
+                                r.getObject(7, LocalDate.class),
+                                r.getObject(8, LocalTime.class),
+                                r.getLong(9)),
+                owner,
+                start,
+                end,
+                type,
+                type,
+                account,
+                account,
+                query,
+                limit,
+                offset);
+    }
 }

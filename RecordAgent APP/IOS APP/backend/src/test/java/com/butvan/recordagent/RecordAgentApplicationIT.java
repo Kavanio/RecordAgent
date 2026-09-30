@@ -88,7 +88,7 @@ class RecordAgentApplicationIT {
                 jdbcTemplate.queryForObject(
                         "SELECT count(*) FROM flyway_schema_history WHERE success = true",
                         Integer.class);
-        assertThat(migrationCount).isEqualTo(5);
+        assertThat(migrationCount).isEqualTo(6);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(
                         jdbcTemplate.queryForObject(
@@ -701,7 +701,7 @@ class RecordAgentApplicationIT {
                 UUID.randomUUID(),
                 owner);
         assertThat(Flyway.configure().dataSource(source).load().migrate().migrationsExecuted)
-                .isEqualTo(1);
+                .isEqualTo(2);
         assertThat(
                         oldJdbc.queryForObject(
                                 "SELECT balance_minor FROM record.finance_account WHERE owner_id=?",

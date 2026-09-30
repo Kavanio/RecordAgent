@@ -53,6 +53,11 @@ enum AppTab: String, CaseIterable, Identifiable {
 struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
     @StateObject private var homeModel: HomeViewModel
+    @StateObject private var financeModel: FinanceWorkspaceViewModel
+    @StateObject private var libraryModel: LibraryWorkspaceViewModel
+    @StateObject private var recordModel: RecordWorkspaceViewModel
+    @StateObject private var tasksModel: MobileTaskViewModel
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let user: AuthUser?
@@ -67,6 +72,12 @@ struct MainTabView: View {
         homeService: any HomeDataServiceProtocol,
         calendarService: any CalendarDataServiceProtocol,
         financeService: any FinanceServiceProtocol,
+        financeWorkspaceService: any FinanceWorkspaceServiceProtocol,
+        libraryService: any LibraryServiceProtocol,
+        studyService: any StudyServiceProtocol,
+        mobileTaskService: any MobileTaskServiceProtocol,
+        mobileTaskNotifications: any MobileTaskNotificationProtocol,
+        notificationAccountID: String,
         profileOverviewService: any ProfileOverviewServiceProtocol,
         profileActivityService: any ProfileActivityServiceProtocol,
         profileAppearanceService: any ProfileAppearanceServiceProtocol,
@@ -74,6 +85,10 @@ struct MainTabView: View {
         onLogout: @escaping () async throws -> Void
     ) {
         _homeModel = StateObject(wrappedValue: HomeViewModel(service: homeService))
+        _financeModel = StateObject(wrappedValue: FinanceWorkspaceViewModel(date: .now, service: financeWorkspaceService))
+        _libraryModel = StateObject(wrappedValue: LibraryWorkspaceViewModel(date: .now, service: libraryService))
+        _recordModel = StateObject(wrappedValue: RecordWorkspaceViewModel(service: studyService))
+        _tasksModel = StateObject(wrappedValue: MobileTaskViewModel(service: mobileTaskService, notifications: mobileTaskNotifications, accountID: notificationAccountID))
         self.calendarService = calendarService
         self.financeService = financeService
         self.profileOverviewService = profileOverviewService
@@ -110,18 +125,27 @@ struct MainTabView: View {
                         homeModel.openFromProfile(entry)
                         selectedTab = .home
                     },
-                    onLogout: onLogout
+                    onLogout: {
+                        try await onLogout()
+                        await tasksModel.deactivate()
+                    }
                 )
                 .transition(pageTransition)
-            default:
-                WorkspacePreviewView(
-                    tab: selectedTab,
-                    viewModel: homeModel,
-                    onBack: selectedTab.navigationTab == .workspace
-                        ? { selectedTab = .workspace } : nil
-                )
-                .id(selectedTab)
-                .transition(pageTransition)
+            case .finance:
+                FinanceWorkspaceView(model: financeModel, financeService: financeService,
+                                     onBack: { selectedTab = .workspace }, onChanged: refreshHome)
+                    .transition(pageTransition)
+            case .library:
+                LibraryWorkspaceView(model: libraryModel,
+                                     onBack: { selectedTab = .workspace }, onChanged: refreshHome)
+                    .transition(pageTransition)
+            case .record:
+                RecordWorkspaceView(model: recordModel,
+                                    onBack: { selectedTab = .workspace }, onChanged: refreshHome)
+                    .transition(pageTransition)
+            case .tasks:
+                TasksWorkspaceView(model: tasksModel, onBack: { selectedTab = .workspace })
+                    .transition(pageTransition)
             }
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.23), value: selectedTab)
@@ -133,6 +157,17 @@ struct MainTabView: View {
         .task(id: LoadKey(date: homeModel.selectedDate, locale: locale.identifier)) {
             await homeModel.load(locale: locale)
         }
+        .task { await tasksModel.synchronizeNotifications() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await tasksModel.synchronizeNotifications() } }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .apiSessionExpired)) { _ in
+            Task { await tasksModel.deactivate() }
+        }
+    }
+
+    private func refreshHome() {
+        Task { await homeModel.load(locale: locale) }
     }
 
     private var pageTransition: AnyTransition {

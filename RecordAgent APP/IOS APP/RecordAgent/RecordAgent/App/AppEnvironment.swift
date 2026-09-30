@@ -12,6 +12,11 @@ public final class AppEnvironment: ObservableObject {
     public let keychain: KeychainService
     let homeService: any HomeDataServiceProtocol
     let calendarService: any CalendarDataServiceProtocol
+    let financeWorkspaceService: any FinanceWorkspaceServiceProtocol
+    let libraryService: any LibraryServiceProtocol
+    let studyService: any StudyServiceProtocol
+    let mobileTaskService: any MobileTaskServiceProtocol
+    let mobileTaskNotifications: any MobileTaskNotificationProtocol
     let financeService: any FinanceServiceProtocol
     let profileOverviewService: any ProfileOverviewServiceProtocol
     let profileActivityService: any ProfileActivityServiceProtocol
@@ -40,6 +45,11 @@ public final class AppEnvironment: ObservableObject {
         self.homeService = sharedData
         self.calendarService = sharedData
         self.financeService = APIFinanceService(client: client)
+        self.financeWorkspaceService = APIFinanceWorkspaceService(client: client)
+        self.libraryService = APILibraryService(client: client)
+        self.studyService = APIStudyService(client: client)
+        self.mobileTaskService = APIMobileTaskService(client: client)
+        self.mobileTaskNotifications = LocalTaskNotificationService()
         self.profileOverviewService = APIProfileOverviewService(client: client)
         self.profileActivityService = HomeProfileActivityService(homeService: homeService)
         self.profileAppearanceService = APIProfileAppearanceService(client: client)

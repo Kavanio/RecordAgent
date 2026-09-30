@@ -166,4 +166,37 @@ public class FinanceServiceImpl implements FinanceService {
         bounds.validatePage(offset, limit);
         return bounds.page(store.accounts(owner, limit + 1, offset), offset, limit);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FinanceDtos.MonthOverview overview(UUID owner, YearMonth month) {
+        return store.overview(owner, month.atDay(1), month.plusMonths(1).atDay(1));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<FinanceDtos.Transaction> monthPage(
+            UUID owner,
+            YearMonth month,
+            String type,
+            UUID account,
+            String query,
+            int offset,
+            int limit) {
+        bounds.validatePage(offset, limit);
+        if (!List.of("", "expense", "income").contains(type) || query.length() > 200)
+            throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid filter");
+        return bounds.page(
+                store.filtered(
+                        owner,
+                        month.atDay(1),
+                        month.plusMonths(1).atDay(1),
+                        type,
+                        account,
+                        query.strip(),
+                        offset,
+                        limit + 1),
+                offset,
+                limit);
+    }
 }
