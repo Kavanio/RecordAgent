@@ -18,7 +18,16 @@ public interface FinanceService {
     /** 查询某日流水。 */
     List<FinanceDtos.Transaction> day(UUID owner, LocalDate date);
     /** 查询某月流水摘要。 */
-    List<FinanceDtos.Transaction> month(UUID owner, YearMonth month);
+    List<com.butvan.recordagent.service.query.DailySummary> month(UUID owner, YearMonth month);
     /** 个人总览使用账户余额与累计支出。 */
     Summary summary(UUID owner);
+    /** 某自然日全部支出，独立于明细上限。 */
+    long expenseOn(UUID owner, LocalDate date);
+
+    /** 分页读取本人自然日明细，offset 从零开始，limit 最大为配置上限。 */
+    com.butvan.recordagent.dto.query.Page<FinanceDtos.Transaction> page(UUID owner, LocalDate date, int offset, int limit);
+
+    /** 分页读取本人账户；页大小遵守统一明细上限。 */
+    com.butvan.recordagent.dto.query.Page<FinanceDtos.Account> accountsPage(UUID owner, int offset, int limit);
+
 }

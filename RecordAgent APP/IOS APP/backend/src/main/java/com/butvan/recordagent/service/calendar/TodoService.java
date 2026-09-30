@@ -19,4 +19,12 @@ public interface TodoService {
 
     /** 更新待办实例完成状态。 */
     CalendarDtos.Occurrence complete(UUID owner, UUID id, LocalDate date, CalendarDtos.CompleteOccurrence request);
+    /** 全月实例数与完成数，周期键以周一和月初归一化。 */
+    record Progress(long total, long completed) {}
+
+    /** 完整月统计，独立于明细上限。 */
+    Progress progress(UUID owner, YearMonth month, String zone);
+    /** 分页读取当日待办；周期和时区口径与 day 一致。 */
+    com.butvan.recordagent.dto.query.Page<CalendarDtos.Todo> page(UUID owner, LocalDate date, String zone, int offset, int limit);
+
 }

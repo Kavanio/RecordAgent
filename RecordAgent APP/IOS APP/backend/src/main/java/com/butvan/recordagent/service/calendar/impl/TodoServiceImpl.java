@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TodoServiceImpl implements TodoService {
     private final TodoRepository store;
+    private final com.butvan.recordagent.service.query.ReadBounds bounds;
 
     @Override
     @Transactional
@@ -39,30 +40,27 @@ public class TodoServiceImpl implements TodoService {
     @Transactional(readOnly = true)
     public CalendarDtos.Day day(UUID owner, LocalDate date, String zone) {
         BusinessTimeZone.parse(zone);
-        List<CalendarDtos.Todo> todos = new ArrayList<>();
-        for (var row : store.candidates(owner, date)) {
-            if (occurs(row, date)) {
-                todos.add(new CalendarDtos.Todo(row.id(), row.title(), row.detail(), date, row.time(), row.recurrence(),
-                        store.completed(row.id(), period(row, date)), row.version()));
-            }
-        }
-        return new CalendarDtos.Day(date, todos);
+        var rows = bounds.requireComplete(store.day(owner, date, bounds.dayLimit() + 1), bounds.dayLimit());
+        return new CalendarDtos.Day(date, rows);
     }
 
     @Override
     @Transactional(readOnly = true)
     public CalendarDtos.Month month(UUID owner, YearMonth month, String zone) {
         BusinessTimeZone.parse(zone);
-        List<CalendarDtos.MonthDay> days = new ArrayList<>();
-        var candidates = store.candidates(owner, month.atEndOfMonth());
-        for (int index = 1; index <= month.lengthOfMonth(); index++) {
-            LocalDate date = month.atDay(index);
-            List<String> titles = candidates.stream().filter(row -> occurs(row, date))
-                    .limit(3).map(TodoRepository.Row::title).toList();
-            int count = (int) candidates.stream().filter(row -> occurs(row, date)).count();
-            if (count > 0) days.add(new CalendarDtos.MonthDay(date, count, titles));
-        }
+        var days = store.month(owner, month.atDay(1), month.atEndOfMonth()).stream()
+                .map(row -> new CalendarDtos.MonthDay(row.date(), row.count(), row.titles())).toList();
         return new CalendarDtos.Month(month.toString(), days);
+    }
+
+    /** 复用月历相同的 SQL 周期规则，单次聚合全月数量与完成数量。 */
+    @Override
+    @Transactional(readOnly = true)
+    public Progress progress(UUID owner, YearMonth month, String zone) {
+        BusinessTimeZone.parse(zone);
+        var rows = store.month(owner, month.atDay(1), month.atEndOfMonth());
+        return new Progress(rows.stream().mapToLong(TodoRepository.MonthRow::count).sum(),
+                rows.stream().mapToLong(TodoRepository.MonthRow::completed).sum());
     }
 
     @Override
@@ -108,4 +106,13 @@ public class TodoServiceImpl implements TodoService {
     private static ApiException error(ApiErrorCode code) {
         return new ApiException(code, code.name());
     }
+    /** 当日实例分页，不对每条实例单独查询完成状态。 */
+    @Override
+    @Transactional(readOnly = true)
+    public com.butvan.recordagent.dto.query.Page<CalendarDtos.Todo> page(UUID owner, LocalDate date, String zone, int offset, int limit) {
+        BusinessTimeZone.parse(zone);
+        bounds.validatePage(offset, limit);
+        return bounds.page(store.day(owner, date, limit + 1, offset), offset, limit);
+    }
+
 }

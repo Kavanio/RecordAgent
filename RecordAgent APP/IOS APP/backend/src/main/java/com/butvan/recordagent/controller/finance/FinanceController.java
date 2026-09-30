@@ -49,4 +49,13 @@ public class FinanceController {
             @RequestParam LocalDate date) {
         return finance.day(user.userId(), date);
     }
+    /** 分页读取账户；列表超过上限时用 nextOffset 继续读取。 */
+    @ApiLog("分页读取本人财务账户")
+    @GetMapping("/accounts/page")
+    public com.butvan.recordagent.dto.query.Page<FinanceDtos.Account> accountsPage(
+            @AuthenticationPrincipal AuthenticatedUser user,@RequestParam(defaultValue="0") int offset,
+            @RequestParam(defaultValue="100") int limit) {
+        return finance.accountsPage(user.userId(),offset,limit);
+    }
+
 }

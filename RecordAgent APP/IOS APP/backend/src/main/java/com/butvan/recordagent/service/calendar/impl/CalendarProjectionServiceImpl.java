@@ -47,35 +47,25 @@ public class CalendarProjectionServiceImpl implements CalendarProjectionService 
             summary.kinds.add("todo");
             todo.titles().forEach(summary::addTitle);
         }
-        for (var schedule : schedules.month(owner, month)) {
-            DaySummary summary = days.computeIfAbsent(schedule.date(), ignored -> new DaySummary());
-            summary.count++;
-            summary.kinds.add("schedule");
-            summary.addTitle(schedule.title());
-        }
-        for (var journal : journals.month(owner, month)) {
-            DaySummary summary = days.computeIfAbsent(journal.date(), ignored -> new DaySummary());
-            summary.count++;
-            summary.kinds.add("journal");
-            summary.addTitle(journal.title());
-        }
-        for (var transaction : finance.month(owner, month)) {
-            DaySummary summary = days.computeIfAbsent(transaction.date(), ignored -> new DaySummary());
-            summary.count++;
-            summary.kinds.add(transaction.type());
-            summary.addTitle(transaction.category() == null || transaction.category().isBlank()
-                    ? transaction.type() : transaction.category());
-        }
-        for (var session : study.month(owner, month, zone)) {
-            DaySummary summary = days.computeIfAbsent(session.date(), ignored -> new DaySummary());
-            summary.count++;
-            summary.kinds.add("focus");
-            summary.addTitle(session.title());
-        }
+        addSummaries(days, schedules.month(owner, month));
+        addSummaries(days, journals.month(owner, month));
+        addSummaries(days, finance.month(owner, month));
+        addSummaries(days, study.month(owner, month, zone));
         List<CalendarProjectionDtos.MonthDay> result = days.entrySet().stream().map(item ->
                 new CalendarProjectionDtos.MonthDay(item.getKey(), item.getValue().count,
                         List.copyOf(item.getValue().titles), List.copyOf(item.getValue().kinds))).toList();
         return new CalendarProjectionDtos.Month(month.toString(), result);
+    }
+
+    /** 各领域完整计数相加，标题仍受月历最多三条的展示契约限制。 */
+    private static void addSummaries(Map<LocalDate, DaySummary> days,
+            List<com.butvan.recordagent.service.query.DailySummary> rows) {
+        for (var row : rows) {
+            DaySummary summary = days.computeIfAbsent(row.date(), ignored -> new DaySummary());
+            summary.count = Math.addExact(summary.count, row.count());
+            summary.kinds.add(row.kind());
+            row.titles().forEach(summary::addTitle);
+        }
     }
 
     private static final class DaySummary {
@@ -87,4 +77,19 @@ public class CalendarProjectionServiceImpl implements CalendarProjectionService 
             if (title != null && !title.isBlank() && titles.size() < 3) titles.add(title);
         }
     }
+    /** 固定领域路由；领域服务各自维护所有权、排序及数量约束。 */
+    @Override
+    @Transactional(readOnly = true)
+    public com.butvan.recordagent.dto.query.Page<?> page(UUID owner, LocalDate date, String kind, String zone, int offset, int limit) {
+        com.butvan.recordagent.service.time.BusinessTimeZone.parse(zone);
+        return switch (kind) {
+            case "todo" -> todos.page(owner,date,zone,offset,limit);
+            case "schedule" -> schedules.page(owner,date,offset,limit);
+            case "journal" -> journals.page(owner,date,offset,limit);
+            case "finance" -> finance.page(owner,date,offset,limit);
+            case "study" -> study.page(owner,date,zone,offset,limit);
+            default -> throw new com.butvan.recordagent.handler.ApiException(com.butvan.recordagent.handler.ApiErrorCode.INVALID_ARGUMENT,"invalid kind");
+        };
+    }
+
 }

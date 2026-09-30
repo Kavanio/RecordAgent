@@ -78,4 +78,13 @@ public class CalendarController {
             @Valid @RequestBody CalendarDtos.CompleteOccurrence request) {
         return todos.complete(user.userId(), id, date, request);
     }
+    /** 分页读取指定领域的当日明细；kind 仅允许固定五类，不接受表名或 SQL。 */
+    @ApiLog("分页读取日历当日事项")
+    @GetMapping("/days/{date}/pages/{kind}")
+    public com.butvan.recordagent.dto.query.Page<?> page(@AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable LocalDate date, @PathVariable String kind, @RequestParam String timeZone,
+            @RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "100") int limit) {
+        return projection.page(user.userId(), date, kind, timeZone, offset, limit);
+    }
+
 }

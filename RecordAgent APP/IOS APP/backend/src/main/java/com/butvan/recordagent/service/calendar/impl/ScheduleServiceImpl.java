@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ScheduleServiceImpl implements ScheduleService {
     private final ScheduleRepository store;
+    private final com.butvan.recordagent.service.query.ReadBounds bounds;
 
     @Override
     @Transactional
@@ -39,12 +40,20 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Override
     @Transactional(readOnly = true)
     public List<ScheduleDtos.Schedule> day(UUID owner, LocalDate date) {
-        return store.between(owner, date, date.plusDays(1), 200);
+        return bounds.requireComplete(store.between(owner, date, date.plusDays(1), bounds.dayLimit() + 1), bounds.dayLimit());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<ScheduleDtos.Schedule> month(UUID owner, YearMonth month) {
-        return store.between(owner, month.atDay(1), month.plusMonths(1).atDay(1), 1000);
+    public List<com.butvan.recordagent.service.query.DailySummary> month(UUID owner, YearMonth month) {
+        return store.monthSummary(owner, month.atDay(1), month.plusMonths(1).atDay(1));
     }
+    /** 单页只读取 limit+1 条以识别是否还有记录。 */
+    @Override
+    @Transactional(readOnly = true)
+    public com.butvan.recordagent.dto.query.Page<ScheduleDtos.Schedule> page(UUID owner, LocalDate date, int offset, int limit) {
+        bounds.validatePage(offset, limit);
+        return bounds.page(store.between(owner, date, date.plusDays(1), limit + 1, offset), offset, limit);
+    }
+
 }

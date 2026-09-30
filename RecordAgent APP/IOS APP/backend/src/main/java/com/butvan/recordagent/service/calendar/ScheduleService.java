@@ -13,5 +13,8 @@ public interface ScheduleService {
     /** 查询自然日内的日程。 */
     List<ScheduleDtos.Schedule> day(UUID owner, LocalDate date);
     /** 查询月历有界标题摘要。 */
-    List<ScheduleDtos.Schedule> month(UUID owner, YearMonth month);
+    List<com.butvan.recordagent.service.query.DailySummary> month(UUID owner, YearMonth month);
+    /** 分页读取本人自然日明细，offset 从零开始，limit 最大为配置上限。 */
+    com.butvan.recordagent.dto.query.Page<ScheduleDtos.Schedule> page(UUID owner, LocalDate date, int offset, int limit);
+
 }

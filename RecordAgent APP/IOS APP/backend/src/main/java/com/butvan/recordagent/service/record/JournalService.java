@@ -14,7 +14,10 @@ public interface JournalService {
     /** 查询某日手记。 */
     List<JournalDtos.Journal> day(UUID owner, LocalDate date);
     /** 查询某月手记摘要。 */
-    List<JournalDtos.Journal> month(UUID owner, YearMonth month);
+    List<com.butvan.recordagent.service.query.DailySummary> month(UUID owner, YearMonth month);
     /** 读取本人资料累计条目和字数。 */
     Summary summary(UUID owner);
+    /** 分页读取本人自然日明细，offset 从零开始，limit 最大为配置上限。 */
+    com.butvan.recordagent.dto.query.Page<JournalDtos.Journal> page(UUID owner, LocalDate date, int offset, int limit);
+
 }

@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class FinanceServiceImpl implements FinanceService {
     private final FinanceRepository store;
+    private final com.butvan.recordagent.service.query.ReadBounds bounds;
 
     @Override
     @Transactional
@@ -36,7 +37,7 @@ public class FinanceServiceImpl implements FinanceService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<FinanceDtos.Account> accounts(UUID owner) { return store.accounts(owner); }
+    public List<FinanceDtos.Account> accounts(UUID owner) { return bounds.requireComplete(store.accounts(owner, bounds.accountLimit() + 1), bounds.accountLimit()); }
 
     @Override
     @Transactional
@@ -73,13 +74,13 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional(readOnly = true)
     public List<FinanceDtos.Transaction> day(UUID owner, LocalDate date) {
-        return store.between(owner, date, date.plusDays(1), 200);
+        return bounds.requireComplete(store.between(owner, date, date.plusDays(1), bounds.dayLimit() + 1), bounds.dayLimit());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<FinanceDtos.Transaction> month(UUID owner, YearMonth month) {
-        return store.between(owner, month.atDay(1), month.plusMonths(1).atDay(1), 1000);
+    public List<com.butvan.recordagent.service.query.DailySummary> month(UUID owner, YearMonth month) {
+        return store.monthSummary(owner, month.atDay(1), month.plusMonths(1).atDay(1));
     }
 
     @Override
@@ -87,4 +88,25 @@ public class FinanceServiceImpl implements FinanceService {
     public Summary summary(UUID owner) {
         return new Summary(store.totalAssets(owner), store.totalExpense(owner));
     }
+    /** 完整支出聚合，不受明细返回条数影响。 */
+    @Override
+    @Transactional(readOnly = true)
+    public long expenseOn(UUID owner, LocalDate date) { return store.expenseOn(owner, date); }
+
+    /** 单页只读取 limit+1 条以识别是否还有记录。 */
+    @Override
+    @Transactional(readOnly = true)
+    public com.butvan.recordagent.dto.query.Page<FinanceDtos.Transaction> page(UUID owner, LocalDate date, int offset, int limit) {
+        bounds.validatePage(offset, limit);
+        return bounds.page(store.between(owner, date, date.plusDays(1), limit + 1, offset), offset, limit);
+    }
+
+    /** 账户超限时可从此接口继续读取，不静默丢弃后续账户。 */
+    @Override
+    @Transactional(readOnly = true)
+    public com.butvan.recordagent.dto.query.Page<FinanceDtos.Account> accountsPage(UUID owner,int offset,int limit) {
+        bounds.validatePage(offset,limit);
+        return bounds.page(store.accounts(owner,limit+1,offset),offset,limit);
+    }
+
 }

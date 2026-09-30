@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class JournalServiceImpl implements JournalService {
     private final JournalRepository store;
+    private final com.butvan.recordagent.service.query.ReadBounds bounds;
 
     @Override
     @Transactional
@@ -31,19 +32,26 @@ public class JournalServiceImpl implements JournalService {
     @Override
     @Transactional(readOnly = true)
     public List<JournalDtos.Journal> day(UUID owner, LocalDate date) {
-        return store.between(owner, date, date.plusDays(1), 200);
+        return bounds.requireComplete(store.between(owner, date, date.plusDays(1), bounds.dayLimit() + 1), bounds.dayLimit());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<JournalDtos.Journal> month(UUID owner, YearMonth month) {
-        return store.between(owner, month.atDay(1), month.plusMonths(1).atDay(1), 1000);
+    public List<com.butvan.recordagent.service.query.DailySummary> month(UUID owner, YearMonth month) {
+        return store.monthSummary(owner, month.atDay(1), month.plusMonths(1).atDay(1));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Summary summary(UUID owner) {
-        long[] totals = store.summary(owner);
-        return new Summary(totals[0], totals[1]);
+        return store.summary(owner);
     }
+    /** 单页只读取 limit+1 条以识别是否还有记录。 */
+    @Override
+    @Transactional(readOnly = true)
+    public com.butvan.recordagent.dto.query.Page<JournalDtos.Journal> page(UUID owner, LocalDate date, int offset, int limit) {
+        bounds.validatePage(offset, limit);
+        return bounds.page(store.between(owner, date, date.plusDays(1), limit + 1, offset), offset, limit);
+    }
+
 }

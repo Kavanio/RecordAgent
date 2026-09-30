@@ -25,11 +25,16 @@ public class FinanceRepository {
     }
 
     /** 账户列表仅返回当前用户。 */
-    public List<FinanceDtos.Account> accounts(UUID owner) {
+    public List<FinanceDtos.Account> accounts(UUID owner, int limit) {
+        return accounts(owner,limit,0);
+    }
+
+    /** 账户列表分页，按创建时间和稳定 ID 排序。 */
+    public List<FinanceDtos.Account> accounts(UUID owner, int limit, int offset) {
         return jdbc.query("SELECT id,name,balance_minor,version FROM record.finance_account "
-                + "WHERE owner_id=? ORDER BY created_at,id LIMIT 100", (rs, index) ->
+                + "WHERE owner_id=? ORDER BY created_at,id LIMIT ? OFFSET ?", (rs, index) ->
                 new FinanceDtos.Account(rs.getObject(1, UUID.class), rs.getString(2),
-                        rs.getLong(3), rs.getLong(4)), owner);
+                        rs.getLong(3), rs.getLong(4)), owner, limit, offset);
     }
 
     /** 写入前锁定本人账户，避免并发支出绕过余额约束。 */
@@ -67,16 +72,21 @@ public class FinanceRepository {
 
     /** 流水按本人、日期范围和条数限制读取。 */
     public List<FinanceDtos.Transaction> between(UUID owner, LocalDate start, LocalDate end, int limit) {
+        return between(owner, start, end, limit, 0);
+    }
+
+    /** 使用稳定排序分页读取本人明细。 */
+    public List<FinanceDtos.Transaction> between(UUID owner, LocalDate start, LocalDate end, int limit, int offset) {
         return jdbc.query("SELECT t.id,t.account_id,t.transaction_type,c.name,t.note,t.amount_minor,"
                 + "t.transaction_date,t.transaction_time,a.balance_minor "
                 + "FROM record.finance_transaction t JOIN record.finance_account a ON a.id=t.account_id "
                 + "LEFT JOIN record.finance_category c ON c.id=t.category_id "
                 + "WHERE t.owner_id=? AND t.transaction_date>=? AND t.transaction_date<? "
-                + "ORDER BY t.transaction_date,t.transaction_time,t.id LIMIT ?", (rs, index) ->
+                + "ORDER BY t.transaction_date,t.transaction_time,t.id LIMIT ? OFFSET ?", (rs, index) ->
                 new FinanceDtos.Transaction(rs.getObject(1, UUID.class), rs.getObject(2, UUID.class),
                         rs.getString(3), rs.getString(4), rs.getString(5), rs.getLong(6),
                         rs.getObject(7, LocalDate.class), rs.getObject(8, LocalTime.class), rs.getLong(9)),
-                owner, start, end, limit);
+                owner, start, end, limit, offset);
     }
 
     /** 统计查询由财务服务公开，其他领域不直接访问财务表。 */
@@ -91,4 +101,22 @@ public class FinanceRepository {
                 + "WHERE owner_id=? AND transaction_type='expense'", Long.class, owner);
         return value == null ? 0 : value;
     }
+    /** 完整月计数按收支类型分别聚合，标题不含财务备注。 */
+    public List<com.butvan.recordagent.service.query.DailySummary> monthSummary(UUID owner, LocalDate start, LocalDate end) {
+        return jdbc.query("""
+                SELECT t.transaction_date AS day,t.transaction_type AS kind,count(*) AS count,
+                       (array_agg(COALESCE(NULLIF(c.name,''),t.transaction_type)
+                        ORDER BY t.transaction_time,t.id))[1:3] AS titles
+                FROM record.finance_transaction t LEFT JOIN record.finance_category c ON c.id=t.category_id
+                WHERE t.owner_id=? AND t.transaction_date>=? AND t.transaction_date<?
+                GROUP BY t.transaction_date,t.transaction_type ORDER BY t.transaction_date,t.transaction_type
+                """, (rs, n) -> com.butvan.recordagent.repository.mapper.projection.DailySummaryMapper.map(rs, rs.getString("kind")), owner, start, end);
+    }
+
+    /** 趋势使用数据库完整聚合，不从有上限的明细列表累加。 */
+    public long expenseOn(UUID owner, LocalDate date) {
+        return jdbc.queryForObject("SELECT COALESCE(SUM(amount_minor),0) FROM record.finance_transaction "
+                + "WHERE owner_id=? AND transaction_date=? AND transaction_type='expense'", Long.class, owner, date);
+    }
+
 }

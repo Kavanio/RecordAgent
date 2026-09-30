@@ -11,4 +11,7 @@ public interface CalendarProjectionService {
     CalendarProjectionDtos.Day day(UUID owner, LocalDate date, String timeZone);
     /** 读取月历分类和标题摘要。 */
     CalendarProjectionDtos.Month month(UUID owner, YearMonth month, String timeZone);
+    /** 按领域分页读取，kind 为 todo/schedule/journal/finance/study。 */
+    com.butvan.recordagent.dto.query.Page<?> page(UUID owner, LocalDate date, String kind, String zone, int offset, int limit);
+
 }

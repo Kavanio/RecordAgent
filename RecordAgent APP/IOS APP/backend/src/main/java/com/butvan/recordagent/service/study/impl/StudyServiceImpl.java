@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class StudyServiceImpl implements StudyService {
     private final StudyRepository store;
+    private final com.butvan.recordagent.service.query.ReadBounds bounds;
 
     @Override
     @Transactional(readOnly = true)
@@ -27,7 +28,7 @@ public class StudyServiceImpl implements StudyService {
         ZoneId zone = BusinessTimeZone.parse(timeZone);
         var start = date.atStartOfDay(zone);
         var end = date.plusDays(1).atStartOfDay(zone);
-        return store.overlapping(owner, start.toOffsetDateTime(), end.toOffsetDateTime(), 200).stream().map(row -> {
+        return bounds.requireComplete(store.overlapping(owner, start.toOffsetDateTime(), end.toOffsetDateTime(), bounds.dayLimit() + 1), bounds.dayLimit()).stream().map(row -> {
             var clippedStart = row.start().toInstant().isAfter(start.toInstant())
                     ? row.start().toInstant() : start.toInstant();
             var clippedEnd = row.end().toInstant().isBefore(end.toInstant())
@@ -39,36 +40,38 @@ public class StudyServiceImpl implements StudyService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<StudyDtos.Session> month(UUID owner, YearMonth month, String timeZone) {
+    public List<com.butvan.recordagent.service.query.DailySummary> month(UUID owner, YearMonth month, String timeZone) {
         ZoneId zone = BusinessTimeZone.parse(timeZone);
-        var start = month.atDay(1).atStartOfDay(zone);
-        var end = month.plusMonths(1).atDay(1).atStartOfDay(zone);
-        List<StudyDtos.Session> result = new ArrayList<>();
-        for (var row : store.overlapping(owner, start.toOffsetDateTime(), end.toOffsetDateTime(), 1000)) {
-            var first = row.start().toInstant().isAfter(start.toInstant())
-                    ? row.start().toInstant() : start.toInstant();
-            var last = row.end().toInstant().isBefore(end.toInstant())
-                    ? row.end().toInstant() : end.toInstant();
-            if (!last.isAfter(first)) {
-                continue;
-            }
-            LocalDate day = first.atZone(zone).toLocalDate();
-            // 区间右端不包含在统计内，减 1ns 可避免午夜结束时多生成次日记录。
-            LocalDate finalDay = last.minusNanos(1).atZone(zone).toLocalDate();
-            while (!day.isAfter(finalDay)) {
-                var dayStart = day.atStartOfDay(zone).toInstant();
-                var dayEnd = day.plusDays(1).atStartOfDay(zone).toInstant();
-                var clippedStart = first.isAfter(dayStart) ? first : dayStart;
-                var clippedEnd = last.isBefore(dayEnd) ? last : dayEnd;
-                result.add(new StudyDtos.Session(row.id(), row.title(), day,
-                        clippedStart.atZone(zone).toLocalTime(), Duration.between(clippedStart, clippedEnd).toMinutes()));
-                day = day.plusDays(1);
-            }
-        }
-        return result;
+        return store.monthSummary(owner, month.atDay(1), month.plusMonths(1).atDay(1), zone.getId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public long totalMinutes(UUID owner) { return store.totalMinutes(owner); }
+    /** 按自然日裁剪全部时段后聚合，不受明细上限影响。 */
+    @Override
+    @Transactional(readOnly = true)
+    public long minutesOn(UUID owner, LocalDate date, String timeZone) {
+        ZoneId zone = BusinessTimeZone.parse(timeZone);
+        return store.minutesBetween(owner, date.atStartOfDay(zone).toOffsetDateTime(),
+                date.plusDays(1).atStartOfDay(zone).toOffsetDateTime());
+    }
+
+    /** 按自然日裁剪一页时段；午夜和夏令时边界由 ZoneId 处理。 */
+    @Override
+    @Transactional(readOnly = true)
+    public com.butvan.recordagent.dto.query.Page<StudyDtos.Session> page(UUID owner, LocalDate date, String timeZone, int offset, int limit) {
+        bounds.validatePage(offset, limit);
+        ZoneId zone = BusinessTimeZone.parse(timeZone);
+        var start = date.atStartOfDay(zone).toInstant();
+        var end = date.plusDays(1).atStartOfDay(zone).toInstant();
+        var rows = store.overlapping(owner, start.atOffset(java.time.ZoneOffset.UTC), end.atOffset(java.time.ZoneOffset.UTC), limit + 1, offset);
+        var mapped = rows.stream().map(row -> {
+            var first = row.start().toInstant().isAfter(start) ? row.start().toInstant() : start;
+            var last = row.end().toInstant().isBefore(end) ? row.end().toInstant() : end;
+            return new StudyDtos.Session(row.id(), row.title(), date, first.atZone(zone).toLocalTime(), Duration.between(first, last).toMinutes());
+        }).toList();
+        return bounds.page(mapped, offset, limit);
+    }
+
 }

@@ -26,6 +26,8 @@
 - 本机开发文件默认写入 `data/files/objects/`（可由 `RECORDAGENT_FILE_ROOT` 覆盖），属于运行态数据，不入库、不提交；当前图片接口仅接受不超过 2 MB 的 JPEG，读取必须先验证文件所有权。
 - 新增或修改 API 时同步维护 HTTP 方法、路径、请求和响应 DTO、错误码、鉴权要求与 iOS 映射；每个 REST Controller 方法遵守根目录 `@ApiLog` 约束，日志对敏感字段脱敏。
 - 认证服务仅向安全适配层返回已验证身份，不暴露 Repository 内部类型。可调整的会话、验证码与明细上限统一由 `config/BusinessProperties` 管理；SMTP 设置显式超时。
+- 月历使用领域公开的 `service/query/DailySummary`，数据库只返回完整计数和最多三条标题；趋势与累计统计使用独立聚合，不从有条数限制的明细求和。待办完成状态与实例在同一查询读取，周期规则变更须同时验证完成与聚合路径。
+- 明细查询统一经过 `ReadBounds`，多读一条检测溢出；旧列表超限返回 422 `RESULT_LIMIT_EXCEEDED`，分页响应为 `{items,nextOffset,hasMore}`。分页排序必须包含稳定 ID，跨页有并发新增时客户端重新从第一页刷新。
 - HTTP 错误统一使用实际状态码及 `{ code, message, requestId }`；`code` 是稳定的客户端分支依据，`requestId` 由服务端生成并通过 `X-Request-Id` 返回。禁止向客户端或日志输出异常原文、用户输入及凭据。
 - 每个阶段至少验证认证隔离、领域不变量、PostgreSQL 迁移及主要 HTTP 错误路径；用真实 PostgreSQL 的隔离测试环境验证持久化行为，不以桌面 SQLite 测试替代。
 

@@ -199,6 +199,81 @@ class RecordAgentApplicationIT {
         assertThat(file.deletedAt()).isNull();
     }
 
+    @Autowired private com.butvan.recordagent.service.calendar.TodoService todos;
+    @Autowired private com.butvan.recordagent.service.calendar.CalendarProjectionService calendar;
+    @Autowired private com.butvan.recordagent.service.finance.FinanceService finance;
+    @Autowired private com.butvan.recordagent.service.overview.OverviewService overview;
+    @Autowired private com.butvan.recordagent.service.study.StudyService study;
+
+    @Test
+    void completeAggregatesExceedOldLimitsAndDetailsCanBePaged() {
+        UUID owner = UUID.randomUUID();
+        insertUser(owner);
+        var date = java.time.LocalDate.of(2026, 9, 30);
+        var account = finance.createAccount(owner, new com.butvan.recordagent.dto.finance.FinanceDtos.CreateAccount("账户", 0L));
+        jdbcTemplate.update("""
+                INSERT INTO record.finance_transaction(id,owner_id,account_id,transaction_date,transaction_time,transaction_type,amount_minor,currency)
+                SELECT gen_random_uuid(),?,?,'2026-09-30','12:00','expense',1,'CNY' FROM generate_series(1,1001)
+                """, owner,account.id());
+        jdbcTemplate.update("""
+                INSERT INTO record.record_entry(id,owner_id,record_date,record_type,title,content_text)
+                SELECT gen_random_uuid(),?,'2026-09-30','journal','标题','不应加载的正文' FROM generate_series(1,1001)
+                """,owner);
+        jdbcTemplate.update("""
+                INSERT INTO record.study_session(id,owner_id,title,started_at,ended_at,timezone)
+                SELECT gen_random_uuid(),?,'学习','2026-09-30 12:00:00+08'::timestamptz,
+                    '2026-09-30 12:01:00+08'::timestamptz,'Asia/Shanghai' FROM generate_series(1,1001)
+                """,owner);
+        var projection = calendar.month(owner,java.time.YearMonth.of(2026,9),"Asia/Shanghai");
+        assertThat(projection.days()).hasSize(1);
+        assertThat(projection.days().getFirst().count()).isEqualTo(3003);
+        assertThat(projection.days().getFirst().titles()).hasSize(3);
+        var trend = overview.dayTrend(owner,date,"Asia/Shanghai").trend().getLast();
+        assertThat(trend.expenseInCents()).isEqualTo(1001);
+        assertThat(trend.focusMinutes()).isEqualTo(1001);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> finance.day(owner,date))
+                .isInstanceOfSatisfying(com.butvan.recordagent.handler.ApiException.class,error ->
+                    assertThat(error.errorCode()).isEqualTo(com.butvan.recordagent.handler.ApiErrorCode.RESULT_LIMIT_EXCEEDED));
+        java.util.Set<UUID> ids = new java.util.HashSet<>();
+        int offset=0;
+        while (true) {
+            var page = finance.page(owner,date,offset,100);
+            page.items().forEach(row -> assertThat(ids.add(row.id())).isTrue());
+            if (!page.hasMore()) break;
+            offset=page.nextOffset();
+        }
+        assertThat(ids).hasSize(1001);
+        assertThat(calendar.month(UUID.randomUUID(),java.time.YearMonth.of(2026,9),"Asia/Shanghai").days()).isEmpty();
+    }
+
+    @Test
+    void todoCompletionAndMonthProgressShareRecurrenceRules() {
+        UUID owner = UUID.randomUUID();
+        insertUser(owner);
+        var created = todos.create(owner,new com.butvan.recordagent.dto.calendar.CalendarDtos.CreateTodo(
+                "月待办",null,java.time.LocalDate.of(2026,9,15),null,"Asia/Shanghai","monthly"));
+        var date=java.time.LocalDate.of(2026,9,30);
+        assertThat(todos.day(owner,date,"Asia/Shanghai").todos()).hasSize(1);
+        todos.complete(owner,created.id(),date,new com.butvan.recordagent.dto.calendar.CalendarDtos.CompleteOccurrence(true,0L));
+        assertThat(todos.day(owner,date,"Asia/Shanghai").todos().getFirst().completed()).isTrue();
+        assertThat(todos.progress(owner,java.time.YearMonth.of(2026,9),"Asia/Shanghai"))
+                .isEqualTo(new com.butvan.recordagent.service.calendar.TodoService.Progress(1,1));
+        assertThat(todos.day(owner,date.minusDays(1),"Asia/Shanghai").todos()).isEmpty();
+        assertThat(todos.day(UUID.randomUUID(),date,"Asia/Shanghai").todos()).isEmpty();
+    }
+
+    @Test
+    void studyAggregatesUseActualDayLengthAcrossDaylightSaving() {
+        UUID owner=UUID.randomUUID();
+        insertUser(owner);
+        jdbcTemplate.update("""
+                INSERT INTO record.study_session(id,owner_id,title,started_at,ended_at,timezone)
+                VALUES (?,?,'夏令时','2026-03-08 00:00:00-05','2026-03-09 00:00:00-04','America/New_York')
+                """,UUID.randomUUID(),owner);
+        assertThat(study.minutesOn(owner,java.time.LocalDate.of(2026,3,8),"America/New_York")).isEqualTo(1380);
+        assertThat(study.month(owner,java.time.YearMonth.of(2026,3),"America/New_York")).hasSize(1);
+    }
+
     private void insertUser(UUID id) {
         String unique = id.toString();
         jdbcTemplate.update("""
