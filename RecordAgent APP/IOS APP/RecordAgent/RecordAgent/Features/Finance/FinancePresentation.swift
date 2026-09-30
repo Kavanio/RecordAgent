@@ -22,7 +22,10 @@ struct FinanceTransactionRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             Image(systemName: transaction.type == "income" ? "arrow.down.left" : "arrow.up.right")
-                .font(.subheadline).foregroundStyle(.secondary).frame(minWidth: 22)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
+                .frame(width: 40, height: 40)
+                .background((transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense).opacity(0.1), in: RoundedRectangle(cornerRadius: 13))
                 .padding(.top, 3)
             VStack(alignment: .leading, spacing: 7) {
                 if transaction.category.isEmpty {
@@ -45,7 +48,8 @@ struct FinanceTransactionRow: View {
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 7) {
                 Text(WorkspaceFormat.money(transaction.amountInCents, locale: locale))
-                    .font(.body.weight(.medium)).monospacedDigit()
+                    .font(.body.weight(.semibold)).monospacedDigit()
+                    .foregroundStyle(transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
                 Text(transaction.typeTitle)
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -63,14 +67,17 @@ struct FinanceTransactionDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            WorkspaceSheetHeader(title: "finance.transaction.detail") { dismiss() }
+                .padding(.horizontal, 24).padding(.top, 28).padding(.bottom, 16)
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(transaction.typeTitle)
                             .font(.subheadline).foregroundStyle(.secondary)
                         Text(WorkspaceFormat.money(transaction.amountInCents, locale: locale))
-                            .font(.largeTitle.weight(.medium)).monospacedDigit()
+                            .font(.largeTitle.weight(.semibold)).monospacedDigit()
+                            .foregroundStyle(transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
                     }
                     if !transaction.category.isEmpty {
                         WorkspaceValue(label: "finance.category", value: transaction.category)
@@ -93,17 +100,13 @@ struct FinanceTransactionDetailView: View {
                         }
                     }
                 }
-                .padding(24).frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .background(Color(uiColor: .systemBackground).ignoresSafeArea())
-            .navigationTitle("finance.transaction.detail")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("workspace.done") { dismiss() }
-                }
+                .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))
+                .padding(.horizontal, 24).padding(.bottom, 24)
             }
         }
+        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+        .workspaceSheet(compact: true)
     }
 }
 

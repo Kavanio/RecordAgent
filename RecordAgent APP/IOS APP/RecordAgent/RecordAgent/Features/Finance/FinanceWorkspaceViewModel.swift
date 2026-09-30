@@ -6,6 +6,12 @@ final class FinanceWorkspaceViewModel: ObservableObject {
     @Published var month: Date
     @Published var type: FinanceTransactionFilter = .all
     @Published var selectedAccountID: String?
+    @Published var chartRange: FinanceChartRange = .month
+    @Published private(set) var insights: FinanceInsights?
+    @Published private(set) var insightsError: String?
+    @Published private(set) var isLoadingInsights = false
+    private var insightsGeneration = 0
+    private var insightsErrorKey: String?
     @Published var query = ""
     @Published private(set) var overview: FinanceMonthOverview?
     @Published private(set) var accounts: [FinanceAccount] = []
@@ -42,11 +48,35 @@ final class FinanceWorkspaceViewModel: ObservableObject {
         if loadedTransactionFilter != filterKey || transactionsError != nil { await loadTransactions(reset: true) }
     }
 
+    var analysisPeriod: FinanceAnalysisPeriod { FinanceAnalysisPeriod(anchor: month, range: chartRange) }
+    var analysisKey: String { analysisPeriod.key }
+    var visibleInsightsError: String? { insightsErrorKey == analysisKey ? insightsError : nil }
+    var visibleInsights: FinanceInsights? { insights?.period.key == analysisKey ? insights : nil }
+
+    func loadInsights() async {
+        insightsGeneration += 1
+        let generation = insightsGeneration
+        let period = analysisPeriod
+        insights = nil
+        insightsError = nil
+        insightsErrorKey = nil
+        isLoadingInsights = true
+        defer { if generation == insightsGeneration { isLoadingInsights = false } }
+        do {
+            let result = try await service.insights(period: period)
+            try Task.checkCancellation()
+            guard generation == insightsGeneration, period.key == analysisKey else { return }
+            insights = result
+        } catch is CancellationError { }
+        catch { if generation == insightsGeneration && period.key == analysisKey { insightsError = error.localizedDescription; insightsErrorKey = period.key } }
+    }
+
     func refresh() async {
         async let summary: Void = loadOverview()
         async let accountList: Void = loadAccounts(reset: true)
         async let entries: Void = loadTransactions(reset: true)
-        _ = await (summary, accountList, entries)
+        async let analysis: Void = loadInsights()
+        _ = await (summary, accountList, entries, analysis)
     }
 
     func loadOverview() async {

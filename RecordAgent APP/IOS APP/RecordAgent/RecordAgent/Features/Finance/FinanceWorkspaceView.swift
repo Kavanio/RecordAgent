@@ -27,6 +27,7 @@ struct FinanceWorkspaceView: View {
                 .font(.subheadline).frame(minHeight: 44)
             }
             .buttonStyle(.plain)
+            FinanceInsightsView(model: model)
             WorkspaceSearchField(text: $model.query, prompt: "finance.search")
             WorkspaceFilters(options: FinanceTransactionFilter.allCases, selection: $model.type) { $0.title }
             WorkspaceSection(title: "finance.transactions") {
@@ -63,6 +64,7 @@ struct FinanceWorkspaceView: View {
         .refreshable { await model.refresh() }
         .sheet(isPresented: $showsAccounts) {
             FinanceAccountsView(model: model, financeService: financeService, onChanged: onChanged)
+                .workspaceSheet(compact: true)
         }
         .sheet(isPresented: $showsCreate) {
             FinanceTransactionEditorView(model: model, financeService: financeService) {
@@ -84,7 +86,8 @@ struct FinanceWorkspaceView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("finance.assets").font(.caption).foregroundStyle(.secondary)
                     Text(WorkspaceFormat.money(overview.totalAssetsInCents, locale: locale))
-                        .font(.largeTitle.weight(.medium)).monospacedDigit().minimumScaleFactor(0.7)
+                        .foregroundStyle(AppColors.primaryBlue)
+                        .font(.largeTitle.weight(.semibold)).monospacedDigit().minimumScaleFactor(0.7)
                 }
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 32) { monthValues(overview) }
@@ -95,78 +98,7 @@ struct FinanceWorkspaceView: View {
     }
 
     @ViewBuilder private func monthValues(_ overview: FinanceMonthOverview) -> some View {
-        WorkspaceValue(label: "finance.month.expense", value: WorkspaceFormat.money(overview.expenseInCents, locale: locale))
-        WorkspaceValue(label: "finance.month.income", value: WorkspaceFormat.money(overview.incomeInCents, locale: locale))
-    }
-}
-
-private struct FinanceAccountsView: View {
-    @ObservedObject var model: FinanceWorkspaceViewModel
-    let financeService: any FinanceServiceProtocol
-    let onChanged: () -> Void
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.locale) private var locale
-    @State private var showsCreate = false
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Button {
-                        model.selectedAccountID = nil
-                        dismiss()
-                    } label: {
-                        HStack {
-                            Text("finance.account.all")
-                            Spacer()
-                            if model.selectedAccountID == nil { Image(systemName: "checkmark") }
-                        }.frame(minHeight: 44)
-                    }.buttonStyle(.plain)
-                    if let error = model.accountsError {
-                        WorkspaceErrorView(message: error) { Task { await model.loadAccounts(reset: model.accounts.isEmpty) } }
-                    }
-                    if model.accounts.isEmpty && !model.isLoadingAccounts && model.accountsError == nil {
-                        WorkspaceEmptyState(title: "finance.accounts.empty.title", description: "finance.accounts.empty.description", symbol: "creditcard")
-                    }
-                    LazyVStack(spacing: 0) {
-                        ForEach(model.accounts) { account in
-                            Button {
-                                model.selectedAccountID = account.id
-                                dismiss()
-                            } label: {
-                                HStack(alignment: .firstTextBaseline, spacing: 16) {
-                                    Text(account.name).font(.body)
-                                    Spacer(minLength: 8)
-                                    Text(WorkspaceFormat.money(account.balanceInCents, locale: locale)).monospacedDigit()
-                                    if model.selectedAccountID == account.id { Image(systemName: "checkmark").font(.caption) }
-                                }.padding(.vertical, 20).frame(minHeight: 44)
-                            }.buttonStyle(.plain)
-                            Divider()
-                        }
-                        if model.nextAccountOffset != nil {
-                            Button("workspace.load_more") { Task { await model.loadAccounts(reset: false) } }
-                                .frame(minHeight: 44).disabled(model.isLoadingAccounts)
-                        }
-                    }
-                    if model.isLoadingAccounts { ProgressView() }
-                }.padding(24)
-            }
-            .background(Color(uiColor: .systemBackground).ignoresSafeArea())
-            .navigationTitle("finance.accounts").navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("workspace.done") { dismiss() } }
-                ToolbarItem(placement: .primaryAction) {
-                    Button { showsCreate = true } label: { Image(systemName: "plus") }
-                        .accessibilityLabel("finance.account.create")
-                }
-            }
-        }
-        .sheet(isPresented: $showsCreate) {
-            FinanceAccountEditorView(financeService: financeService) { account in
-                model.accountCreated(account)
-                Task { await model.loadOverview() }
-                onChanged()
-            }
-        }
+        WorkspaceValue(label: "finance.month.expense", value: WorkspaceFormat.money(overview.expenseInCents, locale: locale)).foregroundStyle(FinanceVisualStyle.expense)
+        WorkspaceValue(label: "finance.month.income", value: WorkspaceFormat.money(overview.incomeInCents, locale: locale)).foregroundStyle(FinanceVisualStyle.income)
     }
 }

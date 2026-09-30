@@ -223,49 +223,54 @@ struct WorkspaceEditor<Content: View>: View {
   @State private var errorMessage: String?
 
   var body: some View {
-    NavigationStack {
+    VStack(spacing: 0) {
+      WorkspaceSheetHeader(title: title, disabled: isSaving) { dismiss() }
+        .padding(.horizontal, 24).padding(.top, 28).padding(.bottom, 20)
       ScrollView {
-        VStack(alignment: .leading, spacing: 28) {
+        VStack(alignment: .leading, spacing: 24) {
           content().disabled(isSaving)
           if let errorMessage {
             Label(errorMessage, systemImage: "exclamationmark.circle")
-              .font(.footnote)
-              .foregroundStyle(.red)
+              .font(.footnote).foregroundStyle(.red)
               .fixedSize(horizontal: false, vertical: true)
           }
         }
-        .padding(24)
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
+        .padding(.horizontal, 24).padding(.bottom, 24)
       }
-      .background(Color(uiColor: .systemBackground).ignoresSafeArea())
-      .navigationTitle(title)
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button("workspace.cancel") { dismiss() }.disabled(isSaving)
-        }
-        ToolbarItem(placement: .confirmationAction) {
-          if isSaving {
-            ProgressView()
-          } else {
-            Button("workspace.save") {
-              Task {
-                isSaving = true
-                errorMessage = nil
-                do {
-                  try await onSave()
-                  dismiss()
-                } catch is CancellationError {} catch { errorMessage = error.localizedDescription }
-                isSaving = false
-              }
-            }
-            .disabled(!isValid)
-          }
-        }
-      }
-      .interactiveDismissDisabled(isSaving)
+      .scrollDismissesKeyboard(.interactively)
     }
+    .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+    .safeAreaInset(edge: .bottom) {
+      Button {
+        guard isValid && !isSaving else { return }
+        isSaving = true
+        errorMessage = nil
+        Task {
+          do { try await onSave(); dismiss() }
+          catch is CancellationError { }
+          catch { errorMessage = error.localizedDescription }
+          isSaving = false
+        }
+      } label: {
+        HStack(spacing: 10) {
+          if isSaving { ProgressView().tint(.white) }
+          Text("workspace.save").font(.headline)
+        }
+        .frame(maxWidth: .infinity, minHeight: 52)
+        .foregroundStyle(.white)
+        .background(AppColors.primaryBlue, in: RoundedRectangle(cornerRadius: 18))
+      }
+      .buttonStyle(.plain).disabled(!isValid || isSaving)
+      .opacity(isValid && !isSaving ? 1 : 0.5)
+      .padding(.horizontal, 24).padding(.vertical, 12)
+      .background(.regularMaterial)
+    }
+    .interactiveDismissDisabled(isSaving)
     .tint(AppColors.primaryBlue)
+    .workspaceSheet()
   }
 }
 
@@ -279,7 +284,8 @@ struct WorkspaceTextField: View {
       Text(title).font(.caption).foregroundStyle(.secondary)
       TextField(title, text: $text, axis: axis)
         .frame(minHeight: 44)
-        .overlay(alignment: .bottom) { Divider() }
+        .padding(.horizontal, 14).padding(.vertical, 4)
+        .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
     }
   }
 }

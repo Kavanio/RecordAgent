@@ -15,57 +15,45 @@ struct RecordDetailView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    Text(current.title).font(.title2.weight(.medium))
-                    WorkspaceSection(title: "record.time") {
-                        VStack(alignment: .leading, spacing: 18) {
-                            dateValue("record.started_at", date: current.startedAt)
-                            if let end = current.endedAt {
-                                dateValue("record.ended_at", date: end)
-                                WorkspaceValue(label: "record.duration", value: RecordFormatting.duration(current.durationSeconds(), locale: locale))
-                            } else {
-                                Text("record.in_progress").foregroundStyle(.secondary)
-                            }
-                            WorkspaceValue(label: "record.time_zone", value: current.timeZone)
+        WorkspaceDetailSheet(title: "record.detail", isBusy: model.isSaving, compact: true, onClose: { dismiss() }) {
+            VStack(alignment: .leading, spacing: 28) {
+                Text(current.title).font(.title2.weight(.medium))
+                WorkspaceSection(title: "record.time") {
+                    VStack(alignment: .leading, spacing: 18) {
+                        dateValue("record.started_at", date: current.startedAt)
+                        if let end = current.endedAt {
+                            dateValue("record.ended_at", date: end)
+                            WorkspaceValue(label: "record.duration", value: RecordFormatting.duration(current.durationSeconds(), locale: locale))
+                        } else {
+                            Text("record.in_progress").foregroundStyle(.secondary)
                         }
-                    }
-                    Divider()
-                    Button("workspace.delete", role: .destructive) { confirmsDelete = true }
-                        .frame(minHeight: 44)
-                        .disabled(model.isSaving)
-                    if let key = errorKey {
-                        Text(RecordFormatting.message(key, locale: locale))
-                            .font(.footnote).foregroundStyle(.red)
-                    }
-                }
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .background(Color(uiColor: .systemBackground).ignoresSafeArea())
-            .navigationTitle("record.detail")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("workspace.close") { dismiss() }.disabled(model.isSaving)
+                    WorkspaceValue(label: "record.time_zone", value: current.timeZone)
                 }
             }
-            .confirmationDialog("record.delete_confirm", isPresented: $confirmsDelete, titleVisibility: .visible) {
-                Button("workspace.delete", role: .destructive) {
-                    Task {
-                        errorKey = nil
-                        do { try await model.delete(current); onChanged(); dismiss() }
-                        catch is CancellationError { }
-                        catch { errorKey = RecordWorkspaceViewModel.errorKey(error) }
-                    }
-                }
-                Button("workspace.cancel", role: .cancel) { }
-            } message: {
-                Text("record.delete_description")
+            Divider()
+            Button("workspace.delete", role: .destructive) { confirmsDelete = true }
+                .frame(minHeight: 44)
+                .disabled(model.isSaving)
+            if let key = errorKey {
+                Text(RecordFormatting.message(key, locale: locale))
+                    .font(.footnote).foregroundStyle(.red)
             }
-            .interactiveDismissDisabled(model.isSaving)
         }
+    }
+        .confirmationDialog("record.delete_confirm", isPresented: $confirmsDelete, titleVisibility: .visible) {
+            Button("workspace.delete", role: .destructive) {
+                Task {
+                    errorKey = nil
+                    do { try await model.delete(current); onChanged(); dismiss() }
+                    catch is CancellationError { }
+                    catch { errorKey = RecordWorkspaceViewModel.errorKey(error) }
+                }
+            }
+            Button("workspace.cancel", role: .cancel) { }
+        } message: {
+            Text("record.delete_description")
+        }
+
     }
 
     private func dateValue(_ title: LocalizedStringKey, date: Date) -> some View {
