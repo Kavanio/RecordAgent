@@ -25,7 +25,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 class FileAssetServiceImplTest {
     private final BlobStore blobs = mock(BlobStore.class);
     private final FileAssetRepository metadata = mock(FileAssetRepository.class);
-    private final FileAssetServiceImpl service = new FileAssetServiceImpl(blobs, metadata);
+    private final FileAssetServiceImpl service = new FileAssetServiceImpl(new com.butvan.recordagent.config.BusinessProperties(), blobs, metadata);
 
     @Test
     void rejectsOversizedBase64BeforeAccessingStorage() {

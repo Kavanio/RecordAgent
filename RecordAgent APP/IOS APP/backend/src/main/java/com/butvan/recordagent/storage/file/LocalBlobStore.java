@@ -5,7 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.UUID;
-import org.springframework.beans.factory.annotation.Value;
+import com.butvan.recordagent.config.BusinessProperties;
 import org.springframework.stereotype.Component;
 
 /** 本机开发阶段的文件对象存储；目录由部署配置提供。 */
@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
 public class LocalBlobStore implements BlobStore {
     private final Path root;
 
-    public LocalBlobStore(@Value("${recordagent.files.root:./data/files/objects}") String directory) {
-        root = Path.of(directory).toAbsolutePath().normalize();
+    public LocalBlobStore(BusinessProperties properties) {
+        root = Path.of(properties.getFiles().getRoot()).toAbsolutePath().normalize();
     }
 
     @Override

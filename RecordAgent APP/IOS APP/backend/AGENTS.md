@@ -13,6 +13,7 @@
   - `dto.<module>`：请求与响应数据传输对象（如 `dto.auth`、`dto.calendar`）。
   - `storage.file`：二进制存储 seam；`service.file` 管理文件元数据、校验、所有权和生命周期，业务模块仅使用文件 ID。
   - `entity`：与表列对应的持久化行快照实体，不直接暴露给 API。
+  - `config`：经过启动校验的强类型业务配置；部署凭据仍使用 Spring 外部配置，不进入业务策略对象。
   - `security`、`annotation`、`aspect`、`handler`、`filter`：认证授权、日志切面、统一异常处理与通用过滤器等横切基础设施。
 - 严禁提交空包或占位目录，不得保留无代码的残留目录。
 - `src/main/resources/db/migration/` 当前以单个 `V1` 作为新建空库基线；后续结构调整新增递增版本，不再改写已应用脚本。合并前已有 Flyway 历史的数据库须另行制定兼容迁移，不得直接套用新基线或用 `repair` 掩盖差异。测试包镜像生产包，端到端测试可放根包。目录移动时同步修正包名、导入、测试和本文件。
@@ -24,6 +25,7 @@
 - 附件只以稳定文件 ID 关联业务对象，二进制内容经受控存储 Adapter 读写。密码、验证码、令牌、数据库和邮件凭据不得出现在源码、提交文件、日志或 API 响应中。
 - 本机开发文件默认写入 `data/files/objects/`（可由 `RECORDAGENT_FILE_ROOT` 覆盖），属于运行态数据，不入库、不提交；当前图片接口仅接受不超过 2 MB 的 JPEG，读取必须先验证文件所有权。
 - 新增或修改 API 时同步维护 HTTP 方法、路径、请求和响应 DTO、错误码、鉴权要求与 iOS 映射；每个 REST Controller 方法遵守根目录 `@ApiLog` 约束，日志对敏感字段脱敏。
+- 认证服务仅向安全适配层返回已验证身份，不暴露 Repository 内部类型。可调整的会话、验证码与明细上限统一由 `config/BusinessProperties` 管理；SMTP 设置显式超时。
 - HTTP 错误统一使用实际状态码及 `{ code, message, requestId }`；`code` 是稳定的客户端分支依据，`requestId` 由服务端生成并通过 `X-Request-Id` 返回。禁止向客户端或日志输出异常原文、用户输入及凭据。
 - 每个阶段至少验证认证隔离、领域不变量、PostgreSQL 迁移及主要 HTTP 错误路径；用真实 PostgreSQL 的隔离测试环境验证持久化行为，不以桌面 SQLite 测试替代。
 

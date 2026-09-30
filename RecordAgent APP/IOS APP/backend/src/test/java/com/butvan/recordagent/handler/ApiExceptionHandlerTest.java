@@ -49,8 +49,47 @@ class ApiExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value("资源已更新，请刷新后重试"));
     }
 
+    @Test
+    void missingRequiredParameterIsBadRequest() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/test/query"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
+    }
+
+    @Test
+    void unsupportedMethodRetainsProtocolStatus() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/test/error"))
+                .andExpect(status().isMethodNotAllowed()).andExpect(header().string("Allow", "POST"))
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+    }
+
+    @Test
+    void unsupportedMediaTypeIsNotServerFailure() throws Exception {
+        mvc.perform(post("/test/error").contentType(MediaType.TEXT_PLAIN).content("secret"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"));
+    }
+
+    @Test
+    void constraintViolationIsConflictAndSqlBugIsInternalFailure() throws Exception {
+        mvc.perform(post("/test/database").param("kind", "constraint"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
+        mvc.perform(post("/test/database").param("kind", "sql"))
+                .andExpect(status().isInternalServerError()).andExpect(jsonPath("$.code").value("INTERNAL_ERROR"));
+    }
+
     @RestController
     static class ErrorProbeController {
+        @ApiLog("验证必填参数")
+        @org.springframework.web.bind.annotation.GetMapping("/test/query")
+        public void query(@org.springframework.web.bind.annotation.RequestParam String value) {}
+
+        @ApiLog("验证数据库错误分类")
+        @PostMapping("/test/database")
+        public void database(@org.springframework.web.bind.annotation.RequestParam String kind) {
+            if (kind.equals("constraint")) throw new org.springframework.dao.DataIntegrityViolationException("private");
+            throw new org.springframework.jdbc.BadSqlGrammarException("private", "private", new java.sql.SQLException());
+        }
+
         @ApiLog("验证错误处理")
         @PostMapping("/test/error")
         public void error(@Valid @RequestBody ProbeRequest request) {

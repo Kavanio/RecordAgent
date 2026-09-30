@@ -1,7 +1,6 @@
 package com.butvan.recordagent.service.auth;
 
 import com.butvan.recordagent.dto.auth.AuthDtos;
-import com.butvan.recordagent.repository.auth.AuthRepository;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,6 +31,9 @@ public interface AuthService {
     /** 查询指定用户资料。 */
     AuthDtos.User user(UUID userId);
 
+    /** 服务端已验证的会话身份；不携带令牌摘要或持久层类型。 */
+    record VerifiedSession(UUID id, UUID userId) {}
+
     /** 验证 Bearer Token 并读取会话。 */
-    Optional<AuthRepository.SessionRow> accessSession(String token);
+    Optional<VerifiedSession> accessSession(String token);
 }

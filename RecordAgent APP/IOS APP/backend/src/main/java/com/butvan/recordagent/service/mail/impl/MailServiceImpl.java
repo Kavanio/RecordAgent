@@ -8,7 +8,6 @@ import com.butvan.recordagent.handler.ApiException;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
@@ -25,11 +24,11 @@ import org.eclipse.angus.mail.smtp.SMTPSendFailedException;
 public class MailServiceImpl implements MailService {
     private final JavaMailSender sender;
 
-    @Value("${recordagent.mail.from:}")
-    private String from;
+    private final com.butvan.recordagent.config.BusinessProperties properties;
 
     @Override
     public void send(String email, String code) {
+        String from = properties.getMail().getFrom();
         if (from.isBlank()) {
             log.error("Mail sender is not configured: requestId={}", RequestIdFilter.currentRequestId());
             throw new ApiException(ApiErrorCode.SERVICE_UNAVAILABLE, "mail unavailable");
@@ -38,7 +37,7 @@ public class MailServiceImpl implements MailService {
         message.setFrom(from);
         message.setTo(email);
         message.setSubject("RecordAgent 验证码");
-        message.setText("验证码：" + code + "，10 分钟内有效。请勿转发。");
+        message.setText("验证码：" + code + "，" + properties.getAuth().getCodeValidityMinutes() + " 分钟内有效。请勿转发。");
         try {
             sender.send(message);
         } catch (MailException exception) {

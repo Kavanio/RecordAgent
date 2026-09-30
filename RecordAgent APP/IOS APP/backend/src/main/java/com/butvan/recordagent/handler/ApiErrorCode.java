@@ -11,6 +11,10 @@ public enum ApiErrorCode {
     VERSION_CONFLICT(HttpStatus.CONFLICT, "资源已更新，请刷新后重试"),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "操作过于频繁，请稍后重试"),
     SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "服务暂不可用"),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "请求方法不支持"),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "请求内容格式不支持"),
+    NOT_ACCEPTABLE(HttpStatus.NOT_ACCEPTABLE, "响应内容格式不支持"),
+    RESULT_LIMIT_EXCEEDED(HttpStatus.UNPROCESSABLE_ENTITY, "记录数量超过读取上限，请使用分页接口"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "服务处理失败");
 
     private final HttpStatus status;

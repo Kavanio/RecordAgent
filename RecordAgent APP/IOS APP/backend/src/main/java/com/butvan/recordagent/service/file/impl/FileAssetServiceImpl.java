@@ -22,16 +22,17 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Slf4j
 public class FileAssetServiceImpl implements FileAssetService {
-    private static final int MAX_IMAGE_BYTES = 2_000_000;
-    private static final int MAX_BASE64_CHARS = ((MAX_IMAGE_BYTES + 2) / 3) * 4;
+    private final com.butvan.recordagent.config.BusinessProperties properties;
 
     private final BlobStore blobs;
     private final FileAssetRepository metadata;
 
     @Override
     public UUID uploadJpeg(UUID owner, String base64) {
+        int maxImageBytes = properties.getFiles().getMaxImageBytes();
+        int maxBase64Chars = ((maxImageBytes + 2) / 3) * 4;
         // 先检查编码长度，避免为明显超限的输入分配解码后的大数组。
-        if (base64 == null || base64.length() > MAX_BASE64_CHARS) {
+        if (base64 == null || base64.length() > maxBase64Chars) {
             throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid image size");
         }
         byte[] content;
@@ -40,7 +41,7 @@ public class FileAssetServiceImpl implements FileAssetService {
         } catch (IllegalArgumentException exception) {
             throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid image encoding");
         }
-        if (content.length < 4 || content.length > MAX_IMAGE_BYTES
+        if (content.length < 4 || content.length > maxImageBytes
                 || (content[0] & 0xff) != 0xff || (content[1] & 0xff) != 0xd8
                 || (content[content.length - 2] & 0xff) != 0xff
                 || (content[content.length - 1] & 0xff) != 0xd9) {

@@ -27,12 +27,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
     private static final SecureRandom RANDOM = new SecureRandom();
-    private static final int MAX_ATTEMPTS = 5;
-    private static final int CODE_VALIDITY_MINUTES = 10;
-    private static final int CODE_RETRY_SECONDS = 60;
-    private static final int ACCESS_TOKEN_MINUTES = 15;
-    private static final int REFRESH_TOKEN_DAYS = 30;
-
+    private final com.butvan.recordagent.config.BusinessProperties properties;
     private final AuthRepository store;
     private final PasswordEncoder encoder;
     private final MailService mail;
@@ -51,14 +46,14 @@ public class AuthServiceImpl implements AuthService {
             // SMTP 调用期间事务仍占用连接；后续改异步发送时需由持久化队列维持同等顺序语义。
             store.lockChallengeRequest(email, purpose);
             if (store.lastChallengeAt(email, purpose)
-                    .filter(time -> time.isAfter(now().minusSeconds(CODE_RETRY_SECONDS))).isPresent()) {
+                    .filter(time -> time.isAfter(now().minusSeconds(properties.getAuth().getCodeRetrySeconds()))).isPresent()) {
                 throw error(ApiErrorCode.RATE_LIMITED);
             }
             String code = generateCode();
             mail.send(email, code);
             store.createChallenge(UUID.randomUUID(), email, purpose, encoder.encode(code),
-                    now().plusMinutes(CODE_VALIDITY_MINUTES));
-            return new AuthDtos.CodeResponse(CODE_RETRY_SECONDS);
+                    now().plusMinutes(properties.getAuth().getCodeValidityMinutes()));
+            return new AuthDtos.CodeResponse(properties.getAuth().getCodeRetrySeconds());
         });
     }
 
@@ -151,8 +146,8 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public Optional<AuthRepository.SessionRow> accessSession(String token) {
-        return store.accessSession(hash(token));
+    public Optional<VerifiedSession> accessSession(String token) {
+        return store.accessSession(hash(token)).map(row -> new VerifiedSession(row.id(), row.userId()));
     }
 
     private boolean verify(String email, String purpose, String code) {
@@ -161,7 +156,7 @@ public class AuthServiceImpl implements AuthService {
             return false;
         }
         var row = challenge.get();
-        if (!row.expiresAt().isAfter(now()) || row.attempts() >= MAX_ATTEMPTS) {
+        if (!row.expiresAt().isAfter(now()) || row.attempts() >= properties.getAuth().getMaxCodeAttempts()) {
             return false;
         }
         if (!encoder.matches(code, row.hash())) {
@@ -176,9 +171,9 @@ public class AuthServiceImpl implements AuthService {
     private AuthDtos.Session issue(AuthDtos.User user) {
         String access = token();
         String refresh = token();
-        OffsetDateTime expires = now().plusMinutes(ACCESS_TOKEN_MINUTES);
+        OffsetDateTime expires = now().plusMinutes(properties.getAuth().getAccessTokenMinutes());
         store.createSession(UUID.randomUUID(), user.id(), hash(access), hash(refresh), expires,
-                now().plusDays(REFRESH_TOKEN_DAYS));
+                now().plusDays(properties.getAuth().getRefreshTokenDays()));
         return new AuthDtos.Session(access, refresh, expires, user);
     }
 
