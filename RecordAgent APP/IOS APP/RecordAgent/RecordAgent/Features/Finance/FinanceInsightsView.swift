@@ -41,6 +41,7 @@ struct FinanceTrendChart: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var selection: Double?
     @State private var revealed = false
+    @State private var dismissalTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var motionKey: String {
@@ -92,7 +93,7 @@ struct FinanceTrendChart: View {
                                     x: .value(axisDate, Double(index)), y: .value(axisAmount, Double(amount) / 100),
                                     width: .fixed(insights.period.range == .month ? 6 : 14)
                                 )
-                                .foregroundStyle(FinanceVisualStyle.category(category).opacity(0.25))
+                                .foregroundStyle(FinanceVisualStyle.category(category).opacity(0.48))
                             }
                         }
                         if insights.expense > 0 {
@@ -101,7 +102,7 @@ struct FinanceTrendChart: View {
                                 series: .value(axisAmount, "expense")
                             )
                             .foregroundStyle(FinanceVisualStyle.expense)
-                            .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                            .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
                             if bucket.expense > 0 {
                                 PointMark(
                                     x: .value(axisDate, Double(index)),
@@ -138,17 +139,29 @@ struct FinanceTrendChart: View {
                 // 整数位置均匀分布自然日/月，两端各留半格，月末点和柱不会贴边裁切。
                 .chartXScale(domain: -0.5...Double(max(1, insights.buckets.count)) - 0.5)
                 .chartYScale(domain: 0...ceiling)
-                .chartXSelection(value: $selection)
-                .chartGesture { proxy in
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { proxy.selectXValue(at: $0.location.x) }
-                }
                 .chartPlotStyle { plot in
                     plot.mask(Rectangle().scaleEffect(x: revealed || reduceMotion ? 1 : 0, anchor: .leading))
                 }
                 .chartOverlay { proxy in
                     GeometryReader { geometry in
                         ZStack(alignment: .topLeading) {
+                            // 与首页共用交互方式：触摸和指针均由这一层映射到绘图区。
+                            Color.clear.contentShape(Rectangle())
+                                .gesture(
+                                    DragGesture(minimumDistance: 0)
+                                        .onChanged { value in
+                                            dismissalTask?.cancel()
+                                            select(at: value.location, proxy: proxy, geometry: geometry)
+                                        }
+                                        .onEnded { _ in dismissAfterDelay() }
+                                )
+                                .onContinuousHover { phase in
+                                    dismissalTask?.cancel()
+                                    switch phase {
+                                    case .active(let point): select(at: point, proxy: proxy, geometry: geometry)
+                                    case .ended: selection = nil
+                                    }
+                                }
                             if let selected, let selection, let frame = proxy.plotFrame,
                                 let x = proxy.position(forX: selection.rounded())
                             {
@@ -162,19 +175,6 @@ struct FinanceTrendChart: View {
                             }
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .contentShape(Rectangle())
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case .active(let point):
-                                if let frame = proxy.plotFrame {
-                                    let plot = geometry[frame]
-                                    selection =
-                                        plot.contains(point)
-                                        ? proxy.value(atX: point.x - plot.minX, as: Double.self) : nil
-                                }
-                            case .ended: selection = nil
-                            }
-                        }
                     }
                 }
                 .chartXAxis(.hidden)
@@ -233,7 +233,28 @@ struct FinanceTrendChart: View {
             do { try await Task.sleep(for: .milliseconds(30)) } catch { return }
             withAnimation(.easeOut(duration: 0.75)) { revealed = true }
         }
-        .onChange(of: insights.period.key) { _, _ in selection = nil }
+        .onChange(of: motionKey) { _, _ in
+            dismissalTask?.cancel()
+            selection = nil
+        }
+        .onDisappear { dismissalTask?.cancel() }
+    }
+
+    private func select(at point: CGPoint, proxy: ChartProxy, geometry: GeometryProxy) {
+        guard let frame = proxy.plotFrame else { return }
+        let plot = geometry[frame]
+        guard plot.width > 0, point.y >= plot.minY, point.y <= plot.maxY else { return }
+        let x = min(max(point.x - plot.minX, 0), plot.width)
+        guard let value = proxy.value(atX: x, as: Double.self), value.isFinite else { return }
+        selection = Double(max(0, min(insights.buckets.count - 1, Int(value.rounded()))))
+    }
+
+    private func dismissAfterDelay() {
+        dismissalTask?.cancel()
+        dismissalTask = Task { @MainActor in
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            selection = nil
+        }
     }
 
     private var axisDate: String { AppLocalization.string("finance.date", locale: locale) }

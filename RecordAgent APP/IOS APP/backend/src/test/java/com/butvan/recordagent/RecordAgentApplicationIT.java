@@ -667,6 +667,83 @@ class RecordAgentApplicationIT {
     }
 
     @Test
+    void financeMonthBoundariesFiltersAndPaginationRemainIsolated() {
+        UUID owner = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+        insertUser(owner);
+        insertUser(other);
+        var wallet = finance.createAccount(owner, new FinanceDtos.CreateAccount("Wallet", 10000L));
+        var second = finance.createAccount(owner, new FinanceDtos.CreateAccount("Second", 10000L));
+        var foreign =
+                finance.createAccount(other, new FinanceDtos.CreateAccount("Foreign", 10000L));
+        for (var date :
+                java.util.List.of(
+                        LocalDate.of(2023, 12, 31),
+                        LocalDate.of(2024, 1, 1),
+                        LocalDate.of(2024, 2, 29),
+                        LocalDate.of(2024, 3, 1))) {
+            finance.createTransaction(
+                    owner,
+                    new FinanceDtos.CreateTransaction(
+                            wallet.id(),
+                            "expense",
+                            "Food",
+                            "Needle",
+                            100L,
+                            date,
+                            LocalTime.NOON,
+                            "Asia/Shanghai"));
+        }
+        var february = YearMonth.of(2024, 2);
+        finance.createTransaction(
+                owner,
+                new FinanceDtos.CreateTransaction(
+                        second.id(),
+                        "income",
+                        "Salary",
+                        "",
+                        300L,
+                        february.atEndOfMonth(),
+                        LocalTime.of(13, 0),
+                        "Asia/Shanghai"));
+        finance.createTransaction(
+                other,
+                new FinanceDtos.CreateTransaction(
+                        foreign.id(),
+                        "expense",
+                        "Food",
+                        "Needle",
+                        999L,
+                        february.atEndOfMonth(),
+                        LocalTime.NOON,
+                        "Asia/Shanghai"));
+        assertThat(finance.overview(owner, YearMonth.of(2023, 12)).expenseInCents())
+                .isEqualTo(100L);
+        assertThat(finance.overview(owner, YearMonth.of(2024, 1)).expenseInCents()).isEqualTo(100L);
+        assertThat(finance.overview(owner, february).expenseInCents()).isEqualTo(100L);
+        assertThat(finance.overview(owner, february).incomeInCents()).isEqualTo(300L);
+        var first = finance.monthPage(owner, february, "", null, "", 0, 1);
+        assertThat(first.items()).hasSize(1);
+        assertThat(first.hasMore()).isTrue();
+        var next = finance.monthPage(owner, february, "", null, "", first.nextOffset(), 1);
+        assertThat(next.items()).hasSize(1);
+        assertThat(next.items().getFirst().id()).isNotEqualTo(first.items().getFirst().id());
+        assertThat(next.hasMore()).isFalse();
+        var filtered =
+                finance.monthPage(owner, february, "expense", wallet.id(), " needle ", 0, 50);
+        assertThat(filtered.items()).hasSize(1);
+        assertThat(filtered.items().getFirst().date()).isEqualTo(february.atEndOfMonth());
+        assertThat(finance.monthPage(owner, february, "", foreign.id(), "", 0, 50).items())
+                .isEmpty();
+        assertThat(finance.monthPage(owner, YearMonth.of(2024, 3), "", null, "", 0, 50).items())
+                .hasSize(1);
+        assertThat(
+                        finance.monthPage(owner, february, "income", second.id(), "Salary", 0, 50)
+                                .items())
+                .hasSize(1);
+    }
+
+    @Test
     void transactionBalancesRemainSnapshotsAfterLaterAndBackdatedExpenses() {
         UUID owner = UUID.randomUUID();
         insertUser(owner);

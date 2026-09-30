@@ -16,6 +16,7 @@ struct FinanceWorkspaceView: View {
                         onAdd: { showsCreate = true }) {
             WorkspaceMonthPicker(date: $model.month)
             summary
+            FinanceInsightsView(model: model)
             Button { showsAccounts = true } label: {
                 HStack(spacing: 12) {
                     Label("finance.accounts", systemImage: "creditcard")
@@ -27,7 +28,6 @@ struct FinanceWorkspaceView: View {
                 .font(.subheadline).frame(minHeight: 44)
             }
             .buttonStyle(.plain)
-            FinanceInsightsView(model: model)
             WorkspaceSearchField(text: $model.query, prompt: "finance.search")
             WorkspaceFilters(options: FinanceTransactionFilter.allCases, selection: $model.type) { $0.title }
             WorkspaceSection(title: "finance.transactions") {
@@ -44,7 +44,6 @@ struct FinanceWorkspaceView: View {
                             FinanceTransactionRow(transaction: transaction, accountName: model.accountName(for: transaction.accountId))
                         }
                         .buttonStyle(.plain)
-                        Divider()
                     }
                     if model.nextTransactionOffset != nil {
                         Button("workspace.load_more") { Task { await model.loadTransactions(reset: false) } }
@@ -84,10 +83,17 @@ struct FinanceWorkspaceView: View {
         } else if let overview = model.overview {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("finance.assets").font(.caption).foregroundStyle(.secondary)
+                    Button { showsAccounts = true } label: {
+                        HStack(spacing: 8) {
+                            Text("finance.assets")
+                            Image(systemName: "chevron.right").font(.caption2.weight(.semibold))
+                        }.font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+                            .frame(minHeight: 44)
+                    }.buttonStyle(.plain).accessibilityLabel("finance.accounts")
                     Text(WorkspaceFormat.money(overview.totalAssetsInCents, locale: locale))
-                        .foregroundStyle(AppColors.primaryBlue)
-                        .font(.largeTitle.weight(.semibold)).monospacedDigit().minimumScaleFactor(0.7)
+                        .foregroundStyle(FinanceVisualStyle.accent)
+                        .font(.largeTitle.weight(.bold)).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.6)
                 }
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 32) { monthValues(overview) }
@@ -98,7 +104,14 @@ struct FinanceWorkspaceView: View {
     }
 
     @ViewBuilder private func monthValues(_ overview: FinanceMonthOverview) -> some View {
-        WorkspaceValue(label: "finance.month.expense", value: WorkspaceFormat.money(overview.expenseInCents, locale: locale)).foregroundStyle(FinanceVisualStyle.expense)
-        WorkspaceValue(label: "finance.month.income", value: WorkspaceFormat.money(overview.incomeInCents, locale: locale)).foregroundStyle(FinanceVisualStyle.income)
+        monthMetric("finance.month.expense", amount: overview.expenseInCents, symbol: "arrow.up.right", color: FinanceVisualStyle.expense)
+        monthMetric("finance.month.income", amount: overview.incomeInCents, symbol: "arrow.down.left", color: FinanceVisualStyle.income)
+    }
+    private func monthMetric(_ title: LocalizedStringKey, amount: Int64, symbol: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: symbol).font(.caption.weight(.medium)).foregroundStyle(color)
+            Text(WorkspaceFormat.money(amount, locale: locale))
+                .font(.title2.weight(.semibold)).foregroundStyle(color).monospacedDigit()
+        }.accessibilityElement(children: .combine)
     }
 }

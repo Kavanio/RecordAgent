@@ -75,6 +75,23 @@ final class FinanceInsightsTests: XCTestCase {
         XCTAssertThrowsError(try FinanceInsights(period: period, entries: entries, accounts: []))
     }
 
+    @MainActor
+    func testMovingAnchorInsideSameAnalysisPeriodKeepsLoadedChart() async throws {
+        let model = FinanceWorkspaceViewModel(
+            date: try XCTUnwrap(WorkspaceFormat.date("2024-02-10")), service: DelayedAnalysisService())
+        await model.loadInsights()
+        let key = try XCTUnwrap(model.visibleInsights?.period.key)
+        model.month = try XCTUnwrap(WorkspaceFormat.date("2024-02-29"))
+        XCTAssertEqual(model.visibleInsights?.period.key, key)
+        XCTAssertFalse(model.isLoadingInsights)
+        model.chartRange = .year
+        await model.loadInsights()
+        let yearKey = try XCTUnwrap(model.visibleInsights?.period.key)
+        model.month = try XCTUnwrap(WorkspaceFormat.date("2024-03-01"))
+        XCTAssertEqual(model.visibleInsights?.period.key, yearKey)
+        XCTAssertFalse(model.isLoadingInsights)
+    }
+
     func testLoaderFetchesEveryPageWithoutListFiltersAndRejectsBrokenPagination() async throws {
         let period = try period("2026-01-01", .month)
         let service = PagedAnalysisService(

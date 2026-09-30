@@ -5,6 +5,7 @@ import com.butvan.recordagent.dto.query.DailySummary;
 import com.butvan.recordagent.repository.mapper.projection.DailySummaryMapper;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -279,15 +280,35 @@ public class FinanceRepository {
             String query,
             int offset,
             int limit) {
-        return jdbc.query(
-                """
+        // 无筛选时不计算每行备注的 lower/拼接；有筛选时用明确谓词保留索引选择空间。
+        StringBuilder sql =
+                new StringBuilder(
+                        """
   SELECT t.id,t.account_id,t.transaction_type,c.name,t.note,t.amount_minor,t.transaction_date,t.transaction_time,a.balance_minor,t.balance_after_minor
   FROM record.finance_transaction t JOIN record.finance_account a ON a.id=t.account_id AND a.owner_id=t.owner_id
   LEFT JOIN record.finance_category c ON c.id=t.category_id AND c.owner_id=t.owner_id
-  WHERE t.owner_id=? AND t.transaction_date>=? AND t.transaction_date<? AND (?='' OR t.transaction_type=?)
-  AND (?::uuid IS NULL OR t.account_id=?::uuid) AND POSITION(lower(?) IN lower(COALESCE(c.name,'') || ' ' || t.note || ' ' || a.name))>0
-  ORDER BY t.transaction_date DESC,t.transaction_time DESC,t.id DESC LIMIT ? OFFSET ?
-  """,
+  WHERE t.owner_id=? AND t.transaction_date>=? AND t.transaction_date<?
+  """);
+        List<Object> parameters = new ArrayList<>(List.of(owner, start, end));
+        if (!type.isEmpty()) {
+            sql.append(" AND t.transaction_type=?");
+            parameters.add(type);
+        }
+        if (account != null) {
+            sql.append(" AND t.account_id=?");
+            parameters.add(account);
+        }
+        if (!query.isEmpty()) {
+            sql.append(
+                    " AND POSITION(lower(?) IN lower(COALESCE(c.name,'') || ' ' || COALESCE(t.note,'') || ' ' || a.name))>0");
+            parameters.add(query);
+        }
+        sql.append(
+                " ORDER BY t.transaction_date DESC,t.transaction_time DESC,t.id DESC LIMIT ? OFFSET ?");
+        parameters.add(limit);
+        parameters.add(offset);
+        return jdbc.query(
+                sql.toString(),
                 (r, n) ->
                         new FinanceDtos.Transaction(
                                 r.getObject(1, UUID.class),
@@ -300,15 +321,6 @@ public class FinanceRepository {
                                 r.getObject(8, LocalTime.class),
                                 r.getLong(9),
                                 r.getObject(10, Long.class)),
-                owner,
-                start,
-                end,
-                type,
-                type,
-                account,
-                account,
-                query,
-                limit,
-                offset);
+                parameters.toArray());
     }
 }

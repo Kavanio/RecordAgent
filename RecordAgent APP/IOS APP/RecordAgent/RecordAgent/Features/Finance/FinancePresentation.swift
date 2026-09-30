@@ -47,13 +47,9 @@ struct FinanceTransactionRow: View {
     }
     private var icon: some View {
         Image(systemName: FinanceCategoryCatalog.symbol(category: transaction.category, type: transaction.type))
-            .font(.subheadline.weight(.semibold))
+            .font(.title2.weight(.semibold))
             .foregroundStyle(transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
-            .frame(width: 40, height: 40)
-            .background(
-                (transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense).opacity(0.1),
-                in: RoundedRectangle(cornerRadius: 13)
-            )
+            .frame(width: 30, height: 36)
             .padding(.top, 3).accessibilityHidden(true)
     }
     private var details: some View {
@@ -61,7 +57,7 @@ struct FinanceTransactionRow: View {
             if transaction.category.isEmpty {
                 Text(transaction.typeTitle).font(.body.weight(.medium))
             } else {
-                Text(transaction.category).font(.body.weight(.medium))
+                Text(transaction.category).font(.body.weight(.semibold))
             }
             if typeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 4) { dateAndAccount }

@@ -10,7 +10,7 @@ struct FinanceTrendTooltip: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
                 Text(bucket.date, format: isYear ? .dateTime.year().month() : .dateTime.month().day())
-                    .font(.caption.weight(.semibold))
+                    .font(.subheadline.weight(.semibold))
                 Spacer(minLength: 4)
                 Button(action: onClose) { Image(systemName: "xmark").font(.caption2).frame(width: 44, height: 44) }
                     .buttonStyle(.plain).accessibilityLabel("common.close")
@@ -32,9 +32,9 @@ struct FinanceTrendTooltip: View {
             }.frame(maxHeight: 110)
         }
         .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.primary.opacity(0.07)))
-        .shadow(color: .black.opacity(0.10), radius: 12, y: 4)
+        .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(FinanceVisualStyle.accent.opacity(0.18)))
+        .shadow(color: .black.opacity(0.16), radius: 16, y: 6)
         .accessibilityElement(children: .contain)
     }
     private func amount(_ key: LocalizedStringKey, _ cents: Int64, _ color: Color) -> some View {

@@ -15,11 +15,11 @@ struct FinanceChartTabs<Value: Hashable>: View {
                 } label: {
                     Text(title(option))
                         .font(.subheadline.weight(selection == option ? .semibold : .regular))
-                        .foregroundStyle(selection == option ? AppColors.primaryBlue : Color.secondary)
+                        .foregroundStyle(selection == option ? FinanceVisualStyle.accent : Color.secondary)
                         .lineLimit(1).minimumScaleFactor(0.8)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(
-                            selection == option ? AppColors.primaryBlue.opacity(0.09) : .clear,
+                            selection == option ? FinanceVisualStyle.accent.opacity(0.14) : .clear,
                             in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
