@@ -216,12 +216,13 @@
 | LibraryWorkspaceView / LibraryWorkspaceViewModel | `Features/Library/` | 资料 API、统一工作区组件 | 摘要、按需正文、纯文本写作、收藏和回收站 | 父级 model、onBack/onChanged | 版本冲突、正文加载与筛选分页 |
 | RecordWorkspaceView / RecordWorkspaceViewModel | `Features/Record/` | 学习 API、TimelineView | 活跃计时恢复、完成/补录、月记录与详情 | 父级 model、onBack/onChanged | 服务端开始时间；结束重试固定；跨日与版本删除 |
 | TasksWorkspaceView / MobileTaskViewModel | `Features/Tasks/` | 任务 API、系统通知协议 | 配置、启停、详情、编辑与设备观察历史 | 父级 model、onBack；登录/前台同步，退出 deactivate | 权限/注册/保存分开；账户及服务器隔离 |
-
 | WorkspaceSheetStyle / WorkspaceSheetHeader / WorkspaceDetailSheet | `DesignSystem/Components/WorkspaceSheet.swift` | SwiftUI、系统分组背景 | 统一底部面板圆角、拖动条、大标题、关闭及单层内容分组 | compact、title、subtitle、isBusy/disabled、onClose、内容 | 短选择/详情可半屏与全屏；编辑默认全屏；保存中禁止退出 |
-| FinanceChartSection / FinanceVisualStyle | `Features/Finance/FinanceVisualStyle.swift` | SwiftUI | 图表统一单层圆角底色；橙红支出、青绿收入、稳定分类色 | title、symbol、内容；category 名称 | 深浅色、系统字号；图形外观不影响金额精度 |
-| FinanceInsightsView / FinanceTrendChart | `Features/Finance/FinanceInsightsView.swift` | Swift Charts、FinanceInsights | 周/月/年分析；分类堆叠柱与收入/支出折线；触摸日期明细 | model；完整 insights、Date 选择 | 空态、加载、重试、收入虚线；按日/按月汇总；搜索与账户过滤不影响统计 |
-| FinanceAccountChart / FinanceRankingChart | `Features/Finance/FinanceBreakdownCharts.swift` | Swift Charts | 账户横向收支柱与可展开金额明细；分类/单笔支出排行、占比与进度条 | insights；内部收支/排行模式与展开状态 | 前五名或完整排行；空态；原生按钮支持无障碍 |
+| FinanceChartSection / FinanceVisualStyle | `Features/Finance/FinanceVisualStyle.swift` | SwiftUI | 图表共享页面纯净背景与完整宽度；橙红支出、青绿收入、稳定分类色 | title、symbol、内容；category 名称 | 深浅色、系统字号；图形外观不影响金额精度 |
+| FinanceInsightsView / FinanceTrendChart | `Features/Finance/FinanceInsightsView.swift` | Swift Charts、FinanceInsights | 周/月/年分析；分类堆叠柱与收入/支出折线；触摸日期明细 | model；完整 insights、Date 选择 | 空态、加载、重试、收入虚线；首尾日期刻度、两端留白与顶部刻度余量；无数据方向隐藏零线；搜索与账户过滤不影响统计 |
+| FinanceAccountChart / FinanceRankingChart | `Features/Finance/FinanceBreakdownCharts.swift` | SwiftUI | 手机端账户横向条形图与可展开金额明细；分类/单笔支出排行、占比与进度条 | insights；内部收支/排行模式与展开状态 | 前五名或完整排行；空态；原生按钮支持无障碍 |
 | FinanceAccountsView | `Features/Finance/FinanceAccountsView.swift` | WorkspaceSheetHeader、财务服务 | 图标账户卡、余额、选中标记、固定底部新建入口 | model、financeService、onChanged | 全部账户、分页、空态、失败/重试；新建后刷新分析 |
 | FinanceTransactionRow / FinanceTransactionDetailView | `Features/Finance/FinancePresentation.swift` | SwiftUI、FinanceVisualStyle、WorkspaceSheetHeader | 收支图标及金额按语义着色；交易详情分组面板 | transaction、accountName | 长备注滚动、语言感知金额/日期；余额为查询时当前值 |
+| FinanceChartTabs | `Features/Finance/FinanceChartTabs.swift` | SwiftUI | 图表等宽分段按钮，静态本地化文案，不横向滚动裁切选项 | label、options、selection Binding、title 映射 | 44 点触控区、选中 trait、双语与动态字号 |
+| FinanceChartValueRow | `Features/Finance/FinanceVisualStyle.swift` | SwiftUI、ViewThatFits | 图表内名称和金额排版，金额优先完整显示 | amount、标题内容 | 窄屏自动上下布局；辅助字号强制上下布局 |
 
-本次财务图表及工作区面板通过 Xcode 模拟器构建与 13 项相关单元测试；未进行截图、手动界面或真机验收。
+财务图表手机适配更新：通过模拟器构建、相关单元测试及 320/390 点屏宽与英文辅助字号的 SwiftUI 渲染检查；尚未进行真机验收。

@@ -3,30 +3,34 @@ import SwiftUI
 
 struct FinanceInsightsView: View {
     @ObservedObject var model: FinanceWorkspaceViewModel
-    @Environment(\.locale) private var locale
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            WorkspaceFilters(options: FinanceChartRange.allCases, selection: $model.chartRange) { $0.title }
-            Text(
-                model.analysisPeriod
-                    .start..<(model.analysisPeriod.calendar.date(
-                        byAdding: .day, value: -1, to: model.analysisPeriod.end) ?? model.analysisPeriod.start),
-                format: .interval.day().month().year()
-            )
-            .font(.caption).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 12) {
+                FinanceChartTabs(
+                    label: "finance.chart.trend", options: FinanceChartRange.allCases,
+                    selection: $model.chartRange
+                ) { $0.title }
+                Text(
+                    model.analysisPeriod
+                        .start..<(model.analysisPeriod.calendar.date(
+                            byAdding: .day, value: -1, to: model.analysisPeriod.end) ?? model.analysisPeriod.start),
+                    format: .interval.day().month().year()
+                )
+                .font(.caption).foregroundStyle(.secondary)
+            }
             if let error = model.visibleInsightsError {
                 WorkspaceErrorView(message: error) { Task { await model.loadInsights() } }
             } else if let insights = model.visibleInsights {
                 FinanceTrendChart(insights: insights)
+                Divider().opacity(0.5)
                 FinanceAccountChart(insights: insights)
+                Divider().opacity(0.5)
                 FinanceRankingChart(insights: insights)
             } else {
                 ProgressView("finance.analysis.loading").frame(maxWidth: .infinity, minHeight: 100)
             }
         }
-        .padding(16)
-        .background(Color(uiColor: .systemGroupedBackground), in: RoundedRectangle(cornerRadius: 28))
         .task(id: model.analysisKey) { await model.loadInsights() }
     }
 }
@@ -34,75 +38,129 @@ struct FinanceInsightsView: View {
 struct FinanceTrendChart: View {
     let insights: FinanceInsights
     @Environment(\.locale) private var locale
-    @State private var selection: Date?
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var selection: Double?
+
     private var selected: FinanceTrendBucket? {
-        guard let selection else { return nil }
-        return insights.buckets.min {
-            abs($0.date.timeIntervalSince(selection)) < abs($1.date.timeIntervalSince(selection))
-        }
+        guard let selection, !insights.buckets.isEmpty else { return nil }
+        return insights.buckets[max(0, min(insights.buckets.count - 1, Int(selection.rounded())))]
     }
     private var categories: [String] { insights.categories.map(\.category).sorted() }
+    private var ceiling: Double {
+        let maximum = insights.buckets.map { Double(max($0.expense, $0.income)) / 100 }.max() ?? 0
+        guard maximum > 0 else { return 1 }
+        let unit = pow(10, floor(log10(maximum)))
+        return ceil(maximum * 1.25 / unit) * unit
+    }
+    private var tickIndices: [Int] {
+        let last = max(0, insights.buckets.count - 1)
+        return Array(Set([0, last / 3, last * 2 / 3, last])).sorted()
+    }
 
     var body: some View {
         FinanceChartSection(title: "finance.chart.trend", symbol: "chart.xyaxis.line") {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 16) { totals }
-                VStack(alignment: .leading, spacing: 12) { totals }
+            VStack(alignment: .leading, spacing: 10) {
+                if typeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 12) { totals }
+                } else {
+                    HStack(alignment: .top, spacing: 20) { totals }
+                }
+                amountRow("finance.chart.net", insights.income - insights.expense, color: .secondary)
+                    .font(.caption)
             }
             if insights.expense == 0 && insights.income == 0 {
-                empty
+                WorkspaceEmptyState(
+                    title: "finance.chart.empty", description: "finance.chart.empty.description",
+                    symbol: "chart.xyaxis.line")
             } else {
                 Chart {
-                    ForEach(insights.buckets) { bucket in
+                    ForEach(Array(insights.buckets.enumerated()), id: \.element.id) { index, bucket in
                         ForEach(categories, id: \.self) { category in
                             if let amount = bucket.categories[category], amount > 0 {
                                 BarMark(
-                                    x: .value(AppLocalization.string("finance.date", locale: locale), bucket.date),
-                                    y: .value(
-                                        AppLocalization.string("finance.amount", locale: locale), Double(amount) / 100)
+                                    x: .value(axisDate, Double(index)), y: .value(axisAmount, Double(amount) / 100),
+                                    width: .fixed(insights.period.range == .month ? 6 : 14)
                                 )
-                                .foregroundStyle(FinanceVisualStyle.category(category).opacity(0.55))
+                                .foregroundStyle(FinanceVisualStyle.category(category).opacity(0.25))
                             }
                         }
-                        LineMark(
-                            x: .value(AppLocalization.string("finance.date", locale: locale), bucket.date),
-                            y: .value(
-                                AppLocalization.string("finance.expense", locale: locale), Double(bucket.expense) / 100),
-                            series: .value(
-                                AppLocalization.string("finance.chart.trend", locale: locale),
-                                AppLocalization.string("finance.expense", locale: locale))
-                        )
-                        .foregroundStyle(FinanceVisualStyle.expense)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
-                        LineMark(
-                            x: .value(AppLocalization.string("finance.date", locale: locale), bucket.date),
-                            y: .value(
-                                AppLocalization.string("finance.income", locale: locale), Double(bucket.income) / 100),
-                            series: .value(
-                                AppLocalization.string("finance.chart.trend", locale: locale),
-                                AppLocalization.string("finance.income", locale: locale))
-                        )
-                        .foregroundStyle(FinanceVisualStyle.income)
-                        .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 4]))
+                        if insights.expense > 0 {
+                            LineMark(
+                                x: .value(axisDate, Double(index)), y: .value(axisAmount, Double(bucket.expense) / 100),
+                                series: .value(axisAmount, "expense")
+                            )
+                            .foregroundStyle(FinanceVisualStyle.expense)
+                            .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                            if bucket.expense > 0 {
+                                PointMark(
+                                    x: .value(axisDate, Double(index)),
+                                    y: .value(axisAmount, Double(bucket.expense) / 100)
+                                )
+                                .foregroundStyle(FinanceVisualStyle.expense).symbolSize(28)
+                            }
+                        }
+                        if insights.income > 0 {
+                            LineMark(
+                                x: .value(axisDate, Double(index)), y: .value(axisAmount, Double(bucket.income) / 100),
+                                series: .value(axisAmount, "income")
+                            )
+                            .foregroundStyle(FinanceVisualStyle.income)
+                            .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, dash: [5, 4]))
+                            if bucket.income > 0 {
+                                PointMark(
+                                    x: .value(axisDate, Double(index)),
+                                    y: .value(axisAmount, Double(bucket.income) / 100)
+                                )
+                                .foregroundStyle(FinanceVisualStyle.income).symbol(.square).symbolSize(24)
+                            }
+                        }
                     }
-                    if let selected {
-                        RuleMark(x: .value(AppLocalization.string("finance.date", locale: locale), selected.date))
-                            .foregroundStyle(Color.secondary.opacity(0.4))
+                    if let selection {
+                        RuleMark(
+                            x: .value(
+                                axisDate, Double(max(0, min(insights.buckets.count - 1, Int(selection.rounded())))))
+                        )
+                        .foregroundStyle(Color.secondary.opacity(0.3)).lineStyle(
+                            StrokeStyle(lineWidth: 1, dash: [3, 3]))
                     }
                 }
+                // 整数位置均匀分布自然日/月，两端各留半格，月末点和柱不会贴边裁切。
+                .chartXScale(domain: -0.5...Double(max(1, insights.buckets.count)) - 0.5)
+                .chartYScale(domain: 0...ceiling)
                 .chartXSelection(value: $selection)
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 4)) { value in
-                        AxisValueLabel(
-                            format: insights.period.range == .year
-                                ? .dateTime.month(.abbreviated) : .dateTime.day().month(.abbreviated))
+                .chartXAxis(.hidden)
+                .chartYAxis {
+                    AxisMarks(position: .leading, values: [0, ceiling / 2, ceiling]) { value in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.primary.opacity(0.08))
+                        AxisValueLabel {
+                            if let amount = value.as(Double.self) {
+                                Text(
+                                    amount.formatted(
+                                        .number.notation(.compactName).precision(.fractionLength(0...1)).locale(locale))
+                                )
+                                .font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
                     }
                 }
-                .chartYAxis { AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) }
-                .frame(height: 200)
+                .frame(height: typeSize.isAccessibilitySize ? 240 : 210)
                 .accessibilityLabel("finance.chart.trend")
+                // 显式页脚不参与 Charts 的标签碰撞隐藏，始末日期始终可见。
+                HStack(spacing: 0) {
+                    ForEach(tickIndices, id: \.self) { index in
+                        Text(
+                            insights.buckets[index].date,
+                            format: insights.period.range == .year ? .dateTime.month(.abbreviated) : .dateTime.day()
+                        )
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: index == 0 ? .leading : index == insights.buckets.count - 1 ? .trailing : .center
+                        )
+                    }
+                }.font(.caption2).foregroundStyle(.secondary).padding(.leading, 30)
+
                 if let selected {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 10) {
                         Text(
                             selected.date,
                             format: insights.period.range == .year ? .dateTime.year().month() : .dateTime.month().day()
@@ -118,19 +176,17 @@ struct FinanceTrendChart: View {
                                     .monospacedDigit()
                             }.foregroundStyle(FinanceVisualStyle.category(category))
                         }
-                    }
-                    .font(.caption).padding(14)
-                    .background(
-                        Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                    }.font(.caption).padding(.vertical, 8)
                 } else {
                     Text("finance.chart.touch_hint").font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if !categories.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 14) {
+                        HStack(spacing: 16) {
                             ForEach(categories, id: \.self) { category in
-                                HStack(spacing: 5) {
-                                    Circle().fill(FinanceVisualStyle.category(category)).frame(width: 7, height: 7)
+                                HStack(spacing: 6) {
+                                    Circle().fill(FinanceVisualStyle.category(category)).frame(width: 6, height: 6)
                                     categoryLabel(category)
                                 }
                             }
@@ -142,28 +198,34 @@ struct FinanceTrendChart: View {
         .onChange(of: insights.period.key) { _, _ in selection = nil }
     }
 
+    private var axisDate: String { AppLocalization.string("finance.date", locale: locale) }
+    private var axisAmount: String { AppLocalization.string("finance.amount", locale: locale) }
     @ViewBuilder private var totals: some View {
-        metric("finance.expense", insights.expense, FinanceVisualStyle.expense)
-        metric("finance.income", insights.income, FinanceVisualStyle.income)
-        metric("finance.chart.net", insights.income - insights.expense, .primary)
+        metric("finance.expense", insights.expense, FinanceVisualStyle.expense, dashed: false)
+        metric("finance.income", insights.income, FinanceVisualStyle.income, dashed: true)
     }
-    private func metric(_ title: LocalizedStringKey, _ amount: Int64, _ color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(WorkspaceFormat.money(amount, locale: locale)).font(.subheadline.weight(.semibold)).monospacedDigit()
-                .foregroundStyle(color)
-        }
+    private func metric(_ title: LocalizedStringKey, _ amount: Int64, _ color: Color, dashed: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Path { path in
+                    path.move(to: .zero)
+                    path.addLine(to: CGPoint(x: 14, y: 0))
+                }
+                .stroke(color, style: StrokeStyle(lineWidth: 2, dash: dashed ? [3, 2] : []))
+                .frame(width: 14, height: 2).accessibilityHidden(true)
+                Text(title).foregroundStyle(.secondary)
+            }.font(.caption)
+            Text(WorkspaceFormat.money(amount, locale: locale)).font(.title3.weight(.semibold))
+                .monospacedDigit().foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.65)
+        }.frame(maxWidth: .infinity, alignment: .leading)
     }
     private func amountRow(_ title: LocalizedStringKey, _ amount: Int64, color: Color) -> some View {
         HStack {
             Text(title)
             Spacer()
             Text(WorkspaceFormat.money(amount, locale: locale)).monospacedDigit()
-        }.foregroundStyle(color)
-    }
-    private var empty: some View {
-        WorkspaceEmptyState(
-            title: "finance.chart.empty", description: "finance.chart.empty.description", symbol: "chart.xyaxis.line")
+        }
+        .foregroundStyle(color)
     }
 }
 

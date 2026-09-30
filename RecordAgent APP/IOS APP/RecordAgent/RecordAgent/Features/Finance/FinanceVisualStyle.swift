@@ -12,10 +12,16 @@ enum FinanceVisualStyle {
 }
 
 extension FinanceChartRange {
-    var title: LocalizedStringKey { LocalizedStringKey("finance.range.\(rawValue)") }
+    var title: LocalizedStringKey {
+        switch self {
+        case .week: return "finance.range.week"
+        case .month: return "finance.range.month"
+        case .year: return "finance.range.year"
+        }
+    }
 }
 
-/// 图表采用单层柔和底色，不叠加边框或阴影。
+/// 图表沿用页面白色画布，保留全部内容宽度，不再嵌套底色卡片。
 struct FinanceChartSection<Content: View>: View {
     let title: LocalizedStringKey
     let symbol: String
@@ -25,8 +31,35 @@ struct FinanceChartSection<Content: View>: View {
             Label(title, systemImage: symbol).font(.headline)
             content()
         }
-        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 24))
+
+    }
+}
+
+/// 金额优先完整显示；名称和大额在窄屏无法同行时自动改为上下布局。
+struct FinanceChartValueRow<Title: View>: View {
+    let amount: String
+    @ViewBuilder let title: () -> Title
+    @Environment(\.dynamicTypeSize) private var typeSize
+    var body: some View {
+        if typeSize.isAccessibilitySize {
+            vertical
+        } else {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    title().font(.subheadline)
+                    Spacer(minLength: 4)
+                    Text(amount).font(.subheadline.weight(.semibold)).monospacedDigit().fixedSize()
+                }
+                vertical
+            }
+        }
+    }
+    private var vertical: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            title().font(.subheadline)
+            Text(amount).font(.subheadline.weight(.semibold)).monospacedDigit()
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }

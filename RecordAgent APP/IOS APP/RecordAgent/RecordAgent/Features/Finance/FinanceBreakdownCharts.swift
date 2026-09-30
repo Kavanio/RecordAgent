@@ -1,73 +1,74 @@
-import Charts
 import SwiftUI
 
+/// 账户金额和名称置于柱体上方，省去手机端拥挤的坐标轴与重复明细列表。
 struct FinanceAccountChart: View {
     let insights: FinanceInsights
     @State private var mode: FinanceTransactionFilter = .expense
     @State private var selectedID: String?
+    @State private var showsAll = false
     @Environment(\.locale) private var locale
     private var rows: [FinanceAccountFlow] {
         insights.accounts.sorted { amount($0) == amount($1) ? $0.id < $1.id : amount($0) > amount($1) }
     }
+    private var visible: [FinanceAccountFlow] { showsAll ? rows : Array(rows.prefix(5)) }
     private func amount(_ account: FinanceAccountFlow) -> Int64 { mode == .expense ? account.expense : account.income }
     private var color: Color { mode == .expense ? FinanceVisualStyle.expense : FinanceVisualStyle.income }
+    private var maximum: Int64 { rows.map { amount($0) }.max() ?? 0 }
 
     var body: some View {
         FinanceChartSection(title: "finance.chart.accounts", symbol: "creditcard") {
-            WorkspaceFilters(options: [.expense, .income], selection: $mode) { $0.title }
-            if rows.allSatisfy({ amount($0) == 0 }) {
+            FinanceChartTabs(label: "finance.chart.accounts", options: [.expense, .income], selection: $mode) {
+                $0.title
+            }
+            if maximum == 0 {
                 WorkspaceEmptyState(
                     title: "finance.chart.empty", description: "finance.chart.empty.description", symbol: "chart.bar")
             } else {
-                Chart(rows) { row in
-                    BarMark(
-                        x: .value(AppLocalization.string("finance.amount", locale: locale), Double(amount(row)) / 100),
-                        y: .value(AppLocalization.string("finance.account", locale: locale), row.id)
-                    )
-                    .foregroundStyle(color.gradient).cornerRadius(5)
-                    .annotation(position: .trailing) {
-                        Text(WorkspaceFormat.money(amount(row), locale: locale)).font(.caption2).monospacedDigit()
-                    }
-                }
-                .chartYScale(domain: rows.map(\.id))
-                .chartYAxis {
-                    AxisMarks { value in
-                        AxisValueLabel {
-                            if let id = value.as(String.self), let row = rows.first(where: { $0.id == id }) {
-                                if let name = row.name {
-                                    Text(name).lineLimit(1)
-                                } else {
-                                    Text("finance.account.unknown")
-                                }
+                LazyVStack(spacing: 22) {
+                    ForEach(visible) { row in
+                        VStack(alignment: .leading, spacing: 10) {
+                            Button {
+                                selectedID = selectedID == row.id ? nil : row.id
+                            } label: {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    FinanceChartValueRow(amount: WorkspaceFormat.money(amount(row), locale: locale)) {
+                                        if let name = row.name {
+                                            Text(name).lineLimit(2)
+                                        } else {
+                                            Text("finance.account.unknown")
+                                        }
+                                    }
+                                    GeometryReader { geometry in
+                                        Capsule().fill(color.opacity(0.08))
+                                        Capsule().fill(color.gradient)
+                                            .frame(width: geometry.size.width * Double(amount(row)) / Double(maximum))
+                                    }.frame(height: 10).accessibilityHidden(true)
+                                }.padding(.vertical, 4).contentShape(Rectangle())
+                            }.buttonStyle(.plain).accessibilityAddTraits(selectedID == row.id ? .isSelected : [])
+                            if selectedID == row.id {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    flowRow("finance.expense", row.expense, FinanceVisualStyle.expense)
+                                    flowRow("finance.income", row.income, FinanceVisualStyle.income)
+                                }.font(.caption).padding(.top, 6)
                             }
                         }
                     }
                 }
-                .chartXAxis { AxisMarks(values: .automatic(desiredCount: 3)) }
-                .frame(height: CGFloat(max(1, rows.count)) * 44 + 30)
-                .accessibilityLabel("finance.chart.accounts")
-                // 金额同时以原生按钮提供，辅助技术不依赖图形坐标命中。
-                ForEach(rows) { row in
+                if rows.count > 5 {
                     Button {
-                        selectedID = selectedID == row.id ? nil : row.id
+                        showsAll.toggle()
                     } label: {
-                        HStack {
-                            if let name = row.name { Text(name) } else { Text("finance.account.unknown") }
-                            Spacer()
-                            Text(WorkspaceFormat.money(amount(row), locale: locale)).monospacedDigit()
-                            Image(systemName: selectedID == row.id ? "chevron.up" : "chevron.down").font(.caption2)
-                        }.font(.subheadline).frame(minHeight: 44)
-                    }.buttonStyle(.plain)
-                    if selectedID == row.id {
-                        VStack(alignment: .leading, spacing: 6) {
-                            flowRow("finance.expense", row.expense, FinanceVisualStyle.expense)
-                            flowRow("finance.income", row.income, FinanceVisualStyle.income)
-                        }.font(.caption).padding(12)
-                            .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                        Text(
+                            showsAll
+                                ? LocalizedStringKey("finance.chart.show_less")
+                                : LocalizedStringKey("finance.chart.show_all")
+                        )
+                        .frame(minHeight: 44)
                     }
                 }
             }
         }
+        .onChange(of: mode) { _, _ in selectedID = nil }
     }
     private func flowRow(_ title: LocalizedStringKey, _ amount: Int64, _ color: Color) -> some View {
         HStack {
@@ -88,10 +89,9 @@ struct FinanceRankingChart: View {
 
     var body: some View {
         FinanceChartSection(title: "finance.chart.ranking", symbol: "chart.bar.xaxis") {
-            Picker("finance.chart.ranking", selection: $groupsCategories) {
-                Text("finance.chart.categories").tag(true)
-                Text("finance.chart.transactions").tag(false)
-            }.pickerStyle(.segmented)
+            FinanceChartTabs(label: "finance.chart.ranking", options: [true, false], selection: $groupsCategories) {
+                $0 ? LocalizedStringKey("finance.chart.categories") : LocalizedStringKey("finance.chart.transactions")
+            }
             if entries.isEmpty {
                 WorkspaceEmptyState(
                     title: "finance.chart.empty", description: "finance.chart.empty.description",
@@ -99,17 +99,16 @@ struct FinanceRankingChart: View {
             } else {
                 ForEach(Array(visible.enumerated()), id: \.element.id) { index, entry in
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            Text((index + 1).formatted(.number.locale(locale))).font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            if !groupsCategories && !entry.note.isEmpty {
-                                Text(entry.note).lineLimit(2)
-                            } else {
-                                categoryLabel(entry.category)
+                        FinanceChartValueRow(amount: WorkspaceFormat.money(entry.amount, locale: locale)) {
+                            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                Text((index + 1).formatted(.number.locale(locale)))
+                                    .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                if !groupsCategories && !entry.note.isEmpty {
+                                    Text(entry.note).lineLimit(2)
+                                } else {
+                                    categoryLabel(entry.category)
+                                }
                             }
-                            Spacer(minLength: 4)
-                            Text(WorkspaceFormat.money(entry.amount, locale: locale)).monospacedDigit().font(
-                                .subheadline.weight(.semibold))
                         }
                         HStack {
                             if !groupsCategories, let date = entry.date {
@@ -126,8 +125,16 @@ struct FinanceRankingChart: View {
                     }.padding(.vertical, 5).accessibilityElement(children: .combine)
                 }
                 if entries.count > 5 {
-                    Button(showsAll ? "finance.chart.show_less" : "finance.chart.show_all") { showsAll.toggle() }.frame(
-                        minHeight: 44)
+                    Button {
+                        showsAll.toggle()
+                    } label: {
+                        Text(
+                            showsAll
+                                ? LocalizedStringKey("finance.chart.show_less")
+                                : LocalizedStringKey("finance.chart.show_all")
+                        )
+                        .frame(minHeight: 44)
+                    }
                 }
             }
         }
