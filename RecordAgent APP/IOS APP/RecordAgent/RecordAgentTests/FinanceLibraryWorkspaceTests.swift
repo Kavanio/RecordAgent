@@ -37,7 +37,7 @@ final class FinanceLibraryWorkspaceTests: XCTestCase {
 
     func testLibraryDraftEncodesStableIdentityVersionAndFullBody() throws {
         let document = try APIClient.decoder.decode(LibraryDocument.self, from: Data("""
-        {"id":"c75231b1-c18d-4f94-aa22-2b1885b55b26","date":"2026-09-30","type":"journal","title":"Today","body":"First line\\nSecond line","favorite":true,"trashed":false,"version":7}
+        {"id":"c75231b1-c18d-4f94-aa22-2b1885b55b26","date":"2026-09-30","type":"journal","title":"Today","body":"First line\\nSecond line","favorite":true,"trashed":false,"version":7,"createdAt":"2026-09-30T09:27:35.123Z","updatedAt":"2026-09-30T10:30:00Z"}
         """.utf8))
         let draft = LibraryDraft(document: document, timeZone: "Asia/Shanghai")
         let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: APIClient.encoder.encode(draft)) as? [String: Any])
@@ -45,6 +45,11 @@ final class FinanceLibraryWorkspaceTests: XCTestCase {
         XCTAssertEqual(payload["version"] as? Int, 7)
         XCTAssertEqual(payload["body"] as? String, "First line\nSecond line")
         XCTAssertEqual(payload["timeZone"] as? String, "Asia/Shanghai")
+        XCTAssertNotNil(document.createdAt)
+        XCTAssertNotNil(document.updatedAt)
+        XCTAssertNotEqual(document.createdAt, document.updatedAt)
+        XCTAssertNil(payload["createdAt"])
+        XCTAssertNil(payload["updatedAt"])
         var tooLong = draft
         tooLong.title = String(repeating: "😀", count: 121)
         XCTAssertFalse(tooLong.isValid)

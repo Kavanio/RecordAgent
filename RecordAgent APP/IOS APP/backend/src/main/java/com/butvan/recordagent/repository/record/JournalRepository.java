@@ -38,7 +38,7 @@ public class JournalRepository {
     public List<JournalDtos.Journal> between(
             UUID owner, LocalDate start, LocalDate end, int limit, int offset) {
         return jdbc.query(
-                "SELECT id,record_date,COALESCE(title,''),content_text,version FROM record.record_entry "
+                "SELECT id,record_date,COALESCE(title,''),content_text,version,created_at,updated_at FROM record.record_entry "
                         + "WHERE owner_id=? AND trashed_at IS NULL "
                         + "AND record_date>=? AND record_date<? ORDER BY record_date,created_at,id LIMIT ? OFFSET ?",
                 (rs, index) ->
@@ -47,7 +47,9 @@ public class JournalRepository {
                                 rs.getObject(2, LocalDate.class),
                                 rs.getString(3),
                                 rs.getString(4),
-                                rs.getLong(5)),
+                                rs.getLong(5),
+                                rs.getObject(6, java.time.OffsetDateTime.class).toInstant(),
+                                rs.getObject(7, java.time.OffsetDateTime.class).toInstant()),
                 owner,
                 start,
                 end,

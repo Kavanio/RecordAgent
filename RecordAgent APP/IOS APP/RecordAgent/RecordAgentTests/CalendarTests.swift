@@ -3,6 +3,19 @@ import XCTest
 @testable import RecordAgent
 
 final class CalendarTests: XCTestCase {
+    func testJournalTimelineUsesLocalCreationTimeOnRecordDay() throws {
+        var local = Calendar(identifier: .gregorian)
+        local.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))
+        let recordDay = try XCTUnwrap(local.date(from: DateComponents(year: 2026, month: 9, day: 29)))
+        let created = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-09-30T09:27:35Z"))
+        let result = APICalendarDataService.journalTimelineDate(
+            recordDate: recordDay, createdAt: created, calendar: local)
+        XCTAssertTrue(local.isDate(result, inSameDayAs: recordDay))
+        XCTAssertEqual(local.component(.hour, from: result), 17)
+        XCTAssertEqual(local.component(.minute, from: result), 27)
+        XCTAssertEqual(local.component(.second, from: result), 35)
+    }
+
     func testFinancialRetryPreservesKeyUntilSuccessOrContentChanges() {
         var submission = FinanceSubmissionState()
         let body = Data("same request".utf8)

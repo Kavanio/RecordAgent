@@ -161,7 +161,17 @@ actor APICalendarDataService: CalendarDataServiceProtocol {
     private static func entry(_ journal: JournalResponse) throws -> HomeEntry {
         guard let date = date(journal.date) else { throw APIClientError.invalidResponse }
         return HomeEntry(id: journal.id, kind: .document, title: journal.title,
-                         detail: journal.body, date: date)
+                         detail: journal.body,
+                         date: journalTimelineDate(recordDate: date, createdAt: journal.createdAt),
+                         createdAt: journal.createdAt, updatedAt: journal.updatedAt)
+    }
+
+    /// 归属日期仍按用户选择，时间和排序取首次保存的创建时刻，编辑不会移动节点。
+    static func journalTimelineDate(recordDate: Date, createdAt: Date,
+                                    calendar: Calendar = .current) -> Date {
+        let time = calendar.dateComponents([.hour, .minute, .second], from: createdAt)
+        return calendar.date(bySettingHour: time.hour ?? 0, minute: time.minute ?? 0,
+                             second: time.second ?? 0, of: recordDate) ?? recordDate
     }
 
     private static func entry(_ transaction: TransactionResponse) throws -> HomeEntry {
@@ -234,6 +244,8 @@ private struct JournalResponse: Decodable {
     let date: String
     let title: String
     let body: String
+    let createdAt: Date
+    let updatedAt: Date
 }
 private struct TransactionResponse: Decodable {
     let id: String

@@ -22,7 +22,7 @@ public class LibraryRepository {
             int limit) {
         return jdbc.query(
                 """
-   SELECT id,record_date,record_type,COALESCE(title,''),left(content_text,180),length(content_text),favorite,trashed_at IS NOT NULL,version
+   SELECT id,record_date,record_type,COALESCE(title,''),left(content_text,180),length(content_text),favorite,trashed_at IS NOT NULL,version,created_at,updated_at
    FROM record.record_entry WHERE owner_id=? AND (trashed_at IS NOT NULL)=? AND (?='' OR record_type=?)
    AND (NOT ? OR favorite) AND POSITION(lower(?) IN lower(COALESCE(title,'') || ' ' || content_text))>0
    ORDER BY pinned DESC,record_date DESC,created_at DESC,id DESC LIMIT ? OFFSET ?
@@ -37,7 +37,9 @@ public class LibraryRepository {
                                 r.getLong(6),
                                 r.getBoolean(7),
                                 r.getBoolean(8),
-                                r.getLong(9)),
+                                r.getLong(9),
+                                r.getObject(10, java.time.OffsetDateTime.class).toInstant(),
+                                r.getObject(11, java.time.OffsetDateTime.class).toInstant()),
                 owner,
                 trash,
                 type,
@@ -51,7 +53,7 @@ public class LibraryRepository {
     public Optional<LibraryDtos.Document> find(UUID owner, UUID id) {
         return jdbc
                 .query(
-                        "SELECT id,record_date,record_type,COALESCE(title,''),content_text,favorite,trashed_at IS NOT NULL,version FROM record.record_entry WHERE owner_id=? AND id=?",
+                        "SELECT id,record_date,record_type,COALESCE(title,''),content_text,favorite,trashed_at IS NOT NULL,version,created_at,updated_at FROM record.record_entry WHERE owner_id=? AND id=?",
                         (r, n) ->
                                 new LibraryDtos.Document(
                                         r.getObject(1, UUID.class),
@@ -61,7 +63,10 @@ public class LibraryRepository {
                                         r.getString(5),
                                         r.getBoolean(6),
                                         r.getBoolean(7),
-                                        r.getLong(8)),
+                                        r.getLong(8),
+                                        r.getObject(9, java.time.OffsetDateTime.class).toInstant(),
+                                        r.getObject(10, java.time.OffsetDateTime.class)
+                                                .toInstant()),
                         owner,
                         id)
                 .stream()

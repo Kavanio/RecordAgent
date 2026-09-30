@@ -23,6 +23,9 @@ struct HomeEntry: Identifiable, Equatable, Sendable {
     let title: String
     let detail: String
     let date: Date
+    /// 资料的服务端创建/修改时间；date 保留记录所属自然日及创建时刻的本地时间。
+    var createdAt: Date? = nil
+    var updatedAt: Date? = nil
     var isCompleted = false
     var amountInCents = 0
     var durationMinutes = 0

@@ -3,6 +3,7 @@ package com.butvan.recordagent.dto.record;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -18,5 +19,12 @@ public final class JournalDtos {
 
     public record Created(UUID id, long version) {}
 
-    public record Journal(UUID id, LocalDate date, String title, String body, long version) {}
+    public record Journal(
+            UUID id,
+            LocalDate date,
+            String title,
+            String body,
+            long version,
+            Instant createdAt,
+            Instant updatedAt) {}
 }

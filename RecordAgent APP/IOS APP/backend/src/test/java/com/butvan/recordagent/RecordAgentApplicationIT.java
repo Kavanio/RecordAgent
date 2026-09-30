@@ -312,6 +312,52 @@ class RecordAgentApplicationIT {
     @Autowired private StudyService study;
     @Autowired private LibraryService library;
 
+    /** 保存和编辑分别维护两个时间，日历与资料接口读取同一创建时间。 */
+    @Test
+    void libraryEditPreservesCreationTimeAndAdvancesModificationTime() {
+        UUID owner = UUID.randomUUID();
+        insertUser(owner);
+        var date = LocalDate.of(2026, 9, 30);
+        var original =
+                library.create(
+                        owner,
+                        new LibraryDtos.Save(
+                                UUID.randomUUID(),
+                                date,
+                                "quick",
+                                "原始标题",
+                                "正文",
+                                "Asia/Shanghai",
+                                0));
+        assertThat(original.createdAt()).isNotNull().isEqualTo(original.updatedAt());
+        var createdAt = java.time.Instant.parse("2026-09-30T09:27:35Z");
+        jdbcTemplate.update(
+                "UPDATE record.record_entry SET created_at=?,updated_at=? WHERE id=?",
+                java.time.OffsetDateTime.ofInstant(createdAt, java.time.ZoneOffset.UTC),
+                java.time.OffsetDateTime.ofInstant(createdAt, java.time.ZoneOffset.UTC),
+                original.id());
+        var updated =
+                library.update(
+                        owner,
+                        original.id(),
+                        new LibraryDtos.Save(
+                                original.id(),
+                                date,
+                                "quick",
+                                "修改标题",
+                                "修改正文",
+                                "Asia/Shanghai",
+                                original.version()));
+        assertThat(updated.createdAt()).isEqualTo(createdAt);
+        assertThat(updated.updatedAt()).isNotEqualTo(createdAt);
+        var projected = calendar.day(owner, date, "Asia/Shanghai").journals().getFirst();
+        assertThat(projected.createdAt()).isEqualTo(createdAt);
+        assertThat(projected.updatedAt()).isEqualTo(updated.updatedAt());
+        var item = library.page(owner, "", false, false, "", 0, 10).items().getFirst();
+        assertThat(item.createdAt()).isEqualTo(createdAt);
+        assertThat(item.updatedAt()).isEqualTo(updated.updatedAt());
+    }
+
     /** 工作台保存的五类资料都进入日历，删除、恢复和改日同步投影且不越权。 */
     @Test
     void calendarProjectsAllLibraryTypesAndTracksLibraryChanges() {

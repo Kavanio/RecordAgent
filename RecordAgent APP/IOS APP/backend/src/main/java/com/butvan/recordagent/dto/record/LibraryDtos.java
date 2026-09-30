@@ -1,6 +1,7 @@
 package com.butvan.recordagent.dto.record;
 
 import jakarta.validation.constraints.*;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -17,7 +18,9 @@ public final class LibraryDtos {
             long characterCount,
             boolean favorite,
             boolean trashed,
-            long version) {}
+            long version,
+            Instant createdAt,
+            Instant updatedAt) {}
 
     public record Document(
             UUID id,
@@ -27,7 +30,9 @@ public final class LibraryDtos {
             String body,
             boolean favorite,
             boolean trashed,
-            long version) {}
+            long version,
+            Instant createdAt,
+            Instant updatedAt) {}
 
     public record Save(
             @NotNull UUID id,

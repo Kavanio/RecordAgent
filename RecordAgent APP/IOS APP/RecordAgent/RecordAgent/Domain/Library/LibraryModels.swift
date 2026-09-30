@@ -21,6 +21,8 @@ struct LibraryItem: Decodable, Identifiable, Equatable, Sendable {
     let favorite: Bool
     let trashed: Bool
     let version: Int64
+    var createdAt: Date? = nil
+    var updatedAt: Date? = nil
 }
 
 struct LibraryDocument: Decodable, Identifiable, Equatable, Sendable {
@@ -32,6 +34,8 @@ struct LibraryDocument: Decodable, Identifiable, Equatable, Sendable {
     let favorite: Bool
     let trashed: Bool
     let version: Int64
+    var createdAt: Date? = nil
+    var updatedAt: Date? = nil
 }
 
 /// UUID 在编辑器生命周期内固定；失败重试保留正文、版本和身份。
