@@ -19,44 +19,81 @@ struct FinanceTransactionRow: View {
     let accountName: String?
     @Environment(\.locale) private var locale
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            Image(systemName: transaction.type == "income" ? "arrow.down.left" : "arrow.up.right")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
-                .frame(width: 40, height: 40)
-                .background((transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense).opacity(0.1), in: RoundedRectangle(cornerRadius: 13))
-                .padding(.top, 3)
-            VStack(alignment: .leading, spacing: 7) {
-                if transaction.category.isEmpty {
-                    Text(transaction.typeTitle)
-                        .font(.body.weight(.medium))
-                } else {
-                    Text(transaction.category).font(.body.weight(.medium))
-                }
-                HStack(spacing: 8) {
-                    if let date = WorkspaceFormat.date(transaction.date) {
-                        Text(date, format: .dateTime.month(.abbreviated).day())
+        Group {
+            if typeSize.isAccessibilitySize {
+                HStack(alignment: .top, spacing: 16) {
+                    icon
+                    VStack(alignment: .leading, spacing: 14) {
+                        details
+                        amounts
                     }
-                    if let accountName { Text(accountName).lineLimit(1) }
                 }
-                .font(.caption).foregroundStyle(.secondary)
-                if !transaction.note.isEmpty {
-                    Text(transaction.note).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+            } else {
+                HStack(alignment: .top, spacing: 16) {
+                    icon
+                    details
+                    Spacer(minLength: 8)
+                    amounts
                 }
-            }
-            Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 7) {
-                Text(WorkspaceFormat.money(transaction.amountInCents, locale: locale))
-                    .font(.body.weight(.semibold)).monospacedDigit()
-                    .foregroundStyle(transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
-                Text(transaction.typeTitle)
-                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+    private var icon: some View {
+        Image(systemName: FinanceCategoryCatalog.symbol(category: transaction.category, type: transaction.type))
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
+            .frame(width: 40, height: 40)
+            .background(
+                (transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense).opacity(0.1),
+                in: RoundedRectangle(cornerRadius: 13)
+            )
+            .padding(.top, 3).accessibilityHidden(true)
+    }
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if transaction.category.isEmpty {
+                Text(transaction.typeTitle).font(.body.weight(.medium))
+            } else {
+                Text(transaction.category).font(.body.weight(.medium))
+            }
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) { dateAndAccount }
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                HStack(spacing: 8) { dateAndAccount }.font(.caption).foregroundStyle(.secondary)
+            }
+            if !transaction.note.isEmpty {
+                Text(transaction.note).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+            }
+        }
+    }
+    @ViewBuilder private var dateAndAccount: some View {
+        if let date = WorkspaceFormat.date(transaction.date) {
+            Text(date, format: .dateTime.month(.abbreviated).day())
+        }
+        if let accountName { Text(accountName).lineLimit(typeSize.isAccessibilitySize ? nil : 1) }
+    }
+    private var amounts: some View {
+        VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: 7) {
+            Text(WorkspaceFormat.money(transaction.amountInCents, locale: locale))
+                .font(.body.weight(.semibold)).monospacedDigit()
+                .foregroundStyle(transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
+            if let balance = transaction.balanceAfterInCents {
+                VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: 3) {
+                    Text("finance.balance.after").font(.caption2)
+                    Text(WorkspaceFormat.money(balance, locale: locale)).font(.caption).monospacedDigit()
+                }.foregroundStyle(.secondary)
+            } else {
+                Text("finance.balance.unknown").font(.caption2).foregroundStyle(.secondary)
+            }
+        }.fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -77,7 +114,8 @@ struct FinanceTransactionDetailView: View {
                             .font(.subheadline).foregroundStyle(.secondary)
                         Text(WorkspaceFormat.money(transaction.amountInCents, locale: locale))
                             .font(.largeTitle.weight(.semibold)).monospacedDigit()
-                            .foregroundStyle(transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
+                            .foregroundStyle(
+                                transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
                     }
                     if !transaction.category.isEmpty {
                         WorkspaceValue(label: "finance.category", value: transaction.category)
@@ -92,8 +130,11 @@ struct FinanceTransactionDetailView: View {
                             Text(time, format: .dateTime.hour().minute())
                         }
                     }
-                    WorkspaceValue(label: "finance.account.balance",
-                        value: WorkspaceFormat.money(transaction.balanceInCents, locale: locale))
+                    WorkspaceValue(
+                        label: "finance.balance.after",
+                        value: transaction.balanceAfterInCents.map {
+                            WorkspaceFormat.money($0, locale: locale)
+                        } ?? AppLocalization.string("finance.balance.unknown", locale: locale))
                     if !transaction.note.isEmpty {
                         WorkspaceSection(title: "finance.note") {
                             Text(transaction.note).textSelection(.enabled)
@@ -115,11 +156,14 @@ enum FinanceTransactionTime {
     static func date(_ value: String, calendar: Calendar = .current) -> Date? {
         let parts = value.split(separator: ":")
         guard (2...3).contains(parts.count), let hour = Int(parts[0]), let minute = Int(parts[1]),
-              (0...23).contains(hour), (0...59).contains(minute) else { return nil }
+            (0...23).contains(hour), (0...59).contains(minute)
+        else { return nil }
         if parts.count == 3 {
             guard let seconds = Double(parts[2]), seconds >= 0, seconds < 60 else { return nil }
         }
-        return calendar.date(from: DateComponents(year: 2000, month: 1, day: 15,
-                                                  hour: hour, minute: minute, second: 0))
+        return calendar.date(
+            from: DateComponents(
+                year: 2000, month: 1, day: 15,
+                hour: hour, minute: minute, second: 0))
     }
 }

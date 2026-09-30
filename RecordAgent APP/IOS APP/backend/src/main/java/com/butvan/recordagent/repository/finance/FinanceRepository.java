@@ -108,11 +108,12 @@ public class FinanceRepository {
             String note,
             long amount,
             LocalDate date,
-            LocalTime time) {
+            LocalTime time,
+            long balanceAfter) {
         jdbc.update(
                 "INSERT INTO record.finance_transaction(id,owner_id,account_id,transaction_date,"
-                        + "transaction_time,transaction_type,category_id,note,amount_minor,currency) "
-                        + "VALUES(?,?,?,?,?,?,?,?,?,'CNY')",
+                        + "transaction_time,transaction_type,category_id,note,amount_minor,currency,balance_after_minor) "
+                        + "VALUES(?,?,?,?,?,?,?,?,?,'CNY',?)",
                 id,
                 owner,
                 account,
@@ -121,7 +122,8 @@ public class FinanceRepository {
                 type,
                 category,
                 note,
-                amount);
+                amount,
+                balanceAfter);
     }
 
     /** 流水按本人、日期范围和条数限制读取。 */
@@ -135,7 +137,7 @@ public class FinanceRepository {
             UUID owner, LocalDate start, LocalDate end, int limit, int offset) {
         return jdbc.query(
                 "SELECT t.id,t.account_id,t.transaction_type,c.name,t.note,t.amount_minor,"
-                        + "t.transaction_date,t.transaction_time,a.balance_minor "
+                        + "t.transaction_date,t.transaction_time,a.balance_minor,t.balance_after_minor "
                         + "FROM record.finance_transaction t JOIN record.finance_account a ON a.id=t.account_id "
                         + "LEFT JOIN record.finance_category c ON c.id=t.category_id "
                         + "WHERE t.owner_id=? AND t.transaction_date>=? AND t.transaction_date<? "
@@ -150,7 +152,8 @@ public class FinanceRepository {
                                 rs.getLong(6),
                                 rs.getObject(7, LocalDate.class),
                                 rs.getObject(8, LocalTime.class),
-                                rs.getLong(9)),
+                                rs.getLong(9),
+                                rs.getObject(10, Long.class)),
                 owner,
                 start,
                 end,
@@ -278,7 +281,7 @@ public class FinanceRepository {
             int limit) {
         return jdbc.query(
                 """
-  SELECT t.id,t.account_id,t.transaction_type,c.name,t.note,t.amount_minor,t.transaction_date,t.transaction_time,a.balance_minor
+  SELECT t.id,t.account_id,t.transaction_type,c.name,t.note,t.amount_minor,t.transaction_date,t.transaction_time,a.balance_minor,t.balance_after_minor
   FROM record.finance_transaction t JOIN record.finance_account a ON a.id=t.account_id AND a.owner_id=t.owner_id
   LEFT JOIN record.finance_category c ON c.id=t.category_id AND c.owner_id=t.owner_id
   WHERE t.owner_id=? AND t.transaction_date>=? AND t.transaction_date<? AND (?='' OR t.transaction_type=?)
@@ -295,7 +298,8 @@ public class FinanceRepository {
                                 r.getLong(6),
                                 r.getObject(7, LocalDate.class),
                                 r.getObject(8, LocalTime.class),
-                                r.getLong(9)),
+                                r.getLong(9),
+                                r.getObject(10, Long.class)),
                 owner,
                 start,
                 end,

@@ -1,4 +1,6 @@
+import UIKit
 import XCTest
+
 @testable import RecordAgent
 
 final class FinanceLibraryWorkspaceTests: XCTestCase {
@@ -15,14 +17,16 @@ final class FinanceLibraryWorkspaceTests: XCTestCase {
     }
 
     func testTransactionDTOSeparatesNaturalDateTimeAndIntegerMoney() throws {
-        let data = Data("""
-        {"items":[{"id":"tx","accountId":"account","type":"expense","category":null,"note":"","amountInCents":29,"date":"2024-02-29","time":"09:45:30","balanceInCents":9007199254740993}],"nextOffset":50,"hasMore":true}
-        """.utf8)
+        let data = Data(
+            """
+            {"items":[{"id":"tx","accountId":"account","type":"expense","category":null,"note":"","amountInCents":29,"date":"2024-02-29","time":"09:45:30","balanceInCents":9007199254740993}],"nextOffset":50,"hasMore":true}
+            """.utf8)
         let page = try APIClient.decoder.decode(FinanceWorkspacePage<FinanceTransaction>.self, from: data)
         let item = try XCTUnwrap(page.items.first)
         XCTAssertEqual(item.amountInCents, 29)
         XCTAssertEqual(item.category, "")
-        XCTAssertEqual(item.balanceInCents, 9007199254740993)
+        XCTAssertEqual(item.balanceInCents, 9_007_199_254_740_993)
+        XCTAssertNil(item.balanceAfterInCents)
         XCTAssertEqual(item.date, "2024-02-29")
         XCTAssertEqual(item.time, "09:45:30")
         XCTAssertEqual(page.nextOffset, 50)
@@ -35,12 +39,39 @@ final class FinanceLibraryWorkspaceTests: XCTestCase {
         XCTAssertNil(FinanceTransactionTime.date("09:45:99"))
     }
 
+    func testBalanceSnapshotIsIndependentOfCurrentBalanceAndCategoryIconsExist() throws {
+        let item = try APIClient.decoder.decode(
+            FinanceTransaction.self,
+            from: Data(
+                """
+                {"id":"tx","accountId":"a","type":"expense","category":"交通","note":"","amountInCents":300,"date":"2026-09-30","time":"09:00:00","balanceInCents":8700,"balanceAfterInCents":9700}
+                """.utf8))
+        XCTAssertEqual(item.balanceAfterInCents, 9700)
+        XCTAssertEqual(item.balanceInCents, 8700)
+        XCTAssertEqual(FinanceCategoryCatalog.symbol(category: "交通", type: "expense"), "tram.fill")
+        XCTAssertEqual(FinanceCategoryCatalog.symbol(category: "奶茶", type: "expense"), "mug.fill")
+        for preset in FinanceCategoryCatalog.expenses + FinanceCategoryCatalog.incomes {
+            XCTAssertNotNil(UIImage(systemName: preset.symbol), preset.name)
+            let key = "finance.category.preset." + preset.key
+            for language in ["zh-Hans", "en"] {
+                XCTAssertNotEqual(
+                    AppLocalization.string(
+                        String.LocalizationValue(stringLiteral: key), locale: Locale(identifier: language)), key)
+            }
+        }
+        XCTAssertEqual(FinanceCategoryCatalog.symbol(category: "自定义", type: "expense"), "tag.fill")
+    }
+
     func testLibraryDraftEncodesStableIdentityVersionAndFullBody() throws {
-        let document = try APIClient.decoder.decode(LibraryDocument.self, from: Data("""
-        {"id":"c75231b1-c18d-4f94-aa22-2b1885b55b26","date":"2026-09-30","type":"journal","title":"Today","body":"First line\\nSecond line","favorite":true,"trashed":false,"version":7,"createdAt":"2026-09-30T09:27:35.123Z","updatedAt":"2026-09-30T10:30:00Z"}
-        """.utf8))
+        let document = try APIClient.decoder.decode(
+            LibraryDocument.self,
+            from: Data(
+                """
+                {"id":"c75231b1-c18d-4f94-aa22-2b1885b55b26","date":"2026-09-30","type":"journal","title":"Today","body":"First line\\nSecond line","favorite":true,"trashed":false,"version":7,"createdAt":"2026-09-30T09:27:35.123Z","updatedAt":"2026-09-30T10:30:00Z"}
+                """.utf8))
         let draft = LibraryDraft(document: document, timeZone: "Asia/Shanghai")
-        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: APIClient.encoder.encode(draft)) as? [String: Any])
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: APIClient.encoder.encode(draft)) as? [String: Any])
         XCTAssertEqual(payload["id"] as? String, document.id)
         XCTAssertEqual(payload["version"] as? Int, 7)
         XCTAssertEqual(payload["body"] as? String, "First line\nSecond line")
@@ -57,12 +88,16 @@ final class FinanceLibraryWorkspaceTests: XCTestCase {
 
     @MainActor
     func testVersionConflictAndComparisonKeepDraftUntilExplicitChoice() async throws {
-        let latest = LibraryDocument(id: "old", date: "2026-09-30", type: .quick,
+        let latest = LibraryDocument(
+            id: "old", date: "2026-09-30", type: .quick,
             title: "Server", body: "New server text", favorite: false, trashed: false, version: 8)
         let draft = LibraryDraft(id: "old", date: "2026-09-30", title: "Draft", body: "My unsaved text", version: 7)
-        let model = LibraryEditorViewModel(draft: draft, creating: false, service: ConflictingLibraryService(latest: latest))
-        do { _ = try await model.save(); XCTFail("A stale version must fail") }
-        catch APIClientError.conflict { }
+        let model = LibraryEditorViewModel(
+            draft: draft, creating: false, service: ConflictingLibraryService(latest: latest))
+        do {
+            _ = try await model.save()
+            XCTFail("A stale version must fail")
+        } catch APIClientError.conflict {}
         await model.loadLatest()
         XCTAssertEqual(model.draft, draft)
         XCTAssertEqual(model.latest?.version, 8)
@@ -78,10 +113,14 @@ final class FinanceLibraryWorkspaceTests: XCTestCase {
 
 private struct ConflictingLibraryService: LibraryServiceProtocol {
     let latest: LibraryDocument
-    func page(type: LibraryDocumentKind?, collection: LibraryCollection, query: String, offset: Int) async throws -> LibraryPage {
+    func page(type: LibraryDocumentKind?, collection: LibraryCollection, query: String, offset: Int) async throws
+        -> LibraryPage
+    {
         LibraryPage(items: [], nextOffset: nil, hasMore: false)
     }
     func document(id: String) async throws -> LibraryDocument { latest }
     func save(_ draft: LibraryDraft, creating: Bool) async throws -> LibraryDocument { throw APIClientError.conflict }
-    func flags(id: String, version: Int64, favorite: Bool, trashed: Bool) async throws -> LibraryDocument { throw APIClientError.conflict }
+    func flags(id: String, version: Int64, favorite: Bool, trashed: Bool) async throws -> LibraryDocument {
+        throw APIClientError.conflict
+    }
 }

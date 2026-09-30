@@ -40,6 +40,17 @@ struct FinanceTrendChart: View {
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var selection: Double?
+    @State private var revealed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var motionKey: String {
+        insights.period.key
+            + insights.buckets.map { bucket in
+                "\(bucket.expense):\(bucket.income):"
+                    + bucket.categories.keys.sorted().map { "\($0):\(bucket.categories[$0] ?? 0)" }.joined(
+                        separator: ",")
+            }.joined(separator: "|")
+    }
 
     private var selected: FinanceTrendBucket? {
         guard let selection, !insights.buckets.isEmpty else { return nil }
@@ -128,6 +139,44 @@ struct FinanceTrendChart: View {
                 .chartXScale(domain: -0.5...Double(max(1, insights.buckets.count)) - 0.5)
                 .chartYScale(domain: 0...ceiling)
                 .chartXSelection(value: $selection)
+                .chartGesture { proxy in
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { proxy.selectXValue(at: $0.location.x) }
+                }
+                .chartPlotStyle { plot in
+                    plot.mask(Rectangle().scaleEffect(x: revealed || reduceMotion ? 1 : 0, anchor: .leading))
+                }
+                .chartOverlay { proxy in
+                    GeometryReader { geometry in
+                        ZStack(alignment: .topLeading) {
+                            if let selected, let selection, let frame = proxy.plotFrame,
+                                let x = proxy.position(forX: selection.rounded())
+                            {
+                                let plot = geometry[frame]
+                                let width = min(230.0, geometry.size.width)
+                                FinanceTrendTooltip(bucket: selected, isYear: insights.period.range == .year) {
+                                    self.selection = nil
+                                }
+                                .frame(width: width)
+                                .offset(x: max(0, min(geometry.size.width - width, plot.minX + x - width / 2)), y: 4)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .contentShape(Rectangle())
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case .active(let point):
+                                if let frame = proxy.plotFrame {
+                                    let plot = geometry[frame]
+                                    selection =
+                                        plot.contains(point)
+                                        ? proxy.value(atX: point.x - plot.minX, as: Double.self) : nil
+                                }
+                            case .ended: selection = nil
+                            }
+                        }
+                    }
+                }
                 .chartXAxis(.hidden)
                 .chartYAxis {
                     AxisMarks(position: .leading, values: [0, ceiling / 2, ceiling]) { value in
@@ -159,28 +208,8 @@ struct FinanceTrendChart: View {
                     }
                 }.font(.caption2).foregroundStyle(.secondary).padding(.leading, 30)
 
-                if let selected {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(
-                            selected.date,
-                            format: insights.period.range == .year ? .dateTime.year().month() : .dateTime.month().day()
-                        )
-                        .font(.subheadline.weight(.semibold))
-                        amountRow("finance.expense", selected.expense, color: FinanceVisualStyle.expense)
-                        amountRow("finance.income", selected.income, color: FinanceVisualStyle.income)
-                        ForEach(selected.categories.keys.sorted(), id: \.self) { category in
-                            HStack {
-                                categoryLabel(category)
-                                Spacer()
-                                Text(WorkspaceFormat.money(selected.categories[category] ?? 0, locale: locale))
-                                    .monospacedDigit()
-                            }.foregroundStyle(FinanceVisualStyle.category(category))
-                        }
-                    }.font(.caption).padding(.vertical, 8)
-                } else {
-                    Text("finance.chart.touch_hint").font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Text("finance.chart.touch_hint").font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 if !categories.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 16) {
@@ -194,6 +223,15 @@ struct FinanceTrendChart: View {
                     }
                 }
             }
+        }
+        .task(id: motionKey) {
+            revealed = false
+            guard !reduceMotion else {
+                revealed = true
+                return
+            }
+            do { try await Task.sleep(for: .milliseconds(30)) } catch { return }
+            withAnimation(.easeOut(duration: 0.75)) { revealed = true }
         }
         .onChange(of: insights.period.key) { _, _ in selection = nil }
     }

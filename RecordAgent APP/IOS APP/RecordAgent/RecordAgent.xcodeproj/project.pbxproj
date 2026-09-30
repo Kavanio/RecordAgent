@@ -21,6 +21,7 @@
 		1C33962228C23F0999819DCB /* WorkspaceFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = DABFC79464508FFD490C0F50 /* WorkspaceFormat.swift */; };
 		1DD819236163ED08EBF6709E /* ProfileAboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 086ACD0A8430894BBFE305F8 /* ProfileAboutView.swift */; };
 		1FFFAC60B8D2EA0FD683EC32 /* RecordWorkspaceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20F3E430C3E708C47F00C20B /* RecordWorkspaceViewModel.swift */; };
+		245DB5A27DEA83A7C824055E /* FinanceCategoryCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C0BC51F89F92F378190A7D /* FinanceCategoryCatalog.swift */; };
 		25C15353575C31A174D905F8 /* LibraryEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD2E459D08986CD0C1CCAA0 /* LibraryEditorView.swift */; };
 		27010152D98D99F2A9606C2D /* MobileTaskTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F913ED268C5BEB851163BC00 /* MobileTaskTests.swift */; };
 		29676573C0282E0D42E0D5C8 /* AppButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E11DAE087F1230FF8BA36AE /* AppButton.swift */; };
@@ -74,6 +75,7 @@
 		7A8664E888B55610157F058D /* CalendarCreateEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC6B60429C63664B770D4CFF /* CalendarCreateEntryView.swift */; };
 		81B4DAB695DD98B9CA4548DE /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02C6757F4B77527A567E780 /* AppEnvironment.swift */; };
 		858C1A8986A10AF07F1044F9 /* RecordAgentApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D34B49D05F054474081DA25 /* RecordAgentApp.swift */; };
+		8891C2C8635CABDA01F30881 /* FinanceChartMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F69FDEBF8F8C402AE37BF3 /* FinanceChartMotion.swift */; };
 		8A3381E20BA79A73F91C91F6 /* FinanceInsightsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DC40FF6F17045191AD4FE32 /* FinanceInsightsModels.swift */; };
 		8EE5698F697A94E30416DFA3 /* StudyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 198A05756DAC690E48C30EC2 /* StudyModels.swift */; };
 		8FEF83022D678C8F183013E1 /* ForgotPasswordSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4A56B24BA776F5BC2439B6 /* ForgotPasswordSheetView.swift */; };
@@ -94,8 +96,10 @@
 		AB96885F0A2C4C9B1CE89FAD /* RecordFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D6EB58D8E86528374485320 /* RecordFormatting.swift */; };
 		ABD9BFAC12E43ECD8698B00D /* APIStudyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F75EC0E45992FE4AE6AC7ED7 /* APIStudyService.swift */; };
 		B25ECF297E69C540E6F02C8A /* HomeTrendChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDEB354CB94FF5BBC246E592 /* HomeTrendChartView.swift */; };
+		B6993E63FE6D714B846E38A8 /* FinanceCategoryPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B501EFC8BDFB618FD8340E5 /* FinanceCategoryPicker.swift */; };
 		B71447AC91BB2CAB37C62F48 /* MobileTaskViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E38756ED4551F4D2B58DB5A /* MobileTaskViewModel.swift */; };
 		B9DEE264A00BC6B0ED0C9B1A /* MobileTaskEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56F31FD4F2F142D4EA541417 /* MobileTaskEditorView.swift */; };
+		BA021F65B5CC4C0E70536FC9 /* FinanceTrendTooltip.swift in Sources */ = {isa = PBXBuildFile; fileRef = D416B47D1B6A5A7DFBAE8F0C /* FinanceTrendTooltip.swift */; };
 		BFEB67EB031C2A2934546E93 /* RecordWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 663494072B6CB764C1EF77E3 /* RecordWorkspaceView.swift */; };
 		C10A9AA40309F8BAAC5B6979 /* HomeMonthPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D8148D0A4898B1CF02CF13 /* HomeMonthPickerView.swift */; };
 		C12F65BC13B40A91CF02A2D6 /* ProfileAppearanceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97F72CFDD0A0243734ACF0CF /* ProfileAppearanceViewModel.swift */; };
@@ -170,6 +174,7 @@
 		316F6A00C92707A55BE2CAF6 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		35C6E2B0B2F43D7C34CE4805 /* RecordAgent.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RecordAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		35CC8009651AC226A34AE252 /* APILibraryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APILibraryService.swift; sourceTree = "<group>"; };
+		35F69FDEBF8F8C402AE37BF3 /* FinanceChartMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceChartMotion.swift; sourceTree = "<group>"; };
 		364230326B4B17D57744561E /* AuthModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthModels.swift; sourceTree = "<group>"; };
 		389CCF6F74DCE12415953CE2 /* CalendarFinanceCreateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFinanceCreateView.swift; sourceTree = "<group>"; };
 		38A17AEF10F8FB1939FA36EC /* WorkspaceHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceHubView.swift; sourceTree = "<group>"; };
@@ -225,6 +230,7 @@
 		992857CF3D41AE57D33B3338 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		99715FD50D7BFDC430C24281 /* HomeEntryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeEntryListView.swift; sourceTree = "<group>"; };
 		9B1DCBD410FC63E7BA131097 /* CalendarMonthGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMonthGrid.swift; sourceTree = "<group>"; };
+		9B501EFC8BDFB618FD8340E5 /* FinanceCategoryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceCategoryPicker.swift; sourceTree = "<group>"; };
 		9CE546F5B9EBDAB010D1B6D2 /* LibraryWorkspaceViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryWorkspaceViewModel.swift; sourceTree = "<group>"; };
 		9E11DAE087F1230FF8BA36AE /* AppButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppButton.swift; sourceTree = "<group>"; };
 		A52DB28223A53A39FA0462EE /* APIAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIAuthService.swift; sourceTree = "<group>"; };
@@ -239,6 +245,7 @@
 		B3C61B52EB9C020046F105B1 /* HomeEntryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeEntryDetailView.swift; sourceTree = "<group>"; };
 		B402A483FEE9F021BB9C96DA /* RecordDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordDetailView.swift; sourceTree = "<group>"; };
 		B595B284CFA6669C9320BB12 /* ProfileActivityAndAppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileActivityAndAppearanceTests.swift; sourceTree = "<group>"; };
+		B7C0BC51F89F92F378190A7D /* FinanceCategoryCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceCategoryCatalog.swift; sourceTree = "<group>"; };
 		B923BB3874D1E5FCD18A5663 /* FinanceEditors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceEditors.swift; sourceTree = "<group>"; };
 		BB8315666D250EABF0D2AB97 /* ProfileOverviewViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileOverviewViewModel.swift; sourceTree = "<group>"; };
 		BC179A5D8876F5BC247B8B42 /* CalendarStickyTodoNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarStickyTodoNote.swift; sourceTree = "<group>"; };
@@ -251,6 +258,7 @@
 		D02C6757F4B77527A567E780 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		D1788DBD45C3956755E1150D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D1F6CF1AB1B2161E1AA359D9 /* FinanceLibraryWorkspaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceLibraryWorkspaceTests.swift; sourceTree = "<group>"; };
+		D416B47D1B6A5A7DFBAE8F0C /* FinanceTrendTooltip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceTrendTooltip.swift; sourceTree = "<group>"; };
 		D908FFA2AE3A03581D9E72FF /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
 		DABFC79464508FFD490C0F50 /* WorkspaceFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceFormat.swift; sourceTree = "<group>"; };
 		DBEC08E2C40B117FCF70F1EE /* FinanceInsightsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceInsightsTests.swift; sourceTree = "<group>"; };
@@ -331,10 +339,14 @@
 			children = (
 				A55D2F4BE2BF39C100D898D4 /* FinanceAccountsView.swift */,
 				5497C8165E258E18C82DC5BB /* FinanceBreakdownCharts.swift */,
+				B7C0BC51F89F92F378190A7D /* FinanceCategoryCatalog.swift */,
+				9B501EFC8BDFB618FD8340E5 /* FinanceCategoryPicker.swift */,
+				35F69FDEBF8F8C402AE37BF3 /* FinanceChartMotion.swift */,
 				1A48AA3301D61A91E04C26A6 /* FinanceChartTabs.swift */,
 				B923BB3874D1E5FCD18A5663 /* FinanceEditors.swift */,
 				A737316BBEB08BC4E8B24B8A /* FinanceInsightsView.swift */,
 				F77116D087EDB4BC96A4CB39 /* FinancePresentation.swift */,
+				D416B47D1B6A5A7DFBAE8F0C /* FinanceTrendTooltip.swift */,
 				E5AAF473769C3897CA4E37D9 /* FinanceVisualStyle.swift */,
 				38AA6C72484D4131590167E9 /* FinanceWorkspaceView.swift */,
 				DFBF9896F32250C8C11AA9F5 /* FinanceWorkspaceViewModel.swift */,
@@ -874,12 +886,16 @@
 				54657A9C598377A4326F65D1 /* DebugServerProbe.swift in Sources */,
 				9BA7287DFDF1197493FA43ED /* FinanceAccountsView.swift in Sources */,
 				542E6A9BC6D13410C560A6B4 /* FinanceBreakdownCharts.swift in Sources */,
+				245DB5A27DEA83A7C824055E /* FinanceCategoryCatalog.swift in Sources */,
+				B6993E63FE6D714B846E38A8 /* FinanceCategoryPicker.swift in Sources */,
+				8891C2C8635CABDA01F30881 /* FinanceChartMotion.swift in Sources */,
 				D409BDAB9852D728708A5206 /* FinanceChartTabs.swift in Sources */,
 				CDC36C9EA054A77254609BC2 /* FinanceEditors.swift in Sources */,
 				6764A24A9FFED13B0878FA9F /* FinanceInsightsLoader.swift in Sources */,
 				8A3381E20BA79A73F91C91F6 /* FinanceInsightsModels.swift in Sources */,
 				4A4EBB62AEA0B92901089F61 /* FinanceInsightsView.swift in Sources */,
 				92D031B6C76DEA97BE118FC7 /* FinancePresentation.swift in Sources */,
+				BA021F65B5CC4C0E70536FC9 /* FinanceTrendTooltip.swift in Sources */,
 				5C8200ADAE701BF0D13CCC73 /* FinanceVisualStyle.swift in Sources */,
 				144B5DFCE3A2FF87FA1AC187 /* FinanceWorkspaceModels.swift in Sources */,
 				CB59D483D36AF996A6A87F48 /* FinanceWorkspaceView.swift in Sources */,

@@ -17,6 +17,7 @@ public record FinanceTransactionEntity(
         UUID categoryId,
         String note,
         Long amountMinor,
+        Long balanceAfterMinor,
         String currency,
         String source,
         OffsetDateTime createdAt) {}

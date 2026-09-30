@@ -15,8 +15,10 @@ struct CalendarFinanceCreateView: View {
     @State private var openingBalance = ""
     @State private var showsError = false
 
-    init(date: Date, dates: HomeCalendar, service: any FinanceServiceProtocol,
-         onSaved: @escaping () -> Void) {
+    init(
+        date: Date, dates: HomeCalendar, service: any FinanceServiceProtocol,
+        onSaved: @escaping () -> Void
+    ) {
         self.dates = dates
         self.onSaved = onSaved
         _model = StateObject(wrappedValue: FinanceCreateViewModel(service: service))
@@ -28,13 +30,16 @@ struct CalendarFinanceCreateView: View {
             VStack(alignment: .leading, spacing: 24) {
                 HStack(spacing: 8) {
                     ForEach(EntryType.allCases) { type in
-                        Button { entryType = type } label: {
+                        Button {
+                            entryType = type
+                        } label: {
                             Text(type.title)
                                 .font(.subheadline.weight(entryType == type ? .semibold : .regular))
                                 .frame(maxWidth: .infinity, minHeight: 44)
                                 .foregroundStyle(entryType == type ? CalendarPalette.ink : CalendarPalette.secondary)
-                                .background(entryType == type ? AppColors.segmentSelectedBg : AppColors.segmentBarBg,
-                                            in: Capsule())
+                                .background(
+                                    entryType == type ? AppColors.segmentSelectedBg : AppColors.segmentBarBg,
+                                    in: Capsule())
                         }
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(entryType == type ? .isSelected : [])
@@ -58,8 +63,7 @@ struct CalendarFinanceCreateView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 20) {
-                    TextField("calendar.finance.category", text: $category)
-                        .financeInputStyle()
+                    FinanceCategoryPicker(type: entryType.rawValue, category: $category)
                     field("calendar.finance.account", icon: "creditcard") {
                         if model.isLoading {
                             ProgressView()
@@ -81,9 +85,11 @@ struct CalendarFinanceCreateView: View {
                     TextField("calendar.finance.note", text: $note, axis: .vertical)
                         .lineLimit(2...4)
                         .financeInputStyle()
-                    DatePicker("calendar.finance.date", selection: $date,
-                               in: dates.supportedDateTimes, displayedComponents: [.date, .hourAndMinute])
-                        .datePickerStyle(.compact)
+                    DatePicker(
+                        "calendar.finance.date", selection: $date,
+                        in: dates.supportedDateTimes, displayedComponents: [.date, .hourAndMinute]
+                    )
+                    .datePickerStyle(.compact)
                 }
             }
             .frame(maxWidth: 640, alignment: .leading)
@@ -118,14 +124,16 @@ struct CalendarFinanceCreateView: View {
             Text(model.errorMessage ?? "")
         }
         .safeAreaInset(edge: .bottom) {
-            AppButton("calendar.finance.save", iconName: "checkmark", isLoading: model.isSaving,
-                      isEnabled: model.selectedAccountID != nil && FinanceAmount.cents(amount) != nil,
-                      action: save)
-                .frame(maxWidth: 640)
-                .padding(.horizontal, 26)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
-                .background { Color(uiColor: .systemBackground).ignoresSafeArea(edges: .bottom) }
+            AppButton(
+                "calendar.finance.save", iconName: "checkmark", isLoading: model.isSaving,
+                isEnabled: model.selectedAccountID != nil && FinanceAmount.cents(amount) != nil,
+                action: save
+            )
+            .frame(maxWidth: 640)
+            .padding(.horizontal, 26)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background { Color(uiColor: .systemBackground).ignoresSafeArea(edges: .bottom) }
         }
     }
 
@@ -137,7 +145,8 @@ struct CalendarFinanceCreateView: View {
             return
         }
         Task {
-            let draft = FinanceTransactionDraft(accountId: account, type: entryType.rawValue,
+            let draft = FinanceTransactionDraft(
+                accountId: account, type: entryType.rawValue,
                 category: category, note: note, amountInCents: cents, date: date)
             if await model.save(draft) { onSaved() }
         }
@@ -217,7 +226,8 @@ private enum FinanceAmount {
         let parts = input.trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: ",", with: ".").split(separator: ".", omittingEmptySubsequences: false)
         guard parts.count <= 2, let whole = Int64(parts[0]), whole >= 0,
-              parts.count == 1 || parts[1].count <= 2 else { return nil }
+            parts.count == 1 || parts[1].count <= 2
+        else { return nil }
         let fraction = parts.count == 2 ? String(parts[1]).padding(toLength: 2, withPad: "0", startingAt: 0) : "00"
         guard let fractional = Int64(fraction) else { return nil }
         let (scaled, overflow) = whole.multipliedReportingOverflow(by: 100)
@@ -228,8 +238,8 @@ private enum FinanceAmount {
     }
 }
 
-private extension View {
-    func financeInputStyle() -> some View {
+extension View {
+    fileprivate func financeInputStyle() -> some View {
         self.padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(AppColors.segmentBarBg, in: RoundedRectangle(cornerRadius: 14))

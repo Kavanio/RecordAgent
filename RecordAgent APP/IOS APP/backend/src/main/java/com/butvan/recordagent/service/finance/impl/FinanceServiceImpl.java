@@ -105,7 +105,8 @@ public class FinanceServiceImpl implements FinanceService {
                 request.note() == null ? "" : request.note().strip(),
                 request.amountInCents(),
                 request.date(),
-                request.time());
+                request.time(),
+                balance);
         store.updateBalance(owner, account.id(), balance);
         var result =
                 new FinanceDtos.Transaction(
@@ -117,6 +118,7 @@ public class FinanceServiceImpl implements FinanceService {
                         request.amountInCents(),
                         request.date(),
                         request.time(),
+                        balance,
                         balance);
         if (requestId != null)
             store.rememberRequest(owner, requestId, hash, id, codec.encode(result));

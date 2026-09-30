@@ -36,7 +36,8 @@ public final class FinanceDtos {
             long amountInCents,
             LocalDate date,
             LocalTime time,
-            long balanceInCents) {}
+            long balanceInCents,
+            Long balanceAfterInCents) {}
 
     public record MonthOverview(
             long totalAssetsInCents,

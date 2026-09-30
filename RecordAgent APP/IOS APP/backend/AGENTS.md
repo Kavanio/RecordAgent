@@ -32,6 +32,7 @@
 - 日历资料投影覆盖资料库全部未入回收站类型（`quick/learning/weekly_review/reading/journal`），按 `record_date` 归属自然日；日详情、月摘要与分页共用用户隔离和回收站过滤。兼容接口继续使用 `journals` 字段、`journal` 分页路由及月标记，iOS 映射为“资料”，不得只查询 `journal` 类型。
 - 明细查询统一经过 `ReadBounds`，多读一条检测溢出；旧列表超限返回 422 `RESULT_LIMIT_EXCEEDED`，分页响应为 `{items,nextOffset,hasMore}`。分页排序必须包含稳定 ID，跨页有并发新增时客户端重新从第一页刷新。
 - 收支写入使用用户范围内的 UUID `Idempotency-Key`；同键同 DTO 重放首次响应，同键不同 DTO 返回 409。缓存和流水、余额同事务提交，幂等记录与流水共同保留，禁止仅按短 TTL 删除后允许重复记账。无键只为兼容旧客户端，客户端新实现必须携带并在结果未知时复用键。
+- 财务 `balanceAfterInCents` 是 V7 起随流水持久化的交易提交后余额快照，与账户余额和幂等响应同事务；`balanceInCents` 保留查询时当前余额的兼容语义。旧流水/缓存无快照时保持 null，不允许按日期排序倒推或使用当前余额补齐。
 - 认证入口按 Servlet 来源 IP、密码登录按规范化邮箱使用 PostgreSQL 原子固定窗口限流；仅保存摘要，认证失败也必须提交计数。反向代理信任由部署层明确配置；来源 IP 不能直接相信任意转发头。
 - HTTP 错误统一使用实际状态码及 `{ code, message, requestId }`；`code` 是稳定的客户端分支依据，`requestId` 由服务端生成并通过 `X-Request-Id` 返回。禁止向客户端或日志输出异常原文、用户输入及凭据。
 - 每个阶段至少验证认证隔离、领域不变量、PostgreSQL 迁移及主要 HTTP 错误路径；用真实 PostgreSQL 的隔离测试环境验证持久化行为，不以桌面 SQLite 测试替代。

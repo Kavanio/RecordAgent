@@ -26,6 +26,26 @@ class FinanceRequestCodecTest {
                 .isNotEqualTo(compact.hash(request(account, "", "")));
     }
 
+    @Test
+    void cachedResponseKeepsSnapshotAndAcceptsLegacyMissingSnapshot() {
+        var codec = new FinanceRequestCodec(new ObjectMapper().findAndRegisterModules());
+        var transaction =
+                new FinanceDtos.Transaction(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        "expense",
+                        "交通",
+                        "",
+                        300L,
+                        LocalDate.of(2026, 9, 30),
+                        LocalTime.NOON,
+                        9700L,
+                        9700L);
+        assertThat(codec.decode(codec.encode(transaction))).isEqualTo(transaction);
+        String legacy = codec.encode(transaction).replace(",\"balanceAfterInCents\":9700", "");
+        assertThat(codec.decode(legacy).balanceAfterInCents()).isNull();
+    }
+
     private FinanceDtos.CreateTransaction request(UUID account, String category, String note) {
         return new FinanceDtos.CreateTransaction(
                 account,

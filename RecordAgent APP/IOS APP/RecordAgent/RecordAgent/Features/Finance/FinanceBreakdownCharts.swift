@@ -42,6 +42,10 @@ struct FinanceAccountChart: View {
                                         Capsule().fill(color.opacity(0.08))
                                         Capsule().fill(color.gradient)
                                             .frame(width: geometry.size.width * Double(amount(row)) / Double(maximum))
+                                            .modifier(
+                                                FinanceChartReveal(
+                                                    key: "\(insights.period.key)-\(mode)-\(amount(row))-\(maximum)")
+                                            )
                                     }.frame(height: 10).accessibilityHidden(true)
                                 }.padding(.vertical, 4).contentShape(Rectangle())
                             }.buttonStyle(.plain).accessibilityAddTraits(selectedID == row.id ? .isSelected : [])
@@ -121,6 +125,11 @@ struct FinanceRankingChart: View {
                             Capsule().fill(FinanceVisualStyle.category(entry.category).opacity(0.1))
                             Capsule().fill(FinanceVisualStyle.category(entry.category).gradient)
                                 .frame(width: geometry.size.width * share(entry))
+                                .modifier(
+                                    FinanceChartReveal(
+                                        key:
+                                            "\(insights.period.key)-\(groupsCategories)-\(entry.amount)-\(insights.expense)"
+                                    ))
                         }.frame(height: 7).accessibilityHidden(true)
                     }.padding(.vertical, 5).accessibilityElement(children: .combine)
                 }

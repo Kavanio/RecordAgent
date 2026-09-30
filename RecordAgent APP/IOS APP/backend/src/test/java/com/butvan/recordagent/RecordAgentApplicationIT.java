@@ -90,7 +90,7 @@ class RecordAgentApplicationIT {
                 jdbcTemplate.queryForObject(
                         "SELECT count(*) FROM flyway_schema_history WHERE success = true",
                         Integer.class);
-        assertThat(migrationCount).isEqualTo(6);
+        assertThat(migrationCount).isEqualTo(7);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(
                         jdbcTemplate.queryForObject(
@@ -632,6 +632,7 @@ class RecordAgentApplicationIT {
             var first = results.getFirst().get();
             for (var result : results) assertThat(result.get()).isEqualTo(first);
             assertThat(first.balanceInCents()).isEqualTo(900);
+            assertThat(first.balanceAfterInCents()).isEqualTo(900L);
             assertThat(finance.accounts(owner).getFirst().balanceInCents()).isEqualTo(900);
             assertThat(
                             jdbcTemplate.queryForObject(
@@ -663,6 +664,67 @@ class RecordAgentApplicationIT {
                 .isInstanceOfSatisfying(
                         ApiException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ApiErrorCode.NOT_FOUND));
+    }
+
+    @Test
+    void transactionBalancesRemainSnapshotsAfterLaterAndBackdatedExpenses() {
+        UUID owner = UUID.randomUUID();
+        insertUser(owner);
+        var account = finance.createAccount(owner, new FinanceDtos.CreateAccount("微信余额", 10000L));
+        var day = LocalDate.of(2026, 9, 30);
+        var subway =
+                finance.createTransaction(
+                        owner,
+                        new FinanceDtos.CreateTransaction(
+                                account.id(),
+                                "expense",
+                                "交通",
+                                "地铁",
+                                300L,
+                                day,
+                                LocalTime.of(9, 0),
+                                "Asia/Shanghai"));
+        var tea =
+                finance.createTransaction(
+                        owner,
+                        new FinanceDtos.CreateTransaction(
+                                account.id(),
+                                "expense",
+                                "奶茶",
+                                "",
+                                1000L,
+                                day,
+                                LocalTime.NOON,
+                                "Asia/Shanghai"));
+        assertThat(subway.balanceAfterInCents()).isEqualTo(9700L);
+        assertThat(tea.balanceAfterInCents()).isEqualTo(8700L);
+        finance.createTransaction(
+                owner,
+                new FinanceDtos.CreateTransaction(
+                        account.id(),
+                        "expense",
+                        "餐饮",
+                        "补录",
+                        500L,
+                        day.minusDays(1),
+                        LocalTime.NOON,
+                        "Asia/Shanghai"));
+        var rows = finance.day(owner, day);
+        assertThat(rows)
+                .extracting(FinanceDtos.Transaction::balanceAfterInCents)
+                .containsExactly(9700L, 8700L);
+        assertThat(rows).allSatisfy(row -> assertThat(row.balanceInCents()).isEqualTo(8200L));
+        var page =
+                finance.monthPage(
+                        owner, java.time.YearMonth.from(day), "expense", account.id(), "", 0, 50);
+        assertThat(page.items())
+                .filteredOn(row -> row.id().equals(subway.id()))
+                .singleElement()
+                .satisfies(row -> assertThat(row.balanceAfterInCents()).isEqualTo(9700L));
+        jdbcTemplate.update(
+                "UPDATE record.finance_transaction SET balance_after_minor=NULL WHERE id=?",
+                subway.id());
+        assertThat(finance.day(owner, day).getFirst().balanceAfterInCents()).isNull();
     }
 
     @Test
@@ -817,8 +879,24 @@ class RecordAgentApplicationIT {
                 "INSERT INTO record.finance_account(id,owner_id,name,account_type,currency,balance_minor) VALUES(?,?,'旧账户','cash','CNY',123)",
                 UUID.randomUUID(),
                 owner);
+        UUID oldAccount =
+                oldJdbc.queryForObject(
+                        "SELECT id FROM record.finance_account WHERE owner_id=?",
+                        UUID.class,
+                        owner);
+        oldJdbc.update(
+                "INSERT INTO record.finance_transaction(id,owner_id,account_id,transaction_date,transaction_time,transaction_type,amount_minor,currency) VALUES(?,?,?, '2026-09-30','12:00:00','expense',50,'CNY')",
+                UUID.randomUUID(),
+                owner,
+                oldAccount);
         assertThat(Flyway.configure().dataSource(source).load().migrate().migrationsExecuted)
-                .isEqualTo(2);
+                .isEqualTo(3);
+        assertThat(
+                        oldJdbc.queryForObject(
+                                "SELECT balance_after_minor FROM record.finance_transaction WHERE owner_id=?",
+                                Long.class,
+                                owner))
+                .isNull();
         assertThat(
                         oldJdbc.queryForObject(
                                 "SELECT balance_minor FROM record.finance_account WHERE owner_id=?",

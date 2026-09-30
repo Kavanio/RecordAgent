@@ -2,9 +2,14 @@ import SwiftUI
 
 /// 收支语义色与稳定分类色统一用于摘要、流水、图表及详情。
 enum FinanceVisualStyle {
-    static let expense = Color(red: 0.83, green: 0.32, blue: 0.24)
-    static let income = Color(red: 0.16, green: 0.53, blue: 0.44)
-    static let palette: [Color] = [expense, .indigo, income, .orange, .purple, .teal, .pink, .blue]
+    static let expense = Color(red: 0.32, green: 0.47, blue: 0.57)
+    static let income = Color(red: 0.34, green: 0.49, blue: 0.41)
+    static let palette: [Color] = [
+        expense, income, Color(red: 0.67, green: 0.52, blue: 0.35),
+        Color(red: 0.55, green: 0.48, blue: 0.65), Color(red: 0.66, green: 0.43, blue: 0.40),
+        Color(red: 0.38, green: 0.55, blue: 0.56), Color(red: 0.59, green: 0.52, blue: 0.43),
+        Color(red: 0.45, green: 0.51, blue: 0.66),
+    ]
     static func category(_ name: String) -> Color {
         let hash = name.utf8.reduce(UInt64(5381)) { ($0 &* 33) &+ UInt64($1) }
         return palette[Int(hash % UInt64(palette.count))]
