@@ -30,4 +30,7 @@ public interface FinanceService {
     /** 分页读取本人账户；页大小遵守统一明细上限。 */
     com.butvan.recordagent.dto.query.Page<FinanceDtos.Account> accountsPage(UUID owner, int offset, int limit);
 
+    /** 幂等收支写入；同用户同键同请求返回首次响应，换请求返回 409。null 仅兼容旧客户端。 */
+    FinanceDtos.Transaction createTransaction(UUID owner, FinanceDtos.CreateTransaction request, UUID requestId);
+
 }

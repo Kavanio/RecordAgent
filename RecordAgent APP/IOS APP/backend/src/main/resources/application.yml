@@ -35,6 +35,8 @@ recordagent:
     access-token-minutes: ${RECORDAGENT_ACCESS_TOKEN_MINUTES:15}
     refresh-token-days: ${RECORDAGENT_REFRESH_TOKEN_DAYS:30}
     password-attempts: ${RECORDAGENT_PASSWORD_ATTEMPTS:10}
+    request-attempts: ${RECORDAGENT_AUTH_REQUEST_ATTEMPTS:60}
+    request-window-seconds: ${RECORDAGENT_AUTH_REQUEST_WINDOW_SECONDS:60}
     password-window-seconds: ${RECORDAGENT_PASSWORD_WINDOW_SECONDS:60}
   reading:
     day-limit: ${RECORDAGENT_DAY_LIMIT:200}

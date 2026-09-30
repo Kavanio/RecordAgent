@@ -44,11 +44,11 @@ actor APIClient {
 
     func send(
         _ path: String, method: String = "GET", query: [URLQueryItem] = [],
-        body: Data? = nil, authenticated: Bool = true
+        body: Data? = nil, authenticated: Bool = true, idempotencyKey: UUID? = nil
     ) async throws -> Data {
         let server = try APIConfiguration.serverIdentity()
         if !authenticated {
-            let response = try await perform(path, method: method, query: query, body: body, token: nil)
+            let response = try await perform(path, method: method, query: query, body: body, token: nil, idempotencyKey: idempotencyKey)
             return try accepted(response)
         }
         guard var current = keychain.getAPISession(server: server) else {
@@ -57,10 +57,10 @@ actor APIClient {
         if current.expiresAt.map({ $0 <= Date().addingTimeInterval(30) }) == true {
             current = try await refresh(current, server: server)
         }
-        var response = try await perform(path, method: method, query: query, body: body, token: current.token)
+        var response = try await perform(path, method: method, query: query, body: body, token: current.token, idempotencyKey: idempotencyKey)
         if response.1.statusCode == 401 {
             current = try await refresh(current, server: server)
-            response = try await perform(path, method: method, query: query, body: body, token: current.token)
+            response = try await perform(path, method: method, query: query, body: body, token: current.token, idempotencyKey: idempotencyKey)
         }
         if response.1.statusCode == 401 { invalidateSession() }
         return try accepted(response)
@@ -133,7 +133,7 @@ actor APIClient {
 
     private func perform(
         _ path: String, method: String, query: [URLQueryItem] = [], body: Data? = nil,
-        token: String?
+        token: String?, idempotencyKey: UUID? = nil
     ) async throws -> (Data, HTTPURLResponse) {
         let base = try APIConfiguration.baseURL()
         guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
@@ -147,6 +147,9 @@ actor APIClient {
         request.timeoutInterval = 12
         request.setValue("*/*", forHTTPHeaderField: "Accept")
         if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
+        if let idempotencyKey {
+            request.setValue(idempotencyKey.uuidString, forHTTPHeaderField: "Idempotency-Key")
+        }
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         do {
             let (data, response) = try await session.data(for: request)

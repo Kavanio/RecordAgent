@@ -42,6 +42,10 @@ public class BusinessProperties {
         private int passwordAttempts = 10;
         @Min(1) @Max(3600)
         private int passwordWindowSeconds = 60;
+        @Min(1) @Max(1000)
+        private int requestAttempts = 60;
+        @Min(1) @Max(3600)
+        private int requestWindowSeconds = 60;
     }
 
     /** 文件存储位置与 JPEG 上限；最大只允许 2 MB，不能放宽工程契约。 */

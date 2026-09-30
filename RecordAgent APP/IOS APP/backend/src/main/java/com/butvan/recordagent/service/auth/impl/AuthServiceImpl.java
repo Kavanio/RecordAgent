@@ -28,6 +28,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class AuthServiceImpl implements AuthService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private final com.butvan.recordagent.config.BusinessProperties properties;
+    private final com.butvan.recordagent.service.auth.AuthenticationRateLimiter limiter;
     private final AuthRepository store;
     private final PasswordEncoder encoder;
     private final MailService mail;
@@ -59,6 +60,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthDtos.Session register(AuthDtos.RegisterRequest request) {
+        validatePassword(request.password());
         String email = normalize(request.email());
         AuthDtos.Session result = transactions.execute(status -> {
             if (!verify(email, "register", request.code())) {
@@ -84,8 +86,11 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthDtos.Session passwordLogin(AuthDtos.PasswordLoginRequest request) {
-        var account = store.findByEmail(normalize(request.email()));
-        if (account.isEmpty() || !encoder.matches(request.password(), account.get().passwordHash())) {
+        String email = normalize(request.email());
+        if (!limiter.consume("password_email",email,properties.getAuth().getPasswordWindowSeconds(),properties.getAuth().getPasswordAttempts()))
+            throw error(ApiErrorCode.RATE_LIMITED);
+        var account = store.findByEmail(email);
+        if (request.password().getBytes(StandardCharsets.UTF_8).length > 72 || account.isEmpty() || !encoder.matches(request.password(), account.get().passwordHash())) {
             throw error(ApiErrorCode.UNAUTHENTICATED);
         }
         return issue(account.get().user());
@@ -118,6 +123,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void resetPassword(AuthDtos.ResetPasswordRequest request) {
+        validatePassword(request.newPassword());
         String email = normalize(request.email());
         Boolean changed = transactions.execute(status -> {
             if (!verify(email, "reset_password", request.code())) {
@@ -182,6 +188,11 @@ public class AuthServiceImpl implements AuthService {
         RANDOM.nextBytes(digits);
         int number = (int) (Integer.toUnsignedLong(ByteBuffer.wrap(digits).getInt()) % 1_000_000);
         return "%06d".formatted(number);
+    }
+
+    /** BCrypt 的输入上限是 72 字节，按 UTF-8 校验，避免多字节密码落入 500。 */
+    private static void validatePassword(String password) {
+        if (password.getBytes(StandardCharsets.UTF_8).length > 72) throw error(ApiErrorCode.INVALID_ARGUMENT);
     }
 
     private static String normalize(String email) {

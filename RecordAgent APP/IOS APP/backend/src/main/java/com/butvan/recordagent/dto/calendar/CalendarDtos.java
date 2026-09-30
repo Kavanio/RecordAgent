@@ -16,7 +16,7 @@ public final class CalendarDtos {
             @Size(max = 10000) String detail, @NotNull LocalDate date, LocalTime time,
             @NotBlank String timeZone, @NotBlank String recurrence) {}
     public record Created(UUID id, long version) {}
-    public record CompleteOccurrence(@NotNull Boolean completed, @NotNull Long expectedVersion) {}
+    public record CompleteOccurrence(@NotNull Boolean completed, @NotNull @jakarta.validation.constraints.PositiveOrZero Long expectedVersion) {}
     public record Occurrence(UUID id, LocalDate date, boolean completed, long version) {}
     public record Todo(UUID id, String title, String detail, LocalDate date, LocalTime time,
             String recurrence, boolean completed, long version) {}

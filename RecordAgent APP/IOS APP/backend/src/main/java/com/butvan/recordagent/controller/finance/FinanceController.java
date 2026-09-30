@@ -39,8 +39,9 @@ public class FinanceController {
     @ApiLog("记录收支流水")
     @PostMapping("/transactions")
     public FinanceDtos.Transaction createTransaction(@AuthenticationPrincipal AuthenticatedUser user,
-            @Valid @RequestBody FinanceDtos.CreateTransaction request) {
-        return finance.createTransaction(user.userId(), request);
+            @Valid @RequestBody FinanceDtos.CreateTransaction request,
+            @org.springframework.web.bind.annotation.RequestHeader(value="Idempotency-Key",required=false) java.util.UUID requestId) {
+        return finance.createTransaction(user.userId(), request, requestId);
     }
 
     @ApiLog("读取当日收支流水")

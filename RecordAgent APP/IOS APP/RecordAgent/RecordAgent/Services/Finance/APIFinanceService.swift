@@ -9,6 +9,8 @@ struct FinanceAccount: Decodable, Identifiable, Sendable, Equatable {
 }
 
 struct FinanceTransactionDraft: Sendable {
+    /// 同一草稿重试使用相同请求 ID；编辑后建立新草稿以生成新 ID。
+    let requestId = UUID()
     let accountId: String
     let type: String
     let category: String
@@ -26,6 +28,7 @@ protocol FinanceServiceProtocol: Sendable {
 /// 财务 API 的请求、响应和自然日映射集中在服务层。
 actor APIFinanceService: FinanceServiceProtocol {
     private let client: APIClient
+    private var submission = FinanceSubmissionState()
 
     init(client: APIClient) { self.client = client }
 
@@ -51,7 +54,10 @@ actor APIFinanceService: FinanceServiceProtocol {
             category: draft.category.trimmingCharacters(in: .whitespacesAndNewlines),
             note: draft.note, amountInCents: draft.amountInCents,
             date: date, time: time, timeZone: TimeZone.current.identifier))
-        _ = try await client.send("/api/v1/finance/transactions", method: "POST", body: body)
+        let key = submission.key(for: body, preferred: draft.requestId)
+        _ = try await client.send("/api/v1/finance/transactions", method: "POST", body: body, idempotencyKey: key)
+        submission.completed(key)
+
     }
 }
 
@@ -69,4 +75,20 @@ private struct CreateTransactionRequest: Encodable {
     let date: String
     let time: String
     let timeZone: String
+}
+
+/// 保存尚未确认成功的单个请求 ID；同内容重试复用键，成功后新的提交生成新键。
+/// 状态仅在当前进程内保留，不承诺重启或离线写入恢复。
+struct FinanceSubmissionState {
+    private var pending: (body: Data, key: UUID)?
+
+    mutating func key(for body: Data, preferred: UUID) -> UUID {
+        if let pending, pending.body == body { return pending.key }
+        pending = (body, preferred)
+        return preferred
+    }
+
+    mutating func completed(_ key: UUID) {
+        if pending?.key == key { pending = nil }
+    }
 }

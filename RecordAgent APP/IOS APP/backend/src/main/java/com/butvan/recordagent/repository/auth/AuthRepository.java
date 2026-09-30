@@ -75,7 +75,9 @@ public class AuthRepository {
                 rs.getObject(1, OffsetDateTime.class), email, purpose));
     }
 
+    /** 新码登记时撤销同用途旧码，防止最新码消费后回退到旧码。 */
     public void createChallenge(UUID id, String email, String purpose, String hash, OffsetDateTime expires) {
+        jdbc.update("UPDATE record.email_challenge SET consumed_at=now() WHERE email_normalized=? AND purpose=? AND consumed_at IS NULL",email,purpose);
         jdbc.update("INSERT INTO record.email_challenge(id,email_normalized,purpose,code_hash,expires_at) "
                 + "VALUES(?,?,?,?,?)", id, email, purpose, hash, expires);
     }
@@ -95,8 +97,8 @@ public class AuthRepository {
     }
 
     public Optional<SessionRow> accessSession(String hash) {
-        return first(jdbc.query("SELECT id,user_id,access_expires_at FROM record.auth_session "
-                + "WHERE access_token_hash=? AND revoked_at IS NULL AND access_expires_at>now() AND expires_at>now()",
+        return first(jdbc.query("SELECT s.id,s.user_id,s.access_expires_at FROM record.auth_session s JOIN record.app_user u ON u.id=s.user_id "
+                + "WHERE s.access_token_hash=? AND s.revoked_at IS NULL AND s.access_expires_at>now() AND s.expires_at>now() AND u.status='active'",
                 (rs, n) -> new SessionRow(rs.getObject(1, UUID.class), rs.getObject(2, UUID.class),
                         rs.getObject(3, OffsetDateTime.class)), hash));
     }

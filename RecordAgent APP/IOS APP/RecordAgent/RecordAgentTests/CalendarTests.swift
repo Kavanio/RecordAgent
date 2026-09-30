@@ -3,6 +3,21 @@ import XCTest
 @testable import RecordAgent
 
 final class CalendarTests: XCTestCase {
+    func testFinancialRetryPreservesKeyUntilSuccessOrContentChanges() {
+        var submission = FinanceSubmissionState()
+        let body = Data("same request".utf8)
+        let first = UUID()
+        XCTAssertEqual(submission.key(for: body, preferred: first), first)
+        XCTAssertEqual(submission.key(for: body, preferred: UUID()), first)
+        submission.completed(first)
+        let next = UUID()
+        XCTAssertEqual(submission.key(for: body, preferred: next), next)
+        let changed = UUID()
+        XCTAssertEqual(submission.key(for: Data("changed request".utf8), preferred: changed), changed)
+        submission.completed(next)
+        XCTAssertEqual(submission.key(for: Data("changed request".utf8), preferred: UUID()), changed)
+    }
+
     private var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!

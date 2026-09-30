@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class FinanceServiceImpl implements FinanceService {
     private final FinanceRepository store;
+    private final com.butvan.recordagent.service.finance.FinanceRequestCodec codec;
     private final com.butvan.recordagent.service.query.ReadBounds bounds;
 
     @Override
@@ -42,6 +43,24 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public FinanceDtos.Transaction createTransaction(UUID owner, FinanceDtos.CreateTransaction request) {
+        return createTransaction(owner,request,null);
+    }
+
+    /** 同一用户同一幂等键先串行化，再查询提交结果，最后才修改余额。 */
+    @Override
+    @Transactional
+    public FinanceDtos.Transaction createTransaction(UUID owner, FinanceDtos.CreateTransaction request, UUID requestId) {
+        String hash = requestId == null ? null : codec.hash(request);
+        if (requestId != null) {
+            store.lockRequest(owner,requestId);
+            var cached=store.request(owner,requestId);
+            if (cached.isPresent()) {
+                if (!cached.get().hash().equals(hash))
+                    throw new ApiException(ApiErrorCode.VERSION_CONFLICT,"idempotency key reused");
+                return codec.decode(cached.get().response());
+            }
+        }
+
         if (!List.of("expense", "income").contains(request.type())) {
             throw new ApiException(ApiErrorCode.INVALID_ARGUMENT, "invalid transaction type");
         }
@@ -66,9 +85,11 @@ public class FinanceServiceImpl implements FinanceService {
                 request.note() == null ? "" : request.note().strip(), request.amountInCents(),
                 request.date(), request.time());
         store.updateBalance(owner, account.id(), balance);
-        return new FinanceDtos.Transaction(id, account.id(), request.type(),
+        var result = new FinanceDtos.Transaction(id, account.id(), request.type(),
                 categoryName, request.note() == null ? "" : request.note().strip(),
                 request.amountInCents(), request.date(), request.time(), balance);
+        if (requestId != null) store.rememberRequest(owner,requestId,hash,id,codec.encode(result));
+        return result;
     }
 
     @Override

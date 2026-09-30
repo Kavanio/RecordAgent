@@ -119,4 +119,31 @@ public class FinanceRepository {
                 + "WHERE owner_id=? AND transaction_date=? AND transaction_type='expense'", Long.class, owner, date);
     }
 
+    /** 序列化同一用户与幂等键的写入；与余额更新使用同一个数据库事务。 */
+    public void lockRequest(UUID owner, UUID requestId) {
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("幂等锁必须在事务内取得");
+        jdbc.execute("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",
+                (org.springframework.jdbc.core.PreparedStatementCallback<Void>) statement -> {
+                    statement.setString(1,"recordagent:finance:" + owner + ":" + requestId);
+                    statement.execute();
+                    return null;
+                });
+    }
+
+    /** 幂等响应快照属于原始用户，摘要用来检测同一键承载不同请求。 */
+    public record WriteRequest(String hash, String response) {}
+
+    /** 读取成功提交的原始响应；没有缓存表示上次未成功提交。 */
+    public Optional<WriteRequest> request(UUID owner, UUID requestId) {
+        return jdbc.query("SELECT request_hash,response_body::text FROM record.finance_write_request WHERE owner_id=? AND request_id=?",
+                (rs,n) -> new WriteRequest(rs.getString(1),rs.getString(2)),owner,requestId).stream().findFirst();
+    }
+
+    /** 缓存和余额、流水一起提交；失败回滚后允许同一键安全重试。 */
+    public void rememberRequest(UUID owner,UUID requestId,String hash,UUID transactionId,String response) {
+        jdbc.update("INSERT INTO record.finance_write_request(owner_id,request_id,request_hash,transaction_id,response_body) VALUES(?,?,?,?,?::jsonb)",
+                owner,requestId,hash,transactionId,response);
+    }
+
 }

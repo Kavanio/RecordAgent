@@ -65,7 +65,7 @@ class RecordAgentApplicationIT {
     void migratesFreshDatabaseAndExposesOnlyHealth() throws Exception {
         Integer migrationCount = jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM flyway_schema_history WHERE success = true", Integer.class);
-        assertThat(migrationCount).isEqualTo(4);
+        assertThat(migrationCount).isEqualTo(5);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'record'", Integer.class))
@@ -272,6 +272,115 @@ class RecordAgentApplicationIT {
                 """,UUID.randomUUID(),owner);
         assertThat(study.minutesOn(owner,java.time.LocalDate.of(2026,3,8),"America/New_York")).isEqualTo(1380);
         assertThat(study.month(owner,java.time.YearMonth.of(2026,3),"America/New_York")).hasSize(1);
+    }
+
+    @Autowired private com.butvan.recordagent.service.auth.AuthenticationRateLimiter limiter;
+    @Autowired private com.butvan.recordagent.service.auth.AuthService auth;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.butvan.recordagent.service.mail.MailService mail;
+
+    @Test
+    void concurrentRetriesWriteOneTransactionAndReplayOriginalBalance() throws Exception {
+        UUID owner=UUID.randomUUID(); insertUser(owner);
+        var account=finance.createAccount(owner,new com.butvan.recordagent.dto.finance.FinanceDtos.CreateAccount("并发",1000L));
+        var request=new com.butvan.recordagent.dto.finance.FinanceDtos.CreateTransaction(account.id(),"expense","分类","备注",100L,
+                java.time.LocalDate.of(2026,9,30),java.time.LocalTime.NOON,"Asia/Shanghai");
+        UUID key=UUID.randomUUID();
+        try (var executor=java.util.concurrent.Executors.newFixedThreadPool(4)) {
+            var tasks=java.util.stream.IntStream.range(0,8).mapToObj(i ->
+                    (java.util.concurrent.Callable<com.butvan.recordagent.dto.finance.FinanceDtos.Transaction>) () -> finance.createTransaction(owner,request,key)).toList();
+            var results=executor.invokeAll(tasks);
+            var first=results.getFirst().get();
+            for (var result:results) assertThat(result.get()).isEqualTo(first);
+            assertThat(first.balanceInCents()).isEqualTo(900);
+            assertThat(finance.accounts(owner).getFirst().balanceInCents()).isEqualTo(900);
+            assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM record.finance_transaction WHERE owner_id=?",Integer.class,owner)).isEqualTo(1);
+            finance.createTransaction(owner,request,UUID.randomUUID());
+            assertThat(finance.createTransaction(owner,request,key).balanceInCents()).isEqualTo(900);
+        }
+        var different=new com.butvan.recordagent.dto.finance.FinanceDtos.CreateTransaction(account.id(),"expense","分类","备注",101L,
+                request.date(),request.time(),request.timeZone());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> finance.createTransaction(owner,different,key))
+                .isInstanceOfSatisfying(com.butvan.recordagent.handler.ApiException.class,e ->
+                    assertThat(e.errorCode()).isEqualTo(com.butvan.recordagent.handler.ApiErrorCode.VERSION_CONFLICT));
+        UUID other=UUID.randomUUID();insertUser(other);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> finance.createTransaction(other,request,key))
+                .isInstanceOfSatisfying(com.butvan.recordagent.handler.ApiException.class,e ->
+                    assertThat(e.errorCode()).isEqualTo(com.butvan.recordagent.handler.ApiErrorCode.NOT_FOUND));
+    }
+
+    @Test
+    void failedFinancialWriteRollsBackAndAllowsSameKeyRetry() {
+        UUID owner=UUID.randomUUID();insertUser(owner);
+        var account=finance.createAccount(owner,new com.butvan.recordagent.dto.finance.FinanceDtos.CreateAccount("重试",0L));
+        var expense=new com.butvan.recordagent.dto.finance.FinanceDtos.CreateTransaction(account.id(),"expense",null,null,100L,
+                java.time.LocalDate.of(2026,9,30),java.time.LocalTime.NOON,"Asia/Shanghai");
+        UUID key=UUID.randomUUID();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> finance.createTransaction(owner,expense,key))
+                .isInstanceOf(com.butvan.recordagent.handler.ApiException.class);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM record.finance_write_request WHERE owner_id=?",Integer.class,owner)).isZero();
+        var income=new com.butvan.recordagent.dto.finance.FinanceDtos.CreateTransaction(account.id(),"income",null,null,100L,
+                expense.date(),expense.time(),expense.timeZone());
+        finance.createTransaction(owner,income,UUID.randomUUID());
+        assertThat(finance.createTransaction(owner,expense,key).balanceInCents()).isZero();
+    }
+
+    @Test
+    void rateLimitIsSharedAtomicAndExpiredWindowResets() throws Exception {
+        String scope="test_quota";
+        String key=UUID.randomUUID().toString();
+        try (var executor=java.util.concurrent.Executors.newFixedThreadPool(4)) {
+            var tasks=java.util.stream.IntStream.range(0,12).mapToObj(i ->
+                    (java.util.concurrent.Callable<Boolean>) () -> limiter.consume(scope,key,60,3)).toList();
+            int allowed=0;
+            for (var result:executor.invokeAll(tasks)) if (result.get()) allowed++;
+            assertThat(allowed).isEqualTo(3);
+        }
+        jdbcTemplate.update("UPDATE record.auth_rate_bucket SET window_start=now()-interval '2 minutes' WHERE scope=?",scope);
+        assertThat(limiter.consume(scope,key,60,3)).isTrue();
+    }
+
+    @Test
+    void authenticationRevokesSessionsAndFailedCodeAttemptsRemainCommitted() {
+        String email=UUID.randomUUID()+"@example.test";
+        java.util.concurrent.atomic.AtomicReference<String> code=new java.util.concurrent.atomic.AtomicReference<>();
+        org.mockito.Mockito.doAnswer(call -> {code.set(call.getArgument(1));return null;}).when(mail).send(org.mockito.ArgumentMatchers.eq(email),org.mockito.ArgumentMatchers.anyString());
+        auth.sendCode(new com.butvan.recordagent.dto.auth.AuthDtos.CodeRequest(email,"register"));
+        var session=auth.register(new com.butvan.recordagent.dto.auth.AuthDtos.RegisterRequest(email,code.get(),"valid-password"));
+        assertThat(auth.accessSession(session.token())).isPresent();
+        var refreshed=auth.refresh(session.refreshToken());
+        assertThat(auth.accessSession(session.token())).isEmpty();
+        auth.logout(auth.accessSession(refreshed.token()).orElseThrow().id());
+        assertThat(auth.accessSession(refreshed.token())).isEmpty();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> auth.refresh(refreshed.refreshToken())).isInstanceOf(com.butvan.recordagent.handler.ApiException.class);
+        var active=auth.passwordLogin(new com.butvan.recordagent.dto.auth.AuthDtos.PasswordLoginRequest(email,"valid-password"));
+        jdbcTemplate.update("UPDATE record.app_user SET status='disabled' WHERE id=?",active.user().id());
+        assertThat(auth.accessSession(active.token())).isEmpty();
+        jdbcTemplate.update("UPDATE record.app_user SET status='active' WHERE id=?",active.user().id());
+        auth.sendCode(new com.butvan.recordagent.dto.auth.AuthDtos.CodeRequest(email,"reset_password"));
+        auth.resetPassword(new com.butvan.recordagent.dto.auth.AuthDtos.ResetPasswordRequest(email,code.get(),"replacement-password"));
+        assertThat(auth.accessSession(active.token())).isEmpty();
+        auth.sendCode(new com.butvan.recordagent.dto.auth.AuthDtos.CodeRequest(email,"login"));
+        String valid=code.get();
+        for (int i=0;i<5;i++) org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                auth.codeLogin(new com.butvan.recordagent.dto.auth.AuthDtos.CodeLoginRequest(email,"invalid")))
+                .isInstanceOf(com.butvan.recordagent.handler.ApiException.class);
+        assertThat(jdbcTemplate.queryForObject("SELECT attempt_count FROM record.email_challenge WHERE email_normalized=? AND purpose='login'",Integer.class,email)).isEqualTo(5);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> auth.codeLogin(new com.butvan.recordagent.dto.auth.AuthDtos.CodeLoginRequest(email,valid)))
+                .isInstanceOf(com.butvan.recordagent.handler.ApiException.class);
+    }
+
+    @Test
+    void passwordLoginLimitReturnsSafeHttp429() throws Exception {
+        String email=UUID.randomUUID()+"@example.test";
+        var body=new com.butvan.recordagent.dto.auth.AuthDtos.PasswordLoginRequest(email,"wrong-password");
+        for (int index=0;index<11;index++) {
+            var result=restTemplate.postForEntity("http://localhost:"+port+"/api/v1/auth/password-login",body,String.class);
+            assertThat(result.getStatusCode()).isEqualTo(index<10 ? HttpStatus.UNAUTHORIZED : HttpStatus.TOO_MANY_REQUESTS);
+            var error=objectMapper.readTree(result.getBody());
+            assertThat(error.path("requestId").asText()).isEqualTo(result.getHeaders().getFirst(RequestIdFilter.HEADER_NAME));
+            assertThat(result.getBody()).doesNotContain(email).doesNotContain("wrong-password");
+        }
     }
 
     private void insertUser(UUID id) {

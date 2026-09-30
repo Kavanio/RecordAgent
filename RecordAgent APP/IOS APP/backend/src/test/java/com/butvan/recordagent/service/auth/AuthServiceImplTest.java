@@ -36,7 +36,7 @@ class AuthServiceImplTest {
     void setUp() {
         when(transactions.execute(any())).thenAnswer(invocation ->
                 ((TransactionCallback<?>) invocation.getArgument(0)).doInTransaction(null));
-        service = new AuthServiceImpl(new com.butvan.recordagent.config.BusinessProperties(), store, encoder, mail, transactions);
+        service = new AuthServiceImpl(new com.butvan.recordagent.config.BusinessProperties(), mock(com.butvan.recordagent.service.auth.AuthenticationRateLimiter.class), store, encoder, mail, transactions);
     }
 
     @Test

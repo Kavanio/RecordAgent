@@ -10,5 +10,5 @@ public final class ProfileDtos {
 
     public record Appearance(String nickname, UUID avatarFileId, UUID coverFileId, long version) {}
     public record Update(@Size(max = 32) String nickname, UUID avatarFileId, UUID coverFileId,
-            @NotNull Long expectedVersion) {}
+            @NotNull @jakarta.validation.constraints.PositiveOrZero Long expectedVersion) {}
 }
