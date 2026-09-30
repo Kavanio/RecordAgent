@@ -27,6 +27,41 @@ final class CalendarTests: XCTestCase {
         calendar.date(from: DateComponents(year: year, month: month, day: day))!
     }
 
+    func testDailyTodosStartOnSelectedDayAndCompletionIsIndependent() async throws {
+        let start = date(2026, 10, 1)
+        let next = date(2026, 10, 2)
+        let service = MockHomeDataService(now: date(2026, 9, 26), calendar: calendar)
+        try await service.createEntry(
+            CalendarEntryDraft(title: "每日阅读", date: start, period: .daily))
+        try await service.createEntry(CalendarEntryDraft(title: "一次性待办", date: start))
+        let before = try await service.snapshot(for: date(2026, 9, 30), locale: .current)
+        XCTAssertFalse(before.entries.contains { $0.title == "每日阅读" })
+        let first = try await service.snapshot(for: start, locale: .current)
+        let daily = try XCTUnwrap(first.entries.first { $0.title == "每日阅读" })
+        XCTAssertTrue(first.entries.contains { $0.title == "一次性待办" })
+        try await service.setTodoCompleted(id: daily.id, completed: true, date: start)
+        let completed = try await service.snapshot(for: start, locale: .current)
+        XCTAssertTrue(try XCTUnwrap(completed.entries.first { $0.id == daily.id }).isCompleted)
+        let following = try await service.snapshot(for: next, locale: .current)
+        let nextDaily = try XCTUnwrap(following.entries.first { $0.title == "每日阅读" })
+        XCTAssertFalse(nextDaily.isCompleted)
+        XCTAssertNotEqual(nextDaily.id, daily.id)
+        XCTAssertFalse(following.entries.contains { $0.title == "一次性待办" })
+        let notes = try await service.periodicTodos(for: start, locale: .current)
+        XCTAssertFalse(notes.contains { $0.period == .daily })
+    }
+
+    func testDailyPeriodUsesNaturalDaysAcrossDaylightSaving() throws {
+        var local = calendar
+        local.timeZone = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        let start = try XCTUnwrap(local.date(from: DateComponents(year: 2026, month: 3, day: 8)))
+        let next = try XCTUnwrap(local.date(byAdding: .day, value: 1, to: start))
+        let dates = HomeCalendar(calendar: local)
+        XCTAssertEqual(dates.periodEnd(.daily, containing: start), start)
+        XCTAssertEqual(dates.periodEnd(.daily, containing: next), next)
+        XCTAssertEqual(next.timeIntervalSince(start), 23 * 3600)
+    }
+
     func testTimelineGapsReflectElapsedMinutesAndLimitLongEmptyPeriods() {
         let morning = date(2026, 9, 26).addingTimeInterval(9 * 3600)
         let halfHour = morning.addingTimeInterval(30 * 60)

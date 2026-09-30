@@ -1,7 +1,9 @@
 import Foundation
 
 enum CalendarTodoPeriod: String, CaseIterable, Identifiable, Sendable {
-    case weekly, monthly
+    case daily, weekly, monthly
+    /// 便签仅展示周、月周期；每日待办进入对应日期的时间线。
+    static let notePeriods: [Self] = [.weekly, .monthly]
     var id: String { rawValue }
 }
 

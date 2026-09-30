@@ -109,6 +109,7 @@ struct HomeCalendar {
     }
 
     func periodEnd(_ period: CalendarTodoPeriod, containing date: Date) -> Date {
+        if period == .daily { return calendar.startOfDay(for: date) }
         if period == .weekly {
             let weekday = (calendar.component(.weekday, from: date) + 5) % 7
             return calendar.startOfDay(for: addingDays(6 - weekday, to: date))

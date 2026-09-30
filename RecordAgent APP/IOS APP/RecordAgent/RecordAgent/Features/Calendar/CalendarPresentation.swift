@@ -54,5 +54,11 @@ extension CalendarEntryDraft.Kind {
 }
 
 extension CalendarTodoPeriod {
-    var title: LocalizedStringKey { self == .weekly ? "calendar.week.todos" : "calendar.month.todos" }
+    var title: LocalizedStringKey {
+        switch self {
+        case .daily: return "calendar.repeat.day"
+        case .weekly: return "calendar.week.todos"
+        case .monthly: return "calendar.month.todos"
+        }
+    }
 }

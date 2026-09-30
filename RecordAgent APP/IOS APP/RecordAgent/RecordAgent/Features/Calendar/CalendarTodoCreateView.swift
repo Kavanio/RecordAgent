@@ -28,6 +28,7 @@ struct CalendarTodoCreateView: View {
                     .foregroundStyle(CalendarPalette.ink)
                 HStack(spacing: 8) {
                     repeatOption("calendar.repeat.none", period: nil)
+                    repeatOption("calendar.repeat.day", period: .daily)
                     repeatOption("calendar.repeat.week", period: .weekly)
                     repeatOption("calendar.repeat.month", period: .monthly)
                 }

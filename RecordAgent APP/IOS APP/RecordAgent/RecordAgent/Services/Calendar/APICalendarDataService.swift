@@ -65,7 +65,7 @@ actor APICalendarDataService: CalendarDataServiceProtocol {
     func periodicTodos(for date: Date, locale: Locale) async throws -> [CalendarTodoGroup] {
         let calendar = HomeCalendar()
         var result: [CalendarTodoGroup] = []
-        for period in CalendarTodoPeriod.allCases {
+        for period in CalendarTodoPeriod.notePeriods {
             let end = calendar.periodEnd(period, containing: date)
             let day = try await fetchDay(end)
             let matching = day.todos.filter { $0.recurrence == period.rawValue }

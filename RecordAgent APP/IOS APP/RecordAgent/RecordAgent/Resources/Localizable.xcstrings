@@ -2032,6 +2032,23 @@
         }
       }
     },
+    "calendar.repeat.day" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每日"
+          }
+        }
+      }
+    },
     "calendar.repeat.month" : {
       "extractionState" : "manual",
       "localizations" : {

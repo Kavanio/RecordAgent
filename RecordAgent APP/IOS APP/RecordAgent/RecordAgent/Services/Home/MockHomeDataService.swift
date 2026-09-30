@@ -57,7 +57,7 @@ import Foundation
 
         func periodicTodos(for date: Date, locale: Locale) async throws -> [CalendarTodoGroup] {
             try Task.checkCancellation()
-            return CalendarTodoPeriod.allCases.compactMap { period in
+            return CalendarTodoPeriod.notePeriods.compactMap { period in
                 let items = periodEntries(period, containing: date, locale: locale)
                 return items.isEmpty ? nil : CalendarTodoGroup(period: period, entries: items)
             }
@@ -81,7 +81,7 @@ import Foundation
             }
         }
 
-        /// 周/月待办按自然周期生成实例 ID；月待办只投影到月末，便签读取相同实例。
+        /// 日/周/月待办按自然周期生成实例 ID；周/月便签读取相同实例。
         private func periodEntries(
             _ period: CalendarTodoPeriod, containing day: Date, locale: Locale
         ) -> [HomeEntry] {
@@ -90,7 +90,7 @@ import Foundation
             let key = Int(end.timeIntervalSince1970)
             let currentEnd = dates.periodEnd(period, containing: today)
             var result: [HomeEntry] = []
-            if end >= currentEnd {
+            if period != .daily, end >= currentEnd {
                 let keys: [String.LocalizationValue] =
                     period == .weekly
                     ? [
