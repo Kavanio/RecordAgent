@@ -18,7 +18,8 @@ struct CalendarCreateEntryView: View {
         self.dates = dates
         self.isDemo = isDemo
         self.onCreated = onCreated
-        _draft = State(initialValue: CalendarEntryDraft(kind: kind, date: date))
+        _draft = State(initialValue: CalendarEntryDraft(
+            kind: kind, date: date, recurrenceWeekday: (dates.calendar.component(.weekday, from: date) + 5) % 7 + 1))
     }
 
     var body: some View {

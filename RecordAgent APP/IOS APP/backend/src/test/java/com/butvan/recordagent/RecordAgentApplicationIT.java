@@ -402,7 +402,8 @@ class RecordAgentApplicationIT {
                                 LocalDate.of(2026, 9, 15),
                                 null,
                                 "Asia/Shanghai",
-                                "monthly"));
+                                "monthly",
+                                null));
         var date = LocalDate.of(2026, 9, 30);
         assertThat(todos.day(owner, date, "Asia/Shanghai").todos()).hasSize(1);
         todos.complete(owner, created.id(), date, new CalendarDtos.CompleteOccurrence(true, 0L));
@@ -411,6 +412,57 @@ class RecordAgentApplicationIT {
                 .isEqualTo(new TodoService.Progress(1, 1));
         assertThat(todos.day(owner, date.minusDays(1), "Asia/Shanghai").todos()).isEmpty();
         assertThat(todos.day(UUID.randomUUID(), date, "Asia/Shanghai").todos()).isEmpty();
+    }
+
+    /** 自选星期在日详情、月统计、便签和完成接口中必须一致。 */
+    @Test
+    void weeklyTodosUseSelectedWeekdayInEveryProjection() {
+        UUID owner = UUID.randomUUID();
+        insertUser(owner);
+        var monday = LocalDate.of(2026, 10, 5);
+        var created =
+                todos.create(
+                        owner,
+                        new CalendarDtos.CreateTodo(
+                                "周三待办",
+                                null,
+                                monday,
+                                LocalTime.NOON,
+                                "Asia/Shanghai",
+                                "weekly",
+                                3));
+        var wednesday = monday.plusDays(2);
+        assertThat(todos.day(owner, monday.plusDays(6), "Asia/Shanghai").todos()).isEmpty();
+        var daily = todos.day(owner, wednesday, "Asia/Shanghai").todos();
+        assertThat(daily).hasSize(1);
+        assertThat(daily.getFirst().time()).isNull();
+        assertThat(todos.periodic(owner, monday, "Asia/Shanghai").weekly()).isEqualTo(daily);
+        assertThat(todos.month(owner, YearMonth.of(2026, 10), "Asia/Shanghai").days())
+                .extracting(CalendarDtos.MonthDay::date)
+                .containsExactly(
+                        wednesday,
+                        wednesday.plusWeeks(1),
+                        wednesday.plusWeeks(2),
+                        wednesday.plusWeeks(3));
+        todos.complete(
+                owner, created.id(), wednesday, new CalendarDtos.CompleteOccurrence(true, 0L));
+        assertThat(todos.periodic(owner, monday, "Asia/Shanghai").weekly().getFirst().completed())
+                .isTrue();
+        assertThat(
+                        todos.periodic(owner, monday.plusWeeks(1), "Asia/Shanghai")
+                                .weekly()
+                                .getFirst()
+                                .completed())
+                .isFalse();
+        assertThat(todos.periodic(UUID.randomUUID(), monday, "Asia/Shanghai").weekly()).isEmpty();
+        Assertions.assertThatThrownBy(
+                        () ->
+                                todos.complete(
+                                        owner,
+                                        created.id(),
+                                        monday.plusDays(6),
+                                        new CalendarDtos.CompleteOccurrence(true, 1L)))
+                .isInstanceOf(ApiException.class);
     }
 
     @Test

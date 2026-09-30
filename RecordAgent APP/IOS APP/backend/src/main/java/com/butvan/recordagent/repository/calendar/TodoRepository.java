@@ -24,6 +24,7 @@ public class TodoRepository {
             LocalDate date,
             LocalTime time,
             String recurrence,
+            Integer recurrenceWeekday,
             long version) {}
 
     public void create(
@@ -34,7 +35,8 @@ public class TodoRepository {
             LocalDate date,
             LocalTime time,
             String timeZone,
-            String recurrence) {
+            String recurrence,
+            Integer recurrenceWeekday) {
         jdbc.update(
                 "INSERT INTO record.calendar_entry(id,owner_id,entry_type,event_date,title,detail) "
                         + "VALUES(?,?,'todo',?,?,?)",
@@ -50,7 +52,7 @@ public class TodoRepository {
                 time,
                 timeZone,
                 recurrence,
-                recurrence.equals("weekly") ? 7 : null,
+                recurrenceWeekday,
                 recurrence.equals("monthly") ? 31 : null);
     }
 
@@ -65,7 +67,7 @@ public class TodoRepository {
               WHEN 'monthly' THEN date_trunc('month',d.day)::date ELSE d.day::date END
             WHERE e.status='confirmed' AND (
               (t.recurrence='none' AND e.event_date=d.day::date) OR t.recurrence='daily'
-              OR (t.recurrence='weekly' AND extract(isodow FROM d.day)=7)
+              OR (t.recurrence='weekly' AND extract(isodow FROM d.day)=t.recurrence_weekday)
               OR (t.recurrence='monthly' AND d.day::date=(date_trunc('month',d.day)+interval '1 month - 1 day')::date))
             """;
 
@@ -97,6 +99,30 @@ public class TodoRepository {
                 offset);
     }
 
+    /** 有界读取本人指定周期的实例；周窗口包含所有星期，复用日/月相同发生规则。 */
+    public List<CalendarDtos.Todo> periodic(
+            UUID owner, LocalDate start, LocalDate end, String recurrence, int limit) {
+        return jdbc.query(
+                "SELECT e.id,e.title,e.detail,d.day::date,t.todo_time,t.recurrence,c.entry_id IS NOT NULL,e.version "
+                        + OCCURRENCES
+                        + " AND t.recurrence=? ORDER BY d.day,e.created_at,e.id LIMIT ?",
+                (rs, n) ->
+                        new CalendarDtos.Todo(
+                                rs.getObject(1, UUID.class),
+                                rs.getString(2),
+                                rs.getString(3),
+                                rs.getObject(4, LocalDate.class),
+                                rs.getObject(5, LocalTime.class),
+                                rs.getString(6),
+                                rs.getBoolean(7),
+                                rs.getLong(8)),
+                start,
+                end,
+                owner,
+                recurrence,
+                limit);
+    }
+
     /** 月摘要内部携带完成数量，供总览复用同一周期口径。 */
     public record MonthRow(LocalDate date, int count, int completed, List<String> titles) {}
 
@@ -122,7 +148,7 @@ public class TodoRepository {
     public Optional<Row> owned(UUID owner, UUID id) {
         List<Row> rows =
                 jdbc.query(
-                        "SELECT e.id,e.title,e.detail,e.event_date,t.todo_time,t.recurrence,e.version "
+                        "SELECT e.id,e.title,e.detail,e.event_date,t.todo_time,t.recurrence,t.recurrence_weekday,e.version "
                                 + "FROM record.calendar_entry e JOIN record.calendar_todo t ON t.entry_id=e.id "
                                 + "WHERE e.owner_id=? AND e.id=? AND e.status='confirmed' FOR UPDATE OF e",
                         (rs, n) ->
@@ -133,7 +159,8 @@ public class TodoRepository {
                                         rs.getObject(4, LocalDate.class),
                                         rs.getObject(5, LocalTime.class),
                                         rs.getString(6),
-                                        rs.getLong(7)),
+                                        rs.getObject(7, Integer.class),
+                                        rs.getLong(8)),
                         owner,
                         id);
         return rows.stream().findFirst();

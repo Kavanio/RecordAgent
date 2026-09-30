@@ -55,7 +55,8 @@
 | P0 | `GET /overview/days/{date}` | `timeZone` → 当日有界 `entries,totals,trend[7]` | 首页按日四类摘要、近七日支出/专注趋势；条目含稳定 ID、类型、日期和摘要 |
 | P0 | `GET /calendar/months/{month}` | `timeZone` → 日期标记、至多三条标题摘要、分类计数、封面文件 ID | 月历切月；不得返回整月正文 |
 | P0 | `GET /calendar/days/{date}` | `timeZone` → 当日待办/日程/手记/财务/学习/资料投影 | 日时间线与详情入口；正文按日或 ID 再取 |
-| P0 | `POST /calendar/todos` | `title,detail,date,time?,timeZone,recurrence` → `id,version` | 新建待办；周期支持无/每日/每周/每月，周/月投影到自然周期末 |
+| P0 | `GET /calendar/todos/periodic?date=...&timeZone=...` | → `{weekly:[Todo],monthly:[Todo]}` | 本人整周与月末实例，含完成状态与版本；超限 422 |
+| P0 | `POST /calendar/todos` | `title,detail,date,time?,timeZone,recurrence,recurrenceWeekday?` → `id,version` | 新建待办；周期支持无/每日/每周/每月，每周按指定星期、每月在自然月末发生 |
 | P0 | `PATCH /calendar/todos/{id}/occurrences/{date}` | `completed,expectedVersion` → `id,date,completed,version` | 首页、时间线与便签复用同一实例完成事实 |
 | P0 | `POST /calendar/schedules` | `title,startAt,endAt?,location?,detail,timeZone` → `id,version` | 新增日程；结束不得早于开始 |
 | P0 | `POST /calendar/journals` | `date,title,body,mood?,timeZone` → `id,version` | 写手记；与资料中的每日手记共用稳定 ID |

@@ -44,6 +44,15 @@ public class CalendarController {
         return todos.create(user.userId(), request);
     }
 
+    @ApiLog("读取日历周期待办便签")
+    @GetMapping("/todos/periodic")
+    public CalendarDtos.PeriodicTodos periodic(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @RequestParam LocalDate date,
+            @RequestParam String timeZone) {
+        return todos.periodic(user.userId(), date, timeZone);
+    }
+
     @ApiLog("读取日历当日事项")
     @GetMapping("/days/{date}")
     public CalendarProjectionDtos.Day day(

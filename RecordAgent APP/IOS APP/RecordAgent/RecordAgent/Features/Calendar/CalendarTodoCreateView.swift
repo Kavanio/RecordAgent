@@ -4,6 +4,7 @@ import SwiftUI
 struct CalendarTodoCreateView: View {
     @Binding var draft: CalendarEntryDraft
     let dates: HomeCalendar
+    @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: 26) {
@@ -18,10 +19,6 @@ struct CalendarTodoCreateView: View {
             .padding(.vertical, 12)
             .overlay(alignment: .bottom) { Rectangle().fill(AppColors.inputBorder).frame(height: 1) }
 
-            DatePicker("calendar.create.todo.when", selection: $draft.date,
-                       in: dates.supportedDateTimes, displayedComponents: [.date, .hourAndMinute])
-                .datePickerStyle(.compact)
-
             VStack(alignment: .leading, spacing: 14) {
                 Label("calendar.create.repeat", systemImage: "repeat")
                     .font(.subheadline.weight(.semibold))
@@ -34,11 +31,35 @@ struct CalendarTodoCreateView: View {
                 }
             }
 
+            if draft.period == .weekly {
+                Picker("calendar.create.todo.weekday", selection: $draft.recurrenceWeekday) {
+                    ForEach(1...7, id: \.self) { weekday in
+                        Text(weekdayName(weekday)).tag(weekday)
+                    }
+                }
+                .pickerStyle(.menu)
+                Text("calendar.create.todo.weekly.detail")
+                    .font(.footnote).foregroundStyle(CalendarPalette.secondary)
+            } else if draft.period == .monthly {
+                Label("calendar.create.todo.month_end", systemImage: "calendar")
+                    .font(.subheadline).foregroundStyle(CalendarPalette.secondary)
+            } else {
+                DatePicker("calendar.create.todo.when", selection: $draft.date,
+                           in: dates.supportedDateTimes, displayedComponents: [.date, .hourAndMinute])
+                    .datePickerStyle(.compact)
+            }
+
             TextField("calendar.create.detail", text: $draft.detail, axis: .vertical)
                 .lineLimit(2...4)
                 .padding(14)
                 .background(AppColors.segmentBarBg, in: RoundedRectangle(cornerRadius: 14))
         }
+    }
+
+    private func weekdayName(_ weekday: Int) -> String {
+        var calendar = dates.calendar
+        calendar.locale = locale
+        return calendar.weekdaySymbols[weekday % 7]
     }
 
     private func repeatOption(_ title: LocalizedStringKey, period: CalendarTodoPeriod?) -> some View {

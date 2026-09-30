@@ -108,6 +108,13 @@ struct HomeCalendar {
         return target
     }
 
+    /// 返回所选自然周内的指定 ISO 星期，不使用固定秒数跨日。
+    func weeklyOccurrence(weekday: Int, containing date: Date) -> Date {
+        let offset = (calendar.component(.weekday, from: date) + 5) % 7
+        let monday = calendar.startOfDay(for: addingDays(-offset, to: date))
+        return addingDays(weekday - 1, to: monday)
+    }
+
     func periodEnd(_ period: CalendarTodoPeriod, containing date: Date) -> Date {
         if period == .daily { return calendar.startOfDay(for: date) }
         if period == .weekly {

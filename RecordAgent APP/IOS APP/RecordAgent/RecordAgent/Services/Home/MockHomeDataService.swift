@@ -112,23 +112,25 @@ import Foundation
                 }
             }
             for value in recurringDrafts where value.draft.period == period {
-                guard end >= dates.periodEnd(period, containing: value.draft.date) else { continue }
+                let occurrence = period == .weekly
+                    ? dates.weeklyOccurrence(weekday: value.draft.recurrenceWeekday, containing: day)
+                    : end
+                guard occurrence >= calendar.startOfDay(for: value.draft.date) else { continue }
                 let id = "\(value.id).\(key)"
                 result.append(
                     HomeEntry(
                         id: id, kind: .todo,
                         title: value.draft.title.trimmingCharacters(in: .whitespacesAndNewlines),
-                        detail: value.draft.detail, date: end, isCompleted: completedOverrides[id] ?? false))
+                        detail: value.draft.detail, date: occurrence, isCompleted: completedOverrides[id] ?? false))
             }
             return result
         }
 
         private func entries(for day: Date, locale: Locale) -> [HomeEntry] {
-            let dates = HomeCalendar(calendar: calendar)
             var additional = createdEntries.filter { calendar.isDate($0.date, inSameDayAs: day) }
-            for period in CalendarTodoPeriod.allCases
-            where dates.periodEnd(period, containing: day) == day {
+            for period in CalendarTodoPeriod.allCases {
                 additional += periodEntries(period, containing: day, locale: locale)
+                    .filter { calendar.isDate($0.date, inSameDayAs: day) }
             }
             additional = additional.map { entry in
                 var entry = entry

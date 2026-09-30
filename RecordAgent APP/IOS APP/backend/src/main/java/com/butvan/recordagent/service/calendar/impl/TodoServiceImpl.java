@@ -8,7 +8,6 @@ import com.butvan.recordagent.repository.calendar.TodoRepository;
 import com.butvan.recordagent.service.calendar.TodoService;
 import com.butvan.recordagent.service.query.ReadBounds;
 import com.butvan.recordagent.service.time.BusinessTimeZone;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
@@ -32,6 +31,13 @@ public class TodoServiceImpl implements TodoService {
         if (!List.of("none", "daily", "weekly", "monthly").contains(request.recurrence())) {
             throw error(ApiErrorCode.INVALID_ARGUMENT);
         }
+        Integer weekday = request.recurrenceWeekday();
+        if (weekday != null
+                && (!request.recurrence().equals("weekly") || weekday < 1 || weekday > 7)) {
+            throw error(ApiErrorCode.INVALID_ARGUMENT);
+        }
+        if (request.recurrence().equals("weekly") && weekday == null) weekday = 7;
+        boolean periodic = List.of("weekly", "monthly").contains(request.recurrence());
         UUID id = UUID.randomUUID();
         store.create(
                 id,
@@ -39,9 +45,10 @@ public class TodoServiceImpl implements TodoService {
                 request.title().strip(),
                 request.detail(),
                 request.date(),
-                request.time(),
+                periodic ? null : request.time(),
                 request.timeZone(),
-                request.recurrence());
+                request.recurrence(),
+                weekday);
         return new CalendarDtos.Created(id, 0);
     }
 
@@ -53,6 +60,21 @@ public class TodoServiceImpl implements TodoService {
                 bounds.requireComplete(
                         store.day(owner, date, bounds.dayLimit() + 1), bounds.dayLimit());
         return new CalendarDtos.Day(date, rows);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CalendarDtos.PeriodicTodos periodic(UUID owner, LocalDate date, String zone) {
+        BusinessTimeZone.parse(zone);
+        LocalDate monday = date.minusDays(date.getDayOfWeek().getValue() - 1L);
+        LocalDate monthEnd = YearMonth.from(date).atEndOfMonth();
+        int limit = bounds.dayLimit();
+        return new CalendarDtos.PeriodicTodos(
+                bounds.requireComplete(
+                        store.periodic(owner, monday, monday.plusDays(6), "weekly", limit + 1),
+                        limit),
+                bounds.requireComplete(
+                        store.periodic(owner, monthEnd, monthEnd, "monthly", limit + 1), limit));
     }
 
     @Override
@@ -100,11 +122,11 @@ public class TodoServiceImpl implements TodoService {
         if (date.isBefore(row.date())) {
             return false;
         }
-        // 周待办显示在周日；月待办显示在自然月最后一天，创建月份也可生效。
+        // 周待办按保存的 ISO 星期发生；月待办固定在自然月最后一天。
         return switch (row.recurrence()) {
             case "none" -> date.equals(row.date());
             case "daily" -> true;
-            case "weekly" -> date.getDayOfWeek() == DayOfWeek.SUNDAY;
+            case "weekly" -> date.getDayOfWeek().getValue() == row.recurrenceWeekday();
             case "monthly" ->
                     date.equals(date.with(TemporalAdjusters.lastDayOfMonth()))
                             && !date.withDayOfMonth(1).isBefore(row.date().withDayOfMonth(1));

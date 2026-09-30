@@ -2032,6 +2032,57 @@
         }
       }
     },
+    "calendar.create.todo.weekday" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeat on"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重复星期"
+          }
+        }
+      }
+    },
+    "calendar.create.todo.weekly.detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeats on this weekday from the selected date."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从所选日期起，每周在选定星期出现。"
+          }
+        }
+      }
+    },
+    "calendar.create.todo.month_end" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatically appears on the last day of each month."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每月自动在自然月最后一天出现。"
+          }
+        }
+      }
+    },
     "calendar.repeat.day" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -45,5 +45,8 @@ struct CalendarEntryDraft: Sendable {
     var detail = ""
     var date: Date
     var period: CalendarTodoPeriod?
+    /// ISO 星期：1=周一，7=周日；仅每周规则提交此字段。
+    var recurrenceWeekday = 7
+    var hasSpecificTime: Bool { period != .weekly && period != .monthly }
     var isValid: Bool { !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 }

@@ -9,11 +9,14 @@ import java.util.UUID;
 /** 待办发生日、周期完成和版本冲突服务接口。 */
 public interface TodoService {
 
-    /** 为当前身份创建待办；周待办落周日、月待办落月末，非法周期或时区返回 400。 */
+    /** 为当前身份创建待办；周待办按 ISO 星期（1–7）发生，缺省周日；月待办落月末，非法规则或时区返回 400。 */
     CalendarDtos.Created create(UUID owner, CalendarDtos.CreateTodo request);
 
     /** 按保存的自然日规则读取本人实例；完成状态批量取得，超限返回 422，不截断。 */
     CalendarDtos.Day day(UUID owner, LocalDate date, String zone);
+
+    /** 本人周/月便签：周一至周日及自然月末，复用发生日与完成状态；每组超限返回 422。 */
+    CalendarDtos.PeriodicTodos periodic(UUID owner, LocalDate date, String zone);
 
     /** 读取完整月份实例计数和每天最多三条标题，不加载正文，不受明细上限影响。 */
     CalendarDtos.Month month(UUID owner, YearMonth month, String zone);

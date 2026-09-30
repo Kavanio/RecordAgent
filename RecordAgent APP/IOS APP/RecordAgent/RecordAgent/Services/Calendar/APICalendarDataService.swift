@@ -61,16 +61,18 @@ actor APICalendarDataService: CalendarDataServiceProtocol {
             month: HomeCalendar().startOfMonth(containing: date), days: markers)
     }
 
-    /// 周、月便签使用对应周期末的真实待办实例，不另建本机副本。
+    /// 周便签读取整周各星期的真实实例，月便签读取月末；共用完成状态与版本。
     func periodicTodos(for date: Date, locale: Locale) async throws -> [CalendarTodoGroup] {
-        let calendar = HomeCalendar()
+        let data = try await client.send(
+            "/api/v1/calendar/todos/periodic",
+            query: [URLQueryItem(name: "date", value: Self.dayString(date)),
+                    URLQueryItem(name: "timeZone", value: TimeZone.current.identifier)])
+        let response = try APIClient.decoder.decode(PeriodicTodosResponse.self, from: data)
         var result: [CalendarTodoGroup] = []
-        for period in CalendarTodoPeriod.notePeriods {
-            let end = calendar.periodEnd(period, containing: date)
-            let day = try await fetchDay(end)
-            let matching = day.todos.filter { $0.recurrence == period.rawValue }
-            if !matching.isEmpty {
-                result.append(CalendarTodoGroup(period: period, entries: try matching.map(Self.entry)))
+        for (period, todos) in [(CalendarTodoPeriod.weekly, response.weekly), (.monthly, response.monthly)] {
+            for todo in todos { versions[todo.id] = todo.version }
+            if !todos.isEmpty {
+                result.append(CalendarTodoGroup(period: period, entries: try todos.map(Self.entry)))
             }
         }
         return result
@@ -85,8 +87,9 @@ actor APICalendarDataService: CalendarDataServiceProtocol {
         case .todo:
             let body = try APIClient.encoder.encode(CreateTodoRequest(
                 title: draft.title.trimmingCharacters(in: .whitespacesAndNewlines),
-                detail: draft.detail, date: date, time: formattedTime,
-                timeZone: TimeZone.current.identifier, recurrence: draft.period?.rawValue ?? "none"))
+                detail: draft.detail, date: date, time: draft.hasSpecificTime ? formattedTime : nil,
+                timeZone: TimeZone.current.identifier, recurrence: draft.period?.rawValue ?? "none",
+                recurrenceWeekday: draft.period == .weekly ? draft.recurrenceWeekday : nil))
             _ = try await client.send("/api/v1/calendar/todos", method: "POST", body: body)
         case .schedule:
             let body = try APIClient.encoder.encode(CreateScheduleRequest(
@@ -275,13 +278,18 @@ private struct MonthDayResponse: Decodable {
     let count: Int
     let kinds: [String]?
 }
+private struct PeriodicTodosResponse: Decodable {
+    let weekly: [TodoResponse]
+    let monthly: [TodoResponse]
+}
 private struct CreateTodoRequest: Encodable {
     let title: String
     let detail: String
     let date: String
-    let time: String
+    let time: String?
     let timeZone: String
     let recurrence: String
+    let recurrenceWeekday: Int?
 }
 private struct CreateScheduleRequest: Encodable {
     let title: String
