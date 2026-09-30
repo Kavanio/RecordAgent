@@ -309,6 +309,34 @@ class RecordAgentApplicationIT {
     @Autowired private OverviewService overview;
     @Autowired private StudyService study;
 
+    /** 日详情必须支持空手记列表，分页须实际消费偏移量且保持用户隔离。 */
+    @Test
+    void calendarDayReadsJournalsAndPaginationRespectsOffset() {
+        UUID owner = UUID.randomUUID();
+        insertUser(owner);
+        var date = LocalDate.of(2026, 9, 30);
+        assertThat(calendar.day(owner, date, "Asia/Shanghai").journals()).isEmpty();
+        jdbcTemplate.update(
+                """
+                INSERT INTO record.record_entry(id,owner_id,record_date,record_type,title,content_text)
+                SELECT gen_random_uuid(),?,?,'journal','手记 ' || n,'正文' FROM generate_series(1,3) n
+                """,
+                owner,
+                date);
+        var journals = calendar.day(owner, date, "Asia/Shanghai").journals();
+        assertThat(journals).hasSize(3);
+        var first = calendar.page(owner, date, "journal", "Asia/Shanghai", 0, 2);
+        assertThat(first.items()).isEqualTo(journals.subList(0, 2));
+        assertThat(first.hasMore()).isTrue();
+        assertThat(first.nextOffset()).isEqualTo(2);
+        var last = calendar.page(owner, date, "journal", "Asia/Shanghai", first.nextOffset(), 2);
+        assertThat(last.items()).isEqualTo(journals.subList(2, 3));
+        assertThat(last.hasMore()).isFalse();
+        assertThat(last.nextOffset()).isNull();
+        assertThat(calendar.day(owner, date.plusDays(1), "Asia/Shanghai").journals()).isEmpty();
+        assertThat(calendar.day(UUID.randomUUID(), date, "Asia/Shanghai").journals()).isEmpty();
+    }
+
     @Test
     void completeAggregatesExceedOldLimitsAndDetailsCanBePaged() {
         UUID owner = UUID.randomUUID();

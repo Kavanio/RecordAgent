@@ -40,7 +40,7 @@ public class JournalRepository {
         return jdbc.query(
                 "SELECT id,record_date,COALESCE(title,''),content_text,version FROM record.record_entry "
                         + "WHERE owner_id=? AND record_type='journal' AND trashed_at IS NULL "
-                        + "AND record_date>=? AND record_date<? ORDER BY record_date,created_at,id LIMIT ?",
+                        + "AND record_date>=? AND record_date<? ORDER BY record_date,created_at,id LIMIT ? OFFSET ?",
                 (rs, index) ->
                         new JournalDtos.Journal(
                                 rs.getObject(1, UUID.class),
