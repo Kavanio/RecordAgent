@@ -38,12 +38,14 @@ final class FinanceWorkspaceViewModel: ObservableObject {
     @Published private(set) var overview: FinanceMonthOverview?
     @Published private(set) var accounts: [FinanceAccount] = []
     @Published private(set) var transactions: [FinanceTransaction] = []
+    @Published private(set) var todayTransactions: [FinanceTransaction] = []
     @Published private(set) var overviewError: String?
     @Published private(set) var accountsError: String?
     @Published private(set) var transactionsError: String?
     @Published private(set) var isLoadingOverview = false
     @Published private(set) var isLoadingAccounts = false
     @Published private(set) var isLoadingTransactions = false
+    @Published private(set) var isLoadingTodayTransactions = false
     @Published private(set) var nextAccountOffset: Int?
     @Published private(set) var nextTransactionOffset: Int?
     private let service: any FinanceWorkspaceServiceProtocol
@@ -111,12 +113,28 @@ final class FinanceWorkspaceViewModel: ObservableObject {
         catch { if generation == insightsGeneration && period.key == analysisKey { insightsError = error.localizedDescription; insightsErrorKey = period.key } }
     }
 
+    var todayKey: String { WorkspaceFormat.dayKey(Date()) }
+
+    func loadTodayTransactions() async {
+        let currentMonth = WorkspaceFormat.monthKey(Date())
+        let today = todayKey
+        isLoadingTodayTransactions = true
+        defer { isLoadingTodayTransactions = false }
+        do {
+            let page = try await service.transactions(month: currentMonth, type: .all, accountID: nil, query: "", offset: 0)
+            todayTransactions = page.items.filter { $0.date == today }
+        } catch {
+            todayTransactions = transactions.filter { $0.date == today }
+        }
+    }
+
     func refresh() async {
         async let summary: Void = loadOverview()
         async let accountList: Void = loadAccounts(reset: true)
         async let entries: Void = loadTransactions(reset: true)
         async let analysis: Void = loadInsights()
-        _ = await (summary, accountList, entries, analysis)
+        async let todayEntries: Void = loadTodayTransactions()
+        _ = await (summary, accountList, entries, analysis, todayEntries)
     }
 
     func loadOverview() async {
@@ -175,6 +193,9 @@ final class FinanceWorkspaceViewModel: ObservableObject {
             transactions.append(contentsOf: page.items.filter { !existing.contains($0.id) })
             nextTransactionOffset = page.hasMore ? page.nextOffset : nil
             loadedTransactionFilter = requestedFilter
+            if monthKey == WorkspaceFormat.monthKey(Date()) && type == .all && selectedAccountID == nil && query.isEmpty {
+                todayTransactions = page.items.filter { $0.date == todayKey }
+            }
         } catch is CancellationError { }
         catch { if generation == transactionGeneration && requestedFilter == filterKey { transactionsError = error.localizedDescription } }
     }

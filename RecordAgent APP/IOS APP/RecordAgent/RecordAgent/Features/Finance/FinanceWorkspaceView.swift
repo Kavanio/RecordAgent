@@ -8,6 +8,7 @@ struct FinanceWorkspaceView: View {
     @Environment(\.locale) private var locale
     @State private var showsCreate = false
     @State private var showsAccounts = false
+    @State private var showsAllTransactions = false
     @State private var selectedTransaction: FinanceTransaction?
 
     var body: some View {
@@ -17,53 +18,84 @@ struct FinanceWorkspaceView: View {
             WorkspaceMonthPicker(date: $model.month)
             summary
             FinanceInsightsView(model: model)
-            Button { showsAccounts = true } label: {
-                HStack(spacing: 12) {
-                    Label("finance.accounts", systemImage: "creditcard")
-                    Spacer(minLength: 8)
-                    if let account = model.selectedAccount { Text(account.name).lineLimit(1) }
-                    else { Text("finance.account.all").foregroundStyle(.secondary) }
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("finance.transactions.today").font(.headline)
+                    Spacer()
+                    Button {
+                        showsAllTransactions = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("finance.transactions.view_all")
+                            Image(systemName: "chevron.right").font(.caption2.weight(.semibold))
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(AppColors.primaryBlue)
+                        .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .font(.subheadline).frame(minHeight: 44)
-            }
-            .buttonStyle(.plain)
-            WorkspaceSearchField(text: $model.query, prompt: "finance.search")
-            WorkspaceFilters(options: FinanceTransactionFilter.allCases, selection: $model.type) { $0.title }
-            WorkspaceSection(title: "finance.transactions") {
-                if model.transactions.isEmpty && model.isLoadingTransactions { ProgressView() }
-                if let error = model.transactionsError {
-                    WorkspaceErrorView(message: error) { Task { await model.loadTransactions(reset: model.transactions.isEmpty) } }
-                }
-                if model.transactions.isEmpty && !model.isLoadingTransactions && model.transactionsError == nil {
-                    WorkspaceEmptyState(title: "finance.empty.title", description: "finance.empty.description", symbol: "arrow.left.arrow.right")
-                }
-                LazyVStack(spacing: 0) {
-                    ForEach(model.transactions) { transaction in
-                        Button { selectedTransaction = transaction } label: {
-                            FinanceTransactionRow(transaction: transaction, accountName: model.accountName(for: transaction.accountId))
+
+                if model.todayTransactions.isEmpty && model.isLoadingTodayTransactions {
+                    ProgressView().frame(maxWidth: .infinity, minHeight: 60)
+                } else if model.todayTransactions.isEmpty {
+                    VStack(spacing: 12) {
+                        Text("finance.today.empty")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Button {
+                            showsCreate = true
+                        } label: {
+                            Label("finance.transaction.create", systemImage: "plus")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(AppColors.primaryBlue)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(AppColors.primaryBlue.opacity(0.1), in: Capsule())
                         }
                         .buttonStyle(.plain)
                     }
-                    if model.nextTransactionOffset != nil {
-                        Button("workspace.load_more") { Task { await model.loadTransactions(reset: false) } }
-                            .frame(minHeight: 44).disabled(model.isLoadingTransactions)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+                    .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+                } else {
+                    LazyVStack(spacing: 0) {
+                        ForEach(model.todayTransactions) { transaction in
+                            Button { selectedTransaction = transaction } label: {
+                                FinanceTransactionRow(transaction: transaction, accountName: model.accountName(for: transaction.accountId))
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-                    if model.isLoadingTransactions && !model.transactions.isEmpty { ProgressView().padding(.top, 16) }
+
+                    Button {
+                        showsAllTransactions = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text("finance.transactions.all")
+                            Image(systemName: "arrow.right").font(.caption.weight(.semibold))
+                        }
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppColors.primaryBlue)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(AppColors.primaryBlue.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 4)
                 }
             }
         }
         .task(id: model.monthKey) { await model.loadOverviewIfNeeded() }
         .task { if model.accounts.isEmpty { await model.loadAccounts(reset: true) } }
-        .task(id: model.filterKey) {
-            do { try await Task.sleep(for: .milliseconds(250)); try Task.checkCancellation() }
-            catch { return }
-            await model.loadTransactionsIfNeeded()
-        }
+        .task { await model.loadTodayTransactions() }
         .refreshable { await model.refresh() }
         .sheet(isPresented: $showsAccounts) {
             FinanceAccountsView(model: model, financeService: financeService, onChanged: onChanged)
                 .workspaceSheet(compact: true)
+        }
+        .sheet(isPresented: $showsAllTransactions) {
+            FinanceAllTransactionsView(model: model, financeService: financeService, onChanged: onChanged)
         }
         .sheet(isPresented: $showsCreate) {
             FinanceTransactionEditorView(model: model, financeService: financeService) {
