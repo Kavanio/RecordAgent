@@ -75,8 +75,8 @@ struct FinanceAllTransactionsView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.top, 16)
                     } else {
-                        LazyVStack(spacing: 0) {
-                            ForEach(model.transactions) { transaction in
+                        VStack(spacing: 0) {
+                            ForEach(Array(model.transactions.enumerated()), id: \.element.id) { index, transaction in
                                 Button {
                                     selectedTransaction = transaction
                                 } label: {
@@ -84,22 +84,37 @@ struct FinanceAllTransactionsView: View {
                                         transaction: transaction,
                                         accountName: model.accountName(for: transaction.accountId)
                                     )
+                                    .padding(.horizontal, 16)
                                 }
                                 .buttonStyle(.plain)
-                            }
 
-                            if model.nextTransactionOffset != nil {
-                                Button("workspace.load_more") {
-                                    Task { await model.loadTransactions(reset: false) }
+                                if index < model.transactions.count - 1 {
+                                    Divider()
+                                        .opacity(0.35)
+                                        .padding(.leading, 74)
+                                        .padding(.trailing, 16)
                                 }
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .disabled(model.isLoadingTransactions)
-                                .padding(.top, 8)
                             }
+                        }
+                        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .stroke(Color.primary.opacity(0.04), lineWidth: 1)
+                        )
 
-                            if model.isLoadingTransactions && !model.transactions.isEmpty {
-                                ProgressView().padding(.top, 16)
+                        if model.nextTransactionOffset != nil {
+                            Button("workspace.load_more") {
+                                Task { await model.loadTransactions(reset: false) }
                             }
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(FinanceVisualStyle.accent)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .disabled(model.isLoadingTransactions)
+                            .padding(.top, 12)
+                        }
+
+                        if model.isLoadingTransactions && !model.transactions.isEmpty {
+                            ProgressView().padding(.top, 16)
                         }
                     }
                 }

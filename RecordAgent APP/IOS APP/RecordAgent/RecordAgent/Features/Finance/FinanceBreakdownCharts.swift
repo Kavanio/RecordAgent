@@ -102,11 +102,17 @@ struct FinanceRankingChart: View {
                     symbol: "chart.bar.xaxis")
             } else {
                 ForEach(Array(visible.enumerated()), id: \.element.id) { index, entry in
+                    let catColor = FinanceVisualStyle.category(entry.category)
                     VStack(alignment: .leading, spacing: 8) {
                         FinanceChartValueRow(amount: WorkspaceFormat.money(entry.amount, locale: locale)) {
-                            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            HStack(alignment: .center, spacing: 8) {
                                 Text((index + 1).formatted(.number.locale(locale)))
-                                    .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(index < 3 ? FinanceVisualStyle.accent : Color.secondary)
+                                    .frame(minWidth: 14, alignment: .leading)
+                                Circle()
+                                    .fill(catColor)
+                                    .frame(width: 8, height: 8)
                                 if !groupsCategories && !entry.note.isEmpty {
                                     Text(entry.note).lineLimit(2)
                                 } else {
@@ -120,17 +126,19 @@ struct FinanceRankingChart: View {
                             }
                             Spacer()
                             Text(share(entry).formatted(.percent.precision(.fractionLength(1)).locale(locale)))
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(catColor)
                         }.font(.caption).foregroundStyle(.secondary)
                         GeometryReader { geometry in
-                            Capsule().fill(FinanceVisualStyle.category(entry.category).opacity(0.1))
-                            Capsule().fill(FinanceVisualStyle.category(entry.category).gradient)
+                            Capsule().fill(catColor.opacity(0.12))
+                            Capsule().fill(catColor.gradient)
                                 .frame(width: geometry.size.width * share(entry))
                                 .modifier(
                                     FinanceChartReveal(
                                         key:
                                             "\(insights.period.key)-\(groupsCategories)-\(entry.amount)-\(insights.expense)"
                                     ))
-                        }.frame(height: 7).accessibilityHidden(true)
+                        }.frame(height: 8).accessibilityHidden(true)
                     }.padding(.vertical, 5).accessibilityElement(children: .combine)
                 }
                 if entries.count > 5 {

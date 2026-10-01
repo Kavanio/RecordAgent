@@ -40,20 +40,22 @@ struct FinanceTransactionRow: View {
                 }
             }
         }
-        .padding(.vertical, 16)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
     private var icon: some View {
-        Image(systemName: FinanceCategoryCatalog.symbol(category: transaction.category, type: transaction.type))
-            .font(.title2.weight(.semibold))
-            .foregroundStyle(transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
-            .frame(width: 30, height: 36)
-            .padding(.top, 3).accessibilityHidden(true)
+        FinanceCategoryBadge(
+            category: transaction.category,
+            type: transaction.type,
+            size: 42,
+            cornerRadius: 13
+        )
+        .accessibilityHidden(true)
     }
     private var details: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 6) {
             if transaction.category.isEmpty {
                 Text(transaction.typeTitle).font(.body.weight(.medium))
             } else {
@@ -66,7 +68,7 @@ struct FinanceTransactionRow: View {
                 HStack(spacing: 8) { dateAndAccount }.font(.caption).foregroundStyle(.secondary)
             }
             if !transaction.note.isEmpty {
-                Text(transaction.note).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                Text(transaction.note).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
         }
     }
@@ -77,12 +79,15 @@ struct FinanceTransactionRow: View {
         if let accountName { Text(accountName).lineLimit(typeSize.isAccessibilitySize ? nil : 1) }
     }
     private var amounts: some View {
-        VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: 7) {
-            Text(WorkspaceFormat.money(transaction.amountInCents, locale: locale))
+        VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: 5) {
+            let isIncome = transaction.type == "income"
+            let sign = isIncome ? "+" : "-"
+            let formattedAmount = WorkspaceFormat.money(transaction.amountInCents, locale: locale)
+            Text("\(sign)\(formattedAmount)")
                 .font(.body.weight(.semibold)).monospacedDigit()
-                .foregroundStyle(transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
+                .foregroundStyle(isIncome ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
             if let balance = transaction.balanceAfterInCents {
-                VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: 3) {
+                VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
                     Text("finance.balance.after").font(.caption2)
                     Text(WorkspaceFormat.money(balance, locale: locale)).font(.caption).monospacedDigit()
                 }.foregroundStyle(.secondary)
@@ -105,13 +110,28 @@ struct FinanceTransactionDetailView: View {
                 .padding(.horizontal, 24).padding(.top, 28).padding(.bottom, 16)
             ScrollView {
                 VStack(alignment: .leading, spacing: 30) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(transaction.typeTitle)
-                            .font(.subheadline).foregroundStyle(.secondary)
-                        Text(WorkspaceFormat.money(transaction.amountInCents, locale: locale))
-                            .font(.largeTitle.weight(.semibold)).monospacedDigit()
+                    HStack(spacing: 16) {
+                        FinanceCategoryBadge(
+                            category: transaction.category,
+                            type: transaction.type,
+                            size: 52,
+                            cornerRadius: 16
+                        )
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(transaction.category.isEmpty ? AppLocalization.string(transaction.type == "income" ? "finance.income" : "finance.expense", locale: locale) : transaction.category)
+                                .font(.title3.weight(.bold))
+                            Text(transaction.typeTitle)
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        let isIncome = transaction.type == "income"
+                        let sign = isIncome ? "+" : "-"
+                        let formattedAmount = WorkspaceFormat.money(transaction.amountInCents, locale: locale)
+                        Text("\(sign)\(formattedAmount)")
+                            .font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
                             .foregroundStyle(
-                                transaction.type == "income" ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
+                                isIncome ? FinanceVisualStyle.income : FinanceVisualStyle.expense)
                     }
                     if !transaction.category.isEmpty {
                         WorkspaceValue(label: "finance.category", value: transaction.category)

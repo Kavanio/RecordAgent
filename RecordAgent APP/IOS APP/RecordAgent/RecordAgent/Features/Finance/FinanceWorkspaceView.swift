@@ -62,26 +62,39 @@ struct FinanceWorkspaceView: View {
                     .padding(.vertical, 24)
                     .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
                 } else {
-                    LazyVStack(spacing: 0) {
-                        ForEach(model.todayTransactions) { transaction in
+                    VStack(spacing: 0) {
+                        ForEach(Array(model.todayTransactions.enumerated()), id: \.element.id) { index, transaction in
                             Button { selectedTransaction = transaction } label: {
                                 FinanceTransactionRow(transaction: transaction, accountName: model.accountName(for: transaction.accountId))
+                                    .padding(.horizontal, 16)
                             }
                             .buttonStyle(.plain)
+
+                            if index < model.todayTransactions.count - 1 {
+                                Divider()
+                                    .opacity(0.35)
+                                    .padding(.leading, 74)
+                                    .padding(.trailing, 16)
+                            }
                         }
                     }
+                    .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(Color.primary.opacity(0.04), lineWidth: 1)
+                    )
 
                     NavigationLink {
                         FinanceAllTransactionsView(model: model, financeService: financeService, onChanged: onChanged)
                     } label: {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 8) {
                             Text("finance.transactions.all")
                             Image(systemName: "arrow.right").font(.caption.weight(.semibold))
                         }
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(AppColors.primaryBlue)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(AppColors.primaryBlue.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(FinanceVisualStyle.accent)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(FinanceVisualStyle.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .padding(.top, 4)
@@ -124,41 +137,107 @@ struct FinanceWorkspaceView: View {
     }
 
     @ViewBuilder private var summary: some View {
-        if model.isLoadingOverview { ProgressView() }
-        else if let error = model.overviewError {
+        if model.isLoadingOverview {
+            ProgressView().frame(maxWidth: .infinity, minHeight: 80)
+        } else if let error = model.overviewError {
             WorkspaceErrorView(message: error) { Task { await model.loadOverview() } }
         } else if let overview = model.overview {
-            VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Button { showsAccounts = true } label: {
-                        HStack(spacing: 8) {
-                            Text("finance.assets")
-                            Image(systemName: "chevron.right").font(.caption2.weight(.semibold))
-                        }.font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
-                            .frame(minHeight: 44)
-                    }.buttonStyle(.plain).accessibilityLabel("finance.accounts")
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(alignment: .center) {
+                        Button { showsAccounts = true } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "creditcard.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(FinanceVisualStyle.accent)
+                                Text("finance.assets")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2.weight(.bold))
+                                    .foregroundStyle(.secondary.opacity(0.7))
+                            }
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("finance.accounts")
+
+                        Spacer()
+                    }
+
                     Text(WorkspaceFormat.money(overview.totalAssetsInCents, locale: locale))
-                        .foregroundStyle(FinanceVisualStyle.accent)
-                        .font(.largeTitle.weight(.bold)).monospacedDigit()
-                        .lineLimit(1).minimumScaleFactor(0.6)
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(Color.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.65)
+
+                    HStack(spacing: 12) {
+                        flowCapsule(
+                            title: "finance.month.expense",
+                            amount: overview.expenseInCents,
+                            symbol: "arrow.up.right",
+                            color: FinanceVisualStyle.expense,
+                            sign: "-"
+                        )
+                        flowCapsule(
+                            title: "finance.month.income",
+                            amount: overview.incomeInCents,
+                            symbol: "arrow.down.left",
+                            color: FinanceVisualStyle.income,
+                            sign: "+"
+                        )
+                    }
                 }
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 32) { monthValues(overview) }
-                    VStack(alignment: .leading, spacing: 20) { monthValues(overview) }
-                }
+                .padding(20)
+                .background(
+                    Color(uiColor: .secondarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(Color.primary.opacity(0.04), lineWidth: 1)
+                )
             }
         }
     }
 
-    @ViewBuilder private func monthValues(_ overview: FinanceMonthOverview) -> some View {
-        monthMetric("finance.month.expense", amount: overview.expenseInCents, symbol: "arrow.up.right", color: FinanceVisualStyle.expense)
-        monthMetric("finance.month.income", amount: overview.incomeInCents, symbol: "arrow.down.left", color: FinanceVisualStyle.income)
-    }
-    private func monthMetric(_ title: LocalizedStringKey, amount: Int64, symbol: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(title, systemImage: symbol).font(.caption.weight(.medium)).foregroundStyle(color)
-            Text(WorkspaceFormat.money(amount, locale: locale))
-                .font(.title2.weight(.semibold)).foregroundStyle(color).monospacedDigit()
-        }.accessibilityElement(children: .combine)
+    private func flowCapsule(
+        title: LocalizedStringKey,
+        amount: Int64,
+        symbol: String,
+        color: Color,
+        sign: String
+    ) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.14))
+                    .frame(width: 28, height: 28)
+                Image(systemName: symbol)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(color)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+                let formatted = WorkspaceFormat.money(amount, locale: locale)
+                Text("\(sign)\(formatted)")
+                    .font(.subheadline.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(color.opacity(0.07), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }
