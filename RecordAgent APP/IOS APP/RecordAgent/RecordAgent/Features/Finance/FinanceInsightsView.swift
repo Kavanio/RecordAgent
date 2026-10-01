@@ -138,45 +138,47 @@ struct FinanceTrendChart: View {
                             }
                         }
                     }
-                    if let selection, let selectedIndex = Int(selection.rounded()),
-                       (0..<insights.buckets.count).contains(selectedIndex) {
-                        let selectedBucket = insights.buckets[selectedIndex]
-                        RuleMark(
-                            x: .value(axisDate, Double(selectedIndex))
-                        )
-                        .foregroundStyle(Color.secondary.opacity(0.35))
-                        .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
-
-                        if insights.expense > 0 {
-                            PointMark(
-                                x: .value(axisDate, Double(selectedIndex)),
-                                y: .value(axisAmount, Double(selectedBucket.expense) / 100)
+                    if let selection {
+                        let selectedIndex = Int(selection.rounded())
+                        if (0..<insights.buckets.count).contains(selectedIndex) {
+                            let selectedBucket = insights.buckets[selectedIndex]
+                            RuleMark(
+                                x: .value(axisDate, Double(selectedIndex))
                             )
-                            .symbolSize(60)
-                            .foregroundStyle(FinanceVisualStyle.expense.opacity(0.18))
+                            .foregroundStyle(Color.secondary.opacity(0.35))
+                            .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
 
-                            PointMark(
-                                x: .value(axisDate, Double(selectedIndex)),
-                                y: .value(axisAmount, Double(selectedBucket.expense) / 100)
-                            )
-                            .symbolSize(24)
-                            .foregroundStyle(FinanceVisualStyle.expense)
-                        }
+                            if insights.expense > 0 {
+                                PointMark(
+                                    x: .value(axisDate, Double(selectedIndex)),
+                                    y: .value(axisAmount, Double(selectedBucket.expense) / 100)
+                                )
+                                .symbolSize(60)
+                                .foregroundStyle(FinanceVisualStyle.expense.opacity(0.18))
 
-                        if insights.income > 0 && selectedBucket.income > 0 {
-                            PointMark(
-                                x: .value(axisDate, Double(selectedIndex)),
-                                y: .value(axisAmount, Double(selectedBucket.income) / 100)
-                            )
-                            .symbolSize(50)
-                            .foregroundStyle(FinanceVisualStyle.income.opacity(0.18))
+                                PointMark(
+                                    x: .value(axisDate, Double(selectedIndex)),
+                                    y: .value(axisAmount, Double(selectedBucket.expense) / 100)
+                                )
+                                .symbolSize(24)
+                                .foregroundStyle(FinanceVisualStyle.expense)
+                            }
 
-                            PointMark(
-                                x: .value(axisDate, Double(selectedIndex)),
-                                y: .value(axisAmount, Double(selectedBucket.income) / 100)
-                            )
-                            .symbolSize(20)
-                            .foregroundStyle(FinanceVisualStyle.income)
+                            if insights.income > 0 && selectedBucket.income > 0 {
+                                PointMark(
+                                    x: .value(axisDate, Double(selectedIndex)),
+                                    y: .value(axisAmount, Double(selectedBucket.income) / 100)
+                                )
+                                .symbolSize(50)
+                                .foregroundStyle(FinanceVisualStyle.income.opacity(0.18))
+
+                                PointMark(
+                                    x: .value(axisDate, Double(selectedIndex)),
+                                    y: .value(axisAmount, Double(selectedBucket.income) / 100)
+                                )
+                                .symbolSize(20)
+                                .foregroundStyle(FinanceVisualStyle.income)
+                            }
                         }
                     }
                 }
