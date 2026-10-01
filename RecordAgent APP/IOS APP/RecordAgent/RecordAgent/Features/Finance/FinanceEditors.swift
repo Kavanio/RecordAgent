@@ -19,8 +19,25 @@ struct FinanceTransactionEditorView: View {
         self.model = model
         self.financeService = financeService
         self.onSaved = onSaved
-        _date = State(initialValue: model.month)
+        _date = State(initialValue: Self.defaultDate(for: model.month))
         _accountID = State(initialValue: model.selectedAccountID ?? model.accounts.first?.id)
+    }
+
+    private static func defaultDate(for month: Date) -> Date {
+        let now = Date()
+        let calendar = Calendar.current
+        if calendar.isDate(month, equalTo: now, toGranularity: .month) {
+            return now
+        }
+        var targetComponents = calendar.dateComponents([.year, .month], from: month)
+        let nowComponents = calendar.dateComponents([.day, .hour, .minute, .second], from: now)
+        let range = calendar.range(of: .day, in: .month, for: month)
+        let maxDay = range?.count ?? 28
+        targetComponents.day = min(nowComponents.day ?? 1, maxDay)
+        targetComponents.hour = nowComponents.hour
+        targetComponents.minute = nowComponents.minute
+        targetComponents.second = nowComponents.second
+        return calendar.date(from: targetComponents) ?? month
     }
 
     var body: some View {

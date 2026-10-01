@@ -167,7 +167,10 @@ struct MainTabView: View {
     }
 
     private func refreshHome() {
-        Task { await homeModel.load(locale: locale) }
+        Task {
+            await homeModel.load(locale: locale)
+            await financeModel.refresh()
+        }
     }
 
     private var pageTransition: AnyTransition {

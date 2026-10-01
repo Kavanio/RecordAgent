@@ -87,53 +87,97 @@ struct FinanceTrendChart: View {
             } else {
                 Chart {
                     ForEach(Array(insights.buckets.enumerated()), id: \.element.id) { index, bucket in
-                        ForEach(categories, id: \.self) { category in
-                            if let amount = bucket.categories[category], amount > 0 {
-                                BarMark(
-                                    x: .value(axisDate, Double(index)), y: .value(axisAmount, Double(amount) / 100),
-                                    width: .fixed(insights.period.range == .month ? 6 : 14)
-                                )
-                                .foregroundStyle(FinanceVisualStyle.category(category).opacity(0.48))
-                            }
-                        }
                         if insights.expense > 0 {
-                            LineMark(
-                                x: .value(axisDate, Double(index)), y: .value(axisAmount, Double(bucket.expense) / 100),
-                                series: .value(axisAmount, "expense")
+                            AreaMark(
+                                x: .value(axisDate, Double(index)),
+                                y: .value(axisAmount, Double(bucket.expense) / 100)
                             )
+                            .interpolationMethod(.monotone)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [FinanceVisualStyle.expense.opacity(0.18), FinanceVisualStyle.expense.opacity(0.01)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+
+                            LineMark(
+                                x: .value(axisDate, Double(index)),
+                                y: .value(axisAmount, Double(bucket.expense) / 100)
+                            )
+                            .interpolationMethod(.monotone)
+                            .lineStyle(StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round))
                             .foregroundStyle(FinanceVisualStyle.expense)
-                            .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+
                             if bucket.expense > 0 {
                                 PointMark(
                                     x: .value(axisDate, Double(index)),
                                     y: .value(axisAmount, Double(bucket.expense) / 100)
                                 )
-                                .foregroundStyle(FinanceVisualStyle.expense).symbolSize(28)
+                                .foregroundStyle(FinanceVisualStyle.expense)
+                                .symbolSize(20)
                             }
                         }
                         if insights.income > 0 {
                             LineMark(
-                                x: .value(axisDate, Double(index)), y: .value(axisAmount, Double(bucket.income) / 100),
-                                series: .value(axisAmount, "income")
+                                x: .value(axisDate, Double(index)),
+                                y: .value(axisAmount, Double(bucket.income) / 100)
                             )
+                            .interpolationMethod(.monotone)
+                            .lineStyle(StrokeStyle(lineWidth: 2.0, lineCap: .round, lineJoin: .round, dash: [4, 3]))
                             .foregroundStyle(FinanceVisualStyle.income)
-                            .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, dash: [5, 4]))
+
                             if bucket.income > 0 {
                                 PointMark(
                                     x: .value(axisDate, Double(index)),
                                     y: .value(axisAmount, Double(bucket.income) / 100)
                                 )
-                                .foregroundStyle(FinanceVisualStyle.income).symbol(.square).symbolSize(24)
+                                .foregroundStyle(FinanceVisualStyle.income)
+                                .symbol(.square)
+                                .symbolSize(18)
                             }
                         }
                     }
-                    if let selection {
+                    if let selection, let selectedIndex = Int(selection.rounded()),
+                       (0..<insights.buckets.count).contains(selectedIndex) {
+                        let selectedBucket = insights.buckets[selectedIndex]
                         RuleMark(
-                            x: .value(
-                                axisDate, Double(max(0, min(insights.buckets.count - 1, Int(selection.rounded())))))
+                            x: .value(axisDate, Double(selectedIndex))
                         )
-                        .foregroundStyle(Color.secondary.opacity(0.3)).lineStyle(
-                            StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                        .foregroundStyle(Color.secondary.opacity(0.35))
+                        .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
+
+                        if insights.expense > 0 {
+                            PointMark(
+                                x: .value(axisDate, Double(selectedIndex)),
+                                y: .value(axisAmount, Double(selectedBucket.expense) / 100)
+                            )
+                            .symbolSize(60)
+                            .foregroundStyle(FinanceVisualStyle.expense.opacity(0.18))
+
+                            PointMark(
+                                x: .value(axisDate, Double(selectedIndex)),
+                                y: .value(axisAmount, Double(selectedBucket.expense) / 100)
+                            )
+                            .symbolSize(24)
+                            .foregroundStyle(FinanceVisualStyle.expense)
+                        }
+
+                        if insights.income > 0 && selectedBucket.income > 0 {
+                            PointMark(
+                                x: .value(axisDate, Double(selectedIndex)),
+                                y: .value(axisAmount, Double(selectedBucket.income) / 100)
+                            )
+                            .symbolSize(50)
+                            .foregroundStyle(FinanceVisualStyle.income.opacity(0.18))
+
+                            PointMark(
+                                x: .value(axisDate, Double(selectedIndex)),
+                                y: .value(axisAmount, Double(selectedBucket.income) / 100)
+                            )
+                            .symbolSize(20)
+                            .foregroundStyle(FinanceVisualStyle.income)
+                        }
                     }
                 }
                 // 整数位置均匀分布自然日/月，两端各留半格，月末点和柱不会贴边裁切。
@@ -166,12 +210,17 @@ struct FinanceTrendChart: View {
                                 let x = proxy.position(forX: selection.rounded())
                             {
                                 let plot = geometry[frame]
-                                let width = min(230.0, geometry.size.width)
+                                let tooltipWidth: CGFloat = 164
+                                let targetX = plot.minX + x - tooltipWidth / 2
+                                let clampedX = max(6, min(geometry.size.width - tooltipWidth - 6, targetX))
                                 FinanceTrendTooltip(bucket: selected, isYear: insights.period.range == .year) {
-                                    self.selection = nil
+                                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                                        self.selection = nil
+                                    }
                                 }
-                                .frame(width: width)
-                                .offset(x: max(0, min(geometry.size.width - width, plot.minX + x - width / 2)), y: 4)
+                                .frame(width: tooltipWidth)
+                                .offset(x: clampedX, y: 6)
+                                .transition(reduceMotion ? .opacity : .scale(scale: 0.94).combined(with: .opacity))
                             }
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -246,14 +295,18 @@ struct FinanceTrendChart: View {
         guard plot.width > 0, point.y >= plot.minY, point.y <= plot.maxY else { return }
         let x = min(max(point.x - plot.minX, 0), plot.width)
         guard let value = proxy.value(atX: x, as: Double.self), value.isFinite else { return }
-        selection = Double(max(0, min(insights.buckets.count - 1, Int(value.rounded()))))
+        withAnimation(reduceMotion ? nil : .interactiveSpring()) {
+            selection = Double(max(0, min(insights.buckets.count - 1, Int(value.rounded()))))
+        }
     }
 
     private func dismissAfterDelay() {
         dismissalTask?.cancel()
         dismissalTask = Task { @MainActor in
             do { try await Task.sleep(for: .seconds(2)) } catch { return }
-            selection = nil
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.28)) {
+                selection = nil
+            }
         }
     }
 
