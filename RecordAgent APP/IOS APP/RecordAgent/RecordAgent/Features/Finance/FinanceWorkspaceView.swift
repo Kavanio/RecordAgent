@@ -24,7 +24,7 @@ struct FinanceWorkspaceView: View {
                     Text("finance.transactions.today").font(.headline)
                     Spacer()
                     Button {
-                        showsAllTransactions = true
+                        openAllTransactions()
                     } label: {
                         HStack(spacing: 4) {
                             Text("finance.transactions.view_all")
@@ -70,7 +70,7 @@ struct FinanceWorkspaceView: View {
                     }
 
                     Button {
-                        showsAllTransactions = true
+                        openAllTransactions()
                     } label: {
                         HStack(spacing: 6) {
                             Text("finance.transactions.all")
@@ -94,7 +94,7 @@ struct FinanceWorkspaceView: View {
             FinanceAccountsView(model: model, financeService: financeService, onChanged: onChanged)
                 .workspaceSheet(compact: true)
         }
-        .sheet(isPresented: $showsAllTransactions) {
+        .navigationDestination(isPresented: $showsAllTransactions) {
             FinanceAllTransactionsView(model: model, financeService: financeService, onChanged: onChanged)
         }
         .sheet(isPresented: $showsCreate) {
@@ -106,6 +106,20 @@ struct FinanceWorkspaceView: View {
         .sheet(item: $selectedTransaction) {
             FinanceTransactionDetailView(transaction: $0, accountName: model.accountName(for: $0.accountId))
         }
+    }
+
+    private func openAllTransactions() {
+        model.selectedAccountID = nil
+        model.query = ""
+        model.type = .all
+        if let latestEntry = model.visibleInsights?.transactions.first,
+           let entryDate = latestEntry.date {
+            let calendar = Calendar.current
+            if !calendar.isDate(model.month, equalTo: entryDate, toGranularity: .month) {
+                model.month = entryDate
+            }
+        }
+        showsAllTransactions = true
     }
 
     @ViewBuilder private var summary: some View {

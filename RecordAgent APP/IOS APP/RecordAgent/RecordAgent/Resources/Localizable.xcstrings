@@ -3919,6 +3919,23 @@
         }
       }
     },
+    "finance.view_previous_month" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Previous Month"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看上月流水"
+          }
+        }
+      }
+    },
     "finance.workspace.subtitle" : {
       "extractionState" : "stale",
       "localizations" : {
