@@ -8,7 +8,6 @@ struct FinanceWorkspaceView: View {
     @Environment(\.locale) private var locale
     @State private var showsCreate = false
     @State private var showsAccounts = false
-    @State private var showsAllTransactions = false
     @State private var selectedTransaction: FinanceTransaction?
 
     var body: some View {
@@ -23,8 +22,8 @@ struct FinanceWorkspaceView: View {
                 HStack {
                     Text("finance.transactions.today").font(.headline)
                     Spacer()
-                    Button {
-                        openAllTransactions()
+                    NavigationLink {
+                        FinanceAllTransactionsView(model: model, financeService: financeService, onChanged: onChanged)
                     } label: {
                         HStack(spacing: 4) {
                             Text("finance.transactions.view_all")
@@ -35,6 +34,9 @@ struct FinanceWorkspaceView: View {
                         .frame(minHeight: 44)
                     }
                     .buttonStyle(.plain)
+                    .simultaneousGesture(TapGesture().onEnded {
+                        openAllTransactions()
+                    })
                 }
 
                 if model.todayTransactions.isEmpty && model.isLoadingTodayTransactions {
@@ -69,8 +71,8 @@ struct FinanceWorkspaceView: View {
                         }
                     }
 
-                    Button {
-                        openAllTransactions()
+                    NavigationLink {
+                        FinanceAllTransactionsView(model: model, financeService: financeService, onChanged: onChanged)
                     } label: {
                         HStack(spacing: 6) {
                             Text("finance.transactions.all")
@@ -83,6 +85,9 @@ struct FinanceWorkspaceView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.top, 4)
+                    .simultaneousGesture(TapGesture().onEnded {
+                        openAllTransactions()
+                    })
                 }
             }
         }
@@ -93,9 +98,6 @@ struct FinanceWorkspaceView: View {
         .sheet(isPresented: $showsAccounts) {
             FinanceAccountsView(model: model, financeService: financeService, onChanged: onChanged)
                 .workspaceSheet(compact: true)
-        }
-        .navigationDestination(isPresented: $showsAllTransactions) {
-            FinanceAllTransactionsView(model: model, financeService: financeService, onChanged: onChanged)
         }
         .sheet(isPresented: $showsCreate) {
             FinanceTransactionEditorView(model: model, financeService: financeService) {
@@ -119,7 +121,6 @@ struct FinanceWorkspaceView: View {
                 model.month = entryDate
             }
         }
-        showsAllTransactions = true
     }
 
     @ViewBuilder private var summary: some View {

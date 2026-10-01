@@ -145,5 +145,10 @@ struct FinanceAllTransactionsView: View {
                 accountName: model.accountName(for: transaction.accountId)
             )
         }
+        .onAppear {
+            if model.selectedAccountID != nil {
+                model.selectedAccountID = nil
+            }
+        }
     }
 }
