@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { fetchRecurringTodos, setDailyTodoCompleted } from '../../services/dailyEvents';
+import { createDailyRecord, fetchRecurringTodos, setDailyTodoCompleted } from '../../services/dailyEvents';
 import { getFeaturePreferences, subscribeFeaturePreferences } from '../../services/featurePreferences';
 import {
   getCalendarStickyNoteExpansion,
@@ -75,11 +75,14 @@ export function CalendarStickyNotes({ focusDate, revision, onChanged }: Calendar
     if (!todo || pendingIds.has(todo.id)) return;
     setPendingIds((current) => new Set(current).add(todo.id));
     try {
+      const occurrenceDate = !todo.completed
+        ? new Date()
+        : new Date(`${todo.occurrenceDate}T00:00:00`);
       const updated = await setDailyTodoCompleted(
         todo.id,
         !todo.completed,
         todo.version,
-        new Date(`${todo.occurrenceDate}T00:00:00`),
+        occurrenceDate,
       );
       setTodos((current) => current.map((candidate) => candidate.id === todo.id
         ? { ...candidate, completed: !todo.completed, version: updated.version }
@@ -99,6 +102,44 @@ export function CalendarStickyNotes({ focusDate, revision, onChanged }: Calendar
         next.delete(todo.id);
         return next;
       });
+    }
+  };
+
+  const handleAddWeekly = async (text: string) => {
+    try {
+      await createDailyRecord(focusDate, {
+        kind: 'todo',
+        title: text,
+        priority: 'medium',
+        recurrence: 'weekly',
+        recurrenceWeekday: undefined,
+      });
+      const updated = await fetchRecurringTodos(focusDate);
+      setTodos(updated);
+      await onChanged();
+      showMessage('success', '已添加本周待办');
+    } catch (error: unknown) {
+      showMessage('error', error instanceof Error ? error.message : '添加本周待办失败');
+      throw error;
+    }
+  };
+
+  const handleAddMonthly = async (text: string) => {
+    try {
+      await createDailyRecord(focusDate, {
+        kind: 'todo',
+        title: text,
+        priority: 'medium',
+        recurrence: 'monthly',
+        recurrenceMonthDay: undefined,
+      });
+      const updated = await fetchRecurringTodos(focusDate);
+      setTodos(updated);
+      await onChanged();
+      showMessage('success', '已添加本月待办');
+    } catch (error: unknown) {
+      showMessage('error', error instanceof Error ? error.message : '添加本月待办失败');
+      throw error;
     }
   };
 
@@ -170,6 +211,7 @@ export function CalendarStickyNotes({ focusDate, revision, onChanged }: Calendar
         constraintsRef={boardRef}
         onCollapsedChange={(collapsed) => setExpanded('weekly', !collapsed)}
         onToggle={(item) => { void toggle(item); }}
+        onAdd={handleAddWeekly}
       />}
       {calendarPreferences.showStickyNotes && layout && monthly.length > 0 && <StickyTodoNote
         title="本月待办"
@@ -183,6 +225,7 @@ export function CalendarStickyNotes({ focusDate, revision, onChanged }: Calendar
         constraintsRef={boardRef}
         onCollapsedChange={(collapsed) => setExpanded('monthly', !collapsed)}
         onToggle={(item) => { void toggle(item); }}
+        onAdd={handleAddMonthly}
       />}
     </section>
   );

@@ -128,7 +128,7 @@ class DailyEventServiceIntegrationTest {
         DailyEvent weekly = dailyEventService.create(
                 "recurring-user", new TodoCommand(start, "完成一次复盘", null, "high", "weekly", 3, null));
         DailyEvent monthly = dailyEventService.create(
-                "recurring-user", new TodoCommand(start, "读完一本书", null, "low", "monthly", null, null));
+                "recurring-user", new TodoCommand(start, "读完一本书", null, "low", "monthly", null, 31));
 
         LocalDate wednesday = LocalDate.of(2026, 9, 2);
         DailyEvent completedWeekly = dailyEventService.setTodoCompleted(
@@ -163,8 +163,7 @@ class DailyEventServiceIntegrationTest {
         assertEquals(1, summaries.stream().filter(item -> item.date().equals(start)).findFirst().orElseThrow().todoCount());
         assertEquals(2, summaries.stream().filter(item -> item.date().equals(wednesday)).findFirst().orElseThrow().todoCount());
         var monthEndSummary = summaries.stream().filter(item -> item.date().equals(monthDay)).findFirst().orElseThrow();
-        assertEquals(1, monthEndSummary.todoCount());
-        assertEquals(monthly.id(), monthEndSummary.items().getFirst().id());
+        assertEquals(3, monthEndSummary.todoCount());
         assertEquals(2, summaries.stream().filter(item -> item.date().equals(nextWednesday)).findFirst().orElseThrow().todoCount());
     }
 
@@ -175,7 +174,7 @@ class DailyEventServiceIntegrationTest {
         DailyEvent weekly = dailyEventService.create(
                 owner, new TodoCommand(LocalDate.of(2026, 9, 1), "完成周复盘", null, "high", "weekly", 5, null));
         DailyEvent monthly = dailyEventService.create(
-                owner, new TodoCommand(LocalDate.of(2026, 8, 1), "整理月度资料", null, "medium", "monthly", null, null));
+                owner, new TodoCommand(LocalDate.of(2026, 8, 1), "整理月度资料", null, "medium", "monthly", null, 31));
         dailyEventService.create(
                 owner, new TodoCommand(LocalDate.of(2026, 9, 1), "普通待办", null, "low"));
 
@@ -195,13 +194,63 @@ class DailyEventServiceIntegrationTest {
     void monthlyTodoUsesTheActualLastDayOfEachMonth() {
         String owner = "month-end-user";
         DailyEvent monthly = dailyEventService.create(
-                owner, new TodoCommand(LocalDate.of(2026, 1, 30), "月末复盘", null, "medium", "monthly", null, null));
+                owner, new TodoCommand(LocalDate.of(2026, 1, 30), "月末复盘", null, "medium", "monthly", null, 31));
 
         assertEquals(List.of(monthly.id()), dailyEventService.getDay(owner, LocalDate.of(2026, 1, 31))
                 .events().stream().map(DailyEvent::id).toList());
         assertEquals(List.of(monthly.id()), dailyEventService.getDay(owner, LocalDate.of(2026, 2, 28))
                 .events().stream().map(DailyEvent::id).toList());
         assertTrue(dailyEventService.getDay(owner, LocalDate.of(2026, 2, 27)).events().isEmpty());
+    }
+
+    @Test
+    void unspecifiedRecurringTodosOnlyAppearInStickyNotesUntilCompletedOnThatDay() {
+        String owner = "unspecified-recurring-user";
+        LocalDate start = LocalDate.of(2026, 9, 1);
+        DailyEvent weekly = dailyEventService.create(
+                owner, new TodoCommand(start, "自由周任务", null, "high", "weekly", null, null));
+        DailyEvent monthly = dailyEventService.create(
+                owner, new TodoCommand(start, "自由月任务", null, "medium", "monthly", null, null));
+
+        LocalDate monday = LocalDate.of(2026, 9, 14);
+        LocalDate tuesday = LocalDate.of(2026, 9, 15);
+        LocalDate wednesday = LocalDate.of(2026, 9, 16);
+
+        // 未勾选时，便签可见，但日历日记录和月摘要均不出现
+        var notes = dailyEventService.getRecurringTodos(owner, tuesday);
+        assertEquals(2, notes.size());
+        assertFalse(notes.get(0).completed());
+        assertFalse(notes.get(1).completed());
+
+        assertTrue(dailyEventService.getDay(owner, monday).events().isEmpty());
+        assertTrue(dailyEventService.getDay(owner, tuesday).events().isEmpty());
+        assertTrue(dailyEventService.getDay(owner, wednesday).events().isEmpty());
+
+        var initialSummaries = dailyEventService.getDays(owner, monday, wednesday);
+        assertTrue(initialSummaries.stream().allMatch(s -> s.todoCount() == 0));
+
+        // 在周二（9月15日）勾选完成周待办与月待办
+        dailyEventService.setTodoCompleted(owner, weekly.id(), true, weekly.version(), tuesday);
+        dailyEventService.setTodoCompleted(owner, monthly.id(), true, monthly.version(), tuesday);
+
+        // 周二日记录中展示两条已完成待办，而周一、周三依然为空
+        var tuesdayEvents = dailyEventService.getDay(owner, tuesday).events();
+        assertEquals(Set.of(weekly.id(), monthly.id()),
+                tuesdayEvents.stream().map(DailyEvent::id).collect(Collectors.toSet()));
+        assertTrue(tuesdayEvents.stream().allMatch(e -> ((TodoDetails) e.details()).completed()));
+
+        assertTrue(dailyEventService.getDay(owner, monday).events().isEmpty());
+        assertTrue(dailyEventService.getDay(owner, wednesday).events().isEmpty());
+
+        var completedSummaries = dailyEventService.getDays(owner, monday, wednesday);
+        var tuesdaySummary = completedSummaries.stream().filter(s -> s.date().equals(tuesday)).findFirst().orElseThrow();
+        assertEquals(2, tuesdaySummary.todoCount());
+        assertEquals(2, tuesdaySummary.completedTodoCount());
+
+        // 取消勾选周待办
+        dailyEventService.setTodoCompleted(owner, weekly.id(), false, weekly.version() + 1, tuesday);
+        var afterUncheckEvents = dailyEventService.getDay(owner, tuesday).events();
+        assertEquals(List.of(monthly.id()), afterUncheckEvents.stream().map(DailyEvent::id).toList());
     }
 
     @Test

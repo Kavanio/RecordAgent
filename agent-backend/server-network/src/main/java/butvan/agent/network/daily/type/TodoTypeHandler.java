@@ -73,11 +73,13 @@ public class TodoTypeHandler implements DailyEventTypeHandler<TodoCommand> {
     public void setCompleted(String eventId, LocalDate occurrenceDate, String recurrence, boolean completed) {
         String periodStart = periodStart(occurrenceDate, recurrence).toString();
         if (completed) {
+            String completedAt = occurrenceDate.toString() + "T"
+                    + java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString();
             jdbcTemplate.update("""
                     INSERT INTO todo_completion (event_id, period_start, completed_at)
                     VALUES (?, ?, ?)
                     ON CONFLICT(event_id, period_start) DO UPDATE SET completed_at = excluded.completed_at
-                    """, eventId, periodStart, java.time.Instant.now().toString());
+                    """, eventId, periodStart, completedAt);
         } else {
             jdbcTemplate.update("DELETE FROM todo_completion WHERE event_id = ? AND period_start = ?",
                     eventId, periodStart);
@@ -102,8 +104,10 @@ public class TodoTypeHandler implements DailyEventTypeHandler<TodoCommand> {
         return switch (rule.recurrence()) {
             case "none" -> occurrenceDate.equals(startDate);
             case "daily" -> true;
-            case "weekly" -> occurrenceDate.getDayOfWeek().getValue() == rule.recurrenceWeekday();
-            case "monthly" -> occurrenceDate.getDayOfMonth() == occurrenceDate.lengthOfMonth();
+            case "weekly" -> rule.recurrenceWeekday() == null
+                    || occurrenceDate.getDayOfWeek().getValue() == rule.recurrenceWeekday();
+            case "monthly" -> rule.recurrenceMonthDay() == null
+                    || occurrenceDate.getDayOfMonth() == Math.min(rule.recurrenceMonthDay(), occurrenceDate.lengthOfMonth());
             default -> false;
         };
     }
@@ -175,15 +179,16 @@ public class TodoTypeHandler implements DailyEventTypeHandler<TodoCommand> {
 
     private Integer normalizeRecurrenceWeekday(String recurrence, Integer weekday) {
         if (!"weekly".equals(normalizeRecurrence(recurrence))) return null;
-        int value = weekday == null ? 1 : weekday;
-        if (value < 1 || value > 7) throw new IllegalArgumentException("每周重复日期必须在周一到周日之间");
-        return value;
+        if (weekday == null) return null;
+        if (weekday < 1 || weekday > 7) throw new IllegalArgumentException("每周重复日期必须在周一到周日之间");
+        return weekday;
     }
 
     private Integer normalizeRecurrenceMonthDay(String recurrence, Integer monthDay) {
         if (!"monthly".equals(normalizeRecurrence(recurrence))) return null;
-        if (monthDay != null && monthDay != 31) throw new IllegalArgumentException("每月待办固定在月末");
-        return 31;
+        if (monthDay == null) return null;
+        if (monthDay < 1 || monthDay > 31) throw new IllegalArgumentException("每月重复日期必须在 1 到 31 之间");
+        return monthDay;
     }
 
     private Integer nullableInteger(java.sql.ResultSet resultSet, String column) throws java.sql.SQLException {
