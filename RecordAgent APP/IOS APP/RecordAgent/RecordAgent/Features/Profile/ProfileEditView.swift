@@ -71,11 +71,6 @@ struct ProfileEditView: View {
                         Button("profile.edit.removeCover", role: .destructive) { coverData = nil }
                     }
                 }
-                Section {
-                    Text("profile.edit.localOnly")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
             }
             .navigationTitle("profile.edit.title")
             .navigationBarTitleDisplayMode(.inline)

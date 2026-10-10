@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 只协调保存与错误状态；三种记录各自拥有独立的编辑布局。
 struct CalendarCreateEntryView: View {
     @ObservedObject var model: CalendarViewModel
     let dates: HomeCalendar
@@ -10,73 +11,76 @@ struct CalendarCreateEntryView: View {
     @Environment(\.dismiss) private var dismiss
 
     init(
-        model: CalendarViewModel, date: Date, dates: HomeCalendar, isDemo: Bool,
-        onCreated: @escaping (CalendarEntryDraft) async -> Void
+        model: CalendarViewModel, kind: CalendarEntryDraft.Kind, date: Date, dates: HomeCalendar,
+        isDemo: Bool, onCreated: @escaping (CalendarEntryDraft) async -> Void
     ) {
         self.model = model
         self.dates = dates
         self.isDemo = isDemo
         self.onCreated = onCreated
-        _draft = State(initialValue: CalendarEntryDraft(date: date))
+        _draft = State(initialValue: CalendarEntryDraft(
+            kind: kind, date: date, recurrenceWeekday: (dates.calendar.component(.weekday, from: date) + 5) % 7 + 1))
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Picker("calendar.create.kind", selection: $draft.kind) {
-                        ForEach(CalendarEntryDraft.Kind.allCases) { kind in Text(kind.title).tag(kind) }
-                    }
-                    TextField("calendar.create.title", text: $draft.title)
-                    TextField("calendar.create.detail", text: $draft.detail, axis: .vertical).lineLimit(3...6)
-                    DatePicker(
-                        "home.date.choose", selection: $draft.date, in: dates.supportedDateTimes,
-                        displayedComponents: [.date, .hourAndMinute])
-                    if draft.kind == .todo {
-                        Picker("calendar.create.repeat", selection: $draft.period) {
-                            Text("calendar.repeat.none").tag(Optional<CalendarTodoPeriod>.none)
-                            Text("calendar.repeat.week").tag(Optional(CalendarTodoPeriod.weekly))
-                            Text("calendar.repeat.month").tag(Optional(CalendarTodoPeriod.monthly))
-                        }
-                    }
-                } footer: {
-                    if draft.kind == .todo && draft.period != nil { Text("calendar.create.period_hint") }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                switch draft.kind {
+                case .todo:
+                    CalendarTodoCreateView(draft: $draft, dates: dates)
+                case .schedule:
+                    CalendarScheduleCreateView(draft: $draft, dates: dates)
+                case .note:
+                    CalendarNoteCreateView(draft: $draft, dates: dates)
                 }
                 if isDemo {
-                    Section { Text("home.demo.footer").font(.footnote).foregroundStyle(.secondary) }
+                    Text("home.demo.footer")
+                        .font(.footnote)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
             }
-            .disabled(isSubmitting)
-            .navigationTitle("calendar.create")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("common.cancel") { dismiss() }.disabled(isSubmitting)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        guard !isSubmitting else { return }
-                        isSubmitting = true
-                        Task {
-                            defer { isSubmitting = false }
-                            let submitted = draft
-                            if await model.create(submitted) {
-                                await onCreated(submitted)
-                                dismiss()
-                            }
-                        }
-                    } label: {
-                        if isSubmitting { ProgressView() } else { Text("calendar.save") }
-                    }
-                    .disabled(!draft.isValid || isSubmitting)
-                }
+            .frame(maxWidth: 640, alignment: .leading)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 26)
+            .padding(.top, 28)
+            .padding(.bottom, 28)
+        }
+        .disabled(isSubmitting)
+        .scrollDismissesKeyboard(.interactively)
+        .background { Color(uiColor: .systemBackground).ignoresSafeArea() }
+        .navigationTitle(draft.kind.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("common.cancel") { dismiss() }.disabled(isSubmitting)
             }
+        }
+        .safeAreaInset(edge: .bottom) {
+            AppButton("calendar.save", iconName: "checkmark", isLoading: isSubmitting,
+                      isEnabled: draft.isValid, action: save)
+                .frame(maxWidth: 640)
+                .padding(.horizontal, 26)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity)
+                .background { Color(uiColor: .systemBackground).ignoresSafeArea(edges: .bottom) }
         }
         .interactiveDismissDisabled(isSubmitting)
         .alert("home.write.failed", isPresented: $model.showWriteError) {
             Button("common.confirm", role: .cancel) {}
         } message: {
             Text("home.write.failed_detail")
+        }
+    }
+
+    private func save() {
+        guard draft.isValid && !isSubmitting else { return }
+        isSubmitting = true
+        Task {
+            defer { isSubmitting = false }
+            let submitted = draft
+            if await model.create(submitted) {
+                await onCreated(submitted)
+            }
         }
     }
 }

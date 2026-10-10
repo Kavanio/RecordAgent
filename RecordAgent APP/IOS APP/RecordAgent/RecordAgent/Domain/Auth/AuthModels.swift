@@ -76,7 +76,7 @@ public enum AuthError: LocalizedError, Sendable, Equatable {
         case .emptyPassword:
             return String(localized: "auth.error.empty_password", defaultValue: "请输入密码")
         case .passwordTooShort:
-            return String(localized: "auth.error.password_too_short", defaultValue: "密码长度至少需要 6 位")
+            return String(localized: "auth.error.password_too_short", defaultValue: "密码长度至少需要 8 位")
         case .emptyVerificationCode:
             return String(localized: "auth.error.empty_code", defaultValue: "请输入邮箱验证码")
         case .invalidVerificationCode:
@@ -112,7 +112,7 @@ public enum AuthValidator {
         if password.isEmpty {
             return .emptyPassword
         }
-        if password.count < 6 {
+        if password.count < 8 {
             return .passwordTooShort
         }
         return nil
@@ -123,7 +123,7 @@ public enum AuthValidator {
         if trimmed.isEmpty {
             return .emptyVerificationCode
         }
-        if trimmed.count < 4 {
+        if trimmed.count != 6 || !trimmed.allSatisfy(\.isNumber) {
             return .invalidVerificationCode
         }
         return nil

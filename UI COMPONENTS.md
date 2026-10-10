@@ -182,12 +182,13 @@
 | HomeTrendChartView | `Features/Home/Components/HomeTrendChartView.swift` | Swift Charts | 近七日支出/专注曲线；轻量菜单切换、曲线连续变化、触摸或悬停展示数值 | `[HomeTrendPoint]`、初始指标 | 固定归一坐标、零值、日期与数值悬浮提示；无外框、响应减少动态效果 |
 | HomeEntryListView / HomeEntryDetailView | `Features/Home/Components/HomeEntryListView.swift`、`HomeEntryDetailView.swift` | SwiftUI、HomeEntry | 同一信息流展示待办、日程、收支、资料、图片、专注，点击查看详情 | 列表接收 entries、savingIDs、onToggle、onOpen；详情接收 entry 与 ViewModel，可选 savingIDs/onToggle 统一跨视图写入状态 | 待办完成与详情分离；服务确认后更新、保存中禁用、失败提示、大字体纵排 |
 | MainTabView / MainNavigationBar | `Features/Main/MainTabView.swift`、`MainNavigationBar.swift` | SwiftUI | 四个常驻入口与跨页面日期状态；激活态仅改变图标及文字，底色延伸至安全区 | `homeService`、`calendarService`、`profileOverviewService`、`user: AuthUser?`、异步可失败的 `onLogout`；导航绑定 AppTab | 首页/日历/工作台/我的；轻触反馈、减少动态效果与选中 trait |
-| WorkspaceHubView / WorkspacePreviewView | `Features/Main/WorkspaceHubView.swift`、`WorkspacePreviewView.swift` | SwiftUI、共享按日组件 | 工作台集中进入财务/资料/记录/任务；对应业务分类预览 | Hub 接收 onSelect；Preview 接收 tab、ViewModel、onBack | 业务预览明确未完成，任务入口独立占位 |
+| WorkspaceHubView | `Features/Main/WorkspaceHubView.swift` | SwiftUI | 工作台集中进入财务/资料/记录/任务 | 接收 onSelect；独立工作区可返回 | 极简图标网格；状态由 MainTabView 持有 |
 | CalendarView | `Features/Calendar/CalendarView.swift` | SwiftUI、CalendarViewModel、HomeViewModel、CalendarPalette | 自定义月历、便签、日时间线的独立页面编排 | 注入共享 home 状态与 CalendarDataServiceProtocol；月份选择、月格滑动切月、新增、便签完整列表及详情浮层 | 月标记/便签/日内容独立失败重试；Debug 样例标注；日期共享、筛选独立；深浅色与减少动态效果 |
 | CalendarMonthGrid | `Features/Calendar/Components/CalendarMonthGrid.swift` | SwiftUI、HomeCalendar、CalendarDayMarker | 周一起始的月格，日期高度至少 44 点、最多三类圆点；任何有图片记录的日期显示封面 | selectedDate、dates、markers、onSelect(Date)、onShiftMonth(Int) | 横向滑动切月且不阻断纵向滚动；四/五/六周月份；相邻月弱化、今日下划线、选中日期仅文字变色、无胶囊和格子底色；日期范围禁用与完整日期朗读 |
 | CalendarStickyTodoNote / CalendarStickyTodoDetail | `Features/Calendar/Components/CalendarStickyTodoNote.swift` | SwiftUI、Core Motion、CalendarTodoGroup、`MemoPaper.imageset` | 共用用户提供的便签底图，按原始宽高比保留胶带、纸纹和卷角；日历便签预览两项，居中纸张浮层展示全部条目与详情 | 摘要：group、onOpen、motion；浮层：period、model、savingIDs、onToggle(HomeEntry)、onClose | 周/月共用黄色底图并以标题区分；空组不显示；浮层内容在纸面内滚动且隐藏滚动条并实时刷新进度；入场上浮、静态摇摆与有界设备运动响应；减少动态效果、离页、便签浮层显示或后台时停采 |
 | CalendarDayTimeline | `Features/Calendar/Components/CalendarDayTimeline.swift` | SwiftUI Shape、HomeDaySnapshot、CalendarPalette | 纯数字大日期、独立月份与星期、右侧两行两列的四色当天摘要（待办、支出、收入、日程），窄屏下移，以及围绕无底色图标留白的自然弯曲虚线和按真实分钟数间隔的记录 | snapshot、savingIDs、onOpen、onToggle；图标由 `HomeEntry.Kind.calendarSymbol` 集中规定 | 图标在较宽轨道内有界错位，虚线止于图标前、从图标后续接；待办勾、日程日历、学习书、资料文档、图片相机、支出右上箭头、收入左下箭头；近时更密、远时有界疏；滚动进入上移淡入并响应减少动态效果；图片缩略图与大字体纵排 |
-| CalendarCreateEntryView | `Features/Calendar/CalendarCreateEntryView.swift` | SwiftUI Form、CalendarEntryDraft、CalendarViewModel | 新增待办/日程/手记，待办可按周/月重复 | model、date、dates、isDemo、异步 onCreated | 空标题禁用；写入中禁用及防重复；失败保留表单；样例保存范围提示 |
+| CalendarCreateEntryView | `Features/Calendar/CalendarCreateEntryView.swift` | SwiftUI Form、CalendarEntryDraft、CalendarViewModel | 新增待办/日程/手记，待办支持不重复及每日/每周/每月重复 | model、date、dates、isDemo、异步 onCreated | 空标题禁用；写入中禁用及防重复；失败保留表单；样例保存范围提示 |
+| CalendarTodoCreateView | `Features/Calendar/CalendarTodoCreateView.swift` | SwiftUI、CalendarEntryDraft、HomeCalendar、String Catalog | 待办事项、日期时间、重复规则及详情编辑 | `draft: Binding<CalendarEntryDraft>`、`dates: HomeCalendar`；不重复对应 `none`，每日/每周/每月对应 `daily/weekly/monthly`；每周携带 `recurrenceWeekday: 1–7` | 四种重复选项、中英文、选中态和无障碍；每日完成状态按天隔离；每周选择星期、每月固定自然月末，周/月不设置具体时间；周便签展示整周真实实例 |
 | HomePhotoStrip | `Features/Home/Components/HomePhotoStrip.swift` | SwiftUI、内置图片资源 | 首页详情与日历时间线共用有界缩略图行 | names: [String]；最多三张预览，显示实际数量 | 自适应分配图片宽度；只消费明确标注的开发样例引用，真实附件映射待接入 |
 | ProfileView / ProfileAvatarView / ProfileIdentityHeader | `Features/Profile/ProfileView.swift`、`ProfileAvatarView.swift`、`ProfileIdentityHeader.swift` | SwiftUI、AuthUser、ProfileAppearance、系统背景色 | “我的”页面编排；有图时全宽展示并短渐变收尾，无图时纯净底色；头像缺省展示豆子形象，昵称缺省生成账户稳定数字名 | Profile 接收 user、总览/活动/资料服务与原始条目回跳回调；Avatar 接收姓名、头像 URL 或本机图片 | 图片失败回退、动态字号与窄屏布局、44pt 按钮点击区与无障碍标签；下拉刷新 |
 | ProfileOverviewPanel | `Features/Profile/ProfileOverviewPanel.swift` | SwiftUI、ProfileOverviewViewModel.State、HomeFormat、HomeCategory | 总资产与本月支出、累计记录时长、资料数量及正文总字数、当月待办完成率的首屏排布 | `state: loading / ready / unavailable` | Debug 示例标注；Release 不可用占位；无待办不显示 0%；金额按分格式化，图形进度限于 0–100% |
@@ -198,3 +199,32 @@
 | AppSettingsGroup / AppSettingsRow | `DesignSystem/Components/AppSettingsGroup.swift`、`AppSettingsRow.swift` | SwiftUI、系统语义颜色 | 原生设置详情统一分组标题、圆角浅底和行留白；调用者放置 Divider 与控件 | `title: LocalizedStringKey`、ViewBuilder 内容 | 动态字号下行内容纵排；适配深浅色；交互由外层 Button/NavigationLink 承载 |
 
 原 iOS `TodayOverviewCardView`、`RecentTodosCardView`、`InspirationCardView` 和 `FloatingActionButton` 已删除，由以上无卡片信息流取代。
+
+## 原生 iOS 四个工作区统一组件
+
+路径相对 `RecordAgent APP/IOS APP/RecordAgent/RecordAgent/`。原 WorkspacePreviewView 已被真实工作区替换，无新增第三方 UI 依赖。
+
+| 组件 | 源码路径 | 样式/依赖 | 核心职责 | 接口契约 | 状态与场景 |
+| --- | --- | --- | --- | --- | --- |
+| WorkspaceScreen | `DesignSystem/Components/WorkspaceComponents.swift` | SwiftUI、系统语义颜色 | 统一导航、大标题、返回与顶部新增 | title、subtitle、onBack、actionTitle/actionSymbol、onAdd、内容 | 安全区、双语、动态字号与深浅色 |
+| WorkspaceSearchField / WorkspaceFilters | 同上 | SwiftUI | 底线搜索、文字筛选与短下划线 | 文本 Binding；Hashable 筛选值 Binding 与标题映射 | 清除搜索、横向滚动、选中无障碍 trait |
+| WorkspaceSection / WorkspaceValue | 同上 | SwiftUI | 分组标题与克制数值信息 | 本地化标题；内容或格式化数值 | 列表与摘要共用层级 |
+| WorkspaceEmptyState / WorkspaceErrorView | 同上 | SwiftUI | 空态与就地重试 | 标题/说明/图标；错误信息与 onRetry | 无内容、无匹配、加载失败 |
+| WorkspaceMonthPicker | 同上 | SwiftUI、HomeCalendar | 月份切换与选择 | date Binding | 公历自然月、月末收敛、44 点触控区 |
+| WorkspaceEditor / WorkspaceTextField | 同上 | SwiftUI、WorkspaceSheetHeader | 分组表单、圆角输入区与底部固定保存；标题区关闭 | title、isValid、异步 onSave；文本 Binding | 保存禁用输入/退出；失败保留草稿；键盘避让 |
+| FinanceWorkspaceView / FinanceWorkspaceViewModel | `Features/Finance/` | 财务 API、统一工作区组件 | 彩色月摘要、完整周期分析、账户、筛选分页流水、详情和新增 | 父级 model、financeService、onBack/onChanged；chartRange | 资产入口打开账户；账户筛选在流水区；切月/筛选同步清空旧数据与游标；整数分、幂等重试、统计与明细独立；过期结果隔离 |
+| LibraryWorkspaceView / LibraryWorkspaceViewModel | `Features/Library/` | 资料 API、统一工作区组件 | 摘要、按需正文、纯文本写作、收藏和回收站 | 父级 model、onBack/onChanged | 版本冲突、正文加载与筛选分页 |
+| RecordWorkspaceView / RecordWorkspaceViewModel | `Features/Record/` | 学习 API、TimelineView | 活跃计时恢复、完成/补录、月记录与详情 | 父级 model、onBack/onChanged | 服务端开始时间；结束重试固定；跨日与版本删除 |
+| TasksWorkspaceView / MobileTaskViewModel | `Features/Tasks/` | 任务 API、系统通知协议 | 配置、启停、详情、编辑与设备观察历史 | 父级 model、onBack；登录/前台同步，退出 deactivate | 权限/注册/保存分开；账户及服务器隔离 |
+| WorkspaceSheetStyle / WorkspaceSheetHeader / WorkspaceDetailSheet | `DesignSystem/Components/WorkspaceSheet.swift` | SwiftUI、系统分组背景 | 统一底部面板圆角、拖动条、大标题、关闭及单层内容分组 | compact、title、subtitle、isBusy/disabled、onClose、内容 | 短选择/详情可半屏与全屏；编辑默认全屏；保存中禁止退出 |
+| FinanceChartSection / FinanceVisualStyle | `Features/Finance/FinanceVisualStyle.swift` | SwiftUI | 图表共享页面纯净背景与完整宽度；高对比蓝色支出、翠绿收入与稳定分类色，深色提升亮度 | title、symbol、内容；category 名称 | 深浅色、系统字号；图形外观不影响金额精度 |
+| FinanceInsightsView / FinanceTrendChart | `Features/Finance/FinanceInsightsView.swift` | Swift Charts、FinanceInsights | 周/月/年分析；分类堆叠柱与收入/支出折线；统一交互层触摸/滑动或指针悬停图内浮层明细，触摸结束两秒收起、裁剪入场 | model；完整 insights、Date 选择 | 空态、加载、重试、收入虚线；首尾日期刻度、两端留白与顶部刻度余量；无数据方向隐藏零线；搜索与账户过滤不影响统计 |
+| FinanceAccountChart / FinanceRankingChart | `Features/Finance/FinanceBreakdownCharts.swift` | SwiftUI | 手机端账户横向条形图与可展开金额明细；分类/单笔支出排行、占比与进度条 | insights；内部收支/排行模式与展开状态 | 前五名或完整排行；空态；模式/数据变化裁剪入场；原生按钮支持无障碍 |
+| FinanceAccountsView | `Features/Finance/FinanceAccountsView.swift` | WorkspaceSheetHeader、财务服务 | 图标账户卡、余额、选中标记、固定底部新建入口 | model、financeService、onChanged | 全部账户、分页、空态、失败/重试；新建后刷新分析 |
+| FinanceTransactionRow / FinanceTransactionDetailView | `Features/Finance/FinancePresentation.swift` | SwiftUI、FinanceVisualStyle、WorkspaceSheetHeader | 无底色/描边的分类图标及收支金额；逐笔交易后余额；交易详情分组面板 | transaction、accountName | 长备注滚动、大字号上下排版、语言感知金额/日期；余额为提交时快照，缺失标注未记录 |
+| FinanceChartTabs | `Features/Finance/FinanceChartTabs.swift` | SwiftUI | 高对比选中态的图表等宽分段按钮，静态本地化文案，不横向滚动裁切选项 | label、options、selection Binding、title 映射 | 44 点触控区、选中 trait、双语与动态字号 |
+| FinanceChartValueRow | `Features/Finance/FinanceVisualStyle.swift` | SwiftUI、ViewThatFits | 图表内名称和金额排版，金额优先完整显示 | amount、标题内容 | 窄屏自动上下布局；辅助字号强制上下布局 |
+| FinanceChartReveal / FinanceTrendTooltip | `Features/Finance/FinanceChartMotion.swift`、`FinanceTrendTooltip.swift` | SwiftUI | 只裁剪最终图形的入场动画；图内日期收支分类浮层 | key；bucket、isYear、onClose | 数据/模式变化重播；减少动态效果；浮层限宽、滚动与关闭；材质底色、语义色边缘和阴影强化层次 |
+| FinanceCategoryPicker / FinanceCategoryCatalog | `Features/Finance/FinanceCategoryPicker.swift`、`FinanceCategoryCatalog.swift` | SwiftUI、SF Symbols、FinanceVisualStyle | 12 支出/6 收入预设分类、具体图标与自定义分类 | type、category Binding；symbol(category:type:) | 选中态、收支切换清除不适用预设；财务及日历记账共用；未知分类通用标签 |
+
+财务图表手机适配更新：通过模拟器构建、相关单元测试及 320/390 点屏宽与英文辅助字号的 SwiftUI 渲染检查；尚未进行真机验收。

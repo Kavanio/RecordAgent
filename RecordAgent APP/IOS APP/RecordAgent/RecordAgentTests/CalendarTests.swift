@@ -3,6 +3,34 @@ import XCTest
 @testable import RecordAgent
 
 final class CalendarTests: XCTestCase {
+    func testJournalTimelineUsesLocalCreationTimeOnRecordDay() throws {
+        var local = Calendar(identifier: .gregorian)
+        local.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))
+        let recordDay = try XCTUnwrap(local.date(from: DateComponents(year: 2026, month: 9, day: 29)))
+        let created = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-09-30T09:27:35Z"))
+        let result = APICalendarDataService.journalTimelineDate(
+            recordDate: recordDay, createdAt: created, calendar: local)
+        XCTAssertTrue(local.isDate(result, inSameDayAs: recordDay))
+        XCTAssertEqual(local.component(.hour, from: result), 17)
+        XCTAssertEqual(local.component(.minute, from: result), 27)
+        XCTAssertEqual(local.component(.second, from: result), 35)
+    }
+
+    func testFinancialRetryPreservesKeyUntilSuccessOrContentChanges() {
+        var submission = FinanceSubmissionState()
+        let body = Data("same request".utf8)
+        let first = UUID()
+        XCTAssertEqual(submission.key(for: body, preferred: first), first)
+        XCTAssertEqual(submission.key(for: body, preferred: UUID()), first)
+        submission.completed(first)
+        let next = UUID()
+        XCTAssertEqual(submission.key(for: body, preferred: next), next)
+        let changed = UUID()
+        XCTAssertEqual(submission.key(for: Data("changed request".utf8), preferred: changed), changed)
+        submission.completed(next)
+        XCTAssertEqual(submission.key(for: Data("changed request".utf8), preferred: UUID()), changed)
+    }
+
     private var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -10,6 +38,41 @@ final class CalendarTests: XCTestCase {
     }
     private func date(_ year: Int, _ month: Int, _ day: Int) -> Date {
         calendar.date(from: DateComponents(year: year, month: month, day: day))!
+    }
+
+    func testDailyTodosStartOnSelectedDayAndCompletionIsIndependent() async throws {
+        let start = date(2026, 10, 1)
+        let next = date(2026, 10, 2)
+        let service = MockHomeDataService(now: date(2026, 9, 26), calendar: calendar)
+        try await service.createEntry(
+            CalendarEntryDraft(title: "每日阅读", date: start, period: .daily))
+        try await service.createEntry(CalendarEntryDraft(title: "一次性待办", date: start))
+        let before = try await service.snapshot(for: date(2026, 9, 30), locale: .current)
+        XCTAssertFalse(before.entries.contains { $0.title == "每日阅读" })
+        let first = try await service.snapshot(for: start, locale: .current)
+        let daily = try XCTUnwrap(first.entries.first { $0.title == "每日阅读" })
+        XCTAssertTrue(first.entries.contains { $0.title == "一次性待办" })
+        try await service.setTodoCompleted(id: daily.id, completed: true, date: start)
+        let completed = try await service.snapshot(for: start, locale: .current)
+        XCTAssertTrue(try XCTUnwrap(completed.entries.first { $0.id == daily.id }).isCompleted)
+        let following = try await service.snapshot(for: next, locale: .current)
+        let nextDaily = try XCTUnwrap(following.entries.first { $0.title == "每日阅读" })
+        XCTAssertFalse(nextDaily.isCompleted)
+        XCTAssertNotEqual(nextDaily.id, daily.id)
+        XCTAssertFalse(following.entries.contains { $0.title == "一次性待办" })
+        let notes = try await service.periodicTodos(for: start, locale: .current)
+        XCTAssertFalse(notes.contains { $0.period == .daily })
+    }
+
+    func testDailyPeriodUsesNaturalDaysAcrossDaylightSaving() throws {
+        var local = calendar
+        local.timeZone = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        let start = try XCTUnwrap(local.date(from: DateComponents(year: 2026, month: 3, day: 8)))
+        let next = try XCTUnwrap(local.date(byAdding: .day, value: 1, to: start))
+        let dates = HomeCalendar(calendar: local)
+        XCTAssertEqual(dates.periodEnd(.daily, containing: start), start)
+        XCTAssertEqual(dates.periodEnd(.daily, containing: next), next)
+        XCTAssertEqual(next.timeIntervalSince(start), 23 * 3600)
     }
 
     func testTimelineGapsReflectElapsedMinutesAndLimitLongEmptyPeriods() {
@@ -124,6 +187,49 @@ final class CalendarTests: XCTestCase {
         let following = try await service.periodicTodos(for: date(2026, 10, 7), locale: .current)
         let todo = try XCTUnwrap(following.flatMap(\.entries).first { $0.title == "周计划" })
         XCTAssertEqual(todo.date, date(2026, 10, 11))
+    }
+
+    func testSelectedWeekdayAppearsInTimelineAndWholeWeekNote() async throws {
+        let today = date(2026, 9, 26)
+        let service = MockHomeDataService(now: today, calendar: calendar)
+        let monday = date(2026, 10, 5)
+        for weekday in 1...7 {
+            try await service.createEntry(CalendarEntryDraft(
+                title: "星期待办 \(weekday)", date: monday, period: .weekly, recurrenceWeekday: weekday))
+        }
+        let notes = try await service.periodicTodos(for: date(2026, 10, 7), locale: .current)
+        let weekly = try XCTUnwrap(notes.first { $0.period == .weekly })
+        let created = weekly.entries.filter { $0.title.hasPrefix("星期待办") }
+        XCTAssertEqual(created.count, 7)
+        for weekday in 1...7 {
+            let occurrence = HomeCalendar(calendar: calendar).addingDays(weekday - 1, to: monday)
+            let snapshot = try await service.snapshot(for: occurrence, locale: .current)
+            XCTAssertEqual(snapshot.entries.filter { $0.title.hasPrefix("星期待办") }.map(\.title),
+                           ["星期待办 \(weekday)"])
+            XCTAssertEqual(created.first { $0.title == "星期待办 \(weekday)" }?.date, occurrence)
+        }
+        let wednesday = try XCTUnwrap(created.first { $0.title == "星期待办 3" })
+        try await service.setTodoCompleted(id: wednesday.id, completed: true, date: date(2026, 10, 7))
+        let updated = try await service.periodicTodos(for: monday, locale: .current)
+        XCTAssertTrue(try XCTUnwrap(updated.flatMap(\.entries).first { $0.id == wednesday.id }).isCompleted)
+        let following = try await service.snapshot(for: date(2026, 10, 14), locale: .current)
+        XCTAssertFalse(try XCTUnwrap(following.entries.first { $0.title == "星期待办 3" }).isCompleted)
+    }
+
+    func testWeeklyStartSkipsElapsedWeekdayAndMonthlyUsesLeapMonthEnd() async throws {
+        let service = MockHomeDataService(now: date(2024, 1, 1), calendar: calendar)
+        try await service.createEntry(CalendarEntryDraft(title: "周一待办", date: date(2024, 2, 28),
+                                                        period: .weekly, recurrenceWeekday: 1))
+        try await service.createEntry(CalendarEntryDraft(title: "月末待办", date: date(2024, 2, 28), period: .monthly))
+        let notes = try await service.periodicTodos(for: date(2024, 2, 28), locale: .current)
+        XCTAssertFalse(notes.flatMap(\.entries).contains { $0.title == "周一待办" })
+        let monthEnd = try await service.snapshot(for: date(2024, 2, 29), locale: .current)
+        XCTAssertTrue(monthEnd.entries.contains { $0.title == "月末待办" })
+        let nextMonday = try await service.snapshot(for: date(2024, 3, 4), locale: .current)
+        XCTAssertTrue(nextMonday.entries.contains { $0.title == "周一待办" })
+        XCTAssertFalse(CalendarEntryDraft(date: date(2024, 2, 28), period: .weekly).hasSpecificTime)
+        XCTAssertFalse(CalendarEntryDraft(date: date(2024, 2, 28), period: .monthly).hasSpecificTime)
+        XCTAssertTrue(CalendarEntryDraft(date: date(2024, 2, 28), period: .daily).hasSpecificTime)
     }
 
     func testBlankTitleIsRejectedWithoutCreatingData() async throws {

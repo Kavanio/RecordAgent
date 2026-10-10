@@ -6,6 +6,7 @@ public struct LoginView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @StateObject private var viewModel: AuthViewModel
     @FocusState private var focusedField: FormField?
+    @State private var showsDebugServer = false
 
     private enum FormField {
         case email, password, code
@@ -83,14 +84,24 @@ public struct LoginView: View {
             AgreementSheetView(type: viewModel.agreementType)
         }
         .sheet(isPresented: $viewModel.showForgotPasswordSheet) {
-            ForgotPasswordSheetView()
+            ForgotPasswordSheetView(authService: environment.authService)
         }
+        #if DEBUG
+        .sheet(isPresented: $showsDebugServer) {
+            NavigationStack { DebugServerConnectionView() }
+        }
+        #endif
     }
 
     // MARK: - 1. 顶部语言切换行
 
     private var topLanguageBar: some View {
         HStack {
+            #if DEBUG
+            Button("debug.server.title") { showsDebugServer = true }
+                .font(.system(size: 12))
+                .foregroundColor(AppColors.textSecondary)
+            #endif
             Spacer()
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.2)) {

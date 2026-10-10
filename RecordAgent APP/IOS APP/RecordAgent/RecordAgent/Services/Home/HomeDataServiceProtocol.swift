@@ -3,7 +3,14 @@ import Foundation
 /// 首页按日快照与待办写入的唯一服务边界，真实 API 接入时替换实现。
 protocol HomeDataServiceProtocol: Sendable {
     func snapshot(for date: Date, locale: Locale) async throws -> HomeDaySnapshot
+    func snapshot(for date: Date, locale: Locale, includeTrend: Bool) async throws -> HomeDaySnapshot
     func setTodoCompleted(id: String, completed: Bool, date: Date) async throws
+}
+
+extension HomeDataServiceProtocol {
+    func snapshot(for date: Date, locale: Locale, includeTrend: Bool) async throws -> HomeDaySnapshot {
+        try await snapshot(for: date, locale: locale)
+    }
 }
 
 enum HomeDataError: Error { case unavailable, missingTodo, invalidEntry }

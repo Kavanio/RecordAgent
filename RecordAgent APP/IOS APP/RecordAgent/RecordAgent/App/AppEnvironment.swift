@@ -12,6 +12,12 @@ public final class AppEnvironment: ObservableObject {
     public let keychain: KeychainService
     let homeService: any HomeDataServiceProtocol
     let calendarService: any CalendarDataServiceProtocol
+    let financeWorkspaceService: any FinanceWorkspaceServiceProtocol
+    let libraryService: any LibraryServiceProtocol
+    let studyService: any StudyServiceProtocol
+    let mobileTaskService: any MobileTaskServiceProtocol
+    let mobileTaskNotifications: any MobileTaskNotificationProtocol
+    let financeService: any FinanceServiceProtocol
     let profileOverviewService: any ProfileOverviewServiceProtocol
     let profileActivityService: any ProfileActivityServiceProtocol
     let profileAppearanceService: any ProfileAppearanceServiceProtocol
@@ -29,23 +35,24 @@ public final class AppEnvironment: ObservableObject {
     }
 
     public init(
-        authService: AuthServiceProtocol = MockAuthService(),
+        authService: AuthServiceProtocol? = nil,
         keychain: KeychainService = .shared
     ) {
-        self.authService = authService
+        let client = APIClient(keychain: keychain)
+        self.authService = authService ?? APIAuthService(client: client, keychain: keychain)
         self.keychain = keychain
-        #if DEBUG
-            let sharedData = MockHomeDataService()
-            self.homeService = sharedData
-            self.calendarService = sharedData
-            self.profileOverviewService = MockProfileOverviewService()
-        #else
-            self.homeService = UnavailableHomeDataService()
-            self.calendarService = UnavailableHomeDataService()
-            self.profileOverviewService = UnavailableProfileOverviewService()
-        #endif
+        let sharedData = APICalendarDataService(client: client)
+        self.homeService = sharedData
+        self.calendarService = sharedData
+        self.financeService = APIFinanceService(client: client)
+        self.financeWorkspaceService = APIFinanceWorkspaceService(client: client)
+        self.libraryService = APILibraryService(client: client)
+        self.studyService = APIStudyService(client: client)
+        self.mobileTaskService = APIMobileTaskService(client: client)
+        self.mobileTaskNotifications = LocalTaskNotificationService()
+        self.profileOverviewService = APIProfileOverviewService(client: client)
         self.profileActivityService = HomeProfileActivityService(homeService: homeService)
-        self.profileAppearanceService = LocalProfileAppearanceService()
+        self.profileAppearanceService = APIProfileAppearanceService(client: client)
 
         // 从 UserDefaults 读取持久化的语言偏好，默认跟随系统
         if let savedRaw = UserDefaults.standard.string(forKey: languageStorageKey),

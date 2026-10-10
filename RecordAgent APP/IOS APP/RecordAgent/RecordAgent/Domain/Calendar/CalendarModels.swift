@@ -1,7 +1,9 @@
 import Foundation
 
 enum CalendarTodoPeriod: String, CaseIterable, Identifiable, Sendable {
-    case weekly, monthly
+    case daily, weekly, monthly
+    /// 便签仅展示周、月周期；每日待办进入对应日期的时间线。
+    static let notePeriods: [Self] = [.weekly, .monthly]
     var id: String { rawValue }
 }
 
@@ -43,5 +45,8 @@ struct CalendarEntryDraft: Sendable {
     var detail = ""
     var date: Date
     var period: CalendarTodoPeriod?
+    /// ISO 星期：1=周一，7=周日；仅每周规则提交此字段。
+    var recurrenceWeekday = 7
+    var hasSpecificTime: Bool { period != .weekly && period != .monthly }
     var isValid: Bool { !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 }

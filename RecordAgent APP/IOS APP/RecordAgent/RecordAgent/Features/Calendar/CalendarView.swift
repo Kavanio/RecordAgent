@@ -4,9 +4,12 @@ import SwiftUI
 struct CalendarView: View {
     @ObservedObject var home: HomeViewModel
     @StateObject private var model: CalendarViewModel
+    let financeService: any FinanceServiceProtocol
     @StateObject private var noteMotion = CalendarNoteMotion()
     @State private var showsMonthPicker = false
     @State private var showsCreate = false
+    @State private var createPath: [CalendarEntryDraft.Kind] = []
+    @State private var showsFinanceCreate = false
     @State private var selectedEntry: HomeEntry?
     @State private var selectedNotePeriod: CalendarTodoPeriod?
     @State private var pendingTodoIDs: Set<String> = []
@@ -15,9 +18,10 @@ struct CalendarView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-
-    init(home: HomeViewModel, service: any CalendarDataServiceProtocol) {
+    init(home: HomeViewModel, service: any CalendarDataServiceProtocol,
+         financeService: any FinanceServiceProtocol) {
         self.home = home
+        self.financeService = financeService
         _model = StateObject(wrappedValue: CalendarViewModel(service: service))
     }
 
@@ -42,7 +46,8 @@ struct CalendarView: View {
                 if model.notesFailed { retryRow("calendar.notes.failed") }
                 if !model.groups.isEmpty {
                     let columns = Array(
-                        repeating: GridItem(.flexible(), spacing: 14), count: typeSize.isAccessibilitySize ? 1 : 2)
+                        repeating: GridItem(.flexible(), spacing: 14),
+                        count: typeSize.isAccessibilitySize ? 1 : 2)
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 20) {
                         ForEach(model.groups) { group in
                             CalendarStickyTodoNote(
@@ -93,17 +98,40 @@ struct CalendarView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showsCreate) {
-            CalendarCreateEntryView(
-                model: model, date: home.selectedDate, dates: home.dates,
-                isDemo: home.snapshot?.isDemo == true
-            ) { draft in
-                let date =
-                    draft.kind == .todo && draft.period != nil
-                    ? home.dates.periodEnd(draft.period ?? .weekly, containing: draft.date) : draft.date
-                home.selectDate(date)
-                await refresh()
+        .sheet(isPresented: $showsCreate, onDismiss: {
+            createPath = []
+            showsFinanceCreate = false
+        }) {
+            NavigationStack(path: $createPath) {
+                CalendarCreateChooserView(
+                    onSelect: { createPath.append($0) },
+                    onSelectFinance: { showsFinanceCreate = true }
+                )
+                .navigationDestination(isPresented: $showsFinanceCreate) {
+                    CalendarFinanceCreateView(date: home.selectedDate, dates: home.dates,
+                                              service: financeService) {
+                        Task {
+                            await refresh()
+                            showsCreate = false
+                        }
+                    }
+                }
+                .navigationDestination(for: CalendarEntryDraft.Kind.self) { kind in
+                    CalendarCreateEntryView(
+                        model: model, kind: kind, date: home.selectedDate, dates: home.dates,
+                        isDemo: home.snapshot?.isDemo == true
+                    ) { draft in
+                        let date =
+                            draft.kind == .todo && draft.period != nil
+                            ? home.dates.periodEnd(draft.period ?? .weekly, containing: draft.date) : draft.date
+                        home.selectDate(date)
+                        await refresh()
+                        showsCreate = false
+                    }
+                }
             }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
         .sheet(
             item: $selectedEntry,
@@ -111,17 +139,22 @@ struct CalendarView: View {
                 Task { await model.load(for: home.selectedDate, locale: locale) }
             }
         ) { entry in
-            HomeEntryDetailView(entry: entry, viewModel: home, savingIDs: pendingTodoIDs, onToggle: toggle)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
+            HomeEntryDetailView(
+                entry: entry, viewModel: home, savingIDs: pendingTodoIDs, onToggle: toggle
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .alert(
             "home.write.failed",
             isPresented: Binding(
-                get: { !showsCreate && selectedEntry == nil && (model.showWriteError || home.showWriteError) },
+                get: {
+                    !showsCreate && selectedEntry == nil && (model.showWriteError || home.showWriteError)
+                },
                 set: {
                     if !$0 {
                         model.showWriteError = false
+                        model.writeErrorMessage = nil
                         home.showWriteError = false
                     }
                 }
@@ -129,12 +162,17 @@ struct CalendarView: View {
         ) {
             Button("common.confirm", role: .cancel) {}
         } message: {
-            Text("home.write.failed_detail")
+            if let message = model.writeErrorMessage {
+                Text(verbatim: message)
+            } else {
+                Text("home.write.failed_detail")
+            }
         }
     }
 
     private func updateNoteMotion() {
-        if scenePhase == .active && !reduceMotion && !model.groups.isEmpty && selectedNotePeriod == nil {
+        if scenePhase == .active && !reduceMotion && !model.groups.isEmpty && selectedNotePeriod == nil
+        {
             noteMotion.start()
         } else {
             noteMotion.stop()
@@ -161,7 +199,8 @@ struct CalendarView: View {
             Button {
                 showsCreate = true
             } label: {
-                Image(systemName: "plus").font(.system(size: 25, weight: .light)).frame(width: 44, height: 44)
+                Image(systemName: "plus").font(.system(size: 25, weight: .light)).frame(
+                    width: 44, height: 44)
             }
             .buttonStyle(.plain)
             .foregroundStyle(CalendarPalette.accent)

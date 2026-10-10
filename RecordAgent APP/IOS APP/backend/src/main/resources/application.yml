@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: recordagent-business-backend
+  config:
+    import: optional:file:./.env[.properties]
+  datasource:
+    url: ${RECORDAGENT_DB_URL}
+    username: ${RECORDAGENT_DB_USER}
+    password: ${RECORDAGENT_DB_PASSWORD}
+  mail:
+    host: ${RECORDAGENT_MAIL_HOST:localhost}
+    port: ${RECORDAGENT_MAIL_PORT:25}
+    username: ${RECORDAGENT_MAIL_USER:}
+    password: ${RECORDAGENT_MAIL_PASSWORD:}
+    properties:
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
+      mail.smtp.auth: ${RECORDAGENT_MAIL_AUTH:false}
+      mail.smtp.starttls.enable: ${RECORDAGENT_MAIL_STARTTLS:false}
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+  sql:
+    init:
+      mode: never
+server:
+  port: ${RECORDAGENT_SERVER_PORT:9090}
+  address: ${RECORDAGENT_SERVER_ADDRESS:127.0.0.1}
+recordagent:
+  auth:
+    max-code-attempts: ${RECORDAGENT_MAX_CODE_ATTEMPTS:5}
+    code-validity-minutes: ${RECORDAGENT_CODE_VALIDITY_MINUTES:10}
+    code-retry-seconds: ${RECORDAGENT_CODE_RETRY_SECONDS:60}
+    access-token-minutes: ${RECORDAGENT_ACCESS_TOKEN_MINUTES:15}
+    refresh-token-days: ${RECORDAGENT_REFRESH_TOKEN_DAYS:30}
+    password-attempts: ${RECORDAGENT_PASSWORD_ATTEMPTS:10}
+    request-attempts: ${RECORDAGENT_AUTH_REQUEST_ATTEMPTS:60}
+    request-window-seconds: ${RECORDAGENT_AUTH_REQUEST_WINDOW_SECONDS:60}
+    password-window-seconds: ${RECORDAGENT_PASSWORD_WINDOW_SECONDS:60}
+  reading:
+    day-limit: ${RECORDAGENT_DAY_LIMIT:200}
+    account-limit: ${RECORDAGENT_ACCOUNT_LIMIT:100}
+  mail:
+    from: ${RECORDAGENT_MAIL_FROM:}
+  files:
+    max-image-bytes: ${RECORDAGENT_MAX_IMAGE_BYTES:2000000}
+    root: ${RECORDAGENT_FILE_ROOT:./data/files/objects}
+management:
+  health:
+    mail:
+      enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

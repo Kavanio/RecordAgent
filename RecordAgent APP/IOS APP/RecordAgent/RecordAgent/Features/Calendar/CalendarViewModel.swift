@@ -12,6 +12,7 @@ final class CalendarViewModel: ObservableObject {
     @Published private(set) var savingIDs: Set<String> = []
     @Published private(set) var isCreating = false
     @Published var showWriteError = false
+    @Published var writeErrorMessage: String?
 
     private let service: any CalendarDataServiceProtocol
     private var revision = 0
@@ -54,7 +55,10 @@ final class CalendarViewModel: ObservableObject {
             }
             return true
         } catch {
-            if !(error is CancellationError) { showWriteError = true }
+            if !(error is CancellationError) {
+                writeErrorMessage = error.localizedDescription
+                showWriteError = true
+            }
             return false
         }
     }
@@ -67,7 +71,10 @@ final class CalendarViewModel: ObservableObject {
             try await service.createEntry(draft)
             return true
         } catch {
-            if !(error is CancellationError) { showWriteError = true }
+            if !(error is CancellationError) {
+                writeErrorMessage = error.localizedDescription
+                showWriteError = true
+            }
             return false
         }
     }

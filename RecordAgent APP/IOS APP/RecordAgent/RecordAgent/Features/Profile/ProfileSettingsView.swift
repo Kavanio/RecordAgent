@@ -21,6 +21,15 @@ struct ProfileSettingsView: View {
                 }
 
                 AppSettingsGroup(title: "profile.settings.section.app") {
+                    #if DEBUG
+                    NavigationLink {
+                        DebugServerConnectionView()
+                    } label: {
+                        settingsRow(title: "debug.server.title")
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.horizontal, 20)
+                    #endif
                     NavigationLink {
                         ProfilePreferencesView()
                     } label: {

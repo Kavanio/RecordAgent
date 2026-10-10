@@ -52,7 +52,7 @@ public final class MockAuthService: AuthServiceProtocol, @unchecked Sendable {
         return session
     }
 
-    public func sendVerificationCode(email: String) async throws {
+    public func sendVerificationCode(email: String, purpose: AuthCodePurpose) async throws {
         try await Task.sleep(nanoseconds: 500_000_000)
         if let error = AuthValidator.validateEmail(email) {
             throw error
@@ -123,6 +123,12 @@ public final class MockAuthService: AuthServiceProtocol, @unchecked Sendable {
         _ = keychain.saveEmail(email)
 
         return session
+    }
+
+    public func resetPassword(email: String, code: String, newPassword: String) async throws {
+        if let error = AuthValidator.validateEmail(email) { throw error }
+        if let error = AuthValidator.validateCode(code) { throw error }
+        if let error = AuthValidator.validatePassword(newPassword) { throw error }
     }
 
     public func logout() async throws {

@@ -46,13 +46,19 @@ extension HomeEntry.Kind {
 extension CalendarEntryDraft.Kind {
     var title: LocalizedStringKey {
         switch self {
-        case .todo: return "calendar.kind.todo"
-        case .schedule: return "calendar.kind.schedule"
-        case .note: return "calendar.kind.note"
+        case .todo: return "calendar.create.todo"
+        case .schedule: return "calendar.create.schedule"
+        case .note: return "calendar.create.note"
         }
     }
 }
 
 extension CalendarTodoPeriod {
-    var title: LocalizedStringKey { self == .weekly ? "calendar.week.todos" : "calendar.month.todos" }
+    var title: LocalizedStringKey {
+        switch self {
+        case .daily: return "calendar.repeat.day"
+        case .weekly: return "calendar.week.todos"
+        case .monthly: return "calendar.month.todos"
+        }
+    }
 }
