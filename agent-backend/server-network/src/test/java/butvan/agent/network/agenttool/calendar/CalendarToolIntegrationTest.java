@@ -123,20 +123,32 @@ class CalendarToolIntegrationTest {
     }
 
     @Test
-    void weeklyRequiresAWeekdayAndMonthlyDefaultsToMonthEnd() {
-        ToolResult<?> missingWeekday = calendarTool.create(new CreateRequest(
+    void weeklyAndMonthlyCanBeUnspecifiedOrSpecific() {
+        ToolResult<?> unspecifiedWeekly = calendarTool.create(new CreateRequest(
                 "todo", "2026-11-01", "每周任务", null, "medium",
                 new RecurrenceInput("weekly", null, null),
-                null, null, null, null, "calendar-missing-weekday"));
-        ToolResult<?> monthEnd = calendarTool.create(new CreateRequest(
+                null, null, null, null, "calendar-unspecified-weekly"));
+        ToolResult<?> unspecifiedMonthly = calendarTool.create(new CreateRequest(
                 "todo", "2026-11-01", "每月任务", null, "medium",
                 new RecurrenceInput("monthly", null, null),
-                null, null, null, null, "calendar-missing-month-day"));
+                null, null, null, null, "calendar-unspecified-month-day"));
+        ToolResult<?> invalidWeekly = calendarTool.create(new CreateRequest(
+                "todo", "2026-11-01", "非法周任务", null, "medium",
+                new RecurrenceInput("weekly", 8, null),
+                null, null, null, null, "calendar-invalid-weekday"));
+        ToolResult<?> invalidMonthly = calendarTool.create(new CreateRequest(
+                "todo", "2026-11-01", "非法月任务", null, "medium",
+                new RecurrenceInput("monthly", null, 32),
+                null, null, null, null, "calendar-invalid-month-day"));
 
-        assertEquals("INVALID_ARGUMENT", missingWeekday.error().code());
-        assertTrue(monthEnd.success());
-        CalendarItem item = assertInstanceOf(CalendarItem.class, monthEnd.data());
-        assertEquals(LocalDate.of(2026, 11, 30), item.occurrenceDate());
+        assertTrue(unspecifiedWeekly.success());
+        assertEquals(null, assertInstanceOf(CalendarItem.class, unspecifiedWeekly.data()).todo().recurrence().weekday());
+
+        assertTrue(unspecifiedMonthly.success());
+        assertEquals(null, assertInstanceOf(CalendarItem.class, unspecifiedMonthly.data()).todo().recurrence().dayOfMonth());
+
+        assertEquals("INVALID_ARGUMENT", invalidWeekly.error().code());
+        assertEquals("INVALID_ARGUMENT", invalidMonthly.error().code());
     }
 
     private static Path createDatabasePath() {

@@ -39,7 +39,8 @@ public class DailyEventRepository {
             String recurrence,
             Integer recurrenceWeekday,
             Integer recurrenceMonthDay,
-            boolean completed) {
+            boolean completed,
+            LocalDate completedDate) {
     }
 
     private final JdbcTemplate jdbcTemplate;
@@ -70,20 +71,38 @@ public class DailyEventRepository {
     /** 查询某日全部日记录的公共字段。 */
     public List<DailyEventRow> findDay(String ownerId, LocalDate date) {
         return jdbcTemplate.query("""
+                WITH current_param(day_str) AS (SELECT ?)
                 SELECT id, event_date, event_type, title, source, status,
                        version, created_at, updated_at
                 FROM daily_event e
+                JOIN current_param p ON 1=1
                 LEFT JOIN todo_detail t ON t.event_id = e.id
                 WHERE e.owner_id = ?
                   AND (
-                    (e.event_type <> 'todo' AND e.event_date = ?)
-                    OR (e.event_type = 'todo' AND e.event_date <= ? AND (
+                    (e.event_type <> 'todo' AND e.event_date = p.day_str)
+                    OR (e.event_type = 'todo' AND e.event_date <= p.day_str AND (
                       COALESCE(t.recurrence, 'none') = 'daily'
-                      OR (COALESCE(t.recurrence, 'none') = 'none' AND e.event_date = ?)
-                      OR (t.recurrence = 'weekly' AND
-                          ((CAST(strftime('%w', ?) AS INTEGER) + 6) % 7) + 1 = COALESCE(t.recurrence_weekday, 1))
-                      OR (t.recurrence = 'monthly' AND
-                          ? = date(?, 'start of month', '+1 month', '-1 day'))
+                      OR (COALESCE(t.recurrence, 'none') = 'none' AND e.event_date = p.day_str)
+                      OR (t.recurrence = 'weekly' AND (
+                          (t.recurrence_weekday IS NOT NULL AND ((CAST(strftime('%w', p.day_str) AS INTEGER) + 6) % 7) + 1 = t.recurrence_weekday)
+                          OR (t.recurrence_weekday IS NULL AND EXISTS (
+                              SELECT 1 FROM todo_completion c
+                              WHERE c.event_id = e.id
+                                AND c.period_start = date(p.day_str, '-' || ((CAST(strftime('%w', p.day_str) AS INTEGER) + 6) % 7) || ' days')
+                                AND substr(c.completed_at, 1, 10) = p.day_str
+                          ))
+                      ))
+                      OR (t.recurrence = 'monthly' AND (
+                          (t.recurrence_month_day IS NOT NULL AND (
+                              CAST(strftime('%d', p.day_str) AS INTEGER) = MIN(t.recurrence_month_day, CAST(strftime('%d', date(p.day_str, 'start of month', '+1 month', '-1 day')) AS INTEGER))
+                          ))
+                          OR (t.recurrence_month_day IS NULL AND EXISTS (
+                              SELECT 1 FROM todo_completion c
+                              WHERE c.event_id = e.id
+                                AND c.period_start = date(p.day_str, 'start of month')
+                                AND substr(c.completed_at, 1, 10) = p.day_str
+                          ))
+                      ))
                     ))
                   )
                 ORDER BY created_at ASC, id ASC
@@ -96,9 +115,8 @@ public class DailyEventRepository {
                 resultSet.getString("status"),
                 resultSet.getInt("version"),
                 Instant.parse(resultSet.getString("created_at")),
-                Instant.parse(resultSet.getString("updated_at"))), ownerId,
-                date.toString(), date.toString(), date.toString(), date.toString(), date.toString(),
-                date.toString());
+                Instant.parse(resultSet.getString("updated_at"))),
+                date.toString(), ownerId);
     }
 
     /** 按所有者读取一条日记录，防止跨用户修改。 */
@@ -134,7 +152,17 @@ public class DailyEventRepository {
                                WHEN 'weekly' THEN ?
                                WHEN 'monthly' THEN ?
                              END
-                       ) THEN 1 ELSE 0 END AS completed
+                       ) THEN 1 ELSE 0 END AS completed,
+                       (
+                           SELECT substr(c.completed_at, 1, 10)
+                           FROM todo_completion c
+                           WHERE c.event_id = e.id
+                             AND c.period_start = CASE t.recurrence
+                               WHEN 'weekly' THEN ?
+                               WHEN 'monthly' THEN ?
+                             END
+                           LIMIT 1
+                       ) AS completed_date
                 FROM daily_event e
                 JOIN todo_detail t ON t.event_id = e.id
                 WHERE e.owner_id = ?
@@ -146,16 +174,25 @@ public class DailyEventRepository {
                   END
                 ORDER BY CASE t.recurrence WHEN 'weekly' THEN 0 ELSE 1 END,
                          e.created_at, e.id
-                """, (resultSet, rowNumber) -> new RecurringTodoRow(
-                resultSet.getString("id"),
-                resultSet.getString("title"),
-                resultSet.getInt("version"),
-                LocalDate.parse(resultSet.getString("event_date")),
-                resultSet.getString("recurrence"),
-                nullableInteger(resultSet, "recurrence_weekday"),
-                nullableInteger(resultSet, "recurrence_month_day"),
-                resultSet.getInt("completed") == 1),
-                weekStart.toString(), monthStart.toString(), ownerId,
+                """, (resultSet, rowNumber) -> {
+                    String completedDateStr = resultSet.getString("completed_date");
+                    LocalDate completedDate = completedDateStr != null && !completedDateStr.isBlank()
+                            ? LocalDate.parse(completedDateStr)
+                            : null;
+                    return new RecurringTodoRow(
+                            resultSet.getString("id"),
+                            resultSet.getString("title"),
+                            resultSet.getInt("version"),
+                            LocalDate.parse(resultSet.getString("event_date")),
+                            resultSet.getString("recurrence"),
+                            nullableInteger(resultSet, "recurrence_weekday"),
+                            nullableInteger(resultSet, "recurrence_month_day"),
+                            resultSet.getInt("completed") == 1,
+                            completedDate);
+                },
+                weekStart.toString(), monthStart.toString(),
+                weekStart.toString(), monthStart.toString(),
+                ownerId,
                 weekEnd.toString(), monthEnd.toString());
     }
 
@@ -272,10 +309,26 @@ public class DailyEventRepository {
                 JOIN todo_detail t ON t.event_id = e.id
                   AND (
                     t.recurrence = 'daily'
-                    OR (t.recurrence = 'weekly' AND
-                        ((CAST(strftime('%w', dates.event_date) AS INTEGER) + 6) % 7) + 1 = COALESCE(t.recurrence_weekday, 1))
-                    OR (t.recurrence = 'monthly' AND
-                        dates.event_date = date(dates.event_date, 'start of month', '+1 month', '-1 day'))
+                    OR (t.recurrence = 'weekly' AND (
+                        (t.recurrence_weekday IS NOT NULL AND ((CAST(strftime('%w', dates.event_date) AS INTEGER) + 6) % 7) + 1 = t.recurrence_weekday)
+                        OR (t.recurrence_weekday IS NULL AND EXISTS (
+                            SELECT 1 FROM todo_completion c
+                            WHERE c.event_id = e.id
+                              AND c.period_start = date(dates.event_date, '-' || ((CAST(strftime('%w', dates.event_date) AS INTEGER) + 6) % 7) || ' days')
+                              AND substr(c.completed_at, 1, 10) = dates.event_date
+                        ))
+                    ))
+                    OR (t.recurrence = 'monthly' AND (
+                        (t.recurrence_month_day IS NOT NULL AND (
+                            CAST(strftime('%d', dates.event_date) AS INTEGER) = MIN(t.recurrence_month_day, CAST(strftime('%d', date(dates.event_date, 'start of month', '+1 month', '-1 day')) AS INTEGER))
+                        ))
+                        OR (t.recurrence_month_day IS NULL AND EXISTS (
+                            SELECT 1 FROM todo_completion c
+                            WHERE c.event_id = e.id
+                              AND c.period_start = date(dates.event_date, 'start of month')
+                              AND substr(c.completed_at, 1, 10) = dates.event_date
+                        ))
+                    ))
                   )
                   AND (t.recurrence = 'monthly' OR dates.event_date <= ?)
                 GROUP BY dates.event_date
@@ -289,6 +342,7 @@ public class DailyEventRepository {
                 BigDecimal.ZERO,
                 resultSet.getString("headline")), from.toString(), to.toString(), ownerId, today.toString());
     }
+
     /** 批量读取每天最多四条事项标题，按日程、待办、学习、手记顺序展示。 */
     public List<CalendarItem> findCalendarItems(
             String ownerId, LocalDate from, LocalDate to, LocalDate today) {
@@ -297,7 +351,7 @@ public class DailyEventRepository {
                     SELECT ? UNION ALL SELECT date(day, '+1 day') FROM dates WHERE day < ?
                 ), ranked AS (
                     SELECT dates.day, e.id, e.event_type, substr(e.title, 1, 80) AS title,
-                           ROW_NUMBER() OVER (PARTITION BY dates.day ORDER BY
+                            ROW_NUMBER() OVER (PARTITION BY dates.day ORDER BY
                                CASE e.event_type WHEN 'schedule' THEN 0 WHEN 'todo' THEN 1
                                    WHEN 'study' THEN 2 WHEN 'journal' THEN 3 ELSE 4 END,
                                e.created_at, e.id) AS position
@@ -309,10 +363,26 @@ public class DailyEventRepository {
                         OR (e.event_type = 'todo' AND e.event_date <= dates.day
                             AND (dates.day <= ? OR t.recurrence = 'monthly') AND (
                             t.recurrence = 'daily'
-                            OR (t.recurrence = 'weekly' AND
-                                ((CAST(strftime('%w', dates.day) AS INTEGER) + 6) % 7) + 1 = COALESCE(t.recurrence_weekday, 1))
-                            OR (t.recurrence = 'monthly' AND
-                                dates.day = date(dates.day, 'start of month', '+1 month', '-1 day'))
+                            OR (t.recurrence = 'weekly' AND (
+                                (t.recurrence_weekday IS NOT NULL AND ((CAST(strftime('%w', dates.day) AS INTEGER) + 6) % 7) + 1 = t.recurrence_weekday)
+                                OR (t.recurrence_weekday IS NULL AND EXISTS (
+                                    SELECT 1 FROM todo_completion c
+                                    WHERE c.event_id = e.id
+                                      AND c.period_start = date(dates.day, '-' || ((CAST(strftime('%w', dates.day) AS INTEGER) + 6) % 7) || ' days')
+                                      AND substr(c.completed_at, 1, 10) = dates.day
+                                ))
+                            ))
+                            OR (t.recurrence = 'monthly' AND (
+                                (t.recurrence_month_day IS NOT NULL AND (
+                                    CAST(strftime('%d', dates.day) AS INTEGER) = MIN(t.recurrence_month_day, CAST(strftime('%d', date(dates.day, 'start of month', '+1 month', '-1 day')) AS INTEGER))
+                                ))
+                                OR (t.recurrence_month_day IS NULL AND EXISTS (
+                                    SELECT 1 FROM todo_completion c
+                                    WHERE c.event_id = e.id
+                                      AND c.period_start = date(dates.day, 'start of month')
+                                      AND substr(c.completed_at, 1, 10) = dates.day
+                                ))
+                            ))
                         ))
                     )
                 )

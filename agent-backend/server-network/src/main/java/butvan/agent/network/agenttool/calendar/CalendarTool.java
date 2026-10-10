@@ -218,14 +218,14 @@ public class CalendarTool implements AgentToolModule {
                 }
             }
             case "weekly" -> {
-                if (recurrence.weekday() == null || recurrence.weekday() < 1 || recurrence.weekday() > 7) {
-                    throw new IllegalArgumentException("weekly 重复规则必须指定 1 至 7 的 weekday");
+                if (recurrence.weekday() != null && (recurrence.weekday() < 1 || recurrence.weekday() > 7)) {
+                    throw new IllegalArgumentException("weekly 重复规则如果指定 weekday，必须在 1 至 7 之间");
                 }
                 if (recurrence.dayOfMonth() != null) throw new IllegalArgumentException("weekly 不能指定 dayOfMonth");
             }
             case "monthly" -> {
-                if (recurrence.dayOfMonth() != null && recurrence.dayOfMonth() != 31) {
-                    throw new IllegalArgumentException("monthly 固定在月末，dayOfMonth 只能省略或设为 31");
+                if (recurrence.dayOfMonth() != null && (recurrence.dayOfMonth() < 1 || recurrence.dayOfMonth() > 31)) {
+                    throw new IllegalArgumentException("monthly 重复规则如果指定 dayOfMonth，必须在 1 至 31 之间");
                 }
                 if (recurrence.weekday() != null) throw new IllegalArgumentException("monthly 不能指定 weekday");
             }
@@ -251,23 +251,35 @@ public class CalendarTool implements AgentToolModule {
     private LocalDate firstOccurrence(DailyEvent event) {
         if (!(event.details() instanceof TodoDetails todo)) return event.eventDate();
         return switch (todo.recurrence()) {
-            case "weekly" -> event.eventDate().with(TemporalAdjusters.nextOrSame(DayOfWeek.of(todo.recurrenceWeekday())));
-            case "monthly" -> firstMonthlyOccurrence(event.eventDate());
+            case "weekly" -> todo.recurrenceWeekday() != null
+                    ? event.eventDate().with(TemporalAdjusters.nextOrSame(DayOfWeek.of(todo.recurrenceWeekday())))
+                    : event.eventDate();
+            case "monthly" -> todo.recurrenceMonthDay() != null
+                    ? firstMonthlyOccurrence(event.eventDate(), todo.recurrenceMonthDay())
+                    : event.eventDate();
             default -> event.eventDate();
         };
     }
 
-    private LocalDate firstMonthlyOccurrence(LocalDate startsOn) {
-        return startsOn.withDayOfMonth(startsOn.lengthOfMonth());
+    private LocalDate firstMonthlyOccurrence(LocalDate startsOn, int monthDay) {
+        int day = Math.min(monthDay, startsOn.lengthOfMonth());
+        LocalDate candidate = startsOn.withDayOfMonth(day);
+        return candidate.isBefore(startsOn)
+                ? candidate.plusMonths(1).withDayOfMonth(Math.min(monthDay, candidate.plusMonths(1).lengthOfMonth()))
+                : candidate;
     }
 
     private String createSummary(DailyEvent event) {
         if (event.details() instanceof TodoDetails todo) {
             String recurrence = switch (todo.recurrence()) {
                 case "daily" -> "每天";
-                case "weekly" -> "每周" + DayOfWeek.of(todo.recurrenceWeekday()).getDisplayName(
-                        java.time.format.TextStyle.FULL, Locale.CHINA);
-                case "monthly" -> "每月最后一天";
+                case "weekly" -> todo.recurrenceWeekday() != null
+                        ? "每周" + DayOfWeek.of(todo.recurrenceWeekday()).getDisplayName(
+                                java.time.format.TextStyle.FULL, Locale.CHINA)
+                        : "每周（便签）";
+                case "monthly" -> todo.recurrenceMonthDay() != null
+                        ? (todo.recurrenceMonthDay() == 31 ? "每月最后一天" : "每月" + todo.recurrenceMonthDay() + "日")
+                        : "每月（便签）";
                 default -> "不重复";
             };
             return "已创建待办：“" + event.title() + "”（" + recurrence + "）";
