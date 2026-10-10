@@ -51,10 +51,22 @@ const RECURRENCE_OPTIONS = [
   { value: 'monthly', label: '每月' },
 ] as const;
 
-const WEEKDAY_OPTIONS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((label, index) => ({
-  value: String(index + 1),
-  label,
-}));
+const WEEKDAY_OPTIONS = [
+  { value: '', label: '不固定星期（仅在便签显示）' },
+  ...['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((label, index) => ({
+    value: String(index + 1),
+    label,
+  })),
+];
+
+const MONTH_DAY_OPTIONS = [
+  { value: '', label: '不固定日期（仅在便签显示）' },
+  { value: '31', label: '每月最后一天（月末）' },
+  ...Array.from({ length: 30 }, (_, index) => ({
+    value: String(index + 1),
+    label: `每月 ${index + 1} 日`,
+  })),
+];
 
 const valueOf = (formData: FormData, key: string): string => String(formData.get(key) ?? '').trim();
 const optionalNumberOf = (formData: FormData, key: string): number | undefined => {
@@ -93,7 +105,7 @@ export const CalendarQuickCreate: React.FC<CalendarQuickCreateProps> = ({ select
         priority: (valueOf(formData, 'priority') || 'medium') as TodoPriority,
         recurrence: (valueOf(formData, 'recurrence') || 'none') as TodoRecurrence,
         recurrenceWeekday: optionalNumberOf(formData, 'recurrenceWeekday'),
-        recurrenceMonthDay: todoRecurrence === 'monthly' ? 31 : undefined,
+        recurrenceMonthDay: todoRecurrence === 'monthly' ? optionalNumberOf(formData, 'recurrenceMonthDay') : undefined,
       };
     } else if (activeKind === 'schedule') {
       draft = {
@@ -168,15 +180,24 @@ export const CalendarQuickCreate: React.FC<CalendarQuickCreateProps> = ({ select
                   name="recurrenceWeekday"
                   label="每周星期"
                   options={WEEKDAY_OPTIONS}
-                  defaultValue={String(selectedDate.getDay() || 7)}
-                  description={`从 ${selectedDateLabel} 起，仅在所选星期显示`}
+                  defaultValue=""
+                  description="未指定星期时仅在每周便签显示，勾选后记录到当天日历"
                   fieldSize="md"
                   fullWidth
                   containerClassName={styles.recurrenceRule}
                 />
               )}
               {todoRecurrence === 'monthly' && (
-                <p className={styles.monthlyRuleHint}>每月最后一天显示，并同步到本月待办便签。</p>
+                <Select
+                  name="recurrenceMonthDay"
+                  label="每月日期"
+                  options={MONTH_DAY_OPTIONS}
+                  defaultValue=""
+                  description="未指定日期时仅在每月便签显示，勾选后记录到当天日历"
+                  fieldSize="md"
+                  fullWidth
+                  containerClassName={styles.recurrenceRule}
+                />
               )}
             </>}
 

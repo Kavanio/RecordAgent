@@ -6,6 +6,7 @@ import {
   useMotionValue,
 } from 'framer-motion';
 import { useEffect, useRef, useState, type PointerEvent, type RefObject } from 'react';
+import { PlusIcon } from '@phosphor-icons/react';
 import styles from './StickyTodoNote.module.css';
 
 export interface StickyTodoItem {
@@ -29,6 +30,7 @@ interface StickyTodoNoteProps {
   constraintsRef: RefObject<HTMLDivElement | null>;
   onCollapsedChange: (collapsed: boolean) => void;
   onToggle: (item: StickyTodoItem) => void;
+  onAdd?: (text: string) => Promise<void> | void;
 }
 
 let topZIndex = 5;
@@ -50,9 +52,14 @@ export function StickyTodoNote({
   constraintsRef,
   onCollapsedChange,
   onToggle,
+  onAdd,
 }: StickyTodoNoteProps) {
   const [dragging, setDragging] = useState(false);
   const [zIndex, setZIndex] = useState(2);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newText, setNewText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const noteRef = useRef<HTMLElement>(null);
   const draggedRef = useRef(false);
   const x = useMotionValue(initialX);
@@ -106,6 +113,26 @@ export function StickyTodoNote({
     });
     window.setTimeout(() => { draggedRef.current = false; }, 0);
   };
+
+  const handleSubmitNew = async () => {
+    const trimmed = newText.trim();
+    if (!trimmed || submitting || !onAdd) return;
+    setSubmitting(true);
+    try {
+      await onAdd(trimmed);
+      setNewText('');
+      setIsAdding(false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (collapsed) {
+      setIsAdding(false);
+      setNewText('');
+    }
+  }, [collapsed]);
 
   return (
     <motion.article
@@ -242,12 +269,69 @@ export function StickyTodoNote({
                     <h3>{title}</h3>
                     {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
                   </div>
-                  <button className={styles.menu} aria-label={`收起${title}`} type="button" onClick={() => onCollapsedChange(true)}>
-                    <span>−</span>
-                  </button>
+                  <div className={styles.headerActions}>
+                    {onAdd && (
+                      <button
+                        className={styles.menu}
+                        aria-label={`添加${title}`}
+                        type="button"
+                        onClick={() => {
+                          setIsAdding((prev) => !prev);
+                          setTimeout(() => inputRef.current?.focus(), 50);
+                        }}
+                      >
+                        <PlusIcon size={14} weight="bold" />
+                      </button>
+                    )}
+                    <button
+                      className={styles.menu}
+                      aria-label={`收起${title}`}
+                      type="button"
+                      onClick={() => {
+                        setIsAdding(false);
+                        onCollapsedChange(true);
+                      }}
+                    >
+                      <span>−</span>
+                    </button>
+                  </div>
                 </header>
 
                 <div className={styles.list}>
+                  {isAdding && (
+                    <form
+                      className={styles.createRow}
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleSubmitNew();
+                      }}
+                    >
+                      <input
+                        ref={inputRef}
+                        className={styles.createInput}
+                        type="text"
+                        placeholder={`添加${title.replace('待办', '')}事项…`}
+                        value={newText}
+                        onChange={(e) => setNewText(e.target.value)}
+                        disabled={submitting}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') {
+                            setIsAdding(false);
+                            setNewText('');
+                          }
+                        }}
+                      />
+                      <button
+                        className={styles.createSubmit}
+                        type="submit"
+                        disabled={submitting || !newText.trim()}
+                        aria-label="确认添加"
+                      >
+                        {submitting ? '…' : '✓'}
+                      </button>
+                    </form>
+                  )}
                   {items.map((item, index) => (
                     <motion.button
                       className={`${styles.todo} ${item.done ? styles.done : ''}`}
