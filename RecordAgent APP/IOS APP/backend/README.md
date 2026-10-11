@@ -56,6 +56,6 @@ Controller 调用 Service，领域服务通过 Repository 读写自己的表，�
 <details>
 <summary>旧设计记录</summary>
 
-业务模块内部按实际代码建立 `api`、`application`、`domain`、`persistence`，不预建空目录。`src/test/java` 镜像对应生产包；Flyway 脚本位于 `src/main/resources/db/migration`。
+业务模块内部按实际代码建立 `api`、`application`、`domain`、`persistence`，不预建空目录。现有业务域已按 V1 的 21 张表建立 `persistence/entity` 行快照和 `persistence/mapper` JDBC 映射；它们尚未提供 CRUD 服务。`src/test/java` 镜像对应生产包；Flyway 脚本位于 `src/main/resources/db/migration`。
 
 </details>

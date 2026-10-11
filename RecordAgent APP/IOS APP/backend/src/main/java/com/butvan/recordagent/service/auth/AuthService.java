@@ -22,7 +22,7 @@ public interface AuthService {
     /** 锁定有效刷新会话并轮换凭据，旧会话立即撤销；无效或重放返回 401。 */
     AuthDtos.Session refresh(String refreshToken);
 
-    /** 验证重置码后更换密码。 */
+    /** 验证重置码后更换密码。 */   
     void resetPassword(AuthDtos.ResetPasswordRequest request);
 
     /** 退出当前会话。 */
