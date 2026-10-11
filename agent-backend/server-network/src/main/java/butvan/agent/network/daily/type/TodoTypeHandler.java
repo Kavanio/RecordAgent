@@ -100,7 +100,12 @@ public class TodoTypeHandler implements DailyEventTypeHandler<TodoCommand> {
 
     /** 判断目标日期是否属于待办的有效重复规则。 */
     public boolean occursOn(LocalDate startDate, LocalDate occurrenceDate, TodoRecurrenceRule rule) {
-        if (occurrenceDate.isBefore(startDate)) return false;
+        LocalDate effectiveStart = switch (rule.recurrence()) {
+            case "weekly" -> periodStart(startDate, "weekly");
+            case "monthly" -> periodStart(startDate, "monthly");
+            default -> startDate;
+        };
+        if (occurrenceDate.isBefore(effectiveStart)) return false;
         return switch (rule.recurrence()) {
             case "none" -> occurrenceDate.equals(startDate);
             case "daily" -> true;
