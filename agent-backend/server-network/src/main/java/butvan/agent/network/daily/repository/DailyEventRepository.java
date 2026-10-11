@@ -80,29 +80,37 @@ public class DailyEventRepository {
                 WHERE e.owner_id = ?
                   AND (
                     (e.event_type <> 'todo' AND e.event_date = p.day_str)
-                    OR (e.event_type = 'todo' AND e.event_date <= p.day_str AND (
-                      COALESCE(t.recurrence, 'none') = 'daily'
-                      OR (COALESCE(t.recurrence, 'none') = 'none' AND e.event_date = p.day_str)
-                      OR (t.recurrence = 'weekly' AND (
-                          (t.recurrence_weekday IS NOT NULL AND ((CAST(strftime('%w', p.day_str) AS INTEGER) + 6) % 7) + 1 = t.recurrence_weekday)
-                          OR (t.recurrence_weekday IS NULL AND EXISTS (
+                    OR (e.event_type = 'todo' AND (
+                      (e.event_date <= p.day_str AND (
+                        COALESCE(t.recurrence, 'none') = 'daily'
+                        OR (COALESCE(t.recurrence, 'none') = 'none' AND e.event_date = p.day_str)
+                        OR (t.recurrence = 'weekly' AND (
+                            (t.recurrence_weekday IS NOT NULL AND ((CAST(strftime('%w', p.day_str) AS INTEGER) + 6) % 7) + 1 = t.recurrence_weekday)
+                        ))
+                        OR (t.recurrence = 'monthly' AND (
+                            (t.recurrence_month_day IS NOT NULL AND (
+                                CAST(strftime('%d', p.day_str) AS INTEGER) = MIN(t.recurrence_month_day, CAST(strftime('%d', date(p.day_str, 'start of month', '+1 month', '-1 day')) AS INTEGER))
+                            ))
+                        ))
+                      ))
+                      OR (t.recurrence = 'weekly' AND t.recurrence_weekday IS NULL
+                          AND date(e.event_date, '-' || ((CAST(strftime('%w', e.event_date) AS INTEGER) + 6) % 7) || ' days') <= p.day_str
+                          AND EXISTS (
                               SELECT 1 FROM todo_completion c
                               WHERE c.event_id = e.id
                                 AND c.period_start = date(p.day_str, '-' || ((CAST(strftime('%w', p.day_str) AS INTEGER) + 6) % 7) || ' days')
                                 AND substr(c.completed_at, 1, 10) = p.day_str
-                          ))
-                      ))
-                      OR (t.recurrence = 'monthly' AND (
-                          (t.recurrence_month_day IS NOT NULL AND (
-                              CAST(strftime('%d', p.day_str) AS INTEGER) = MIN(t.recurrence_month_day, CAST(strftime('%d', date(p.day_str, 'start of month', '+1 month', '-1 day')) AS INTEGER))
-                          ))
-                          OR (t.recurrence_month_day IS NULL AND EXISTS (
+                          )
+                      )
+                      OR (t.recurrence = 'monthly' AND t.recurrence_month_day IS NULL
+                          AND date(e.event_date, 'start of month') <= p.day_str
+                          AND EXISTS (
                               SELECT 1 FROM todo_completion c
                               WHERE c.event_id = e.id
                                 AND c.period_start = date(p.day_str, 'start of month')
                                 AND substr(c.completed_at, 1, 10) = p.day_str
-                          ))
-                      ))
+                          )
+                      )
                     ))
                   )
                 ORDER BY created_at ASC, id ASC
@@ -308,8 +316,15 @@ public class DailyEventRepository {
                        ) THEN 1 ELSE 0 END) AS completed_count,
                        MIN(e.title) AS headline
                 FROM dates
-                JOIN daily_event e ON e.owner_id = ? AND e.event_type = 'todo' AND e.event_date <= dates.event_date
+                JOIN daily_event e ON e.owner_id = ? AND e.event_type = 'todo'
                 JOIN todo_detail t ON t.event_id = e.id
+                  AND CASE
+                    WHEN t.recurrence = 'weekly' AND t.recurrence_weekday IS NULL
+                      THEN date(e.event_date, '-' || ((CAST(strftime('%w', e.event_date) AS INTEGER) + 6) % 7) || ' days') <= dates.event_date
+                    WHEN t.recurrence = 'monthly' AND t.recurrence_month_day IS NULL
+                      THEN date(e.event_date, 'start of month') <= dates.event_date
+                    ELSE e.event_date <= dates.event_date
+                  END
                   AND (
                     t.recurrence = 'daily'
                     OR (t.recurrence = 'weekly' AND (
@@ -363,7 +378,14 @@ public class DailyEventRepository {
                     LEFT JOIN todo_detail t ON t.event_id = e.id
                     WHERE (
                         (e.event_date = dates.day AND NOT (e.event_type = 'todo' AND COALESCE(t.recurrence, 'none') <> 'none'))
-                        OR (e.event_type = 'todo' AND e.event_date <= dates.day
+                        OR (e.event_type = 'todo'
+                            AND CASE
+                              WHEN t.recurrence = 'weekly' AND t.recurrence_weekday IS NULL
+                                THEN date(e.event_date, '-' || ((CAST(strftime('%w', e.event_date) AS INTEGER) + 6) % 7) || ' days') <= dates.day
+                              WHEN t.recurrence = 'monthly' AND t.recurrence_month_day IS NULL
+                                THEN date(e.event_date, 'start of month') <= dates.day
+                              ELSE e.event_date <= dates.day
+                            END
                             AND (dates.day <= ? OR t.recurrence = 'monthly') AND (
                             t.recurrence = 'daily'
                             OR (t.recurrence = 'weekly' AND (

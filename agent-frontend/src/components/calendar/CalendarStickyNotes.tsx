@@ -107,7 +107,10 @@ export function CalendarStickyNotes({ focusDate, revision, onChanged }: Calendar
 
   const handleAddWeekly = async (text: string) => {
     try {
-      await createDailyRecord(focusDate, {
+      const weekStart = new Date(focusDate);
+      const day = (weekStart.getDay() + 6) % 7;
+      weekStart.setDate(weekStart.getDate() - day);
+      await createDailyRecord(weekStart, {
         kind: 'todo',
         title: text,
         priority: 'medium',
@@ -126,7 +129,8 @@ export function CalendarStickyNotes({ focusDate, revision, onChanged }: Calendar
 
   const handleAddMonthly = async (text: string) => {
     try {
-      await createDailyRecord(focusDate, {
+      const monthStart = new Date(focusDate.getFullYear(), focusDate.getMonth(), 1);
+      await createDailyRecord(monthStart, {
         kind: 'todo',
         title: text,
         priority: 'medium',

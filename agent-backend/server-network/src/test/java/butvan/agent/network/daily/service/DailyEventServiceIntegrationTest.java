@@ -263,6 +263,35 @@ class DailyEventServiceIntegrationTest {
     }
 
     @Test
+    void recurringTodoCreatedMidMonthCanBeCompletedOnEarlierDateInSamePeriod() {
+        String owner = "mid-month-recurring-user";
+        // 在 10月14日 创建一个月待办与周待办（例如日历选在14号创建的便签待办）
+        DailyEvent monthly = dailyEventService.create(
+                owner, new TodoCommand(LocalDate.of(2026, 10, 14), "月中创建的月待办", null, "medium", "monthly", null, null));
+        DailyEvent weekly = dailyEventService.create(
+                owner, new TodoCommand(LocalDate.of(2026, 10, 14), "周中创建的周待办", null, "medium", "weekly", null, null));
+
+        // 用户在 10月11日（属于同一个10月份，但日期早于 14号）在便签中勾选完成
+        LocalDate oct11 = LocalDate.of(2026, 10, 11);
+        dailyEventService.setTodoCompleted(owner, monthly.id(), true, monthly.version(), oct11);
+        // 验证 10月11日 日记录中正确投影展示了该月待办
+        var oct11Events = dailyEventService.getDay(owner, oct11).events();
+        assertTrue(oct11Events.stream().anyMatch(e -> e.id().equals(monthly.id())));
+
+        // 验证便签查询状态
+        var notes = dailyEventService.getRecurringTodos(owner, oct11);
+        var completedMonthly = notes.stream().filter(n -> n.id().equals(monthly.id())).findFirst().orElseThrow();
+        assertTrue(completedMonthly.completed());
+        assertEquals(oct11, completedMonthly.occurrenceDate());
+
+        // 周待办在同周周三创建，在同周周一（10月12日）也能顺利完成
+        LocalDate oct12 = LocalDate.of(2026, 10, 12);
+        dailyEventService.setTodoCompleted(owner, weekly.id(), true, weekly.version(), oct12);
+        var oct12Events = dailyEventService.getDay(owner, oct12).events();
+        assertTrue(oct12Events.stream().anyMatch(e -> e.id().equals(weekly.id())));
+    }
+
+    @Test
     void changingTodoRecurrenceClearsCompletionFromTheOldPeriodRule() {
         String owner = "recurrence-change-user";
         LocalDate septemberEnd = LocalDate.of(2025, 9, 30);

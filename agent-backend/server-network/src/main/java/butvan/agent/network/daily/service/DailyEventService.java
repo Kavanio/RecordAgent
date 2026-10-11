@@ -226,8 +226,11 @@ public class DailyEventService {
                             occurrenceDate = (!today.isBefore(monthStart) && !today.isAfter(monthEnd)) ? today : monthStart;
                         }
                     }
-                    if (occurrenceDate == null || occurrenceDate.isBefore(row.effectiveDate())) {
-                        occurrenceDate = row.effectiveDate();
+                    if (!row.completed()) {
+                        LocalDate periodStart = "weekly".equals(row.recurrence()) ? weekStart : monthStart;
+                        if (occurrenceDate == null || occurrenceDate.isBefore(periodStart)) {
+                            occurrenceDate = periodStart;
+                        }
                     }
                     return new RecurringTodo(
                             row.id(), row.title(), row.version(), row.recurrence(), occurrenceDate, row.completed());
