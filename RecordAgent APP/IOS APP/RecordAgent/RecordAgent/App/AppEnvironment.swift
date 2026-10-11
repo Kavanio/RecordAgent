@@ -37,7 +37,7 @@ public final class AppEnvironment: ObservableObject {
     public init(
         authService: AuthServiceProtocol? = nil,
         keychain: KeychainService = .shared
-    ) {
+    ) { 
         let client = APIClient(keychain: keychain)
         self.authService = authService ?? APIAuthService(client: client, keychain: keychain)
         self.keychain = keychain

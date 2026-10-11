@@ -17,6 +17,16 @@
         }
       }
     },
+    "%@%@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%2$@"
+          }
+        }
+      }
+    },
     "+%@" : {
 
     },
@@ -3783,6 +3793,23 @@
         }
       }
     },
+    "finance.today.empty" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No transactions recorded today"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日暂无记账流水"
+          }
+        }
+      }
+    },
     "finance.transaction.create" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3834,23 +3861,6 @@
         }
       }
     },
-    "finance.transactions.today" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Today's Transactions"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今日流水"
-          }
-        }
-      }
-    },
     "finance.transactions.all" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3885,6 +3895,23 @@
         }
       }
     },
+    "finance.transactions.today" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today's Transactions"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日流水"
+          }
+        }
+      }
+    },
     "finance.transactions.view_all" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3898,23 +3925,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "查看全部"
-          }
-        }
-      }
-    },
-    "finance.today.empty" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No transactions recorded today"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今日暂无记账流水"
           }
         }
       }
