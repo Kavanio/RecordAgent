@@ -171,23 +171,32 @@ class DailyEventServiceIntegrationTest {
     void recurringTodoNotesUseRealDefinitionsAndPeriodCompletion() {
         String owner = "recurring-note-user";
         LocalDate focus = LocalDate.of(2026, 9, 22);
+        // 不固定日期的周待办和月待办（属于便签）
         DailyEvent weekly = dailyEventService.create(
-                owner, new TodoCommand(LocalDate.of(2026, 9, 1), "完成周复盘", null, "high", "weekly", 5, null));
+                owner, new TodoCommand(LocalDate.of(2026, 9, 1), "完成周复盘", null, "high", "weekly", null, null));
         DailyEvent monthly = dailyEventService.create(
-                owner, new TodoCommand(LocalDate.of(2026, 8, 1), "整理月度资料", null, "medium", "monthly", null, 31));
+                owner, new TodoCommand(LocalDate.of(2026, 8, 1), "整理月度资料", null, "medium", "monthly", null, null));
+        // 指定了固定星期五的周待办与指定了31号的月待办（属于日历日程，不应进入便签）
+        DailyEvent fixedWeekly = dailyEventService.create(
+                owner, new TodoCommand(LocalDate.of(2026, 9, 1), "周五固定例会", null, "high", "weekly", 5, null));
+        DailyEvent fixedMonthly = dailyEventService.create(
+                owner, new TodoCommand(LocalDate.of(2026, 8, 1), "月末固定对账", null, "medium", "monthly", null, 31));
         dailyEventService.create(
                 owner, new TodoCommand(LocalDate.of(2026, 9, 1), "普通待办", null, "low"));
 
         var firstRead = dailyEventService.getRecurringTodos(owner, focus);
         assertEquals(2, firstRead.size());
-        assertEquals(LocalDate.of(2026, 9, 25), firstRead.getFirst().occurrenceDate());
+        assertTrue(firstRead.stream().anyMatch(item -> item.id().equals(weekly.id())));
+        assertTrue(firstRead.stream().anyMatch(item -> item.id().equals(monthly.id())));
+        assertFalse(firstRead.stream().anyMatch(item -> item.id().equals(fixedWeekly.id())));
+        assertFalse(firstRead.stream().anyMatch(item -> item.id().equals(fixedMonthly.id())));
         assertFalse(firstRead.getFirst().completed());
 
         dailyEventService.setTodoCompleted(owner, weekly.id(), true, weekly.version(), LocalDate.of(2026, 9, 25));
         var completedRead = dailyEventService.getRecurringTodos(owner, focus);
-        assertTrue(completedRead.stream().filter(item -> item.id().equals(weekly.id())).findFirst().orElseThrow().completed());
-        assertEquals(LocalDate.of(2026, 9, 30), completedRead.stream()
-                .filter(item -> item.id().equals(monthly.id())).findFirst().orElseThrow().occurrenceDate());
+        var completedWeekly = completedRead.stream().filter(item -> item.id().equals(weekly.id())).findFirst().orElseThrow();
+        assertTrue(completedWeekly.completed());
+        assertEquals(LocalDate.of(2026, 9, 25), completedWeekly.occurrenceDate());
     }
 
     @Test

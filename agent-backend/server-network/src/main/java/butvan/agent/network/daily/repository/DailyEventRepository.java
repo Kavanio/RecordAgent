@@ -167,7 +167,10 @@ public class DailyEventRepository {
                 JOIN todo_detail t ON t.event_id = e.id
                 WHERE e.owner_id = ?
                   AND e.event_type = 'todo'
-                  AND t.recurrence IN ('weekly', 'monthly')
+                  AND (
+                    (t.recurrence = 'weekly' AND t.recurrence_weekday IS NULL)
+                    OR (t.recurrence = 'monthly' AND t.recurrence_month_day IS NULL)
+                  )
                   AND e.event_date <= CASE t.recurrence
                     WHEN 'weekly' THEN ?
                     WHEN 'monthly' THEN ?
