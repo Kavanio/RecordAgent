@@ -12,7 +12,7 @@ import type {
   TodoDailyEvent,
   RecurringTodoSummary,
 } from '../types/dailyEvent';
-import { getApiBaseUrl, type ApiResponse } from './api';
+import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
 
 type RawEvent = DailyEventBase & { eventType: string; details: unknown };
 type RawDay = { date: string; events: RawEvent[] };
@@ -27,7 +27,7 @@ export function formatLocalDate(date: Date): string {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, init);
+  const response = await apiFetch(`${getApiBaseUrl()}${path}`, init);
   let payload: ApiResponse<T>;
   try {
     payload = await response.json() as ApiResponse<T>;

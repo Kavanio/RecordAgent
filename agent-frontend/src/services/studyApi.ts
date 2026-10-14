@@ -1,8 +1,8 @@
 import type { SaveStudySessionInput, StudySession, StudyStatistics } from '../types/study';
-import { getApiBaseUrl, type ApiResponse } from './api';
+import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
 
 async function studyRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, init);
+  const response = await apiFetch(`${getApiBaseUrl()}${path}`, init);
   let payload: ApiResponse<T>;
   try {
     payload = await response.json() as ApiResponse<T>;

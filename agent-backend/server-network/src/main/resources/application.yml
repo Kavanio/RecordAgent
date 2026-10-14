@@ -4,6 +4,9 @@ server:
 
 # 远程桌面客户端来源通过 BUTVAN_CORS_ALLOWED_ORIGINS 显式追加；禁止使用通配符开放局域网 API。
 butvan:
+  api:
+    access-token: ${BUTVAN_API_TOKEN:}
+    require-token: ${BUTVAN_API_REQUIRE_TOKEN:false}
   cors:
     allowed-origins: ${BUTVAN_CORS_ALLOWED_ORIGINS:tauri://localhost,http://tauri.localhost,https://tauri.localhost,http://localhost:5173,http://127.0.0.1:5173}
 

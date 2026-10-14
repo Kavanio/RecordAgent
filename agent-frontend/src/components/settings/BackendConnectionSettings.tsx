@@ -5,13 +5,14 @@ import { SettingsPageLayout } from './SettingsPageLayout';
 import { TextInput } from '../common/TextInput';
 import { Button } from '../common/Button';
 import { useMessage } from '../common/Message';
-import { testBackendConnection, type BackendConnectionInfo } from '../../services/api';
+import { saveBackendConnection, testBackendConnection, type BackendConnectionInfo } from '../../services/api';
 import styles from './BackendConnectionSettings.module.css';
 
 /** 桌面端后端连接入口；保存后重启切换，避免本地与远程调度器并行运行。 */
 export function BackendConnectionSettings() {
   const [connection, setConnection] = useState<BackendConnectionInfo | null>(null);
   const [url, setUrl] = useState('');
+  const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
   const { showMessage } = useMessage();
 
@@ -25,7 +26,8 @@ export function BackendConnectionSettings() {
   const test = async () => {
     setBusy(true);
     try {
-      await testBackendConnection(url);
+      const savedToken = token.trim() || await invoke<string | null>('get_backend_api_token');
+      await testBackendConnection(url, savedToken);
       showMessage('success', '后端连接成功');
     } catch (error) {
       showMessage('error', error instanceof Error ? error.message : '无法连接后端');
@@ -37,10 +39,11 @@ export function BackendConnectionSettings() {
   const save = async (remoteUrl: string | null) => {
     setBusy(true);
     try {
-      await invoke('save_remote_backend_url', { remoteUrl });
+      await saveBackendConnection(remoteUrl, remoteUrl ? token : null);
       showMessage('success', remoteUrl ? '远程地址已保存，请重启应用切换' : '已保存本地后端模式，请重启应用切换');
       setUrl(remoteUrl ?? '');
-      setConnection((current) => current ? { ...current, remoteUrl } : current);
+      setToken('');
+      setConnection((current) => current ? { ...current, remoteUrl, hasApiToken: Boolean(remoteUrl) } : current);
     } catch (error) {
       showMessage('error', error instanceof Error ? error.message : '保存后端设置失败');
     } finally {
@@ -62,9 +65,15 @@ export function BackendConnectionSettings() {
           labelFor="remote-backend-url"
           control={<TextInput id="remote-backend-url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="http://192.168.1.10:8081" autoComplete="url" />}
         />
+        <SettingsRow
+          label="API Token"
+          description={connection?.hasApiToken ? '系统钥匙串中已有 Token；重新保存时请输入新 Token。' : '填写服务器配置的 BUTVAN_API_TOKEN，至少 32 个字符。Token 保存到本机系统钥匙串。'}
+          labelFor="remote-backend-token"
+          control={<TextInput id="remote-backend-token" type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder={connection?.hasApiToken ? '已安全保存，输入新 Token 可替换' : '服务器 API Token'} autoComplete="new-password" />}
+        />
         <div className={styles.actions}>
           <Button variant="outline" onClick={() => void test()} disabled={busy || !url.trim()}>测试连接</Button>
-          <Button variant="primary" onClick={() => void save(url.trim())} disabled={busy || !url.trim()}>保存远程地址</Button>
+          <Button variant="primary" onClick={() => void save(url.trim())} disabled={busy || !url.trim() || token.trim().length < 32}>保存远程连接</Button>
           {connection?.remoteUrl && <Button variant="ghost" onClick={() => void save(null)} disabled={busy}>切回本机</Button>}
         </div>
       </SettingsGroup>
@@ -72,7 +81,7 @@ export function BackendConnectionSettings() {
         <p className={styles.note}>日报、周报、月报和邮件由服务器持续执行。桌面通知、休息遮罩和久坐采样由本机 App 处理；电脑关机或 App 完全退出时，本机采样与提醒会暂停。未确认的普通桌面通知超过 15 分钟后会过期跳过，待确认提醒会保留到你处理。</p>
       </SettingsGroup>
       <SettingsGroup title="远程访问安全">
-        <p className={styles.note}>当前后端仍是单用户服务，尚未提供 API 登录认证。仅在你能控制的可信局域网内使用，并将服务器防火墙限制为你的设备；不要把 8081 端口开放到公网。服务器端认证与部署流程完成后再用于不可信网络。</p>
+        <p className={styles.note}>服务器必须开启令牌校验（BUTVAN_API_REQUIRE_TOKEN=true），并限制防火墙只允许你的设备访问。当前业务仍是单用户服务；请通过 HTTPS 或可信 VPN 连接，不要把 8081 端口开放到公网。</p>
       </SettingsGroup>
     </SettingsPageLayout>
   );

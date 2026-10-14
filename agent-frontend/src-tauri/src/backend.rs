@@ -17,6 +17,8 @@ use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
 const CONNECTION_FILE: &str = "backend-connection.json";
+const KEYRING_SERVICE: &str = "com.butvan.agent";
+const KEYRING_USER: &str = "remote-backend-api-token";
 
 /// 本机配置的远程后端地址；不包含业务数据或凭据。
 #[derive(Clone, Default, Serialize, Deserialize)]
@@ -30,6 +32,7 @@ pub struct BackendConnectionConfig {
 pub struct BackendConnectionInfo {
     pub mode: String,
     pub remote_url: Option<String>,
+    pub has_api_token: bool,
 }
 
 /// 后端进程与端口共享状态（通过 Tauri 状态管理注入）
@@ -59,7 +62,7 @@ impl Default for BackendState {
     }
 }
 
-/// 前端查询后端运行模式：开发模式直接连本地 8081，打包模式等待 sidecar 就绪
+/// 前端查询当前后端运行模式：dev、sidecar 或 remote。
 #[tauri::command]
 pub fn get_backend_mode(state: State<'_, BackendState>) -> String {
     state.mode.clone()
@@ -71,17 +74,35 @@ pub fn get_backend_connection(state: State<'_, BackendState>) -> BackendConnecti
     BackendConnectionInfo {
         mode: state.mode.clone(),
         remote_url: state.remote_url.clone(),
+        has_api_token: read_api_token().ok().flatten().is_some(),
     }
 }
 
 /// 保存远程后端地址；模式在重启后切换，以保证不会同时运行两套调度器。
 #[tauri::command]
-pub fn save_remote_backend_url(app: AppHandle, remote_url: Option<String>) -> Result<(), String> {
+pub fn save_remote_backend_url(
+    app: AppHandle,
+    remote_url: Option<String>,
+    api_token: Option<String>,
+) -> Result<(), String> {
     let cleaned = remote_url
         .map(|url| url.trim().trim_end_matches('/').to_string())
         .filter(|url| !url.is_empty());
     if let Some(url) = &cleaned {
         validate_remote_url(url)?;
+        let token = api_token.as_deref().unwrap_or_default().trim();
+        if token.len() < 32 {
+            return Err("远程模式需要至少 32 个字符的 API Token".into());
+        }
+        keyring_entry()?
+            .set_password(token)
+            .map_err(|e| format!("无法将 API Token 保存到系统钥匙串：{e}"))?;
+    } else {
+        match keyring_entry()?.delete_credential() {
+            Ok(()) => {}
+            Err(keyring::Error::NoEntry) => {}
+            Err(e) => return Err(format!("无法从系统钥匙串删除 API Token：{e}")),
+        }
     }
     let path = connection_path(&app)?;
     let parent = path.parent().ok_or("无法确定应用配置目录")?;
@@ -95,16 +116,38 @@ pub fn save_remote_backend_url(app: AppHandle, remote_url: Option<String>) -> Re
     std::fs::rename(temp, path).map_err(|e| format!("保存后端连接配置失败：{e}"))
 }
 
+/// 将令牌从系统钥匙串读取到前端内存，仅用于构造本次 API 请求头。
+#[tauri::command]
+pub fn get_backend_api_token() -> Result<Option<String>, String> {
+    read_api_token().map_err(|e| format!("读取系统钥匙串失败：{e}"))
+}
+
+fn keyring_entry() -> Result<keyring::Entry, String> {
+    keyring::Entry::new(KEYRING_SERVICE, KEYRING_USER).map_err(|e| e.to_string())
+}
+
+fn read_api_token() -> Result<Option<String>, keyring::Error> {
+    match keyring::Entry::new(KEYRING_SERVICE, KEYRING_USER)?.get_password() {
+        Ok(token) => Ok(Some(token)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
 fn validate_remote_url(url: &str) -> Result<(), String> {
     let (scheme, rest) = url
         .split_once("://")
         .ok_or("请输入完整的后端地址，例如 http://192.168.1.10:8081")?;
     let authority = rest.split('/').next().unwrap_or_default();
+    let base_path = &rest[authority.len()..];
     if !matches!(scheme, "http" | "https")
         || authority.is_empty()
+        || !matches!(base_path, "" | "/")
         || authority.contains('@')
         || authority.contains('?')
         || authority.contains('#')
+        || rest.contains('?')
+        || rest.contains('#')
         || url.chars().any(char::is_whitespace)
     {
         return Err("后端地址仅支持不含账号、查询参数或片段的 HTTP/HTTPS 地址".into());
@@ -135,7 +178,7 @@ pub fn get_backend_port(state: State<'_, BackendState>) -> Option<u16> {
     *state.port.lock().unwrap()
 }
 
-/// 在应用 setup 阶段启动后端 sidecar，并在后台线程等待其就绪
+/// 在应用 setup 阶段读取远程模式；本机模式按需启动 sidecar 并等待健康检查。
 pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let connection = load_connection(app).map_err(std::io::Error::other)?;
     if let Some(url) = connection.remote_url {

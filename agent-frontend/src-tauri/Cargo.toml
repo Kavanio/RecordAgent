@@ -27,6 +27,7 @@ tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 
 tauri-plugin-notification = "2"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

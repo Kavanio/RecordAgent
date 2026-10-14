@@ -32,10 +32,12 @@ export interface AccountStatus {
 export interface BackendConnectionInfo {
   mode: 'dev' | 'sidecar' | 'remote';
   remoteUrl: string | null;
+  hasApiToken: boolean;
 }
 
 /** 后端地址：浏览器/非 Tauri 环境回退到开发地址，Tauri 环境由 Rust 端动态注入 */
 let apiBaseUrl = 'http://localhost:8081';
+let apiAccessToken: string | null = null;
 
 /** 获取当前生效的后端 API 基础地址（供其它 service 复用，禁止在组件中直接访问）。 */
 export function getApiBaseUrl(): string {
@@ -62,6 +64,7 @@ export async function initApiBaseUrl(): Promise<void> {
   if (mode === 'remote') {
     const connection = await invoke<BackendConnectionInfo>('get_backend_connection');
     if (!connection.remoteUrl) throw new Error('远程后端地址未配置');
+    apiAccessToken = await invoke<string | null>('get_backend_api_token').catch(() => null);
     apiBaseUrl = connection.remoteUrl;
     return;
   }
@@ -88,16 +91,49 @@ export async function fetchBackendConnection(): Promise<BackendConnectionInfo> {
 }
 
 /** 测试远程服务健康状态；仅验证连接和 HTTP 健康接口。 */
-export async function testBackendConnection(url: string): Promise<void> {
-  const response = await fetch(`${url.trim().replace(/\/+$/, '')}/api/health`, { signal: AbortSignal.timeout(5000) });
+export async function testBackendConnection(url: string, token?: string | null): Promise<void> {
+  const headers = new Headers();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const response = await fetch(`${url.trim().replace(/\/+$/, '')}/api/health`, { headers, signal: AbortSignal.timeout(5000) });
+  if (response.status === 401) throw new Error('API Token 不匹配，请检查服务器配置或重新输入 Token');
   if (!response.ok) throw new Error(`后端健康检查失败（HTTP ${response.status}），请检查地址与跨域设置`);
   const payload = await response.json() as ApiResponse<string>;
   if (payload.code !== 200 || payload.data !== 'ok') throw new Error('健康检查响应格式不正确');
 }
 
 /** 保存远程地址；变更需重启，确保本机 sidecar 与远程调度互斥。 */
-export async function saveBackendConnection(url: string | null): Promise<void> {
-  await invoke('save_remote_backend_url', { remoteUrl: url });
+export async function saveBackendConnection(url: string | null, token: string | null): Promise<void> {
+  await invoke('save_remote_backend_url', { remoteUrl: url, apiToken: token });
+}
+
+/** 统一为 API 请求注入远程 Bearer Token；本机模式不附加认证头。 */
+export function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers ?? (input instanceof Request ? input.headers : undefined));
+  const requestUrl = input instanceof Request ? input.url : String(input);
+  if (apiAccessToken) {
+    try {
+      if (new URL(requestUrl, apiBaseUrl).origin === new URL(apiBaseUrl).origin) {
+        headers.set('Authorization', `Bearer ${apiAccessToken}`);
+      }
+    } catch {
+      // 非 URL 请求交由浏览器 Fetch API 返回标准错误。
+    }
+  }
+  return fetch(input, { ...init, headers });
+}
+
+/** EventSource 不支持自定义请求头，令牌仅用于受保护的 SSE 订阅。 */
+export function apiEventSourceUrl(path: string): string {
+  const url = new URL(path, apiBaseUrl);
+  if (apiAccessToken) url.searchParams.set('access_token', apiAccessToken);
+  return url.toString();
+}
+
+/** 原生 img/download 无法设置 Authorization 头，返回仅用于受保护只读 GET 的访问地址。 */
+export function apiResourceUrl(path: string): string {
+  const url = new URL(path, apiBaseUrl);
+  if (apiAccessToken) url.searchParams.set('access_token', apiAccessToken);
+  return url.toString();
 }
 
 /**
@@ -105,7 +141,7 @@ export async function saveBackendConnection(url: string | null): Promise<void> {
  */
 export async function fetchModelConfig(): Promise<ModelConfig | null> {
   try {
-    const res = await fetch(`${apiBaseUrl}/agent/model/config`);
+    const res = await apiFetch(`${apiBaseUrl}/agent/model/config`);
     if (!res.ok) return null;
     const json: ApiResponse<ModelConfig> = await res.json();
     return json.data;
@@ -120,7 +156,7 @@ export async function fetchModelConfig(): Promise<ModelConfig | null> {
  */
 export async function fetchFullModelConfig(): Promise<any | null> {
   try {
-    const res = await fetch(`${apiBaseUrl}/agent/model/full-config`);
+    const res = await apiFetch(`${apiBaseUrl}/agent/model/full-config`);
     if (!res.ok) return null;
     const json: ApiResponse<any> = await res.json();
     return json.data;
@@ -135,7 +171,7 @@ export async function fetchFullModelConfig(): Promise<any | null> {
  */
 export async function saveFullModelConfig(fullConfig: any): Promise<{ success: boolean; message: string }> {
   try {
-    const res = await fetch(`${apiBaseUrl}/agent/model/full-config`, {
+    const res = await apiFetch(`${apiBaseUrl}/agent/model/full-config`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -157,7 +193,7 @@ export async function saveFullModelConfig(fullConfig: any): Promise<{ success: b
  */
 export async function fetchSupportedVendors(): Promise<string[]> {
   try {
-    const res = await fetch(`${apiBaseUrl}/agent/model/vendors`);
+    const res = await apiFetch(`${apiBaseUrl}/agent/model/vendors`);
     if (!res.ok) return ['gemini', 'openai', 'dashscope', 'deepseek', 'anthropic', 'ollama'];
     const json: ApiResponse<string[]> = await res.json();
     return json.data || [];
@@ -176,7 +212,7 @@ export async function saveModelConfig(params: {
   apiKey: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
-    const res = await fetch(`${apiBaseUrl}/agent/model`, {
+    const res = await apiFetch(`${apiBaseUrl}/agent/model`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -199,7 +235,7 @@ export async function saveModelConfig(params: {
 /** 获取当前设备的邮箱绑定状态。 */
 export async function fetchAccountStatus(): Promise<AccountStatus | null> {
   try {
-    const response = await fetch(`${apiBaseUrl}/agent/account/status`);
+    const response = await apiFetch(`${apiBaseUrl}/agent/account/status`);
     if (!response.ok) return null;
     const json: ApiResponse<AccountStatus> = await response.json();
     return json.code === 200 ? json.data : null;
@@ -210,14 +246,14 @@ export async function fetchAccountStatus(): Promise<AccountStatus | null> {
 
 /** 返回带版本参数的头像地址，确保更换头像后不会命中旧缓存。 */
 export function getAccountAvatarUrl(avatarVersion: string): string {
-  return `${apiBaseUrl}/agent/account/avatar/content?v=${encodeURIComponent(avatarVersion)}`;
+  return apiResourceUrl(`/agent/account/avatar/content?v=${encodeURIComponent(avatarVersion)}`);
 }
 
 /** 上传并替换当前设备用户的头像。 */
 export async function uploadAccountAvatar(file: File): Promise<AccountStatus> {
   const body = new FormData();
   body.append('file', file);
-  const response = await fetch(`${apiBaseUrl}/agent/account/avatar`, { method: 'POST', body });
+  const response = await apiFetch(`${apiBaseUrl}/agent/account/avatar`, { method: 'POST', body });
   const json: ApiResponse<AccountStatus> = await response.json();
   if (!response.ok || json.code !== 200) throw new Error(json.message || '头像上传失败');
   return json.data;
@@ -225,7 +261,7 @@ export async function uploadAccountAvatar(file: File): Promise<AccountStatus> {
 
 async function accountRequest<T>(path: string, body: Record<string, string>): Promise<{ success: boolean; message: string; data?: T }> {
   try {
-    const response = await fetch(`${apiBaseUrl}${path}`, {
+    const response = await apiFetch(`${apiBaseUrl}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -323,7 +359,7 @@ export async function submitPermissionDecisions(params: {
   approvalId: string;
   decisions: PermissionDecisionInput[];
 }): Promise<PermissionDecisionResponse> {
-  const response = await fetch(`${apiBaseUrl}/agent/chat/permission/decisions`, {
+  const response = await apiFetch(`${apiBaseUrl}/agent/chat/permission/decisions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
@@ -338,7 +374,7 @@ export async function submitPermissionDecisions(params: {
 export async function fetchPendingPermission(
   sessionId: string,
 ): Promise<PendingApprovalPayload | null> {
-  const response = await fetch(`${apiBaseUrl}/agent/chat/${sessionId}/permission/pending`);
+  const response = await apiFetch(`${apiBaseUrl}/agent/chat/${sessionId}/permission/pending`);
   if (response.status === 204) return null;
   if (!response.ok) throw new Error(`读取待审批操作失败：HTTP ${response.status}`);
   return response.json() as Promise<PendingApprovalPayload>;
@@ -374,7 +410,7 @@ export async function streamAgentChat(
     const payloadContent = params.content || params.context || '';
     const modelContext = params.context || params.content || '';
     const isResume = Boolean(params.approvalId);
-    const response = await fetch(
+    const response = await apiFetch(
       `${apiBaseUrl}/agent/chat${isResume ? '/permission/resume' : '/stream'}`,
       {
       method: 'POST',
@@ -522,7 +558,7 @@ export async function cancelAgentChatRun(
   sessionId: string,
   runId: string,
 ): Promise<AgentRunCancelResponse> {
-  const response = await fetch(`${apiBaseUrl}/agent/chat/runs/${encodeURIComponent(runId)}/cancel`, {
+  const response = await apiFetch(`${apiBaseUrl}/agent/chat/runs/${encodeURIComponent(runId)}/cancel`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId }),
@@ -536,7 +572,7 @@ export async function cancelAgentChatRun(
  */
 export async function fetchSessions(): Promise<SessionSummaryDto[]> {
   try {
-    const res = await fetch(`${apiBaseUrl}/agent/sessions`);
+    const res = await apiFetch(`${apiBaseUrl}/agent/sessions`);
     if (!res.ok) return [];
     const json: ApiResponse<SessionSummaryDto[]> = await res.json();
     return json.code === 200 && Array.isArray(json.data) ? json.data : [];
@@ -551,7 +587,7 @@ export async function fetchSessions(): Promise<SessionSummaryDto[]> {
  */
 export async function fetchSessionDetail(sessionId: string): Promise<SessionDetailDto | null> {
   try {
-    const res = await fetch(`${apiBaseUrl}/agent/sessions/${sessionId}`);
+    const res = await apiFetch(`${apiBaseUrl}/agent/sessions/${sessionId}`);
     if (!res.ok) return null;
     const json: ApiResponse<SessionDetailDto> = await res.json();
     return json.code === 200 ? json.data : null;
@@ -570,7 +606,7 @@ export async function createSessionApi(params?: {
   projectId?: string;
 }): Promise<{ success: boolean; data?: SessionSummaryDto; message?: string }> {
   try {
-    const res = await fetch(`${apiBaseUrl}/agent/sessions`, {
+    const res = await apiFetch(`${apiBaseUrl}/agent/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -598,7 +634,7 @@ export async function updateSessionTitleApi(
   title: string
 ): Promise<{ success: boolean; data?: SessionSummaryDto; message?: string }> {
   try {
-    const res = await fetch(`${apiBaseUrl}/agent/sessions/${sessionId}`, {
+    const res = await apiFetch(`${apiBaseUrl}/agent/sessions/${sessionId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title }),
@@ -617,7 +653,7 @@ export async function updateSessionTitleApi(
 /** 根据首个用户问题为仍使用占位名称的会话生成标题。 */
 export async function generateSessionTitle(sessionId: string): Promise<SessionSummaryDto | null> {
   try {
-    const response = await fetch(`${apiBaseUrl}/agent/sessions/${sessionId}/title/generate`, {
+    const response = await apiFetch(`${apiBaseUrl}/agent/sessions/${sessionId}/title/generate`, {
       method: 'POST',
     });
     if (!response.ok) return null;
@@ -635,7 +671,7 @@ export interface PermissionModeResponse {
 
 /** 获取当前会话持久化的权限模式。 */
 export async function fetchSessionPermissionMode(sessionId: string): Promise<SessionPermissionMode> {
-  const response = await fetch(`${apiBaseUrl}/agent/sessions/${sessionId}/permission-mode`);
+  const response = await apiFetch(`${apiBaseUrl}/agent/sessions/${sessionId}/permission-mode`);
   if (!response.ok) throw new Error(`读取权限模式失败：HTTP ${response.status}`);
   const json: ApiResponse<PermissionModeResponse> = await response.json();
   if (json.code !== 200 || !json.data?.mode) throw new Error(json.message || '读取权限模式失败');
@@ -647,7 +683,7 @@ export async function updateSessionPermissionMode(
   sessionId: string,
   mode: SessionPermissionMode,
 ): Promise<SessionPermissionMode> {
-  const response = await fetch(`${apiBaseUrl}/agent/sessions/${sessionId}/permission-mode`, {
+  const response = await apiFetch(`${apiBaseUrl}/agent/sessions/${sessionId}/permission-mode`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mode }),
@@ -663,7 +699,7 @@ export async function updateSessionPermissionMode(
  */
 export async function deleteSessionApi(sessionId: string): Promise<{ success: boolean; message?: string }> {
   try {
-    const res = await fetch(`${apiBaseUrl}/agent/sessions/${sessionId}`, {
+    const res = await apiFetch(`${apiBaseUrl}/agent/sessions/${sessionId}`, {
       method: 'DELETE',
     });
     const json: ApiResponse<void> = await res.json();
@@ -680,7 +716,7 @@ export async function deleteSessionApi(sessionId: string): Promise<{ success: bo
 /** 读取当前会话的任务计划书（不存在时返回 null）。 */
 export async function fetchPlan(sessionId: string): Promise<string | null> {
   try {
-    const res = await fetch(`${apiBaseUrl}/agent/chat/${sessionId}/plan`);
+    const res = await apiFetch(`${apiBaseUrl}/agent/chat/${sessionId}/plan`);
     if (!res.ok) return null;
     const json = (await res.json()) as { content?: string };
     return json.content ?? null;

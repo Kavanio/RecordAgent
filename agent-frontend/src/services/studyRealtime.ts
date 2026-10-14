@@ -1,5 +1,5 @@
 import type { StudyRealtimeEvent, StudySession } from '../types/study';
-import { getApiBaseUrl } from './api';
+import { apiEventSourceUrl, getApiBaseUrl } from './api';
 
 const REALTIME_REASONS = new Set(['SNAPSHOT', 'STARTED', 'FINISHED', 'CREATED', 'UPDATED', 'DELETED']);
 
@@ -39,7 +39,7 @@ export function subscribeStudyRealtime(
   onEvent: (event: StudyRealtimeEvent) => void,
   onMalformedEvent?: () => void,
 ): () => void {
-  const eventSource = new EventSource(`${getApiBaseUrl()}/agent/study-sessions/stream`);
+  const eventSource = new EventSource(apiEventSourceUrl(`${getApiBaseUrl()}/agent/study-sessions/stream`));
   const receive = (event: Event) => {
     try {
       onEvent(parseRealtimeEvent(event));
