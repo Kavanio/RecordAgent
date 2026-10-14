@@ -29,6 +29,11 @@ export interface AccountStatus {
   avatarVersion: string | null;
 }
 
+export interface BackendConnectionInfo {
+  mode: 'dev' | 'sidecar' | 'remote';
+  remoteUrl: string | null;
+}
+
 /** 后端地址：浏览器/非 Tauri 环境回退到开发地址，Tauri 环境由 Rust 端动态注入 */
 let apiBaseUrl = 'http://localhost:8081';
 
@@ -54,6 +59,12 @@ export async function initApiBaseUrl(): Promise<void> {
 
   // 开发模式：后端由开发者在本机（如 IDEA）启动，直接连固定开发端口
   const mode = await invoke<string>('get_backend_mode');
+  if (mode === 'remote') {
+    const connection = await invoke<BackendConnectionInfo>('get_backend_connection');
+    if (!connection.remoteUrl) throw new Error('远程后端地址未配置');
+    apiBaseUrl = connection.remoteUrl;
+    return;
+  }
   if (mode === 'dev') return;
 
   // 最长等待 60 秒（后端启动通常需要数秒）
@@ -69,6 +80,24 @@ export async function initApiBaseUrl(): Promise<void> {
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
+}
+
+/** 读取本机保存的远程后端设置。 */
+export async function fetchBackendConnection(): Promise<BackendConnectionInfo> {
+  return invoke<BackendConnectionInfo>('get_backend_connection');
+}
+
+/** 测试远程服务健康状态；仅验证连接和 HTTP 健康接口。 */
+export async function testBackendConnection(url: string): Promise<void> {
+  const response = await fetch(`${url.trim().replace(/\/+$/, '')}/api/health`, { signal: AbortSignal.timeout(5000) });
+  if (!response.ok) throw new Error(`后端健康检查失败（HTTP ${response.status}），请检查地址与跨域设置`);
+  const payload = await response.json() as ApiResponse<string>;
+  if (payload.code !== 200 || payload.data !== 'ok') throw new Error('健康检查响应格式不正确');
+}
+
+/** 保存远程地址；变更需重启，确保本机 sidecar 与远程调度互斥。 */
+export async function saveBackendConnection(url: string | null): Promise<void> {
+  await invoke('save_remote_backend_url', { remoteUrl: url });
 }
 
 /**

@@ -5,14 +5,32 @@
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
+
+const CONNECTION_FILE: &str = "backend-connection.json";
+
+/// 本机配置的远程后端地址；不包含业务数据或凭据。
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackendConnectionConfig {
+    pub remote_url: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackendConnectionInfo {
+    pub mode: String,
+    pub remote_url: Option<String>,
+}
 
 /// 后端进程与端口共享状态（通过 Tauri 状态管理注入）
 pub struct BackendState {
@@ -20,6 +38,10 @@ pub struct BackendState {
     pub port: Mutex<Option<u16>>,
     /// sidecar 子进程句柄，应用退出时用于关闭后端
     pub child: Mutex<Option<CommandChild>>,
+    /// 远程连接和本地 sidecar 互斥，避免双重执行自动任务。
+    pub mode: String,
+    /// 启动时加载的远程 API 地址。
+    pub remote_url: Option<String>,
 }
 
 impl Default for BackendState {
@@ -27,18 +49,84 @@ impl Default for BackendState {
         Self {
             port: Mutex::new(None),
             child: Mutex::new(None),
+            mode: if cfg!(debug_assertions) {
+                "dev".into()
+            } else {
+                "sidecar".into()
+            },
+            remote_url: None,
         }
     }
 }
 
 /// 前端查询后端运行模式：开发模式直接连本地 8081，打包模式等待 sidecar 就绪
 #[tauri::command]
-pub fn get_backend_mode() -> &'static str {
-  if cfg!(debug_assertions) {
-    "dev"
-  } else {
-    "sidecar"
-  }
+pub fn get_backend_mode(state: State<'_, BackendState>) -> String {
+    state.mode.clone()
+}
+
+/// 返回当前启动模式和远程地址，供桌面设置页显示。
+#[tauri::command]
+pub fn get_backend_connection(state: State<'_, BackendState>) -> BackendConnectionInfo {
+    BackendConnectionInfo {
+        mode: state.mode.clone(),
+        remote_url: state.remote_url.clone(),
+    }
+}
+
+/// 保存远程后端地址；模式在重启后切换，以保证不会同时运行两套调度器。
+#[tauri::command]
+pub fn save_remote_backend_url(app: AppHandle, remote_url: Option<String>) -> Result<(), String> {
+    let cleaned = remote_url
+        .map(|url| url.trim().trim_end_matches('/').to_string())
+        .filter(|url| !url.is_empty());
+    if let Some(url) = &cleaned {
+        validate_remote_url(url)?;
+    }
+    let path = connection_path(&app)?;
+    let parent = path.parent().ok_or("无法确定应用配置目录")?;
+    std::fs::create_dir_all(parent).map_err(|e| format!("创建应用配置目录失败：{e}"))?;
+    let bytes = serde_json::to_vec(&BackendConnectionConfig {
+        remote_url: cleaned,
+    })
+    .map_err(|e| e.to_string())?;
+    let temp = path.with_extension("json.tmp");
+    std::fs::write(&temp, bytes).map_err(|e| format!("写入后端连接配置失败：{e}"))?;
+    std::fs::rename(temp, path).map_err(|e| format!("保存后端连接配置失败：{e}"))
+}
+
+fn validate_remote_url(url: &str) -> Result<(), String> {
+    let (scheme, rest) = url
+        .split_once("://")
+        .ok_or("请输入完整的后端地址，例如 http://192.168.1.10:8081")?;
+    let authority = rest.split('/').next().unwrap_or_default();
+    if !matches!(scheme, "http" | "https")
+        || authority.is_empty()
+        || authority.contains('@')
+        || authority.contains('?')
+        || authority.contains('#')
+        || url.chars().any(char::is_whitespace)
+    {
+        return Err("后端地址仅支持不含账号、查询参数或片段的 HTTP/HTTPS 地址".into());
+    }
+    Ok(())
+}
+
+fn connection_path(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_config_dir()
+        .map(|dir| dir.join(CONNECTION_FILE))
+        .map_err(|e| e.to_string())
+}
+
+fn load_connection(app: &AppHandle) -> Result<BackendConnectionConfig, String> {
+    match std::fs::read(connection_path(app)?) {
+        Ok(bytes) => serde_json::from_slice(&bytes).map_err(|e| format!("后端连接配置损坏：{e}")),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            Ok(BackendConnectionConfig::default())
+        }
+        Err(e) => Err(format!("读取后端连接配置失败：{e}")),
+    }
 }
 
 /// 前端查询后端动态端口；未就绪时返回 null
@@ -49,7 +137,29 @@ pub fn get_backend_port(state: State<'_, BackendState>) -> Option<u16> {
 
 /// 在应用 setup 阶段启动后端 sidecar，并在后台线程等待其就绪
 pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    app.manage(BackendState::default());
+    let connection = load_connection(app).map_err(std::io::Error::other)?;
+    if let Some(url) = connection.remote_url {
+        validate_remote_url(&url).map_err(std::io::Error::other)?;
+        app.manage(BackendState {
+            mode: "remote".into(),
+            remote_url: Some(url),
+            ..BackendState::default()
+        });
+        info!("使用已配置的远程 Agent 后端");
+        return Ok(());
+    }
+    let mode = if cfg!(debug_assertions) {
+        "dev"
+    } else {
+        "sidecar"
+    };
+    app.manage(BackendState {
+        mode: mode.into(),
+        ..BackendState::default()
+    });
+    if cfg!(debug_assertions) {
+        return Ok(());
+    }
 
     let port = pick_free_port();
     info!("分配后端动态端口：{port}");
@@ -140,9 +250,8 @@ fn probe_health(port: u16) -> bool {
     };
     let _ = stream.set_read_timeout(Some(Duration::from_millis(400)));
 
-    let request = format!(
-        "GET /api/health HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n"
-    );
+    let request =
+        format!("GET /api/health HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
     if stream.write_all(request.as_bytes()).is_err() {
         return false;
     }

@@ -28,9 +28,7 @@ pub fn run() {
         )?;
       }
       #[cfg(desktop)]
-      if !cfg!(debug_assertions) {
-        backend::setup(app.handle())?;
-      }
+      backend::setup(app.handle())?;
       #[cfg(desktop)]
       task_desktop::setup(app.handle())?;
       #[cfg(desktop)]
@@ -58,6 +56,8 @@ pub fn run() {
   let builder = builder.invoke_handler(tauri::generate_handler![
     backend::get_backend_mode,
     backend::get_backend_port,
+    backend::get_backend_connection,
+    backend::save_remote_backend_url,
     system_settings::open_location_settings,
     task_desktop::task_activity_status,
     task_desktop::send_task_notification,

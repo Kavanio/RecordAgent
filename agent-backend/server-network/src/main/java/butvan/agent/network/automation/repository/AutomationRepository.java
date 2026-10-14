@@ -101,6 +101,10 @@ public class AutomationRepository {
     public List<TaskRun> pending(String owner) {
         return jdbc.query("SELECT * FROM automation_run WHERE owner_id=? AND (desktop_status='PENDING' OR confirmation='WAITING') ORDER BY created_at", RUN, owner);
     }
+    /** 过期的无需确认通知跳过；人工待确认提醒仍保留给用户处理。 */
+    public int expireDesktopNotices(String owner, long before) {
+        return jdbc.update("UPDATE automation_run SET desktop_status='SKIPPED' WHERE owner_id=? AND desktop_status='PENDING' AND confirmation<>'WAITING' AND created_at<?", owner, before);
+    }
     /** 按所有者查找执行。 */
     public TaskRun run(String owner, String id) {
         return jdbc.query("SELECT * FROM automation_run WHERE owner_id=? AND id=?", RUN, owner, id).stream()

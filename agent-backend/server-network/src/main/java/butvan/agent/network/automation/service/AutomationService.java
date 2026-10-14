@@ -37,6 +37,9 @@ public class AutomationService {
     }
     /** 有界任务列表和待处理桌面记录供 SSE 首次及重连快照使用。 */
     public synchronized Snapshot snapshot(String owner) {
+        int expired = new TransactionTemplate(transactions).execute(status ->
+                repository.expireDesktopNotices(owner, automationClock.millis() - Duration.ofMinutes(15).toMillis()));
+        if (expired > 0) events.publishEvent(new TasksChanged(owner));
         return new Snapshot(repository.list(owner).stream().map(TaskView::from).toList(),
                 repository.pending(owner).stream().map(RunView::from).toList());
     }

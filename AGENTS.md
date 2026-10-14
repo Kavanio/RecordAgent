@@ -48,7 +48,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 - 禁止提交 `node_modules`、`dist`、`target`、IDE 配置、日志、缓存、运行会话、真实密钥和用户本地配置。
 - 一个文件只承担一个清晰职责；页面编排、可复用组件、请求服务、领域类型和样式不得无边界混写。
 - 重命名、移动或删除文件后，必须同步更新所有导入、文档、测试和相关 `AGENTS.md` 索引。
-- 桌面端打包采用 Tauri sidecar 方案：统一入口为 `scripts/build-app.sh`（内部执行 `pnpm tauri build`，由 beforeBuildCommand 调用 `agent-backend/scripts/package-sidecar.sh` 生成后端 sidecar）；`pnpm tauri dev` 不打包、不拉起 sidecar，开发时后端在 IDEA 等本机环境启动（默认 8081）。打包模式下 Tauri（`src-tauri/src/backend.rs`）负责启动、健康检查与退出清理，端口动态分配；前端 API 地址由 `services/api.ts` 统一获取，禁止在组件中硬编码后端地址或端口。
+- 桌面端打包采用 Tauri sidecar 方案：统一入口为 `scripts/build-app.sh`（内部执行 `pnpm tauri build`，由 beforeBuildCommand 调用 `agent-backend/scripts/package-sidecar.sh` 生成后端 sidecar）；`pnpm tauri dev` 不打包、不拉起 sidecar，开发时后端在 IDEA 等本机环境启动（默认 8081）。打包模式默认由 Tauri（`src-tauri/src/backend.rs`）启动、健康检查与退出清理 sidecar，端口动态分配；用户可在桌面设置中选择远程 API 地址，重启后远程模式跳过本地 sidecar，保证自动任务只有一个调度器。前端 API 地址由 `services/api.ts` 统一获取，禁止在组件中硬编码后端地址或端口。远程部署前必须设置受限 CORS 来源并配置网络访问控制；当前桌面后端仍是单用户且尚无 API 登录认证，不得暴露到不可信网络。
 - 发布采用完整 SemVer git tag（`v<major>.<minor>.<patch>`）驱动：根目录 `VERSION` 是桌面端版本唯一来源，必须先同步到前端包与 Tauri 配置；GitHub Actions 先校验版本、构建并验证 sidecar，再上传 macOS / Linux / Windows 安装包至草稿 Release。PR 与 `develop` 推送只执行构建验证，不创建 Release；独立 iOS 业务后端由 `.github/workflows/verify-ios-backend.yml` 按路径触发格式、单元测试及 PostgreSQL 集成验证；Windows 的 sidecar 由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
 
 ### 分支管理策略
@@ -96,7 +96,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 - 聊天轮次 Token 用量随 assistant 消息写入 `~/.butvan-agent/transcripts/*.jsonl`；标题等非聊天模型调用写入 `~/.butvan-agent/usage/system-usage.jsonl`；未结束轮次仅暂存在 `~/.butvan-agent/runs/*.json`，终态落盘或重启恢复后必须清理。供应商 Usage 是实际总量，System、History、Current User、Tool Schema、Tool Result、Profile Context、Memory Recall、RAG 与 Other 是携带计数器版本的本地归因估算，两者不得混淆或互相补齐。SQLite 中的 Token 用量表仅作为可从上述文件重建的统计读模型，不得取代原始记录。
 - AgentScope 工作区、工具权限、文件与网络访问必须按最小权限设计；任何可能执行本机操作的能力都应具备明确的审批、范围和错误反馈。
 - 系统设置跳转只能通过参数固定的 Tauri 命令暴露，禁止允许前端传入任意 URL 或本机命令；不支持直达的平台必须提供可执行的手工路径说明。
-- 自动任务以 `server-network/automation` 的配置、执行和通知记录为权威事实；桌面端提供原生使用状态采集与系统通知。需确认的提醒统一使用固定尺寸的全局提醒窗口：到点播放提示音，用户确认后停止声音；久坐提醒继续倒计时至配置的休息时长，结束且后端确认成功时再播放一次提示音并关闭窗口。休息遮罩默认关闭，仅在用户确认休息后的有效倒计时期间覆盖所有显示器，结束、断连或原生续约超时必须释放，保留系统快捷键；不得在等待确认时锁定。提醒窗口音色、播放结束后的重复间隔及用户上传音频属于本机桌面偏好，统一由 Tauri 应用配置目录的 `task-reminder/` 管理，上传须校验格式、可播放性和大小，试听与正式提醒隔离。无需确认的任务继续使用系统通知。预览不得发送，邮件只能投递到已验证的绑定邮箱；每次执行的邮件、桌面和确认状态分别持久化，进程中断后的未知投递不可自动重发。
+- 自动任务以 `server-network/automation` 的配置、执行和通知记录为权威事实；远程模式下由服务器持续运行调度和邮件队列；桌面端提供本机原生使用状态采集与系统通知，电脑关机或 App 完全退出时本机能力暂停。需确认的提醒统一使用固定尺寸的全局提醒窗口：到点播放提示音，用户确认后停止声音；久坐提醒继续倒计时至配置的休息时长，结束且后端确认成功时再播放一次提示音并关闭窗口。休息遮罩默认关闭，仅在用户确认休息后的有效倒计时期间覆盖所有显示器，结束、断连或原生续约超时必须释放，保留系统快捷键；不得在等待确认时锁定。普通桌面通知离线超过 15 分钟后跳过，人工待确认提醒保留。提醒窗口音色、播放结束后的重复间隔及用户上传音频属于本机桌面偏好，统一由 Tauri 应用配置目录的 `task-reminder/` 管理，上传须校验格式、可播放性和大小，试听与正式提醒隔离。无需确认的任务继续使用系统通知。预览不得发送，邮件只能投递到已验证的绑定邮箱；每次执行的邮件、桌面和确认状态分别持久化，进程中断后的未知投递不可自动重发。
 
 ## 四、前端工程与 UI 组件规范
 
