@@ -4,7 +4,7 @@ use tauri::Manager;
 
 static LEASE: Mutex<Option<Instant>> = Mutex::new(None);
 
-/// 断连、倒计时结束或前端停止续约后销毁全部遮罩。
+/// 倒计时结束、偏好关闭或原生租约到期后销毁全部遮罩。
 pub fn clear(app: &tauri::AppHandle) -> Result<(), String> {
     *LEASE.lock().map_err(|e| e.to_string())? = None;
     let mut error = None;
@@ -23,16 +23,21 @@ pub fn clear(app: &tauri::AppHandle) -> Result<(), String> {
 }
 
 /// 只允许提醒窗口按一秒心跳续约；原生看门狗避免脚本失效后永久遮挡。
-/// 租约放宽至 15 秒（至少 6 秒），防止后台 WebKit 节能节流导致误判超时闪屏。
+/// 暂时断连时由既有租约自然到期，避免连接状态抖动造成遮罩反复销毁和重建。
 #[tauri::command]
 pub fn sync_task_rest_lock(app: tauri::AppHandle, window: tauri::WebviewWindow, remaining_seconds: u32) -> Result<(), String> {
     if window.label() != "task-reminder" { return Err("仅提醒窗口可以控制休息遮罩".into()); }
     if remaining_seconds == 0 { return clear(&app); }
-    let result = show(&app, &window);
-    if result.is_err() { if let Err(e) = clear(&app) { log::error!("休息遮罩清理失败：{e}"); } }
-    result?;
     let lease_secs = u64::from(remaining_seconds.min(15).max(6));
     *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now() + Duration::from_secs(lease_secs));
+    let has_existing_shields = app.webview_windows().keys().any(|label| label.starts_with("task-rest-shield-"));
+    if let Err(error) = show(&app, &window) {
+        // 已显示时保留当前遮罩并由下一次心跳重试；首次创建失败才清理可能的半成品。
+        if !has_existing_shields {
+            if let Err(cleanup_error) = clear(&app) { log::error!("首次创建失败后的休息遮罩清理失败：{cleanup_error}"); }
+        }
+        return Err(error);
+    }
     Ok(())
 }
 
@@ -40,11 +45,15 @@ pub fn sync_task_rest_lock(app: tauri::AppHandle, window: tauri::WebviewWindow, 
 #[tauri::command]
 pub fn preview_task_rest_lock(app: tauri::AppHandle, remaining_seconds: u32) -> Result<(), String> {
     if remaining_seconds == 0 { return clear(&app); }
-    let result = show_shields(&app);
-    if result.is_err() { if let Err(e) = clear(&app) { log::error!("休息遮罩清理失败：{e}"); } }
-    result?;
     let lease_secs = u64::from(remaining_seconds.clamp(10, 300) + 5);
     *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now() + Duration::from_secs(lease_secs));
+    let has_existing_shields = app.webview_windows().keys().any(|label| label.starts_with("task-rest-shield-"));
+    if let Err(error) = show_shields(&app) {
+        if !has_existing_shields {
+            if let Err(cleanup_error) = clear(&app) { log::error!("首次创建失败后的休息遮罩清理失败：{cleanup_error}"); }
+        }
+        return Err(error);
+    }
     Ok(())
 }
 
@@ -132,7 +141,7 @@ pub fn setup(app: &tauri::AppHandle) {
                     // 预览不持续发送心跳，也要能在预览期间适配显示器热插拔和布局变化。
                     if let Err(e) = show_shields(&app) {
                         log::error!("休息遮罩显示器布局同步失败：{e}");
-                        if let Err(e) = clear(&app) { log::error!("休息遮罩同步失败后的清理失败：{e}"); }
+                        // 暂时的显示器枚举/窗口布局错误不销毁现有遮罩，下一秒继续同步。
                     }
                 }
                 Some(_) => {

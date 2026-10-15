@@ -150,7 +150,7 @@ test('久坐弹框确认后停止声音，倒计时结束确认并播放提示�
     assert.equal(requests.filter(value => value.url.endsWith('/rest-run/confirm')).length, 0);
     assert.equal(plays, 1);
     await React.act(async () => reminderRoot.render(React.createElement(StateContext.Provider, { value: { snapshot: reminderSnapshot, connected: false, activity: null } }, React.createElement(TaskReminderWindow))));
-    assert.equal(locks().at(-1), 0, '连接异常必须释放桌面');
+    assert.equal(locks().at(-1), 60, '短暂断连时保留遮罩，等待原生租约自然到期');
     await React.act(async () => reminderRoot.render(React.createElement(StateContext.Provider, { value: { snapshot: reminderSnapshot, connected: true, activity: null } }, React.createElement(TaskReminderWindow))));
     assert.equal(locks().at(-1), 60, '恢复连接后继续未结束的休息');
     clock += 61_000;
