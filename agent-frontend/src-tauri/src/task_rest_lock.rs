@@ -52,25 +52,46 @@ fn show_shields(app: &tauri::AppHandle) -> Result<(), String> {
     let monitors = app.available_monitors().map_err(|e| e.to_string())?;
     for (index, monitor) in monitors.iter().enumerate() {
         let label = format!("task-rest-shield-{index}");
-        if let Some(shield) = app.get_webview_window(&label) {
-            // 窗口已存在且已可见时，直接跳过，切勿重复 set_position/set_size/set_macos_level（避免触发 Webview resize 和 WebGL 重绘闪屏）
-            if !shield.is_visible().map_err(|e| e.to_string())? {
-                set_macos_level(&shield, 25)?;
-                shield.show().map_err(|e| e.to_string())?;
-            }
-            continue;
+        let (shield, created) = if let Some(shield) = app.get_webview_window(&label) {
+            (shield, false)
+        } else {
+            let shield = tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::App("task-rest-shield.html".into()))
+                .title("正在休息").decorations(false).resizable(false).maximizable(false).minimizable(false)
+                .always_on_top(true).visible_on_all_workspaces(true).skip_taskbar(true).focused(true).focusable(true).visible(false)
+                .build().map_err(|e| e.to_string())?;
+            (shield, true)
+        };
+
+        // 显示器热插拔、排列变化或分辨率变化时，按当前列表序号重新校准窗口。
+        // 只在几何尺寸确实变化时调用原生 API，避免每秒心跳触发 WebView 重绘闪屏。
+        let desired_position = *monitor.position();
+        if shield.outer_position().map_err(|e| e.to_string())? != desired_position {
+            #[cfg(target_os = "macos")]
+            shield.set_position(desired_position.to_logical::<f64>(monitor.scale_factor())).map_err(|e| e.to_string())?;
+            #[cfg(not(target_os = "macos"))]
+            shield.set_position(desired_position).map_err(|e| e.to_string())?;
         }
 
-        let shield = tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::App("task-rest-shield.html".into()))
-            .title("正在休息").decorations(false).resizable(false).maximizable(false).minimizable(false)
-            .always_on_top(true).visible_on_all_workspaces(true).skip_taskbar(true).focused(true).focusable(true).visible(false)
-            .build().map_err(|e| e.to_string())?;
+        #[cfg(target_os = "macos")]
+        let (expected_size, desired_size) = {
+            // Tao Monitor.size 是按 backing scale 换算后的物理像素；NSWindow 尺寸使用点，
+            // 因此比较时保留物理尺寸，设置时只换算一次到目标屏幕的逻辑尺寸。
+            let scale = monitor.scale_factor();
+            let size = *monitor.size();
+            (size, size.to_logical::<f64>(scale))
+        };
+        #[cfg(not(target_os = "macos"))]
+        let (expected_size, desired_size) = (*monitor.size(), *monitor.size());
 
-        // macOS 状态栏层覆盖菜单栏与 Dock；全屏展示 3D 星球与倒计时。
-        set_macos_level(&shield, 25)?;
-        shield.set_position(*monitor.position()).map_err(|e| e.to_string())?;
-        shield.set_size(*monitor.size()).map_err(|e| e.to_string())?;
-        shield.show().map_err(|e| e.to_string())?;
+        if shield.outer_size().map_err(|e| e.to_string())? != expected_size {
+            shield.set_size(desired_size).map_err(|e| e.to_string())?;
+        }
+
+        if created || !shield.is_visible().map_err(|e| e.to_string())? {
+            // macOS 状态栏层覆盖菜单栏与 Dock；全屏展示 3D 星球与倒计时。
+            set_macos_level(&shield, 25)?;
+            shield.show().map_err(|e| e.to_string())?;
+        }
     }
     // 拔除屏幕后及时移除不再对应显示器的遮罩。
     for (label, window) in app.webview_windows() {
@@ -105,8 +126,20 @@ pub fn setup(app: &tauri::AppHandle) {
         std::thread::sleep(Duration::from_secs(1));
         let app = handle.clone();
         if let Err(e) = handle.run_on_main_thread(move || {
-            let expired = LEASE.lock().map(|lease| lease.is_some_and(|until| Instant::now() >= until)).unwrap_or(true);
-            if expired { if let Err(e) = clear(&app) { log::error!("休息遮罩超时清理失败：{e}"); } }
+            let lease = LEASE.lock().map(|lease| *lease).unwrap_or(None);
+            match lease {
+                Some(until) if Instant::now() < until => {
+                    // 预览不持续发送心跳，也要能在预览期间适配显示器热插拔和布局变化。
+                    if let Err(e) = show_shields(&app) {
+                        log::error!("休息遮罩显示器布局同步失败：{e}");
+                        if let Err(e) = clear(&app) { log::error!("休息遮罩同步失败后的清理失败：{e}"); }
+                    }
+                }
+                Some(_) => {
+                    if let Err(e) = clear(&app) { log::error!("休息遮罩超时清理失败：{e}"); }
+                }
+                None => {}
+            }
         }) { log::warn!("休息遮罩看门狗停止：{e}"); break; }
     });
 }
