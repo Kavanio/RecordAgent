@@ -3,13 +3,13 @@ package butvan.agent.network.automation.service;
 import java.time.*;
 import java.time.temporal.TemporalAdjusters;
 
-/** 以任务时区计算最近一个已结束的自然周期及前一个周期。 */
+/** 以任务时区计算报告本期和对比周期。 */
 public record ReportPeriod(LocalDate from, LocalDate to, LocalDate previousFrom, LocalDate previousTo) {
-    /** 以计划执行日为锚点，取最近一个已经结束的日报、ISO 周报或自然月报周期。 */
+    /** 日报统计计划执行日当天，周报和月报统计最近已结束周期。 */
     public static ReportPeriod completed(String kind, Instant planned, ZoneId zone) {
         LocalDate today = planned.atZone(zone).toLocalDate();
         return switch (kind) {
-            case "DAILY_REPORT" -> new ReportPeriod(today.minusDays(1), today.minusDays(1), today.minusDays(2), today.minusDays(2));
+            case "DAILY_REPORT" -> new ReportPeriod(today, today, today.minusDays(1), today.minusDays(1));
             case "WEEKLY_REPORT" -> {
                 LocalDate start = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1);
                 yield new ReportPeriod(start, start.plusDays(6), start.minusWeeks(1), start.minusDays(1));

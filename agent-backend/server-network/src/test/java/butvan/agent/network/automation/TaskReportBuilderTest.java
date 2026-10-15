@@ -24,8 +24,8 @@ class TaskReportBuilderTest {
         var result = builder.build("owner", spec, Instant.parse("2026-09-23T12:30:00Z"), Instant.parse("2026-09-23T12:30:00Z"));
         assertFalse(result.partial());
         assertTrue(result.text().contains("支出：无记录"));
-        assertTrue(result.text().contains("2026-09-22"));
-        assertTrue(result.text().contains("对比上期：2026-09-21"));
+        assertTrue(result.text().contains("2026-09-23"));
+        assertTrue(result.text().contains("对比上期：2026-09-22"));
     }
     @Test void unavailableExpenseSourceFailsInsteadOfProducingZero() {
         when(expense.reportExpenses(anyString(), any(), any())).thenThrow(new IllegalStateException("source unavailable"));
