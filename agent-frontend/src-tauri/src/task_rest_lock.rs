@@ -2,10 +2,30 @@
 use std::{sync::Mutex, time::{Duration, Instant}};
 use tauri::Manager;
 
-static LEASE: Mutex<Option<Instant>> = Mutex::new(None);
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LeaseKind { Rest, Preview }
+#[derive(Clone, Copy)]
+struct Lease { until: Instant, kind: LeaseKind }
+static LEASE: Mutex<Option<Lease>> = Mutex::new(None);
 
 /// 倒计时结束、偏好关闭或原生租约到期后销毁全部遮罩。
 pub fn clear(app: &tauri::AppHandle) -> Result<(), String> {
+    clear_matching(app, None)
+}
+
+/// 释放正式休息遮罩，不影响设置页的锁屏效果预览。
+pub fn clear_rest(app: &tauri::AppHandle) -> Result<(), String> {
+    clear_matching(app, Some(LeaseKind::Rest))
+}
+
+/// 释放设置页预览，不影响正式休息遮罩。
+fn clear_preview(app: &tauri::AppHandle) -> Result<(), String> {
+    clear_matching(app, Some(LeaseKind::Preview))
+}
+
+fn clear_matching(app: &tauri::AppHandle, expected: Option<LeaseKind>) -> Result<(), String> {
+    let current = *LEASE.lock().map_err(|e| e.to_string())?;
+    if expected.is_some() && current.is_some_and(|lease| Some(lease.kind) != expected) { return Ok(()); }
     *LEASE.lock().map_err(|e| e.to_string())? = None;
     let mut error = None;
     for (label, window) in app.webview_windows() {
@@ -17,7 +37,9 @@ pub fn clear(app: &tauri::AppHandle) -> Result<(), String> {
         if let Err(e) = set_macos_level(&reminder, 3) { error = Some(e); }
     }
     if error.is_some() {
-        *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now());
+        *LEASE.lock().map_err(|e| e.to_string())? = Some(Lease {
+            until: Instant::now(), kind: current.map(|lease| lease.kind).or(expected).unwrap_or(LeaseKind::Rest),
+        });
     }
     error.map_or(Ok(()), Err)
 }
@@ -27,9 +49,9 @@ pub fn clear(app: &tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn sync_task_rest_lock(app: tauri::AppHandle, window: tauri::WebviewWindow, remaining_seconds: u32) -> Result<(), String> {
     if window.label() != "task-reminder" { return Err("仅提醒窗口可以控制休息遮罩".into()); }
-    if remaining_seconds == 0 { return clear(&app); }
+    if remaining_seconds == 0 { return clear_rest(&app); }
     let lease_secs = u64::from(remaining_seconds.min(15).max(6));
-    *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now() + Duration::from_secs(lease_secs));
+    *LEASE.lock().map_err(|e| e.to_string())? = Some(Lease { until: Instant::now() + Duration::from_secs(lease_secs), kind: LeaseKind::Rest });
     let has_existing_shields = app.webview_windows().keys().any(|label| label.starts_with("task-rest-shield-"));
     if let Err(error) = show(&app, &window) {
         // 已显示时保留当前遮罩并由下一次心跳重试；首次创建失败才清理可能的半成品。
@@ -44,9 +66,9 @@ pub fn sync_task_rest_lock(app: tauri::AppHandle, window: tauri::WebviewWindow, 
 /// 预览锁屏效果（主窗口等可用），0 释放，正数直接按指定剩余时间加缓冲设置租约（无需每秒心跳）。
 #[tauri::command]
 pub fn preview_task_rest_lock(app: tauri::AppHandle, remaining_seconds: u32) -> Result<(), String> {
-    if remaining_seconds == 0 { return clear(&app); }
+    if remaining_seconds == 0 { return clear_preview(&app); }
     let lease_secs = u64::from(remaining_seconds.clamp(10, 300) + 5);
-    *LEASE.lock().map_err(|e| e.to_string())? = Some(Instant::now() + Duration::from_secs(lease_secs));
+    *LEASE.lock().map_err(|e| e.to_string())? = Some(Lease { until: Instant::now() + Duration::from_secs(lease_secs), kind: LeaseKind::Preview });
     let has_existing_shields = app.webview_windows().keys().any(|label| label.starts_with("task-rest-shield-"));
     if let Err(error) = show_shields(&app) {
         if !has_existing_shields {
@@ -137,7 +159,7 @@ pub fn setup(app: &tauri::AppHandle) {
         if let Err(e) = handle.run_on_main_thread(move || {
             let lease = LEASE.lock().map(|lease| *lease).unwrap_or(None);
             match lease {
-                Some(until) if Instant::now() < until => {
+                Some(lease) if Instant::now() < lease.until => {
                     // 预览不持续发送心跳，也要能在预览期间适配显示器热插拔和布局变化。
                     if let Err(e) = show_shields(&app) {
                         log::error!("休息遮罩显示器布局同步失败：{e}");

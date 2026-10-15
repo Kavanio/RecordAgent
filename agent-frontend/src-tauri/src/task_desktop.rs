@@ -56,7 +56,7 @@ pub fn task_activity_status() -> Activity { activity() }
 /// 固定路由提醒窗口，不接受任意 URL 或脚本。
 #[tauri::command]
 pub fn sync_task_reminder(app: tauri::AppHandle, visible: bool) -> Result<(), String> {
-    if !visible { crate::task_rest_lock::clear(&app)?; }
+    if !visible { crate::task_rest_lock::clear_rest(&app)?; }
     if let Some(window) = app.get_webview_window("task-reminder") {
         return if visible { window.show().and_then(|_| window.set_focus()) } else { window.hide() }.map_err(|e| e.to_string());
     }
