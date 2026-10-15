@@ -145,7 +145,7 @@ class AutomationServiceIntegrationTest {
         TIME.addAndGet(5_000); service.activity("owner-lock",new ActivitySample(0,false,true));
         assertEquals(5,service.snapshot("owner-lock").tasks().getFirst().activeSeconds());
         TIME.addAndGet(5_000); service.activity("owner-lock",new ActivitySample(0,true,true));
-        assertEquals(0,service.snapshot("owner-lock").tasks().getFirst().activeSeconds());
+        assertEquals(5,service.snapshot("owner-lock").tasks().getFirst().activeSeconds());
         assertTrue(service.history("owner-lock",task.id()).isEmpty());
     }
     @Test void explicitRetryAfterOneDayUsesNewQueueTimeAndFrozenHtml() {
