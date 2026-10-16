@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   create-release:
-    name: 校验版本并创建正式 GitHub Release
+    name: 校验版本并创建 GitHub Release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,8 +24,8 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          if ! [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-            echo "正式发布 tag 必须是 v<major>.<minor>.<patch>，实际为：$RELEASE_TAG" >&2
+          if ! [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(alpha|beta|rc)\.(0|[1-9][0-9]*))?$ ]]; then
+            echo "Release tag 必须是 v<major>.<minor>.<patch>，或附带 -alpha.N、-beta.N、-rc.N 预发布后缀，实际为：$RELEASE_TAG" >&2
             exit 1
           fi
 
@@ -44,6 +44,11 @@ jobs:
 
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: 校验 CHANGELOG 并提取发布说明
         shell: bash
@@ -79,5 +84,5 @@ jobs:
           name: ButvanAgent ${{ steps.release.outputs.tag }}
           body_path: RELEASE_BODY.md
           draft: false
-          prerelease: false
-          make_latest: true
+          prerelease: ${{ steps.release.outputs.prerelease }}
+          make_latest: ${{ steps.release.outputs.prerelease == 'false' }}
