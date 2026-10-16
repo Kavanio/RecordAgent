@@ -279,7 +279,7 @@ node scripts/sync-version.mjs --check
 
 脚本会完成版本检查、后端 fat jar、最小 JRE、平台启动器和 Tauri 安装包组装。构建结果位于 `agent-frontend/src-tauri/target/<profile>/bundle/`。
 
-PR、`develop` push 和其他分支 push 均不会触发 GitHub Actions。正式 Release 只由推送 `v<major>.<minor>.<patch>` tag 触发；工作流校验版本与变更日志后直接创建 GitHub Release，正文取自对应 `CHANGELOG.md` 章节，不自动构建或上传安装包。
+PR、`develop` push 和其他分支 push 均不会触发 GitHub Actions。推送 `v<major>.<minor>.<patch>` tag 会创建正式 Release；推送带 `-alpha.N`、`-beta.N` 或 `-rc.N` 后缀的 SemVer tag 会创建 GitHub Pre-release。工作流校验版本与变更日志后直接创建 Release，正文取自对应 `CHANGELOG.md` 章节，不自动构建或上传安装包。
 
 ### 桌面端正式发布
 
@@ -291,16 +291,16 @@ PR、`develop` push 和其他分支 push 均不会触发 GitHub Actions。正式
    node scripts/sync-version.mjs --check
    ```
 
-3. 将本次变更从 `CHANGELOG.md` 的 `## [未发布]` 整理到严格匹配的章节，例如 `## v0.3.1`。建议记录发布日期、对比基线、发布通道、分类变更、升级说明和提交摘要。
+3. 将本次变更从 `CHANGELOG.md` 的 `## [未发布]` 整理到严格匹配的章节，例如 `## v0.3.1` 或 `## v0.4.0-beta.1`。建议记录发布日期、对比基线、发布通道、分类变更、升级说明和关键提交。
 4. 提交版本与变更日志，按分支规范合入 `main` 和 `develop`，在本地完成所需验证并推送 `develop`。
-5. 在已经推送到 `develop` 的提交上创建并推送带注释 tag：
+5. 在已经推送到 `develop` 的提交上创建并推送带注释 tag。正式版本使用 `vX.Y.Z`；预览版本可使用 `vX.Y.Z-beta.N`（也支持 `alpha`、`rc`）：
 
    ```bash
-   git tag -a vX.Y.Z -m "Release vX.Y.Z"
-   git push origin vX.Y.Z
+   git tag -a vX.Y.Z-beta.1 -m "Release vX.Y.Z-beta.1"
+   git push origin vX.Y.Z-beta.1
    ```
 
-   将 `vX.Y.Z` 替换为实际版本，并确认它与 `VERSION`、前端/Tauri 配置及 CHANGELOG 标题完全一致。tag 必须指向 `develop` 历史中的提交。
+   将示例版本替换为实际版本，并确认它与 `VERSION`、前端/Tauri 配置及 CHANGELOG 标题完全一致。tag 必须指向 `develop` 历史中的提交。版本后缀为 `alpha`、`beta` 或 `rc` 时，GitHub 会将其标记为预发布版本。
 
 发布工作流只监听 `v*` tag，不构建或上传安装包。tag、`VERSION`、同步后的前端/Tauri 版本或 CHANGELOG 校验失败时不会创建 Release；修正后应递增版本并创建新 tag，不要移动或复用正式版本 tag。
 
