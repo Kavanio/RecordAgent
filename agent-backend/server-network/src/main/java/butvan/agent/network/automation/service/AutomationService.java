@@ -37,6 +37,9 @@ public class AutomationService {
     }
     /** 有界任务列表和待处理桌面记录供 SSE 首次及重连快照使用。 */
     public synchronized Snapshot snapshot(String owner) {
+        int expired = new TransactionTemplate(transactions).execute(status ->
+                repository.expireDesktopNotices(owner, automationClock.millis() - Duration.ofMinutes(15).toMillis()));
+        if (expired > 0) events.publishEvent(new TasksChanged(owner));
         return new Snapshot(repository.list(owner).stream().map(TaskView::from).toList(),
                 repository.pending(owner).stream().map(RunView::from).toList());
     }
@@ -159,7 +162,7 @@ public class AutomationService {
         repository.insertRun(new TaskRun(UUID.randomUUID().toString(), t.id(), t.ownerId(), t.spec().title(), "",
                 planned, automationClock.millis(), "SCHEDULED", "SKIPPED", "SKIPPED", "SKIPPED", null, "NONE", false, reason));
     }
-    /** 原生采集状态输入；采样间隙超过 15 秒视为无法观察，不补偿使用时长。 */
+    /** 原生采集状态输入；空闲、锁屏或采样中断时暂停计时并保留已累计时长。 */
     public synchronized void activity(String owner, ActivitySample sample) {
         if (sample.idleSeconds() < 0) throw new IllegalArgumentException("空闲时长不合法");
         Instant now = automationClock.instant(); Instant previous = samples.put(owner, now);
@@ -168,8 +171,10 @@ public class AutomationService {
             if (!"ENABLED".equals(task.status()) || !"ACTIVITY".equals(task.spec().trigger()) || repository.waiting(task.id())) continue;
             transaction(owner, () -> {
                 var s = task.spec(); long seconds = task.activeSeconds();
-                if (!sample.supported() || sample.locked() || !s.activeAt(now) || sample.idleSeconds() >= s.breakMinutes()*60L || delta > 15 || delta < 0) seconds = 0;
-                else seconds += delta;
+                boolean activelyUsed = sample.supported() && !sample.locked() && s.activeAt(now)
+                        && sample.idleSeconds() < s.breakMinutes()*60L;
+                // 首次采样、长间隔及非活动状态只暂停；不能据此推算遗漏时间或清除已保存进度。
+                if (activelyUsed && delta > 0 && delta <= 15) seconds += delta;
                 repository.progress(task.id(), null, seconds, task.status());
                 if (seconds >= s.minutes()*60L) execute(task, now.toEpochMilli(), "ACTIVITY");
                 return null;
@@ -212,7 +217,7 @@ public class AutomationService {
             samples.remove(owner); return null;
         });
     }
-    /** 重启后标记不确定投递，间隔提醒重新起算。 */
+    /** 重启后标记不确定投递；无法观察的离线时段暂停计时，保留已累计的使用时长。 */
     public synchronized void recover() {
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
             repository.recover();

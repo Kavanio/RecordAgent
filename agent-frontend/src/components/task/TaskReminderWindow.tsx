@@ -11,12 +11,23 @@ import styles from './TaskReminderWindow.module.css';
 
 const startedKey = (id: string) => `task-reminder-rest:${id}`;
 const readStarted = (id: string) => Number(localStorage.getItem(startedKey(id))) || null;
+interface RestLockSnapshot { runId: string; startedAt: number; durationMs: number; restLock: boolean }
+function readRestLockSnapshot(): RestLockSnapshot | null {
+  try {
+    const value = JSON.parse(localStorage.getItem('butvan-task-rest-data') || 'null') as Partial<RestLockSnapshot> | null;
+    return value && typeof value.runId === 'string' && Number.isFinite(value.startedAt)
+      && Number.isFinite(value.durationMs) && value.durationMs! > 0
+      ? { runId: value.runId, startedAt: value.startedAt!, durationMs: value.durationMs!, restLock: value.restLock === true }
+      : null;
+  } catch { return null; }
+}
 
 /** 久坐提醒先停止提示音并开始休息；休息完成后确认并播放结束提示音，窗口随权威快照关闭。 */
 export function TaskReminderWindow() {
   const { snapshot, connected } = useAutomations();
   const [now, setNow] = useState(Date.now());
   const [started, setStarted] = useState<Record<string, number>>({});
+  const [restLockSnapshot, setRestLockSnapshot] = useState(readRestLockSnapshot);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [reminderConfig, setReminderConfig] = useState<{ runId: string; preferences: TaskReminderPreferences } | null>(null);
@@ -80,6 +91,7 @@ export function TaskReminderWindow() {
       completed.current.add(id);
       localStorage.removeItem(startedKey(id));
       localStorage.removeItem('butvan-task-rest-data');
+      setRestLockSnapshot(null);
       try {
         const bc = new BroadcastChannel('butvan-task-rest-sync');
         bc.postMessage({ type: 'FINISH', runId: id });
@@ -131,10 +143,12 @@ export function TaskReminderWindow() {
       startedAt: at,
       durationMs: (currentTask?.spec?.breakMinutes ?? 5) * 60_000,
       breakMinutes: currentTask?.spec?.breakMinutes ?? 5,
+      restLock: preferences?.restLock === true,
       title: active?.title || '久坐提醒',
       content: active?.content || '起来活动一下，深呼吸，眺望远方',
     };
     localStorage.setItem('butvan-task-rest-data', JSON.stringify(restPayload));
+    setRestLockSnapshot({ runId: id, startedAt: at, durationMs: restPayload.durationMs, restLock: restPayload.restLock });
     try {
       const bc = new BroadcastChannel('butvan-task-rest-sync');
       bc.postMessage({ type: 'START', payload: restPayload });
@@ -157,25 +171,35 @@ export function TaskReminderWindow() {
       startedAt: start,
       durationMs: (task?.spec?.breakMinutes ?? 5) * 60_000,
       breakMinutes: task?.spec?.breakMinutes ?? 5,
+      restLock: preferences?.restLock ?? restLockSnapshot?.restLock ?? false,
       title: active.title || '久坐提醒',
       content: active.content || '起来活动一下，深呼吸，眺望远方',
     };
     localStorage.setItem('butvan-task-rest-data', JSON.stringify(restPayload));
-  }, [active, sedentary, start, task?.spec?.breakMinutes]);
+  }, [active, sedentary, start, task?.spec?.breakMinutes, preferences?.restLock, restLockSnapshot?.restLock]);
+  const lockUntil = (() => {
+    const savedRest = !active || restLockSnapshot?.runId === active.id ? restLockSnapshot : null;
+    const lockEnabled = active ? (preferences?.restLock ?? savedRest?.restLock ?? false) : savedRest?.restLock === true;
+    const restStart = active ? (start ?? savedRest?.startedAt) : savedRest?.startedAt;
+    const duration = active && sedentary ? task.spec.breakMinutes * 60_000 : savedRest?.durationMs;
+    if (!lockEnabled || !restStart || !duration || (active && !sedentary)) return null;
+    const until = restStart + duration;
+    return until > now ? until : null;
+  })();
   useEffect(() => {
-    const until = resting && connected && preferences?.restLock && start && sedentary
-      ? start + task.spec.breakMinutes * 60_000 : null;
+    if (!lockUntil || !connected) return;
     const sync = () => {
-      void syncTaskRestLock(until ? Math.max(0, (until - Date.now()) / 1000) : 0)
+      void syncTaskRestLock(Math.max(0, (lockUntil - Date.now()) / 1000))
         .catch(e => setError(`休息遮罩无法同步：${String(e)}`));
     };
     sync();
-    const timer = until ? window.setInterval(sync, 1000) : undefined;
-    return () => {
-      window.clearInterval(timer);
-      void syncTaskRestLock(0).catch(e => console.warn('休息遮罩清理失败', e));
-    };
-  }, [resting, connected, preferences?.restLock, start, sedentary, task?.spec.breakMinutes]);
+    const timer = window.setInterval(sync, 1000);
+    return () => window.clearInterval(timer);
+  }, [lockUntil, connected]);
+  useEffect(() => {
+    if (lockUntil) return;
+    void syncTaskRestLock(0).catch(e => console.warn('休息遮罩清理失败', e));
+  }, [lockUntil]);
 
   return <main className={styles.window}>
     <header className={styles.header}>

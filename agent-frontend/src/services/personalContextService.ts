@@ -1,8 +1,8 @@
 import type { PersonalContextSettings, ProfileMaintenanceStatus } from '../types/personalContext';
-import { getApiBaseUrl, type ApiResponse } from './api';
+import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
 
 async function request<T>(path = '', init?: RequestInit): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}/agent/personal-context${path}`, {
+  const response = await apiFetch(`${getApiBaseUrl()}/agent/personal-context${path}`, {
     headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
     ...init,
   });

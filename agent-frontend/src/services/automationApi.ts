@@ -1,8 +1,8 @@
-import { getApiBaseUrl, type ApiResponse } from './api';
+import { apiEventSourceUrl, apiFetch, getApiBaseUrl, type ApiResponse } from './api';
 import type { AutomationPreview, AutomationRun, AutomationSnapshot, AutomationSpec, AutomationTask, ComputerActivity, SaveTaskMailSettings, TaskMailSettings } from '../types/automation';
 
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}/agent/automations${path}`, {
+  const response = await apiFetch(`${getApiBaseUrl()}/agent/automations${path}`, {
     method, headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(35000),
   });
@@ -30,7 +30,7 @@ export const saveTaskMailSettings = (input: SaveTaskMailSettings) => request<Tas
 export const testTaskMail = () => request<{ status: string; message: string }>('/mail/test', 'POST');
 /** 单一主窗口订阅；重连总是重新获取完整权威快照。 */
 export function subscribeAutomations(onSnapshot: (value: AutomationSnapshot) => void, onError: () => void): () => void {
-  const source = new EventSource(`${getApiBaseUrl()}/agent/automations/stream`);
+  const source = new EventSource(apiEventSourceUrl(`${getApiBaseUrl()}/agent/automations/stream`));
   source.addEventListener('snapshot', event => {
     try {
       const value: AutomationSnapshot = JSON.parse(event.data);

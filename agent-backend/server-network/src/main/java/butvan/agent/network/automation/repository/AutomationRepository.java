@@ -101,6 +101,10 @@ public class AutomationRepository {
     public List<TaskRun> pending(String owner) {
         return jdbc.query("SELECT * FROM automation_run WHERE owner_id=? AND (desktop_status='PENDING' OR confirmation='WAITING') ORDER BY created_at", RUN, owner);
     }
+    /** 过期的无需确认通知跳过；人工待确认提醒仍保留给用户处理。 */
+    public int expireDesktopNotices(String owner, long before) {
+        return jdbc.update("UPDATE automation_run SET desktop_status='SKIPPED' WHERE owner_id=? AND desktop_status='PENDING' AND confirmation<>'WAITING' AND created_at<?", owner, before);
+    }
     /** 按所有者查找执行。 */
     public TaskRun run(String owner, String id) {
         return jdbc.query("SELECT * FROM automation_run WHERE owner_id=? AND id=?", RUN, owner, id).stream()
@@ -137,10 +141,9 @@ public class AutomationRepository {
         return jdbc.update("UPDATE automation_run SET email_status='PENDING',error='',email_queued_at=? WHERE owner_id=? AND id=? AND email_status=?",
                 queuedAt, owner, id, currentStatus) == 1;
     }
-    /** 恢复不确定投递，并重置无法观察的离线使用时长。 */
+    /** 恢复不确定投递；离线期间无法观测使用状态，因此保留当前已累计时长并在重连后继续。 */
     public void recover() {
         jdbc.update("UPDATE automation_run SET email_status='UNKNOWN',error='上次发送中断，结果未知，请检查收件箱' WHERE email_status='SENDING'");
         jdbc.update("UPDATE automation_run SET desktop_status='UNKNOWN' WHERE desktop_status='CLAIMED'");
-        jdbc.update("UPDATE automation_task SET active_seconds=0 WHERE rule_trigger='ACTIVITY'");
     }
 }

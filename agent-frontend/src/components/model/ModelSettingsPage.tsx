@@ -16,6 +16,7 @@ import { PersonalContextSettingsPage } from '../settings/PersonalContextSettings
 import { ProfileSettingsPage } from '../settings/ProfileSettingsPage';
 import { SlashCommandSettingsPage } from '../settings/SlashCommandSettingsPage';
 import { DailyContextSettingsPage } from '../settings/DailyContextSettingsPage';
+import { BackendConnectionSettings } from '../settings/BackendConnectionSettings';
 import { TaskSettings } from '../task/TaskSettings';
 import {
   getFeaturePreferences,
@@ -51,6 +52,7 @@ import {
   Check,
   RotateCw,
   X,
+  Network,
 } from 'lucide-react';
 import styles from './ModelSettingsPage.module.css';
 
@@ -453,6 +455,12 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
             onClick={() => setActiveTab('usage')}
           >
             <ChartNoAxesColumnIncreasing size={14} /> Token 用量
+          </button>
+          <button
+            className={`${styles.navItem} ${activeTab === 'backend' ? styles.navItemActive : ''}`}
+            onClick={() => setActiveTab('backend')}
+          >
+            <Network size={14} /> 后端连接
           </button>
           <button
             className={`${styles.navItem} ${activeTab === 'context' ? styles.navItemActive : ''}`}
@@ -1045,6 +1053,8 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
         {activeTab === 'usage' && <TokenUsageSettingsPage />}
 
         {activeTab === 'task' && <TaskSettings />}
+
+        {activeTab === 'backend' && <BackendConnectionSettings />}
 
         {activeTab === 'context' && <PersonalContextSettingsPage />}
 

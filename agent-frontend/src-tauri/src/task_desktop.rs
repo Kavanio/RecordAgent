@@ -56,7 +56,7 @@ pub fn task_activity_status() -> Activity { activity() }
 /// 固定路由提醒窗口，不接受任意 URL 或脚本。
 #[tauri::command]
 pub fn sync_task_reminder(app: tauri::AppHandle, visible: bool) -> Result<(), String> {
-    if !visible { crate::task_rest_lock::clear(&app)?; }
+    if !visible { crate::task_rest_lock::clear_rest(&app)?; }
     if let Some(window) = app.get_webview_window("task-reminder") {
         return if visible { window.show().and_then(|_| window.set_focus()) } else { window.hide() }.map_err(|e| e.to_string());
     }
@@ -196,9 +196,14 @@ pub fn setup(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let show = tauri::menu::MenuItem::with_id(app, "task-show", "打开 ButvanAgent", true, None::<&str>)?;
     let quit = tauri::menu::MenuItem::with_id(app, "task-quit", "退出（停止所有任务）", true, None::<&str>)?;
     let menu = tauri::menu::Menu::with_items(app, &[&show, &quit])?;
-    let mut tray = tauri::tray::TrayIconBuilder::new().tooltip("ButvanAgent · 任务后台服务").menu(&menu)
+    let mut tray = tauri::tray::TrayIconBuilder::with_id("butvan-agent-tray").tooltip("ButvanAgent · 任务后台服务").menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "task-show" => { if let Err(e) = open_task_main(app.clone()) { log::warn!("打开主窗口失败：{}", e); } }
+            "study-finish" => {
+                if let Err(e) = app.emit_to("main", "study-tray-finish-request", ()) {
+                    log::warn!("发送托盘结束学习请求失败：{}", e);
+                }
+            }
             "task-quit" => app.exit(0),
             _ => {}
         });

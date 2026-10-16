@@ -1,4 +1,4 @@
-import { getApiBaseUrl, type ApiResponse } from './api';
+import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
 
 export interface JevStatus {
   enabled: boolean;
@@ -6,7 +6,7 @@ export interface JevStatus {
 }
 
 async function request(path = '', init?: RequestInit): Promise<JevStatus> {
-  const response = await fetch(`${getApiBaseUrl()}/agent/jev${path}`, {
+  const response = await apiFetch(`${getApiBaseUrl()}/agent/jev${path}`, {
     headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
     ...init,
   });

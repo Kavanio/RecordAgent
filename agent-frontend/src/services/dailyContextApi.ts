@@ -1,4 +1,4 @@
-import { getApiBaseUrl, type ApiResponse } from './api';
+import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
 
 export interface DailyContextConfig {
   qweatherApiHost: string;
@@ -92,7 +92,7 @@ export interface QWeatherConsoleSummary {
 async function dailyContextRequest<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${getApiBaseUrl()}${path}`, {
+    response = await apiFetch(`${getApiBaseUrl()}${path}`, {
       ...init,
       signal: init?.signal ?? AbortSignal.timeout(12_000),
     });

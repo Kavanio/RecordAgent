@@ -7,6 +7,8 @@ mod notification_authorization;
 #[cfg(desktop)]
 mod task_desktop;
 #[cfg(desktop)]
+mod study_tray;
+#[cfg(desktop)]
 mod task_reminder_settings;
 #[cfg(desktop)]
 mod task_rest_lock;
@@ -28,11 +30,11 @@ pub fn run() {
         )?;
       }
       #[cfg(desktop)]
-      if !cfg!(debug_assertions) {
-        backend::setup(app.handle())?;
-      }
+      backend::setup(app.handle())?;
       #[cfg(desktop)]
       task_desktop::setup(app.handle())?;
+      #[cfg(desktop)]
+      study_tray::setup(app.handle());
       #[cfg(desktop)]
       task_rest_lock::setup(app.handle());
       #[cfg(target_os = "macos")]
@@ -58,6 +60,10 @@ pub fn run() {
   let builder = builder.invoke_handler(tauri::generate_handler![
     backend::get_backend_mode,
     backend::get_backend_port,
+    backend::get_backend_connection,
+    backend::get_backend_api_token,
+    backend::save_remote_backend_url,
+    backend::start_local_backend_fallback,
     system_settings::open_location_settings,
     task_desktop::task_activity_status,
     task_desktop::send_task_notification,
@@ -67,6 +73,7 @@ pub fn run() {
     task_desktop::task_background_enabled,
     task_desktop::set_task_background,
     task_desktop::open_task_main,
+    study_tray::sync_study_tray,
     task_reminder_audio::task_reminder_audio,
     task_reminder_settings::task_reminder_configuration,
     task_reminder_settings::save_task_reminder_preferences,
