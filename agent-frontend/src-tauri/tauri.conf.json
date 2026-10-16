@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "ButvanAgent",
-  "version": "0.4.0-beta.1",
+  "version": "0.4.0",
   "identifier": "com.butvan.agent",
   "build": {
     "frontendDist": "../dist",
