@@ -304,6 +304,13 @@
   letter-spacing: 0.035em;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
 .menu {
   display: grid;
   flex: 0 0 auto;
@@ -316,16 +323,72 @@
   color: rgba(32, 37, 45, 0.56);
   cursor: pointer;
   place-items: center;
+  transition: all 0.14s ease;
 }
 
 .menu:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.28);
+  color: rgba(32, 37, 45, 0.88);
 }
 
 .menu span {
   font-size: 16px;
   font-weight: 800;
   line-height: 1;
+}
+
+.createRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px 6px 4px 8px;
+  background: rgba(255, 255, 255, 0.42);
+  border: 1px dashed rgba(60, 50, 20, 0.22);
+  border-radius: 8px;
+}
+
+.createInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: #20252d;
+  font-size: 13.5px;
+  line-height: 1.4;
+  outline: none;
+  font-family: inherit;
+}
+
+.createInput::placeholder {
+  color: rgba(32, 37, 45, 0.42);
+}
+
+.createSubmit {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: rgba(45, 115, 79, 0.15);
+  color: var(--note-accent);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.createSubmit:hover:not(:disabled) {
+  background: var(--note-accent);
+  color: #ffffff;
+}
+
+.createSubmit:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .list {

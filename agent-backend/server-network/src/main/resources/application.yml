@@ -1,6 +1,20 @@
 server:
   port: 8081
   shutdown: graceful
+  ssl:
+    # sidecar 默认使用 HTTP；远程部署通过受保护环境变量显式启用 TLS。
+    enabled: ${BUTVAN_SERVER_SSL_ENABLED:false}
+    key-store: ${BUTVAN_SERVER_SSL_KEY_STORE:}
+    key-store-type: ${BUTVAN_SERVER_SSL_KEY_STORE_TYPE:PKCS12}
+    key-store-password: ${BUTVAN_SERVER_SSL_KEY_STORE_PASSWORD:}
+
+# 远程桌面客户端来源通过 BUTVAN_CORS_ALLOWED_ORIGINS 显式追加；禁止使用通配符开放局域网 API。
+butvan:
+  api:
+    access-token: ${BUTVAN_API_TOKEN:}
+    require-token: ${BUTVAN_API_REQUIRE_TOKEN:false}
+  cors:
+    allowed-origins: ${BUTVAN_CORS_ALLOWED_ORIGINS:tauri://localhost,http://tauri.localhost,https://tauri.localhost,http://localhost:5173,http://127.0.0.1:5173}
 
 spring:
   servlet:

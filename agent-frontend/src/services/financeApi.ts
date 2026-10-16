@@ -8,12 +8,13 @@ import type {
   FinanceChartRange,
   FinanceCategoryOptions,
   FinanceExpenseChart,
+  FinanceExpenseInsights,
   FinanceOverview,
   FinanceTransaction,
   FinanceTransferResponse,
   UpdateFinanceTransactionInput,
 } from '../types/finance';
-import { getApiBaseUrl, type ApiResponse } from './api';
+import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
 
 type CompatibleFinanceExpenseChart = Omit<FinanceExpenseChart, 'totalIncome' | 'days'> & {
   totalIncome?: number;
@@ -21,7 +22,7 @@ type CompatibleFinanceExpenseChart = Omit<FinanceExpenseChart, 'totalIncome' | '
 };
 
 async function financeRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, init);
+  const response = await apiFetch(`${getApiBaseUrl()}${path}`, init);
   let payload: ApiResponse<T>;
   try {
     payload = await response.json() as ApiResponse<T>;
@@ -50,7 +51,7 @@ export function fetchFinanceTransactions(): Promise<FinanceTransaction[]> {
   return financeRequest<FinanceTransaction[]>('/agent/finance/transactions');
 }
 
-/** 查询用户使用过的收入与支出分类。 */
+/** 查询用户使用过的收入与支出分类及各自已保存的颜色。 */
 export function fetchFinanceCategories(): Promise<FinanceCategoryOptions> {
   return financeRequest<FinanceCategoryOptions>('/agent/finance/categories');
 }
@@ -64,10 +65,15 @@ export function normalizeFinanceExpenseChart(chart: CompatibleFinanceExpenseChar
   };
 }
 
-/** 查询连续日期的每日收支趋势与支出分类堆叠数据。 */
+/** 查询连续日期的每日收支趋势、支出分类堆叠数据和同次读取的分类配色。 */
 export async function fetchFinanceExpenseChart(range: FinanceChartRange): Promise<FinanceExpenseChart> {
   const chart = await financeRequest<CompatibleFinanceExpenseChart>(`/agent/finance/expense-chart?range=${range}`);
   return normalizeFinanceExpenseChart(chart);
+}
+
+/** 查询账户支出及单笔、分类排行榜。 */
+export function fetchFinanceExpenseInsights(range: FinanceChartRange): Promise<FinanceExpenseInsights> {
+  return financeRequest<FinanceExpenseInsights>(`/agent/finance/expense-insights?range=${range}`);
 }
 
 /** 新建微信、支付宝、银行卡、现金或其他账户。 */

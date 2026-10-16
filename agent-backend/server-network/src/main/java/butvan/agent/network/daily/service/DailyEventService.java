@@ -206,10 +206,32 @@ public class DailyEventService {
         LocalDate monthEnd = focusDate.withDayOfMonth(focusDate.lengthOfMonth());
         return repository.findRecurringTodos(ownerId, weekStart, weekEnd, monthStart, monthEnd).stream()
                 .map(row -> {
-                    LocalDate occurrenceDate = "weekly".equals(row.recurrence())
-                            ? weekStart.plusDays(row.recurrenceWeekday() - 1L)
-                            : monthEnd;
-                    if (occurrenceDate == null || occurrenceDate.isBefore(row.effectiveDate())) return null;
+                    LocalDate occurrenceDate;
+                    if ("weekly".equals(row.recurrence())) {
+                        if (row.recurrenceWeekday() != null) {
+                            occurrenceDate = weekStart.plusDays(row.recurrenceWeekday() - 1L);
+                        } else if (row.completed() && row.completedDate() != null) {
+                            occurrenceDate = row.completedDate();
+                        } else {
+                            LocalDate today = LocalDate.now();
+                            occurrenceDate = (!today.isBefore(weekStart) && !today.isAfter(weekEnd)) ? today : weekStart;
+                        }
+                    } else {
+                        if (row.recurrenceMonthDay() != null) {
+                            occurrenceDate = monthStart.plusDays(Math.min(row.recurrenceMonthDay(), focusDate.lengthOfMonth()) - 1L);
+                        } else if (row.completed() && row.completedDate() != null) {
+                            occurrenceDate = row.completedDate();
+                        } else {
+                            LocalDate today = LocalDate.now();
+                            occurrenceDate = (!today.isBefore(monthStart) && !today.isAfter(monthEnd)) ? today : monthStart;
+                        }
+                    }
+                    if (!row.completed()) {
+                        LocalDate periodStart = "weekly".equals(row.recurrence()) ? weekStart : monthStart;
+                        if (occurrenceDate == null || occurrenceDate.isBefore(periodStart)) {
+                            occurrenceDate = periodStart;
+                        }
+                    }
                     return new RecurringTodo(
                             row.id(), row.title(), row.version(), row.recurrence(), occurrenceDate, row.completed());
                 })
@@ -235,7 +257,7 @@ public class DailyEventService {
         return getDay(ownerId, effectiveDate).events().stream()
                 .filter(event -> event.id().equals(eventId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("待办修改后无法读取"));
+                .orElseGet(() -> getEventDefinition(ownerId, eventId));
     }
 
     /** 兼容领域内未传出现日期的旧调用，普通待办仍以创建日期作为完成周期。 */

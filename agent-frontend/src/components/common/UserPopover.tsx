@@ -1,5 +1,6 @@
 import React from 'react';
 import { Settings as SettingsIcon, LogOut } from 'lucide-react';
+import { useMessage } from './Message';
 import styles from './UserPopover.module.css';
 
 export interface UserPopoverProps {
@@ -13,7 +14,13 @@ export const UserPopover: React.FC<UserPopoverProps> = ({
   onClose,
   onOpenSettings,
 }) => {
+  const { showMessage } = useMessage();
   if (!isOpen) return null;
+
+  const handleResetSession = () => {
+    onClose();
+    showMessage('success', '已重置会话');
+  };
 
   return (
     <>
@@ -35,13 +42,13 @@ export const UserPopover: React.FC<UserPopoverProps> = ({
               <SettingsIcon size={14} />
               <span>设置</span>
             </div>
-            <span style={{ fontSize: '11px', color: '#94a3b8' }}>⌘,</span>
+            <span className={styles.shortcutKey}>⌘,</span>
           </button>
 
-          <button className={styles.menuItem} onClick={() => { onClose(); alert('已重置会话'); }}>
+          <button className={`${styles.menuItem} ${styles.dangerItem}`} onClick={handleResetSession}>
             <div className={styles.menuItemLeft}>
-              <LogOut size={14} style={{ color: '#ef4444' }} />
-              <span style={{ color: '#ef4444' }}>重置状态</span>
+              <LogOut size={14} />
+              <span>重置状态</span>
             </div>
           </button>
         </div>

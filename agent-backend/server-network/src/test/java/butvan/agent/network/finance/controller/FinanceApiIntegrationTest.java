@@ -70,6 +70,7 @@ class FinanceApiIntegrationTest {
                                   "accountId": "%s",
                                   "transactionType": "income",
                                   "category": "稿费",
+                                  "categoryColor": "#3b82f6",
                                   "note": "九月工资",
                                   "amount": 500.00,
                                   "date": "2026-09-03",
@@ -99,6 +100,8 @@ class FinanceApiIntegrationTest {
         mockMvc.perform(get("/agent/finance/categories"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.income", hasItem("稿费")))
+                .andExpect(jsonPath("$.data.colors.income.稿费").value("#3B82F6"))
+                .andExpect(jsonPath("$.data.colors.expense").isMap())
                 .andExpect(jsonPath("$.data.expense").isArray());
 
         mockMvc.perform(get("/agent/finance/overview"))
@@ -115,6 +118,7 @@ class FinanceApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.range").value("month"))
                 .andExpect(jsonPath("$.data.totalIncome").value(500.00))
+                .andExpect(jsonPath("$.data.categoryColors").isMap())
                 .andExpect(jsonPath("$.data.days").isArray());
 
         mockMvc.perform(get("/agent/finance/expense-chart").param("range", "today"))
@@ -159,6 +163,20 @@ class FinanceApiIntegrationTest {
                 .andExpect(jsonPath("$.data.accountName").value("微信零钱"))
                 .andExpect(jsonPath("$.data.date").value("2026-09-05"))
                 .andExpect(jsonPath("$.data.note").value("修正后的九月稿费"));
+
+        mockMvc.perform(get("/agent/finance/categories"))
+                .andExpect(jsonPath("$.data.colors.income.稿费").value("#3B82F6"));
+
+        mockMvc.perform(put("/agent/finance/transactions/{transactionId}", transactionId)
+                        .contentType("application/json")
+                        .content("""
+                                {"accountId":"%s","transactionType":"income","category":"稿费",
+                                 "categoryColor":"#bad","note":"无效颜色","amount":500,
+                                 "date":"2026-09-05","time":"10:30"}
+                                """.formatted(secondAccountId)))
+                .andExpect(jsonPath("$.code").value(400));
+        mockMvc.perform(get("/agent/finance/categories"))
+                .andExpect(jsonPath("$.data.colors.income.稿费").value("#3B82F6"));
 
         mockMvc.perform(get("/agent/finance/overview"))
                 .andExpect(status().isOk())

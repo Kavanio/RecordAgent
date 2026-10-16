@@ -1,3 +1,3 @@
-.body { display:flex; flex-direction:column; gap:22px; max-height:72vh; overflow:auto; padding:4px 2px 18px; }
+.body { display:flex; flex-direction:column; padding:4px 2px 18px; }
 .actions { display:flex; justify-content:flex-end; gap:10px; }
 .error { color:#b3261e; font-size:13px; }

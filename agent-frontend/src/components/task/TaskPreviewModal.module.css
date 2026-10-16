@@ -1,0 +1,8 @@
+.modal { max-height:calc(100vh - 40px); overflow:auto; }
+.body { display:flex; flex-direction:column; gap:16px; min-width:0; }
+.hint, .summary p { margin:0; color:var(--text-secondary); font-size:12px; line-height:1.6; }
+.summary { display:flex; flex-direction:column; gap:6px; font-size:14px; }
+.state { padding:32px 16px; text-align:center; color:var(--text-secondary); font-size:13px; }
+.mail { width:100%; height:clamp(200px, 55vh, 600px); border:1px solid var(--border-subtle); border-radius:12px; background:#fff; box-sizing:border-box; }
+.content { margin:0; padding:16px; max-height:50vh; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; font-size:13px; line-height:1.8; background:var(--bg-surface); border-radius:12px; }
+.actions { display:flex; justify-content:flex-end; }

@@ -1,6 +1,7 @@
 package butvan.agent.network.finance.repository;
 
 import butvan.agent.network.finance.model.FinanceModels.FinanceAccount;
+import butvan.agent.network.finance.model.FinanceModels.AccountExpense;
 import butvan.agent.network.finance.model.FinanceModels.FinanceTransaction;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -11,6 +12,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Optional;
 
 /** 财务域 SQLite 持久化适配器，金额统一以分保存。 */
@@ -28,6 +31,24 @@ public class FinanceRepository {
 
     private final JdbcTemplate jdbcTemplate;
 
+    /** 账户收支分别统计 expense 与 income / yield；划账、余额校准和旧日历花销不参与。 */
+    public List<AccountExpense> findAccountExpenses(String ownerId, LocalDate from, LocalDate to) {
+        return jdbcTemplate.query("""
+                SELECT a.id AS account_id, a.name AS account_name, a.account_type AS account_type,
+                       COALESCE(SUM(CASE WHEN t.transaction_type = 'expense' THEN t.amount_minor ELSE 0 END), 0) AS amount_minor,
+                       COALESCE(SUM(CASE WHEN t.transaction_type IN ('income', 'yield') THEN t.amount_minor ELSE 0 END), 0) AS income_minor
+                FROM finance_account a
+                LEFT JOIN finance_transaction t ON t.account_id = a.id AND t.owner_id = a.owner_id
+                    AND t.transaction_type IN ('expense', 'income', 'yield') AND t.transaction_date BETWEEN ? AND ?
+                WHERE a.owner_id = ?
+                GROUP BY a.id, a.name, a.account_type, a.created_at
+                ORDER BY amount_minor DESC, a.created_at, a.id
+                """, (rs, rowNum) -> new AccountExpense(rs.getString("account_id"),
+                rs.getString("account_name"), rs.getString("account_type"), BigDecimal.valueOf(rs.getLong("amount_minor"), 2),
+                BigDecimal.valueOf(rs.getLong("income_minor"), 2)),
+                from.toString(), to.toString(), ownerId);
+    }
+
     /** 查询用户在指定收支类型中使用过的分类。 */
     public List<String> findTransactionCategories(String ownerId, String transactionType) {
         return jdbcTemplate.queryForList("""
@@ -37,14 +58,29 @@ public class FinanceRepository {
                 """, String.class, ownerId, transactionType);
     }
 
-    /** 记住用户首次使用的收支分类，重复使用时保持原顺序。 */
+    /** 查询当前用户指定收支类型已保存的分类颜色，不把历史空颜色作为覆盖值。 */
+    public Map<String, String> findTransactionCategoryColors(String ownerId, String transactionType) {
+        return jdbcTemplate.query("""
+                SELECT name, color FROM finance_transaction_category
+                WHERE owner_id = ? AND transaction_type = ? AND color IS NOT NULL
+                ORDER BY created_at, name
+                """, rs -> {
+            Map<String, String> colors = new LinkedHashMap<>();
+            while (rs.next()) colors.put(rs.getString("name"), rs.getString("color"));
+            return colors;
+        }, ownerId, transactionType);
+    }
+
+    /** 记住分类及可选颜色；重复使用保留原顺序，未提供颜色时保留已有配色。 */
     public void rememberTransactionCategory(
-            String ownerId, String transactionType, String category, Instant now) {
+            String ownerId, String transactionType, String category, Instant now, String color) {
         jdbcTemplate.update("""
-                INSERT OR IGNORE INTO finance_transaction_category (
-                    owner_id, transaction_type, name, created_at
-                ) VALUES (?, ?, ?, ?)
-                """, ownerId, transactionType, category, now.toString());
+                INSERT INTO finance_transaction_category (
+                    owner_id, transaction_type, name, created_at, color
+                ) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(owner_id, transaction_type, name)
+                DO UPDATE SET color = COALESCE(excluded.color, finance_transaction_category.color)
+                """, ownerId, transactionType, category, now.toString(), color);
     }
 
     /** 查询用户全部账户。 */

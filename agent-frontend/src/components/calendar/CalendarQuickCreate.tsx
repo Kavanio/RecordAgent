@@ -11,6 +11,8 @@ import {
 import type { CalendarRecordDraft, TodoPriority, TodoRecurrence } from '../../types/calendar';
 import { Modal } from '../common/Modal';
 import { Select } from '../common/Select';
+import { Button } from '../common/Button';
+import { TextInput } from '../common/TextInput';
 import { TimeWheelPicker } from './TimeWheelPicker';
 import styles from './CalendarQuickCreate.module.css';
 
@@ -49,10 +51,22 @@ const RECURRENCE_OPTIONS = [
   { value: 'monthly', label: '每月' },
 ] as const;
 
-const WEEKDAY_OPTIONS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((label, index) => ({
-  value: String(index + 1),
-  label,
-}));
+const WEEKDAY_OPTIONS = [
+  { value: '', label: '不固定星期（仅在便签显示）' },
+  ...['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((label, index) => ({
+    value: String(index + 1),
+    label,
+  })),
+];
+
+const MONTH_DAY_OPTIONS = [
+  { value: '', label: '不固定日期（仅在便签显示）' },
+  { value: '31', label: '每月最后一天（月末）' },
+  ...Array.from({ length: 30 }, (_, index) => ({
+    value: String(index + 1),
+    label: `每月 ${index + 1} 日`,
+  })),
+];
 
 const valueOf = (formData: FormData, key: string): string => String(formData.get(key) ?? '').trim();
 const optionalNumberOf = (formData: FormData, key: string): number | undefined => {
@@ -91,7 +105,7 @@ export const CalendarQuickCreate: React.FC<CalendarQuickCreateProps> = ({ select
         priority: (valueOf(formData, 'priority') || 'medium') as TodoPriority,
         recurrence: (valueOf(formData, 'recurrence') || 'none') as TodoRecurrence,
         recurrenceWeekday: optionalNumberOf(formData, 'recurrenceWeekday'),
-        recurrenceMonthDay: todoRecurrence === 'monthly' ? 31 : undefined,
+        recurrenceMonthDay: todoRecurrence === 'monthly' ? optionalNumberOf(formData, 'recurrenceMonthDay') : undefined,
       };
     } else if (activeKind === 'schedule') {
       draft = {
@@ -144,7 +158,10 @@ export const CalendarQuickCreate: React.FC<CalendarQuickCreateProps> = ({ select
             </div>
 
             {activeKind === 'todo' && <>
-              <label className={styles.field}>待办内容<input name="title" required autoFocus placeholder="例如：整理项目笔记" /></label>
+              <label className={styles.field}>
+                <span>待办内容</span>
+                <TextInput name="title" required autoFocus placeholder="例如：整理项目笔记" />
+              </label>
               <div className={styles.fieldRowThree}>
                 <div className={styles.field}><span>时间（选填）</span><TimeWheelPicker name="time" ariaLabel="待办时间" /></div>
                 <Select name="priority" label="优先级" options={PRIORITY_OPTIONS} defaultValue="medium" fieldSize="md" fullWidth />
@@ -163,30 +180,45 @@ export const CalendarQuickCreate: React.FC<CalendarQuickCreateProps> = ({ select
                   name="recurrenceWeekday"
                   label="每周星期"
                   options={WEEKDAY_OPTIONS}
-                  defaultValue={String(selectedDate.getDay() || 7)}
-                  description={`从 ${selectedDateLabel} 起，仅在所选星期显示`}
+                  defaultValue=""
+                  description="未指定星期时仅在每周便签显示，勾选后记录到当天日历"
                   fieldSize="md"
                   fullWidth
                   containerClassName={styles.recurrenceRule}
                 />
               )}
               {todoRecurrence === 'monthly' && (
-                <p className={styles.monthlyRuleHint}>每月最后一天显示，并同步到本月待办便签。</p>
+                <Select
+                  name="recurrenceMonthDay"
+                  label="每月日期"
+                  options={MONTH_DAY_OPTIONS}
+                  defaultValue=""
+                  description="未指定日期时仅在每月便签显示，勾选后记录到当天日历"
+                  fieldSize="md"
+                  fullWidth
+                  containerClassName={styles.recurrenceRule}
+                />
               )}
             </>}
 
             {activeKind === 'schedule' && <>
-              <label className={styles.field}>日程名称<input name="title" required autoFocus placeholder="例如：产品评审会" /></label>
+              <label className={styles.field}>
+                <span>日程名称</span>
+                <TextInput name="title" required autoFocus placeholder="例如：产品评审会" />
+              </label>
               <div className={styles.fieldRow}>
                 <div className={styles.field}><span>开始（选填）</span><TimeWheelPicker name="startTime" ariaLabel="日程开始时间" /></div>
                 <div className={styles.field}><span>结束（选填）</span><TimeWheelPicker name="endTime" ariaLabel="日程结束时间" /></div>
               </div>
-              <label className={styles.field}>地点<input name="location" placeholder="选填" /></label>
+              <label className={styles.field}>
+                <span>地点</span>
+                <TextInput name="location" placeholder="选填" />
+              </label>
             </>}
 
             <div className={styles.formActions}>
-              <button type="button" className={styles.cancelButton} onClick={closeModal}>取消</button>
-              <button type="submit" className={styles.submitButton}>{saving ? '保存中…' : `保存到 ${selectedDateLabel}`}</button>
+              <Button type="button" variant="outline" onClick={closeModal} disabled={saving}>取消</Button>
+              <Button type="submit" variant="primary" disabled={saving}>{saving ? '保存中…' : `保存到 ${selectedDateLabel}`}</Button>
             </div>
             </fieldset>
           </form>

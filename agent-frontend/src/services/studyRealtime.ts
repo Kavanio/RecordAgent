@@ -1,5 +1,5 @@
 import type { StudyRealtimeEvent, StudySession } from '../types/study';
-import { getApiBaseUrl } from './api';
+import { apiEventSourceUrl, getApiBaseUrl } from './api';
 
 const REALTIME_REASONS = new Set(['SNAPSHOT', 'STARTED', 'FINISHED', 'CREATED', 'UPDATED', 'DELETED']);
 
@@ -29,7 +29,11 @@ function parseRealtimeEvent(event: Event): StudyRealtimeEvent {
     || (value.activeSession !== null && !isStudySession(value.activeSession))) {
     throw new Error('invalid study realtime event');
   }
-  return value as unknown as StudyRealtimeEvent;
+  // 兼容尚未升级、仍未提供进程标识的远程桌面后端。
+  const streamId = typeof value.streamId === 'string' && value.streamId.length > 0
+    ? value.streamId
+    : 'legacy';
+  return { ...value, streamId } as unknown as StudyRealtimeEvent;
 }
 
 /**
@@ -39,7 +43,7 @@ export function subscribeStudyRealtime(
   onEvent: (event: StudyRealtimeEvent) => void,
   onMalformedEvent?: () => void,
 ): () => void {
-  const eventSource = new EventSource(`${getApiBaseUrl()}/agent/study-sessions/stream`);
+  const eventSource = new EventSource(apiEventSourceUrl(`${getApiBaseUrl()}/agent/study-sessions/stream`));
   const receive = (event: Event) => {
     try {
       onEvent(parseRealtimeEvent(event));

@@ -1,5 +1,5 @@
 import type { Project, ProjectDto } from '../types/chat';
-import { getApiBaseUrl, type ApiResponse } from './api';
+import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
 
 function mapProject(dto: ProjectDto): Project {
   return {
@@ -13,7 +13,7 @@ function mapProject(dto: ProjectDto): Project {
 
 /** 获取当前设备已登记的本地项目。 */
 export async function fetchProjects(): Promise<Project[]> {
-  const response = await fetch(`${getApiBaseUrl()}/agent/projects`);
+  const response = await apiFetch(`${getApiBaseUrl()}/agent/projects`);
   const json: ApiResponse<ProjectDto[]> = await response.json();
   if (!response.ok || json.code !== 200 || !Array.isArray(json.data)) {
     throw new Error(json.message || '读取项目列表失败');
@@ -23,7 +23,7 @@ export async function fetchProjects(): Promise<Project[]> {
 
 /** 登记一个本地项目目录，不复制或修改目录内容。 */
 export async function importProject(name: string, rootPath: string): Promise<Project> {
-  const response = await fetch(`${getApiBaseUrl()}/agent/projects/import`, {
+  const response = await apiFetch(`${getApiBaseUrl()}/agent/projects/import`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, rootPath }),
@@ -37,7 +37,7 @@ export async function importProject(name: string, rootPath: string): Promise<Pro
 
 /** 从应用解除项目登记，磁盘目录不会被删除。 */
 export async function removeProject(projectId: string): Promise<void> {
-  const response = await fetch(`${getApiBaseUrl()}/agent/projects/${encodeURIComponent(projectId)}`, {
+  const response = await apiFetch(`${getApiBaseUrl()}/agent/projects/${encodeURIComponent(projectId)}`, {
     method: 'DELETE',
   });
   const json: ApiResponse<null> = await response.json();

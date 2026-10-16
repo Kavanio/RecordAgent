@@ -168,6 +168,45 @@ class FinanceServiceIntegrationTest {
     }
 
     @Test
+    void expenseInsightsSeparateAccountSpendFromLegacyExpensesAndExcludeTransfers() {
+        String owner = "finance-insights-user";
+        LocalDate today = LocalDate.now();
+        var first = financeService.createAccount(owner, "日常", "bank", "CNY", new BigDecimal("500.00"), false, BigDecimal.ZERO);
+        var second = financeService.createAccount(owner, "备用", "bank", "CNY", new BigDecimal("200.00"), false, BigDecimal.ZERO);
+        financeService.createTransaction(owner, first.id(), "expense", "餐饮", "午餐",
+                new BigDecimal("30.00"), today, LocalTime.NOON);
+        financeService.createTransaction(owner, second.id(), "expense", "交通", "打车",
+                new BigDecimal("80.00"), today, LocalTime.of(13, 0));
+        financeService.transfer(owner, first.id(), second.id(), new BigDecimal("20.00"),
+                "划账", today, LocalTime.of(14, 0));
+        dailyEventService.create(owner, new ExpenseCommand(today, "餐饮", "旧日历花销",
+                new BigDecimal("15.00"), "15:00", "CNY"));
+
+        financeService.createTransaction(owner, first.id(), "income", "工资", "收入测试",
+                new BigDecimal("50.00"), today, LocalTime.NOON);
+        financeService.createTransaction(owner, first.id(), "income", "工资", "往年收入",
+                new BigDecimal("70.00"), today.minusYears(1), LocalTime.NOON);
+        financeService.adjustAccountBalance(owner, first.id(), "increase", new BigDecimal("60.00"), "余额校准");
+        var insights = financeService.getExpenseInsights(owner, "month");
+        for (String range : java.util.List.of("week", "month", "year")) {
+            var accounts = financeService.getExpenseInsights(owner, range).accounts();
+            assertEquals(new BigDecimal("50.00"), accounts.stream().filter(item -> item.accountId().equals(first.id()))
+                    .findFirst().orElseThrow().income());
+            assertEquals(0, accounts.stream().filter(item -> item.accountId().equals(second.id()))
+                    .findFirst().orElseThrow().income().signum());
+        }
+        assertEquals(new BigDecimal("125.00"), insights.totalExpense());
+        assertEquals(new BigDecimal("80.00"), insights.accounts().getFirst().amount());
+        assertEquals("bank", insights.accounts().getFirst().accountType());
+        assertEquals(new BigDecimal("30.00"), insights.accounts().get(1).amount());
+        assertEquals("打车", insights.transactions().getFirst().note());
+        assertEquals(new BigDecimal("45.00"), insights.categories().stream()
+                .filter(item -> item.category().equals("餐饮")).findFirst().orElseThrow().amount());
+        assertEquals(0, financeService.getExpenseInsights("other-insights-user", "month").totalExpense().signum());
+        assertThrows(IllegalArgumentException.class, () -> financeService.getExpenseInsights(owner, "decade"));
+    }
+
+    @Test
     void expenseCannotOverdrawAccount() {
         FinanceAccount account = financeService.createAccount(
                 "finance-overdraft-user", "现金", "cash", "CNY", new BigDecimal("20.00"), false, BigDecimal.ZERO);
@@ -320,5 +359,57 @@ class FinanceServiceIntegrationTest {
         } catch (IOException exception) {
             throw new IllegalStateException("无法创建财务测试数据库", exception);
         }
+    }
+
+    @Test
+    void categoryColorsPersistAndRemainIsolatedByOwnerAndTransactionType() {
+        String owner = "finance-category-colors";
+        var account = financeService.createAccount(owner, "日常", "bank", "CNY", new BigDecimal("100.00"), false, BigDecimal.ZERO);
+        var expense = financeService.createTransaction(owner, account.id(), "expense", " 宠物 ", "猫粮",
+                new BigDecimal("10.00"), LocalDate.now(), LocalTime.NOON, "#a855f7");
+        financeService.createTransaction(owner, account.id(), "income", "宠物", "寄养收入",
+                new BigDecimal("5.00"), LocalDate.now(), LocalTime.NOON, "#06b6d4");
+        // 不传颜色的旧入口（如 Agent 工具）不能覆盖用户已选颜色。
+        financeService.createTransaction(owner, account.id(), "expense", "宠物", "零食",
+                BigDecimal.ONE, LocalDate.now(), LocalTime.NOON);
+        assertEquals("#A855F7", financeService.getTransactionCategoryColors(owner).get("expense").get("宠物"));
+        assertEquals("#06B6D4", financeService.getTransactionCategoryColors(owner).get("income").get("宠物"));
+
+        String other = "finance-category-colors-other";
+        var otherAccount = financeService.createAccount(other, "日常", "bank", "CNY", new BigDecimal("100.00"), false, BigDecimal.ZERO);
+        financeService.createTransaction(other, otherAccount.id(), "expense", "宠物", "猫粮",
+                BigDecimal.ONE, LocalDate.now(), LocalTime.NOON, "#F97316");
+        assertEquals("#F97316", financeService.getTransactionCategoryColors(other).get("expense").get("宠物"));
+        assertEquals("#A855F7", financeService.getTransactionCategoryColors(owner).get("expense").get("宠物"));
+
+        financeService.updateTransaction(owner, expense.id(), account.id(), "expense", "宠物", "更新猫粮",
+                new BigDecimal("11.00"), LocalDate.now(), LocalTime.NOON, "#3b82f6");
+        assertEquals("#3B82F6", financeService.getTransactionCategoryColors(owner).get("expense").get("宠物"));
+        assertEquals("#3B82F6", financeService.getExpenseChart(owner, "month").categoryColors().get("宠物"));
+        assertEquals("#3B82F6", financeService.getExpenseChart(owner, "year").categoryColors().get("宠物"));
+        assertEquals("#06B6D4", financeService.getTransactionCategoryColors(owner).get("income").get("宠物"));
+    }
+
+    @Test
+    void invalidColorAndFailedTransactionLeaveColorAndBalanceUnchanged() {
+        String owner = "finance-invalid-category-color";
+        var account = financeService.createAccount(owner, "日常", "bank", "CNY", new BigDecimal("100.00"), false, BigDecimal.ZERO);
+        var expense = financeService.createTransaction(owner, account.id(), "expense", "餐饮", "午餐",
+                new BigDecimal("10.00"), LocalDate.now(), LocalTime.NOON, "#F59E0B");
+        for (String invalid : List.of("red", "#abc", "#12345678", "#ZZZZZZ", "", "url(test)")) {
+            assertThrows(IllegalArgumentException.class, () -> financeService.createTransaction(
+                    owner, account.id(), "expense", "不应保存", "无效配色", BigDecimal.ONE,
+                    LocalDate.now(), LocalTime.NOON, invalid));
+        }
+        assertThrows(IllegalArgumentException.class, () -> financeService.updateTransaction(
+                owner, expense.id(), account.id(), "expense", "餐饮", "余额不足",
+                new BigDecimal("1000.00"), LocalDate.now(), LocalTime.NOON, "#3B82F6"));
+        assertThrows(IllegalArgumentException.class, () -> financeService.createTransaction(
+                owner, account.id(), "expense", "不应保存", "余额不足", new BigDecimal("1000.00"),
+                LocalDate.now(), LocalTime.NOON, "#EC4899"));
+        assertEquals(1, financeService.getTransactions(owner).size());
+        assertEquals(new BigDecimal("90.00"), financeService.getOverview(owner).totalAssets());
+        assertEquals(List.of("餐饮"), financeService.getTransactionCategories(owner).get("expense"));
+        assertEquals("#F59E0B", financeService.getTransactionCategoryColors(owner).get("expense").get("餐饮"));
     }
 }

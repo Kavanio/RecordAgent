@@ -1,10 +1,5 @@
 .form { display: flex; flex-direction: column; gap: 14px; }
 .description { margin: 0; color: #64748b; font-size: 13px; line-height: 1.6; }
-.codeRow { display: flex; gap: 8px; }
+.codeRow { display: flex; gap: 8px; align-items: flex-start; }
 .codeRow > :first-child { min-width: 0; flex: 1; }
-.secondaryButton, .cancelButton, .primaryButton { border-radius: 6px; padding: 8px 12px; font-size: 13px; cursor: pointer; }
-.secondaryButton { flex-shrink: 0; border: 1px solid #cbd5e1; background: #fff; color: #334155; }
-.secondaryButton:disabled, .primaryButton:disabled { cursor: not-allowed; opacity: .6; }
 .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
-.cancelButton { border: 1px solid #cbd5e1; background: #fff; color: #334155; }
-.primaryButton { border: 1px solid var(--accent-blue); background: var(--accent-blue); color: #fff; font-weight: 600; box-shadow: 0 12px 30px rgba(16, 24, 40, 0.06); }

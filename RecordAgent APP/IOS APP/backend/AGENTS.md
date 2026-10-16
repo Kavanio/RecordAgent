@@ -1,0 +1,46 @@
+# RecordAgent 业务后端工程约束
+
+本文件适用于当前目录及全部子目录，叠加仓库根目录 `AGENTS.md`。开发或修改本项目时先读取 [后端开发规划.md](后端开发规划.md)，核对当前阶段、接口和数据归属。
+
+## 目录与包结构
+
+- 本目录是独立 Maven 根工程；启动类固定在 `com.butvan.recordagent` 根包。根包不放业务逻辑，避免组件扫描范围和包职责含糊。
+- 工程采用标准水平分层，且在 Controller、Service、Mapper、Repository、DTO 等业务层内部，统一按业务领域（如 `auth`、`calendar`、`finance`、`record` 等）细分二级子包：
+  - `controller.<module>`：REST Controller 控制层，负责接收参数、认证鉴权与响应返回（如 `controller.auth`、`controller.calendar`）；每个方法标注 `@ApiLog`。
+  - `service.<module>`：业务服务接口（如 `service.auth.AuthService`、`service.calendar.TodoService`、`service.mail.MailService`），具体实现类统一内聚在子包 `service.<module>.impl` 中（如 `service.auth.impl.AuthServiceImpl`、`service.calendar.impl.TodoServiceImpl`）。
+  - `repository.<module>`：数据持久层，以 SQL / JDBC 访问权威数据库（如 `repository.auth.AuthRepository`、`repository.calendar.TodoRepository`）。
+  - `repository.mapper.<module>`：Spring JDBC RowMapper 列映射（如 `repository.mapper.auth`、`repository.mapper.calendar`）。
+  - `dto.<module>`：请求与响应数据传输对象（如 `dto.auth`、`dto.calendar`）。
+  - `storage.file`：二进制存储 seam；`service.file` 管理文件元数据、校验、所有权和生命周期，业务模块仅使用文件 ID。
+  - `entity`：与表列对应的持久化行快照实体，不直接暴露给 API。
+  - `config`：经过启动校验的强类型业务配置；部署凭据仍使用 Spring 外部配置，不进入业务策略对象。
+  - `security`、`annotation`、`aspect`、`handler`、`filter`：认证授权、日志切面、统一异常处理与通用过滤器等横切基础设施。
+- Java 格式使用 Maven Spotless 的 Google Java Format AOSP 四空格风格，`mvn verify` 执行格式门禁；`mvn spotless:apply` 自动整理导入与空白。公共业务方法的注释说明所有权、时间口径、上限与主要失败语义，简单委托实现继承接口契约。
+- 严禁提交空包或占位目录，不得保留无代码的残留目录。
+- `src/main/resources/db/migration/` 当前以单个 `V1` 作为新建空库基线；后续结构调整新增递增版本，不再改写已应用脚本。合并前已有 Flyway 历史的数据库须另行制定兼容迁移，不得直接套用新基线或用 `repair` 掩盖差异。测试包镜像生产包，端到端测试可放根包。目录移动时同步修正包名、导入、测试和本文件。
+
+- 本目录是独立的 Spring Boot + PostgreSQL 多用户业务后端；初期服务 iOS，后续承接桌面业务。Agent 编排、模型调用、桌面 sidecar 和本机操作能力归属其他项目。
+- 以日历、财务、资料、记录、任务等业务域划分代码。Controller 只处理协议、认证结果和 DTO；业务规则在领域服务；数据库与附件通过各自 Adapter 访问。跨域组合通过公开服务接口，不直接查询其他领域表。
+- 所有业务读写从已认证请求取得稳定用户 ID；查询、更新、删除及文件访问必须校验所有权。客户端传入的用户 ID、邮箱或文件路径不得作为授权依据。
+- PostgreSQL 是结构化业务数据的权威存储；数据库名及业务 schema 名均为 `record`，结构变更只通过版本化迁移脚本。金额用最小货币单位整数，日期、时间和 IANA 时区分开表达；写入提供版本冲突语义，跨表不变量在事务内维护。
+- 附件只以稳定文件 ID 关联业务对象，二进制内容经受控存储 Adapter 读写。密码、验证码、令牌、数据库和邮件凭据不得出现在源码、提交文件、日志或 API 响应中。
+- 本机开发文件默认写入 `data/files/objects/`（可由 `RECORDAGENT_FILE_ROOT` 覆盖），属于运行态数据，不入库、不提交；当前图片接口仅接受不超过 2 MB 的 JPEG，读取必须先验证文件所有权。
+- 新增或修改 API 时同步维护 HTTP 方法、路径、请求和响应 DTO、错误码、鉴权要求与 iOS 映射；每个 REST Controller 方法遵守根目录 `@ApiLog` 约束，日志对敏感字段脱敏。
+- 认证服务仅向安全适配层返回已验证身份，不暴露 Repository 内部类型。可调整的会话、验证码与明细上限统一由 `config/BusinessProperties` 管理；SMTP 设置显式超时。
+- 待办每周规则使用 ISO `recurrenceWeekday`（1=周一，7=周日，缺省兼容旧客户端为周日）；每月固定自然月最后一天，周/月待办不保存具体时间。日详情、月统计、完成校验和周期便签必须共用相同发生规则；周便签读取整周实例，完成键仍是周一/月初，禁止再硬编码周日。
+- 月历使用领域公开的 `dto/query/DailySummary`，数据库只返回完整计数和最多三条标题；趋势与累计统计使用独立聚合，不从有条数限制的明细求和。待办完成状态与实例在同一查询读取，周期规则变更须同时验证完成与聚合路径。
+- 日历资料投影覆盖资料库全部未入回收站类型（`quick/learning/weekly_review/reading/journal`），按 `record_date` 归属自然日；日详情、月摘要与分页共用用户隔离和回收站过滤。兼容接口继续使用 `journals` 字段、`journal` 分页路由及月标记，iOS 映射为“资料”，不得只查询 `journal` 类型。
+- 明细查询统一经过 `ReadBounds`，多读一条检测溢出；旧列表超限返回 422 `RESULT_LIMIT_EXCEEDED`，分页响应为 `{items,nextOffset,hasMore}`。分页排序必须包含稳定 ID，跨页有并发新增时客户端重新从第一页刷新。
+- 收支写入使用用户范围内的 UUID `Idempotency-Key`；同键同 DTO 重放首次响应，同键不同 DTO 返回 409。缓存和流水、余额同事务提交，幂等记录与流水共同保留，禁止仅按短 TTL 删除后允许重复记账。无键只为兼容旧客户端，客户端新实现必须携带并在结果未知时复用键。
+- 财务 `balanceAfterInCents` 是 V7 起随流水持久化的交易提交后余额快照，与账户余额和幂等响应同事务；`balanceInCents` 保留查询时当前余额的兼容语义。旧流水/缓存无快照时保持 null，不允许按日期排序倒推或使用当前余额补齐。
+- 认证入口按 Servlet 来源 IP、密码登录按规范化邮箱使用 PostgreSQL 原子固定窗口限流；仅保存摘要，认证失败也必须提交计数。反向代理信任由部署层明确配置；来源 IP 不能直接相信任意转发头。
+- HTTP 错误统一使用实际状态码及 `{ code, message, requestId }`；`code` 是稳定的客户端分支依据，`requestId` 由服务端生成并通过 `X-Request-Id` 返回。禁止向客户端或日志输出异常原文、用户输入及凭据。
+- 每个阶段至少验证认证隔离、领域不变量、PostgreSQL 迁移及主要 HTTP 错误路径；用真实 PostgreSQL 的隔离测试环境验证持久化行为，不以桌面 SQLite 测试替代。
+
+本目录已建立独立 Maven 工程与版本化领域表；表结构和事实归属见 [数据库设计.md](数据库设计.md)。账户、日历、收支、个人总览与资料图片 API 已开始接入；原生工作台已补充财务月总览/流水筛选、资料全文/收藏/回收站、学习开始/结束/补录和手机任务配置及观察历史 API。手机本地提醒配置与回执契约见 [工作区接口契约.md](工作区接口契约.md)，任务表通过追加 V6 迁移建立，不改写已有迁移。新增更具体的子目录规则时在对应目录建立中文 `AGENTS.md`，并更新本文件的子级索引。
+
+资料创建时间与修改时间由服务器保存并分别返回 `createdAt/updatedAt`，首次保存生成创建时间，后续编辑只更新修改时间。日历资料仍按记录日期归属自然日，节点时分秒取设备时区下的创建时间；不得用日期零点或修改时间代替创建时间。
+
+## 子级 DOX 索引
+
+当前无子级 `AGENTS.md`。

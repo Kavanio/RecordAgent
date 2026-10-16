@@ -27,8 +27,12 @@ tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 
 tauri-plugin-notification = "2"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["NSApplication", "NSImage"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["NSData"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["NSData", "NSString", "NSError"] }
+block2 = "0.6"
+objc2-user-notifications = { version = "0.3", default-features = false, features = ["block2", "UNUserNotificationCenter"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSApplication", "NSImage", "NSSound", "NSWindow"] }
+mac-usernotifications = "0.3.1"

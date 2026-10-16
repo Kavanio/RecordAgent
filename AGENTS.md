@@ -15,10 +15,13 @@
 
 本项目是基于 `React + Tauri` 桌面端、`Spring Boot + AgentScope Java` 后端的智能体应用。目录必须按职责稳定划分，禁止把临时代码、构建产物、运行态数据或跨层实现混入业务源码。
 
+iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spring Boot 项目，以 PostgreSQL 保存多用户业务数据；当前 `agent-backend/` 继续服务桌面端并使用本地 SQLite。新项目初期仅供 iOS 使用，后续桌面业务功能迁入同一服务，Agent 再独立拆分；不得把其代码混入现有桌面 sidecar 模块。
+
 | 目录 | 职责与约束 |
 | --- | --- |
 | `agent-frontend/` | React、TypeScript、Vite 与 Tauri 桌面端代码；仅放置前端构建、展示和桌面壳层相关内容。 |
 | `RecordAgent APP/IOS APP/RecordAgent/` | 独立 Swift/SwiftUI iOS App 的规划文档与后续原生工程；通过服务器 API 承载日历、财务、资料、记录和任务能力，不混入 Agent 编排或桌面端构建产物。 |
+| `RecordAgent APP/IOS APP/backend/` | 独立 Spring Boot + PostgreSQL 多用户业务后端；首期为 iOS 提供账户及业务 API，后续承接桌面业务，不承载 Agent 编排。 |
 | `agent-frontend/src/components/` | 可复用视图组件；按业务域建立目录，例如 `chat/`、`model/`、`layout/`、`common/`。 |
 | `agent-frontend/src/services/` | HTTP、SSE、存储与第三方调用等基础设施适配；不得承载页面状态或 JSX。 |
 | `agent-frontend/src/context/` | 跨页面共享状态与领域上下文；不得把一次性局部状态提升到此处。 |
@@ -45,20 +48,23 @@
 - 禁止提交 `node_modules`、`dist`、`target`、IDE 配置、日志、缓存、运行会话、真实密钥和用户本地配置。
 - 一个文件只承担一个清晰职责；页面编排、可复用组件、请求服务、领域类型和样式不得无边界混写。
 - 重命名、移动或删除文件后，必须同步更新所有导入、文档、测试和相关 `AGENTS.md` 索引。
-- 桌面端打包采用 Tauri sidecar 方案：统一入口为 `scripts/build-app.sh`（内部执行 `pnpm tauri build`，由 beforeBuildCommand 调用 `agent-backend/scripts/package-sidecar.sh` 生成后端 sidecar）；`pnpm tauri dev` 不打包、不拉起 sidecar，开发时后端在 IDEA 等本机环境启动（默认 8081）。打包模式下 Tauri（`src-tauri/src/backend.rs`）负责启动、健康检查与退出清理，端口动态分配；前端 API 地址由 `services/api.ts` 统一获取，禁止在组件中硬编码后端地址或端口。
-- 发布采用完整 SemVer git tag（`v<major>.<minor>.<patch>`）驱动：根目录 `VERSION` 是桌面端版本唯一来源，必须先同步到前端包与 Tauri 配置；GitHub Actions 先校验版本、构建并验证 sidecar，再上传 macOS / Linux / Windows 安装包至草稿 Release。PR 与 `develop` 推送只执行构建验证，不创建 Release；Windows 的 sidecar 由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
+- 桌面端打包采用 Tauri sidecar 方案：统一入口为 `scripts/build-app.sh`（内部执行 `pnpm tauri build`，由 beforeBuildCommand 调用 `agent-backend/scripts/package-sidecar.sh` 生成后端 sidecar）；`pnpm tauri dev` 不打包、不拉起 sidecar，开发时后端在 IDEA 等本机环境启动（默认 8081）。打包模式默认由 Tauri（`src-tauri/src/backend.rs`）启动、健康检查与退出清理 sidecar，端口动态分配；用户可在桌面设置中选择远程 API 地址，启动时先检查远程健康状态，8 秒未通过则本次自动降级到本机后端，重启后重新尝试远程连接；开发模式降级到本机 8081。远程可用时不启动本地 sidecar，远程不可用时才启动，保证自动任务只有一个调度器。前端 API 地址由 `services/api.ts` 统一获取，禁止在组件中硬编码后端地址或端口。远程部署必须设置 `BUTVAN_API_REQUIRE_TOKEN=true`、通过受保护环境配置提供至少 32 字符的 `BUTVAN_API_TOKEN`、设置受限 CORS 来源并配置网络访问控制；当前业务仍是单用户本地数据模型，不得暴露到不可信网络或作为多用户服务。
+- 发布采用完整 SemVer git tag（`v<major>.<minor>.<patch>`）驱动：根目录 `VERSION` 是桌面端版本唯一来源，必须先同步到前端包与 Tauri 配置；GitHub Actions 先校验版本、构建并验证 sidecar，再上传 macOS / Linux / Windows 安装包至草稿 Release。PR 与 `develop` 推送只执行构建验证，不创建 Release；独立 iOS 业务后端由 `.github/workflows/verify-ios-backend.yml` 按路径触发格式、单元测试及 PostgreSQL 集成验证；Windows 的 sidecar 由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
 
 ### 分支管理策略
 
-本项目采用三层分支模型，分支流向为：`feature/*` → `main` → `develop`。
+本项目采用三层分支模型，分支流向为：`ios-app/*` 或 `desktop/*` → `main` → `develop`。
 
 | 分支 | 定位与约束 |
 | --- | --- |
-| `feature/*`（或 `codex/*` 等命名前缀） | 功能开发分支；每个新功能从 `main` 创建独立分支，功能完成后合并回 `main`。 |
+| `ios-app/*` | iOS App 及其独立业务后端的代码分支；从 `main` 创建，完成后合并回 `main`。 |
+| `desktop/*` | 桌面端及其本地 Agent/后端的代码分支；从 `main` 创建，完成后合并回 `main`。 |
 | `main` | 本地集成分支；用于汇聚已完成的功能分支，在本地执行完整测试与验证。验证通过后合并到 `develop`。不直接向远程推送，仅作为本地集成测试的中间层。 |
 | `develop` | 生产推送分支；`main` 验证通过后合并到此分支并推送到远程仓库。CI/CD 构建验证和 Release 发布均基于此分支。 |
 
-- 新功能开发必须从 `main` 创建独立的功能分支，禁止直接在 `main` 或 `develop` 上提交业务代码。
+- 凡修改 `RecordAgent APP/IOS APP/` 下 iOS App 或独立业务后端的代码，分支名必须以 `ios-app/` 开头；凡修改 `agent-frontend/`、`agent-backend/` 或桌面端打包与运行代码，分支名必须以 `desktop/` 开头。修复、重构和新增功能均适用，开始代码修改前先核对当前分支。
+- 同一任务涉及两端代码时，按端拆成各自前缀的分支；共同的接口契约先确定，再分别实施。仅修改全局文档时不受这两个代码分支前缀限制。
+- 新功能开发必须从 `main` 创建独立的功能分支，禁止直接在 `main` 或 `develop` 上提交业务代码；创建分支仍须遵守本文件的授权约束。
 - 功能分支完成后，先合并到 `main` 进行本地集成测试；测试通过后再从 `main` 合并到 `develop` 推送。
 - 合并到 `main` 和 `develop` 时，优先使用 `--no-ff`（非快进合并）以保留合并记录。
 - 功能分支合并完毕且确认无需保留后，应及时删除已合并的功能分支，保持分支列表清洁。
@@ -90,7 +96,7 @@
 - 聊天轮次 Token 用量随 assistant 消息写入 `~/.butvan-agent/transcripts/*.jsonl`；标题等非聊天模型调用写入 `~/.butvan-agent/usage/system-usage.jsonl`；未结束轮次仅暂存在 `~/.butvan-agent/runs/*.json`，终态落盘或重启恢复后必须清理。供应商 Usage 是实际总量，System、History、Current User、Tool Schema、Tool Result、Profile Context、Memory Recall、RAG 与 Other 是携带计数器版本的本地归因估算，两者不得混淆或互相补齐。SQLite 中的 Token 用量表仅作为可从上述文件重建的统计读模型，不得取代原始记录。
 - AgentScope 工作区、工具权限、文件与网络访问必须按最小权限设计；任何可能执行本机操作的能力都应具备明确的审批、范围和错误反馈。
 - 系统设置跳转只能通过参数固定的 Tauri 命令暴露，禁止允许前端传入任意 URL 或本机命令；不支持直达的平台必须提供可执行的手工路径说明。
-- 自动任务以 `server-network/automation` 的配置、执行和通知记录为权威事实；桌面端只提供原生使用状态采集、系统通知与确认窗口。预览不得发送，邮件只能投递到已验证的绑定邮箱；每次执行的邮件、桌面和确认状态分别持久化，进程中断后的未知投递不可自动重发。
+- 自动任务以 `server-network/automation` 的配置、执行和通知记录为权威事实；远程模式下由服务器持续运行调度和邮件队列；桌面端提供本机原生使用状态采集与系统通知，电脑关机或 App 完全退出时本机能力暂停。需确认的提醒统一使用固定尺寸的全局提醒窗口：到点播放提示音，用户确认后停止声音；久坐提醒继续倒计时至配置的休息时长，结束且后端确认成功时再播放一次提示音并关闭窗口。休息遮罩默认关闭，仅在用户确认休息后的有效倒计时期间覆盖所有显示器，结束、断连或原生续约超时必须释放，保留系统快捷键；不得在等待确认时锁定。普通桌面通知离线超过 15 分钟后跳过，人工待确认提醒保留。提醒窗口音色、播放结束后的重复间隔及用户上传音频属于本机桌面偏好，统一由 Tauri 应用配置目录的 `task-reminder/` 管理，上传须校验格式、可播放性和大小，试听与正式提醒隔离。无需确认的任务继续使用系统通知。预览不得发送，邮件只能投递到已验证的绑定邮箱；每次执行的邮件、桌面和确认状态分别持久化，进程中断后的未知投递不可自动重发。
 
 ## 四、前端工程与 UI 组件规范
 
@@ -134,6 +140,7 @@
 - 已建立子级 `AGENTS.md`：`agent-backend/server-feishu/`（渠道集成模块职责与配置约束）。
 - 已建立子级 `AGENTS.md`：`agent-backend/server-network/`（HTTP 接口与本地 SQLite 持久化约束）。
 - 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/RecordAgent/`（原生 iOS 技术栈、API 数据边界与工程约束）。
+- 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/backend/`（独立多用户业务后端、PostgreSQL 与 API 约束）。
 - 自动任务的细节约束见 `agent-backend/server-network/AGENTS.md` 的“自动任务”节；产品行为见 `docs/任务模块产品需求与操作说明.md`。
 - 根目录负责项目级工程规范、目录边界、架构契约与根文档。
 - 当 `agent-frontend/` 或 `agent-backend/` 出现独立且稳定的局部规则时，应分别建立中文 `AGENTS.md`，并在本节登记其职责范围。

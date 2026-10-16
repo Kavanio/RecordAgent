@@ -24,6 +24,8 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(({
     const input = internalRef.current;
     if (!input || disabled) return;
 
+    input.focus();
+    const previousValue = input.value;
     try {
       if (direction === 'up') {
         input.stepUp();
@@ -42,7 +44,10 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(({
       'value'
     )?.set;
     if (nativeSetter) {
-      nativeSetter.call(input, input.value);
+      const nextValue = input.value;
+      // 恢复 React 跟踪值，再通过原生 setter 派发真实变更。
+      input.value = previousValue;
+      nativeSetter.call(input, nextValue);
     }
 
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -61,6 +66,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(({
         />
         <div className={styles.stepper} aria-hidden="true">
           <button
+            data-input-stepper
             type="button"
             tabIndex={-1}
             className={styles.stepBtn}
@@ -72,6 +78,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(({
             <ChevronUp size={11} strokeWidth={2.2} />
           </button>
           <button
+            data-input-stepper
             type="button"
             tabIndex={-1}
             className={styles.stepBtn}

@@ -7,6 +7,8 @@ import { mergeCategoryOptions } from '../common/categoryOptions';
 import { Modal } from '../common/Modal';
 import { Select } from '../common/Select';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from './financeCategories';
+import { financeCategoryColor } from './financeCategoryColors';
+import { FinanceCategoryColorPicker } from './FinanceCategoryColorPicker';
 import styles from './TransactionModal.module.css';
 
 function nowTime(): string {
@@ -22,6 +24,9 @@ interface TransactionModalProps {
   open: boolean;
   accounts: FinanceAccount[];
   categories: FinanceCategoryOptions;
+  categoriesError?: string | null;
+  categoriesLoading?: boolean;
+  onRetryCategories?: () => void;
   defaultDate?: string;
   transaction?: FinanceTransaction | null;
   onClose: () => void;
@@ -30,12 +35,15 @@ interface TransactionModalProps {
 
 /** 统一的收入 / 支出记账弹框，供财务页和日历页共用。 */
 export const TransactionModal: React.FC<TransactionModalProps> = ({
-  open, accounts, categories, defaultDate, transaction, onClose, onSubmit,
+  open, accounts, categories, categoriesError, categoriesLoading, onRetryCategories, defaultDate, transaction, onClose, onSubmit,
 }) => {
   const [entryType, setEntryType] = useState<'expense' | 'income'>('expense');
   const [category, setCategory] = useState<string>(EXPENSE_CATEGORIES[0]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftColors, setDraftColors] = useState<Record<string, string>>({});
+  const colorKey = `${entryType}:${category.trim()}`;
+  const selectedColor = draftColors[colorKey] ?? financeCategoryColor(category, entryType, categories.colors?.[entryType]);
   const availableCategories = mergeCategoryOptions(
     entryType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES,
     categories[entryType],
@@ -47,6 +55,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setEntryType(nextType);
     setCategory(transaction?.category ?? (nextType === 'expense' ? EXPENSE_CATEGORIES[0] : INCOME_CATEGORIES[0]));
     setError(null);
+    setDraftColors({});
   }, [open, transaction]);
 
   const closeModal = () => {
@@ -66,6 +75,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         accountId: String(data.get('accountId')),
         transactionType: entryType,
         category: category.trim(),
+        categoryColor: draftColors[colorKey],
         note: String(data.get('note') ?? '').trim(),
         amount: Number(data.get('amount')),
         date: String(data.get('date')),
@@ -88,6 +98,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           <button type="button" className={entryType === 'income' ? styles.typeActive : ''} onClick={() => { setEntryType('income'); setCategory(INCOME_CATEGORIES[0]); }}>收入</button>
         </div>
         {error && <div className={styles.modalError} role="alert">{error}</div>}
+        {categoriesError && <div className={styles.categoryNotice} role="alert">
+          <span>历史分类加载失败，仍可使用默认分类或输入新分类。{categoriesError}</span>
+          {onRetryCategories && <Button type="button" variant="ghost" size="sm" onClick={onRetryCategories} disabled={categoriesLoading || isSaving}>重试分类</Button>}
+        </div>}
         <label className={styles.amountField}><span>金额</span><div><b>¥</b><input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" defaultValue={transaction?.amount} required autoFocus /></div></label>
         <div className={styles.formGrid}>
           <Select
@@ -100,6 +114,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             required
           />
           <CategoryPicker options={availableCategories} value={category} onChange={setCategory} disabled={isSaving} />
+          <div className={styles.wideField}>
+            <FinanceCategoryColorPicker category={category} value={selectedColor} disabled={isSaving || !category.trim()}
+              onChange={(color) => setDraftColors((current) => ({ ...current, [colorKey]: color }))} />
+          </div>
           <label className={styles.wideField}><span>说明</span><input name="note" defaultValue={transaction?.note} required placeholder={entryType === 'expense' ? '例如：午餐' : '例如：九月工资'} /></label>
           <label><span>日期</span><input name="date" type="date" defaultValue={transaction?.date ?? defaultDate ?? formatLocalDate(new Date())} required /></label>
           <label><span>时间</span><input name="time" type="time" defaultValue={transaction?.time.slice(0, 5) ?? nowTime()} required /></label>

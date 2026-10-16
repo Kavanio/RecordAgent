@@ -37,6 +37,9 @@ public class AutomationService {
     }
     /** 有界任务列表和待处理桌面记录供 SSE 首次及重连快照使用。 */
     public synchronized Snapshot snapshot(String owner) {
+        int expired = new TransactionTemplate(transactions).execute(status ->
+                repository.expireDesktopNotices(owner, automationClock.millis() - Duration.ofMinutes(15).toMillis()));
+        if (expired > 0) events.publishEvent(new TasksChanged(owner));
         return new Snapshot(repository.list(owner).stream().map(TaskView::from).toList(),
                 repository.pending(owner).stream().map(RunView::from).toList());
     }
@@ -80,11 +83,28 @@ public class AutomationService {
             repository.withdraw(id); return null;
         });
     }
+    /** 从回收站恢复为暂停状态，避免立即触发已过期的计划。 */
+    public synchronized TaskView restore(String owner, String id, int version) {
+        return transaction(owner, () -> {
+            var old = repository.find(owner, id).filter(task -> "DELETED".equals(task.status()))
+                    .orElseThrow(() -> new IllegalArgumentException("已删除任务不存在"));
+            if (repository.list(owner).stream().filter(task -> !"DELETED".equals(task.status())).count() >= 200)
+                throw new IllegalArgumentException("最多保留 200 个任务，请先删除其他任务");
+            var restored = new AutomationTask(id, owner, old.spec(), "PAUSED", old.version() + 1, null, 0, automationClock.millis());
+            repository.update(restored, version);
+            return TaskView.from(restored);
+        });
+    }
+    /** 用户确认后永久删除当前用户全部已删除任务及其执行历史。 */
+    public synchronized int purgeDeleted(String owner) {
+        return transaction(owner, () -> repository.purgeDeleted(owner));
+    }
     /** 预览只生成内容与下次时间，不写执行记录也不发送。 */
     public synchronized Preview preview(String owner, Spec input) {
         if (input == null) throw new IllegalArgumentException("任务配置不能为空");
         var s = input.domain(); s.validate(); var now = automationClock.instant();
-        return new Preview(s.title(), reports.build(owner, s, now, now).text(), TaskSchedule.next(s, now));
+        var report = reports.build(owner, s, now, now);
+        return new Preview(s.title(), report.text(), TaskSchedule.next(s, now), TaskMailTemplateRenderer.render(s, report));
     }
     /** 手动执行仅允许启用任务，不改变下一次计划时间。 */
     public synchronized RunView runNow(String owner, String id) {
@@ -97,7 +117,7 @@ public class AutomationService {
     public synchronized List<RunView> history(String owner, String id) {
         return repository.history(owner, id).stream().map(RunView::from).toList();
     }
-    /** 到期调度，离线只补当天最近的日报，普通提醒不连续补发。 */
+    /** 到期调度，离线只补当天最近的报告，普通提醒不连续补发。 */
     public synchronized void tick() {
         var now = automationClock.instant();
         for (var task : repository.enabled()) {
@@ -105,8 +125,8 @@ public class AutomationService {
             transaction(task.ownerId(), () -> {
                 long planned = task.nextAt();
                 boolean due = now.toEpochMilli() - planned <= 60_000;
-                if ("DAILY_REPORT".equals(task.spec().kind())) {
-                    Long latest = TaskSchedule.next(task.spec(), now.minusSeconds(86400));
+                if (task.spec().isReport()) {
+                    Long latest = TaskSchedule.next(task.spec(), now.atZone(ZoneId.of(task.spec().timezone())).toLocalDate().atStartOfDay(ZoneId.of(task.spec().timezone())).toInstant().minusNanos(1));
                     if (latest != null && latest <= now.toEpochMilli()) planned = latest;
                     due = Instant.ofEpochMilli(planned).atZone(ZoneId.of(task.spec().timezone())).toLocalDate()
                             .equals(now.atZone(ZoneId.of(task.spec().timezone())).toLocalDate());
@@ -121,10 +141,10 @@ public class AutomationService {
     }
     private TaskRun execute(AutomationTask task, long planned, String source) {
         var s = task.spec(); var now = automationClock.instant();
-        String text, status, error = "";
+        String text, status, error = "", html = "";
         try {
             var report = reports.build(task.ownerId(), s, Instant.ofEpochMilli(planned), now);
-            text = report.text(); status = report.partial() ? "PARTIAL" : "SUCCESS";
+            text = report.text(); html = TaskMailTemplateRenderer.render(s, report); status = report.partial() ? "PARTIAL" : "SUCCESS";
         } catch (RuntimeException e) {
             text = ""; status = "FAILED"; error = "任务内容生成失败，请检查数据来源后重试";
         }
@@ -133,7 +153,7 @@ public class AutomationService {
         var run = new TaskRun(UUID.randomUUID().toString(), task.id(), task.ownerId(), s.title(), text,
                 planned, now.toEpochMilli(), source, status, s.desktop() && !failed ? "PENDING" : "SKIPPED",
                 s.email() && !failed && recipient != null ? "PENDING" : "SKIPPED", recipient,
-                s.confirm() && !failed ? "WAITING" : "NONE", s.sound(), error);
+                s.confirm() && !failed ? "WAITING" : "NONE", s.sound(), error, html, now.toEpochMilli());
         repository.insertRun(run);
         if ("ACTIVITY".equals(s.trigger())) repository.progress(task.id(), null, 0, task.status());
         return run;
@@ -142,7 +162,7 @@ public class AutomationService {
         repository.insertRun(new TaskRun(UUID.randomUUID().toString(), t.id(), t.ownerId(), t.spec().title(), "",
                 planned, automationClock.millis(), "SCHEDULED", "SKIPPED", "SKIPPED", "SKIPPED", null, "NONE", false, reason));
     }
-    /** 原生采集状态输入；采样间隙超过 15 秒视为无法观察，不补偿使用时长。 */
+    /** 原生采集状态输入；空闲、锁屏或采样中断时暂停计时并保留已累计时长。 */
     public synchronized void activity(String owner, ActivitySample sample) {
         if (sample.idleSeconds() < 0) throw new IllegalArgumentException("空闲时长不合法");
         Instant now = automationClock.instant(); Instant previous = samples.put(owner, now);
@@ -151,8 +171,10 @@ public class AutomationService {
             if (!"ENABLED".equals(task.status()) || !"ACTIVITY".equals(task.spec().trigger()) || repository.waiting(task.id())) continue;
             transaction(owner, () -> {
                 var s = task.spec(); long seconds = task.activeSeconds();
-                if (!sample.supported() || sample.locked() || !s.activeAt(now) || sample.idleSeconds() >= s.breakMinutes()*60L || delta > 15 || delta < 0) seconds = 0;
-                else seconds += delta;
+                boolean activelyUsed = sample.supported() && !sample.locked() && s.activeAt(now)
+                        && sample.idleSeconds() < s.breakMinutes()*60L;
+                // 首次采样、长间隔及非活动状态只暂停；不能据此推算遗漏时间或清除已保存进度。
+                if (activelyUsed && delta > 0 && delta <= 15) seconds += delta;
                 repository.progress(task.id(), null, seconds, task.status());
                 if (seconds >= s.minutes()*60L) execute(task, now.toEpochMilli(), "ACTIVITY");
                 return null;
@@ -169,7 +191,7 @@ public class AutomationService {
         if (repository.find(owner, run.taskId()).map(t -> !"DELETED".equals(t.status())).orElse(false) == false)
             throw new IllegalArgumentException("任务已删除，不能重发邮件");
         transaction(owner, () -> {
-            if (!repository.retryMail(owner, runId, run.emailStatus()))
+            if (!repository.retryMail(owner, runId, run.emailStatus(), automationClock.millis()))
                 throw new IllegalArgumentException("邮件状态已变化，请刷新后重试");
             return null;
         });
@@ -195,7 +217,7 @@ public class AutomationService {
             samples.remove(owner); return null;
         });
     }
-    /** 重启后标记不确定投递，间隔提醒重新起算。 */
+    /** 重启后标记不确定投递；无法观察的离线时段暂停计时，保留已累计的使用时长。 */
     public synchronized void recover() {
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
             repository.recover();
@@ -207,7 +229,7 @@ public class AutomationService {
     /** 邮件线程领取单次投递；网络操作在事务和领域锁外执行。 */
     public synchronized TaskRun claimMail() {
         for (var run : repository.pendingMail()) {
-            if (automationClock.millis()-run.createdAt() > 86_400_000) {
+            if (automationClock.millis()-run.emailQueuedAt() > 86_400_000) {
                 transaction(run.ownerId(), () -> { repository.mailResult(run.id(), "SKIPPED", "邮件排队已超过 24 小时"); return null; });
                 continue;
             }

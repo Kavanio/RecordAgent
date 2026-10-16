@@ -1,0 +1,40 @@
+.summary { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 26px 0 28px; }
+.total { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.total > span { color: var(--text-secondary); font-size: 11px; }
+.amount { display: flex; align-items: baseline; gap: 5px; color: var(--text-primary); }
+.amount > span { color: var(--text-secondary); font-size: 18px; font-weight: 500; }
+.amount strong { min-width: 0; font-size: clamp(25px, 3cqi, 32px); font-weight: 600; line-height: 1.2; letter-spacing: -.045em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.count { display: flex; align-items: baseline; gap: 5px; padding-bottom: 3px; flex-shrink: 0; }
+.count strong { color: var(--text-primary); font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.count span { color: var(--text-secondary); font-size: 10px; }
+.listHeading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; color: var(--text-secondary); font-size: 10px; }
+.ranking { height: 292px; margin: 0; padding: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; list-style: none; }
+.ranking::-webkit-scrollbar { display: none; }
+.ranking:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.row { display: flex; align-items: flex-start; gap: 12px; padding: 16px 0; border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 45%, var(--bg-app)); }
+.row:last-child { border-bottom: 0; }
+.ordinal { display: grid; place-items: center; flex: 0 0 26px; height: 26px; margin-top: 1px; border-radius: 8px; color: var(--text-muted); font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.ordinal[data-leading='true'] { background: #eff5ff; color: #4778be; font-weight: 600; }
+.rankBody { flex: 1; min-width: 0; }
+.rowHeading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; color: var(--text-primary); font-size: 12px; line-height: 1.5; }
+.rowHeading > span { flex: 1; min-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rowHeading strong { margin-left: auto; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; max-width: 100%; }
+.detail { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 5px; color: var(--text-secondary); font-size: 10px; line-height: 1.5; }
+.detail > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail > span:last-child { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.categoryDot { display: inline-block; width: 5px; height: 5px; margin-right: 6px; border-radius: 50%; background: var(--category-color); vertical-align: 1px; }
+.track { height: 4px; margin-top: 10px; overflow: hidden; border-radius: 999px; background: var(--bg-surface); }
+.bar { display: block; height: 100%; border-radius: inherit; background: color-mix(in srgb, var(--category-color) 65%, var(--bg-app)); transition: background-color 180ms; }
+.row:hover .bar { background: var(--category-color); }
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 313px; padding: 24px 12px; text-align: center; color: var(--text-muted); font-size: 11px; }
+.empty > svg { margin-bottom: 4px; color: #9eafc4; }
+.empty strong { color: var(--text-secondary); font-weight: 500; }
+.empty > span { line-height: 1.7; }
+.loadingContent { display: flex; flex-direction: column; min-height: 444px; padding-top: 32px; }
+.loadingAmount { width: min(60%, 210px); height: 30px; border-radius: 7px; background: var(--bg-surface); }
+.loadingRows { display: flex; flex-direction: column; gap: 30px; margin-top: 66px; }
+.loadingRows i { width: 100%; height: 37px; border-bottom: 4px solid var(--bg-surface); }
+.loadingRows i:nth-child(2) { width: 85%; }
+.loadingRows i:nth-child(3) { width: 68%; }
+@container finance (max-width: 580px) { .summary { margin-top: 24px; } .row { gap: 8px; } }
+@media (prefers-reduced-motion: reduce) { .bar { transition: none; } }

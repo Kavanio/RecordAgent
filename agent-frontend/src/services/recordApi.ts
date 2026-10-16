@@ -1,8 +1,8 @@
-import { getApiBaseUrl, type ApiResponse } from './api';
+import { apiFetch, apiResourceUrl, getApiBaseUrl, type ApiResponse } from './api';
 import type { RecordAttachment, RecordDaySummary, RecordEntry, RecordReferencePage, RecordTab, SaveRecordInput } from '../types/record';
 
 async function recordRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, init);
+  const response = await apiFetch(`${getApiBaseUrl()}${path}`, init);
   const payload = await response.json() as ApiResponse<T>;
   if (!response.ok || payload.code !== 200) throw new Error(payload.message || '资料请求失败');
   return payload.data;
@@ -79,12 +79,12 @@ export function uploadRecordAttachment(recordId: string, file: File) {
 }
 
 export function attachmentContentUrl(recordId: string, attachmentId: string) {
-  return `${getApiBaseUrl()}/agent/records/${encode(recordId)}/attachments/${encode(attachmentId)}/content`;
+  return apiResourceUrl(`/agent/records/${encode(recordId)}/attachments/${encode(attachmentId)}/content`);
 }
 
 /** 下载包含 JSON、Markdown、图片和附件原文件的完整备份。 */
 export async function exportRecordBackup() {
-  const response = await fetch(`${getApiBaseUrl()}/agent/records/backup`);
+  const response = await apiFetch(`${getApiBaseUrl()}/agent/records/backup`);
   if (!response.ok) throw new Error('备份导出失败');
   const url = URL.createObjectURL(await response.blob());
   const link = document.createElement('a'); link.href = url; link.download = `butvan-records-${new Date().toISOString().slice(0, 10)}.zip`;

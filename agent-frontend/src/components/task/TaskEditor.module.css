@@ -15,6 +15,4 @@
 .hint { color:#74747e; font-size:12px; line-height:1.7; margin:0; }
 .error { color:#b3261e; font-size:13px; margin:0; }
 .actions { display:flex; justify-content:flex-end; gap:10px; padding-bottom:8px; }
-.preview { border-radius:12px; background:#f7f7f9; padding:16px; font-size:13px; }
-.preview pre { white-space:pre-wrap; word-break:break-word; font:inherit; line-height:1.8; }
 @media (max-width:760px) { .drawer { width:min(100%,440px); position:absolute; right:0; top:0; bottom:0; z-index:5; box-shadow:-12px 0 36px #0001; } }
