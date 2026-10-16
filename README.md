@@ -279,7 +279,30 @@ node scripts/sync-version.mjs --check
 
 脚本会完成版本检查、后端 fat jar、最小 JRE、平台启动器和 Tauri 安装包组装。构建结果位于 `agent-frontend/src-tauri/target/<profile>/bundle/`。
 
-桌面端发布由单一发布工作流管理：每次 `develop` push 会按 `VERSION` 和工作流运行号创建唯一预发布 tag，完成 macOS、Linux、Windows 构建及 sidecar 验证后公开 GitHub Pre-release；稳定版仍由完整 SemVer tag 驱动，并上传至草稿 GitHub Release。根目录 `VERSION` 是唯一版本源，必须与前端及 Tauri 配置同步。PR 构建验证由独立工作流执行。
+桌面端 PR 和 `develop` push 只执行构建验证。正式发布只由 `v<major>.<minor>.<patch>` tag 触发；四个平台构建和 sidecar 验证通过后才创建正式 GitHub Release，正文直接取自对应 `CHANGELOG.md` 章节。
+
+### 桌面端正式发布
+
+1. 按分支规范完成开发分支到 `main`、再从 `main` 到 `develop` 的本地合并与验证。
+2. 在发布准备分支更新根目录 `VERSION`，然后同步并检查前端和 Tauri 版本：
+
+   ```bash
+   node scripts/sync-version.mjs
+   node scripts/sync-version.mjs --check
+   ```
+
+3. 将本次变更从 `CHANGELOG.md` 的 `## [未发布]` 整理到严格匹配的章节，例如 `## v0.3.1`。建议记录发布日期、对比基线、发布通道、分类变更、升级说明和提交摘要。
+4. 提交版本与变更日志，按分支规范合入 `main` 和 `develop`，推送 `develop` 并等待桌面验证通过。
+5. 在已经验证通过的 `develop` 提交上创建并推送带注释 tag：
+
+   ```bash
+   git tag -a vX.Y.Z -m "Release vX.Y.Z"
+   git push origin vX.Y.Z
+   ```
+
+   将 `vX.Y.Z` 替换为实际版本，并确认它与 `VERSION`、前端/Tauri 配置及 CHANGELOG 标题完全一致。tag 必须指向 `develop` 历史中的提交。
+
+发布工作流只监听 `v*` tag。任一平台构建失败时不会创建 Release；暂时性构建故障修复后可以重跑同一个 tag 的工作流。版本或 CHANGELOG 内容有误时，应在 `develop` 修正后递增版本并创建新 tag，不要移动或复用正式版本 tag。
 
 ## 开发约定
 
