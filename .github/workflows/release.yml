@@ -6,15 +6,12 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  release-metadata:
-    name: 校验 tag、版本与变更日志
+  create-release:
+    name: 校验版本并创建正式 GitHub Release
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.release.outputs.tag }}
-      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,7 +45,7 @@ jobs:
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: 校验 CHANGELOG 并提取本次发布说明
+      - name: 校验 CHANGELOG 并提取发布说明
         shell: bash
         env:
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
@@ -75,110 +72,12 @@ jobs:
           Path("RELEASE_BODY.md").write_text(match.group(1).strip() + "\n", encoding="utf-8")
           PY
 
-      - name: 保存发布说明
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-notes
-          path: RELEASE_BODY.md
-          if-no-files-found: error
-          retention-days: 1
-
-  publish-tauri:
-    name: ${{ matrix.name }}
-    needs: release-metadata
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: macOS Apple Silicon
-            artifact_name: release-asset-macos-apple-silicon
-            runner: macos-latest
-            tauri_args: --target aarch64-apple-darwin
-            release_files: agent-frontend/src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.dmg
-          - name: macOS Intel
-            artifact_name: release-asset-macos-intel
-            runner: macos-15-intel
-            tauri_args: --target x86_64-apple-darwin
-            release_files: agent-frontend/src-tauri/target/x86_64-apple-darwin/release/bundle/**/*.dmg
-          - name: Linux x64
-            artifact_name: release-asset-linux-x64
-            runner: ubuntu-latest
-            tauri_args: ''
-            release_files: |
-              agent-frontend/src-tauri/target/release/bundle/**/*.AppImage
-              agent-frontend/src-tauri/target/release/bundle/**/*.deb
-          - name: Windows x64
-            artifact_name: release-asset-windows-x64
-            runner: windows-latest
-            tauri_args: ''
-            release_files: |
-              agent-frontend/src-tauri/target/release/bundle/**/*.msi
-              agent-frontend/src-tauri/target/release/bundle/**/*.exe
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.release-metadata.outputs.tag }}
-
-      - uses: ./.github/actions/setup-desktop-build
-
-      - name: 构建桌面安装包
-        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5
-        env:
-          # 配置以下 Secrets 后，macOS 构建会自动执行签名与公证；未配置时保持可构建。
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        with:
-          projectPath: agent-frontend
-          args: ${{ matrix.tauri_args }}
-          uploadUpdaterJson: false
-
-      - name: 验证内嵌后端 sidecar
-        shell: bash
-        run: node scripts/verify-sidecar.mjs
-
-      - name: 保存安装包供 Release 汇总
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.release_files }}
-          if-no-files-found: error
-          retention-days: 1
-
-  create-release:
-    name: 创建正式 GitHub Release
-    needs:
-      - release-metadata
-      - publish-tauri
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: 下载 CHANGELOG 发布说明
-        uses: actions/download-artifact@v4
-        with:
-          name: release-notes
-          path: release-notes
-
-      - name: 下载全部平台安装包
-        uses: actions/download-artifact@v4
-        with:
-          path: release-assets
-          pattern: release-asset-*
-          merge-multiple: true
-
       - name: 发布 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.release-metadata.outputs.tag }}
-          name: ButvanAgent v${{ needs.release-metadata.outputs.version }}
-          body_path: release-notes/RELEASE_BODY.md
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: ButvanAgent ${{ steps.release.outputs.tag }}
+          body_path: RELEASE_BODY.md
           draft: false
           prerelease: false
           make_latest: true
-          files: release-assets/**/*
-          fail_on_unmatched_files: true
