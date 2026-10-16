@@ -196,7 +196,7 @@ pub fn setup(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let show = tauri::menu::MenuItem::with_id(app, "task-show", "打开 ButvanAgent", true, None::<&str>)?;
     let quit = tauri::menu::MenuItem::with_id(app, "task-quit", "退出（停止所有任务）", true, None::<&str>)?;
     let menu = tauri::menu::Menu::with_items(app, &[&show, &quit])?;
-    let mut tray = tauri::tray::TrayIconBuilder::new().tooltip("ButvanAgent · 任务后台服务").menu(&menu)
+    let mut tray = tauri::tray::TrayIconBuilder::with_id("butvan-agent-tray").tooltip("ButvanAgent · 任务后台服务").menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "task-show" => { if let Err(e) = open_task_main(app.clone()) { log::warn!("打开主窗口失败：{}", e); } }
             "task-quit" => app.exit(0),

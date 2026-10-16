@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { subscribeStudyRealtime } from '../services/studyRealtime';
+import { syncStudyTray } from '../services/studyTray';
 import type { StudySession } from '../types/study';
 import { StudyRealtimeContext } from './studyRealtimeState';
 
@@ -12,6 +13,7 @@ export function StudyRealtimeProvider({ children }: { children: ReactNode }) {
   const receivedInitialSnapshot = useRef(false);
 
   useEffect(() => subscribeStudyRealtime((event) => {
+    syncStudyTray(event);
     setActiveSession(event.activeSession);
     setReady(true);
     setUpdatedAt(Date.now());
