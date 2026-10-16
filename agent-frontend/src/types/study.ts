@@ -35,6 +35,7 @@ export type StudyRealtimeReason = 'SNAPSHOT' | 'STARTED' | 'FINISHED' | 'CREATED
 
 /** 后端学习状态 SSE 推送的权威快照。 */
 export interface StudyRealtimeEvent {
+  streamId: string;
   revision: number;
   reason: StudyRealtimeReason;
   changedSessionId: string | null;

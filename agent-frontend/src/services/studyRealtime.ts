@@ -29,7 +29,11 @@ function parseRealtimeEvent(event: Event): StudyRealtimeEvent {
     || (value.activeSession !== null && !isStudySession(value.activeSession))) {
     throw new Error('invalid study realtime event');
   }
-  return value as unknown as StudyRealtimeEvent;
+  // 兼容尚未升级、仍未提供进程标识的远程桌面后端。
+  const streamId = typeof value.streamId === 'string' && value.streamId.length > 0
+    ? value.streamId
+    : 'legacy';
+  return { ...value, streamId } as unknown as StudyRealtimeEvent;
 }
 
 /**

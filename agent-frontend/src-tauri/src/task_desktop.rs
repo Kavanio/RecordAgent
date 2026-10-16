@@ -199,6 +199,11 @@ pub fn setup(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let mut tray = tauri::tray::TrayIconBuilder::with_id("butvan-agent-tray").tooltip("ButvanAgent · 任务后台服务").menu(&menu)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "task-show" => { if let Err(e) = open_task_main(app.clone()) { log::warn!("打开主窗口失败：{}", e); } }
+            "study-finish" => {
+                if let Err(e) = app.emit_to("main", "study-tray-finish-request", ()) {
+                    log::warn!("发送托盘结束学习请求失败：{}", e);
+                }
+            }
             "task-quit" => app.exit(0),
             _ => {}
         });

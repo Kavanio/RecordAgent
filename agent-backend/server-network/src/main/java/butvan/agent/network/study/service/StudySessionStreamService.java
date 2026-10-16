@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -32,6 +33,7 @@ public class StudySessionStreamService {
     private final StudyService studyService;
     private final ConcurrentMap<String, Set<SseEmitter>> subscribers = new ConcurrentHashMap<>();
     private final Object lifecycleMonitor = new Object();
+    private final String streamId = UUID.randomUUID().toString();
     private long revision;
     private boolean closing;
 
@@ -50,7 +52,7 @@ public class StudySessionStreamService {
             try {
                 StudySession activeSession = studyService.getActive(ownerId);
                 send(ownerId, emitter, "snapshot",
-                        new StudySessionStreamEvent(revision, "SNAPSHOT", null, activeSession));
+                        new StudySessionStreamEvent(streamId, revision, "SNAPSHOT", null, activeSession));
             } catch (RuntimeException exception) {
                 unsubscribe(ownerId, emitter);
                 emitter.completeWithError(exception);
@@ -70,7 +72,7 @@ public class StudySessionStreamService {
                 if (ownerSubscribers == null || ownerSubscribers.isEmpty()) return;
                 StudySession activeSession = studyService.getActive(event.ownerId());
                 StudySessionStreamEvent payload = new StudySessionStreamEvent(
-                        ++revision, event.changeType().name(), event.sessionId(), activeSession);
+                        streamId, ++revision, event.changeType().name(), event.sessionId(), activeSession);
                 new ArrayList<>(ownerSubscribers)
                         .forEach(emitter -> send(event.ownerId(), emitter, "changed", payload));
             }

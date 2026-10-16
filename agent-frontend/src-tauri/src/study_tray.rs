@@ -16,6 +16,7 @@ pub struct ActiveStudy {
 
 #[derive(Default)]
 struct Snapshot {
+    stream_id: Option<String>,
     revision: u64,
     active_study: Option<ActiveStudy>,
 }
@@ -27,29 +28,71 @@ pub struct StudyTrayState(Mutex<Snapshot>);
 /// 同步后端学习状态。只有 macOS 展示菜单栏计时，其他平台安全忽略。
 #[tauri::command(rename_all = "camelCase")]
 pub fn sync_study_tray(
+    app: tauri::AppHandle,
     state: tauri::State<'_, StudyTrayState>,
+    stream_id: String,
     revision: u64,
-    force_snapshot: bool,
     active_study: Option<ActiveStudy>,
 ) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
+        if stream_id.is_empty() || stream_id.len() > 128 {
+            return Err("学习状态版本无效，无法更新菜单栏".into());
+        }
         if active_study
             .as_ref()
             .is_some_and(|study| study.id.is_empty() || study.id.len() > 128)
         {
             return Err("学习状态无效，无法更新菜单栏计时".into());
         }
-        let mut snapshot = state.0.lock().map_err(|_| "菜单栏学习状态暂不可用")?;
-        // 服务端重启后 revision 会从零开始；新连接的快照仍是权威状态。
-        if force_snapshot || revision >= snapshot.revision {
-            snapshot.revision = revision;
-            snapshot.active_study = active_study;
-        }
+        let has_active_study = {
+            let mut snapshot = state.0.lock().map_err(|_| "菜单栏学习状态暂不可用")?;
+            // streamId 变化代表后端重启；同一进程内始终拒绝较旧的窗口快照。
+            if snapshot.stream_id.as_deref() != Some(stream_id.as_str())
+                || revision >= snapshot.revision
+            {
+                snapshot.stream_id = Some(stream_id);
+                snapshot.revision = revision;
+                snapshot.active_study = active_study;
+            }
+            snapshot.active_study.is_some()
+        };
+        update_study_menu(&app, has_active_study)?;
     }
     #[cfg(not(target_os = "macos"))]
-    let _ = (state, revision, force_snapshot, active_study);
+    let _ = (app, state, stream_id, revision, active_study);
     Ok(())
+}
+
+/// 仅在学习进行中时把结束操作放入菜单，其他时候彻底移除该菜单项。
+#[cfg(target_os = "macos")]
+fn update_study_menu(app: &tauri::AppHandle, has_active_study: bool) -> Result<(), String> {
+    use tauri::menu::{Menu, MenuItem};
+
+    let show = MenuItem::with_id(app, "task-show", "打开 ButvanAgent", true, None::<&str>)
+        .map_err(|error| error.to_string())?;
+    let quit = MenuItem::with_id(app, "task-quit", "退出（停止所有任务）", true, None::<&str>)
+        .map_err(|error| error.to_string())?;
+    let finish = if has_active_study {
+        Some(
+            MenuItem::with_id(app, "study-finish", "结束学习", true, None::<&str>)
+                .map_err(|error| error.to_string())?,
+        )
+    } else {
+        None
+    };
+
+    let menu = Menu::new(app).map_err(|error| error.to_string())?;
+    menu.append(&show).map_err(|error| error.to_string())?;
+    if let Some(finish) = finish.as_ref() {
+        menu.append(finish).map_err(|error| error.to_string())?;
+    }
+    menu.append(&quit).map_err(|error| error.to_string())?;
+
+    let tray = app
+        .tray_by_id(TRAY_ID)
+        .ok_or_else(|| "状态栏图标尚未就绪".to_string())?;
+    tray.set_menu(Some(menu)).map_err(|error| error.to_string())
 }
 
 fn elapsed_title(started_at_epoch_ms: i64, now_epoch_ms: i64) -> String {
