@@ -6,6 +6,7 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -45,6 +46,8 @@ pub struct BackendState {
     pub mode: String,
     /// 启动时加载的远程 API 地址。
     pub remote_url: Option<String>,
+    /// 远程健康检查超时后，标记本次启动已切换到本机后端。
+    pub local_fallback: AtomicBool,
 }
 
 impl Default for BackendState {
@@ -58,6 +61,7 @@ impl Default for BackendState {
                 "sidecar".into()
             },
             remote_url: None,
+            local_fallback: AtomicBool::new(false),
         }
     }
 }
@@ -65,16 +69,29 @@ impl Default for BackendState {
 /// 前端查询当前后端运行模式：dev、sidecar 或 remote。
 #[tauri::command]
 pub fn get_backend_mode(state: State<'_, BackendState>) -> String {
-    state.mode.clone()
+    resolved_mode(&state)
 }
 
 /// 返回当前启动模式和远程地址，供桌面设置页显示。
 #[tauri::command]
 pub fn get_backend_connection(state: State<'_, BackendState>) -> BackendConnectionInfo {
     BackendConnectionInfo {
-        mode: state.mode.clone(),
+        mode: resolved_mode(&state),
         remote_url: state.remote_url.clone(),
         has_api_token: read_api_token().ok().flatten().is_some(),
+    }
+}
+
+fn resolved_mode(state: &BackendState) -> String {
+    if state.local_fallback.load(Ordering::Relaxed) {
+        if cfg!(debug_assertions) {
+            "dev"
+        } else {
+            "sidecar"
+        }
+        .into()
+    } else {
+        state.mode.clone()
     }
 }
 
@@ -178,6 +195,21 @@ pub fn get_backend_port(state: State<'_, BackendState>) -> Option<u16> {
     *state.port.lock().unwrap()
 }
 
+/// 远程服务连接超时后，启动本地后端作为本次运行的降级目标。
+#[tauri::command]
+pub fn start_local_backend_fallback(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<BackendState>();
+    state.local_fallback.store(true, Ordering::Relaxed);
+    if cfg!(debug_assertions) {
+        info!("远程后端连接超时，开发模式回退到本机 8081 端口");
+        return Ok(());
+    }
+    if state.port.lock().unwrap().is_some() || state.child.lock().unwrap().is_some() {
+        return Ok(());
+    }
+    start_sidecar(&app).map(|_| ())
+}
+
 /// 在应用 setup 阶段读取远程模式；本机模式按需启动 sidecar 并等待健康检查。
 pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let connection = load_connection(app).map_err(std::io::Error::other)?;
@@ -204,10 +236,19 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    start_sidecar(app).map_err(std::io::Error::other)?;
+    Ok(())
+}
+
+/// 启动本地 sidecar，并在后台发布健康检查通过后的动态端口。
+fn start_sidecar(app: &AppHandle) -> Result<u16, String> {
     let port = pick_free_port();
     info!("分配后端动态端口：{port}");
 
-    let sidecar = app.shell().sidecar("butvan-backend")?;
+    let sidecar = app
+        .shell()
+        .sidecar("butvan-backend")
+        .map_err(|e| e.to_string())?;
     let (mut rx, child) = sidecar
         .args([
             format!("--server.port={port}"),
@@ -252,7 +293,7 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    Ok(())
+    Ok(port)
 }
 
 /// 应用退出时关闭后端进程

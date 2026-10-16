@@ -35,6 +35,9 @@ export interface BackendConnectionInfo {
   hasApiToken: boolean;
 }
 
+/** 远程服务启动检查最多等待 8 秒，再切换到本机后端。 */
+const REMOTE_STARTUP_TIMEOUT_MS = 8_000;
+
 /** 后端地址：浏览器/非 Tauri 环境回退到开发地址，Tauri 环境由 Rust 端动态注入 */
 let apiBaseUrl = 'http://localhost:8081';
 let apiAccessToken: string | null = null;
@@ -65,12 +68,31 @@ export async function initApiBaseUrl(): Promise<void> {
     const connection = await invoke<BackendConnectionInfo>('get_backend_connection');
     if (!connection.remoteUrl) throw new Error('远程后端地址未配置');
     apiAccessToken = await invoke<string | null>('get_backend_api_token').catch(() => null);
-    apiBaseUrl = connection.remoteUrl;
-    return;
+    try {
+      const headers = new Headers();
+      if (apiAccessToken) headers.set('Authorization', `Bearer ${apiAccessToken}`);
+      const response = await fetch(`${connection.remoteUrl}/api/health`, {
+        headers,
+        signal: AbortSignal.timeout(REMOTE_STARTUP_TIMEOUT_MS),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json() as ApiResponse<string>;
+      if (payload.code !== 200 || payload.data !== 'ok') throw new Error('健康检查响应无效');
+      apiBaseUrl = connection.remoteUrl;
+      return;
+    } catch (error) {
+      console.warn('远程后端在 8 秒内未通过健康检查，切换到本机后端：', error);
+      await invoke('start_local_backend_fallback');
+      apiAccessToken = null;
+      if (await invoke<string>('get_backend_mode') === 'dev') {
+        apiBaseUrl = 'http://localhost:8081';
+        return;
+      }
+    }
   }
   if (mode === 'dev') return;
 
-  // 最长等待 60 秒（后端启动通常需要数秒）
+  // sidecar 首次启动或远程降级后，最多等待 60 秒让本机后端就绪。
   for (let i = 0; i < 120; i++) {
     try {
       const port = await invoke<number | null>('get_backend_port');
@@ -141,7 +163,7 @@ export function apiResourceUrl(path: string): string {
  */
 export async function fetchModelConfig(): Promise<ModelConfig | null> {
   try {
-    const res = await apiFetch(`${apiBaseUrl}/agent/model/config`);
+    const res = await apiFetch(`${apiBaseUrl}/agent/model/config`, { signal: AbortSignal.timeout(5_000) });
     if (!res.ok) return null;
     const json: ApiResponse<ModelConfig> = await res.json();
     return json.data;
@@ -193,7 +215,7 @@ export async function saveFullModelConfig(fullConfig: any): Promise<{ success: b
  */
 export async function fetchSupportedVendors(): Promise<string[]> {
   try {
-    const res = await apiFetch(`${apiBaseUrl}/agent/model/vendors`);
+    const res = await apiFetch(`${apiBaseUrl}/agent/model/vendors`, { signal: AbortSignal.timeout(5_000) });
     if (!res.ok) return ['gemini', 'openai', 'dashscope', 'deepseek', 'anthropic', 'ollama'];
     const json: ApiResponse<string[]> = await res.json();
     return json.data || [];

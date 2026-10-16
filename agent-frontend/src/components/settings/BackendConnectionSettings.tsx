@@ -53,11 +53,11 @@ export function BackendConnectionSettings() {
 
   return (
     <SettingsPageLayout title="后端连接" description="选择由本机或工作室服务器运行 Agent 与自动任务。">
-      <SettingsGroup title="运行位置" description="切换在重启应用后生效。远程模式不会启动本地 sidecar，确保只有服务器执行日报和邮件任务。">
+      <SettingsGroup title="运行位置" description="切换在重启应用后生效。远程可用时只由服务器执行日报和邮件任务；远程不可用时本次启动会自动回退到本机后端。">
         <SettingsRow
           label="当前模式"
-          description={connection?.mode === 'remote' ? '远程服务器负责 Agent、数据与自动任务；本机保留桌面提醒和使用状态采样。' : connection?.mode === 'sidecar' ? '应用在本机启动独立后端。' : '开发模式连接本机 8081 端口。'}
-          control={<span className={styles.mode}>{connection?.mode === 'remote' ? '远程服务器' : connection?.mode === 'sidecar' ? '本机打包后端' : '本机开发后端'}</span>}
+          description={connection?.mode === 'remote' ? '远程服务器负责 Agent、数据与自动任务；本机保留桌面提醒和使用状态采样。启动时连接超过 8 秒会自动切换到本机数据，重启后重新尝试远程连接。' : connection?.mode !== 'remote' && connection?.remoteUrl ? '远程服务器启动时不可达，本次已自动切换到本机数据；重启后会重新尝试远程连接。' : connection?.mode === 'sidecar' ? '应用在本机启动独立后端。' : '开发模式连接本机 8081 端口。'}
+          control={<span className={styles.mode}>{connection?.mode === 'remote' ? '远程服务器' : connection?.remoteUrl ? '本机后端（自动降级）' : connection?.mode === 'sidecar' ? '本机打包后端' : '本机开发后端'}</span>}
         />
         <SettingsRow
           label="服务器 API 地址"
