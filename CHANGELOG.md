@@ -2,6 +2,26 @@
 
 本文档记录桌面端版本的变更。发布工作流只读取与推送 tag 完全一致的二级标题，例如 `## v0.4.0` 或 `## v0.4.1-beta.1`；该章节正文会成为 GitHub Release 说明。带 `-alpha.N`、`-beta.N` 或 `-rc.N` 后缀的 tag 会创建 GitHub 预发布版本，普通 SemVer tag 会创建正式 Release。
 
+## v0.4.1
+
+- **发布日期（Asia/Shanghai）**：2026-10-16
+- **对比基线**：v0.4.0...v0.4.1
+- **发布通道**：Stable（正式版）
+
+优化桌面应用在 Linux 与不同 macOS 架构上的本地打包流程。
+
+### 安装包构建
+
+- Linux 支持交互选择 `.deb`、AppImage 或两者，也可通过 `--bundles` 单独选择格式；未变化的最小 JRE 会复用以减少重复打包耗时。
+- Linux `.deb` 将主程序和 sidecar 安装到 `/opt/ButvanAgent`，并保留 `/usr/bin` 启动符号链接。
+- macOS 打包会校验 Intel、Apple Silicon 与 JDK 架构匹配，明确按目标设备原生构建。
+
+### Commits
+
+- `54d98f7` feat(build): improve Linux and macOS packaging
+
+**Full Changelog**: https://github.com/Kavanio/RecordAgent/compare/v0.4.0...v0.4.1
+
 ## v0.4.0
 
 - **发布日期（Asia/Shanghai）**：2026-10-16
