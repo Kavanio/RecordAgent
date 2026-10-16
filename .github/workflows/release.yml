@@ -97,7 +97,7 @@ jobs:
             release_files: agent-frontend/src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.dmg
           - name: macOS Intel
             artifact_name: release-asset-macos-intel
-            runner: macos-13
+            runner: macos-15-intel
             tauri_args: --target x86_64-apple-darwin
             release_files: agent-frontend/src-tauri/target/x86_64-apple-darwin/release/bundle/**/*.dmg
           - name: Linux x64
