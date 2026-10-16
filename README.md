@@ -7,7 +7,7 @@
   </p>
 </div>
 
-> 当前版本：`0.3.0`。项目仍在快速迭代，适合本地体验、二次开发和架构交流；暂不把它描述成已经完成的通用生产级 Agent 平台。
+> 当前稳定版本：`0.4.0`。项目仍在快速迭代，适合本地体验、二次开发和架构交流；暂不把它描述成已经完成的通用生产级 Agent 平台。
 
 ## 为什么做这个项目
 
@@ -104,23 +104,25 @@ flowchart LR
 
 ### 环境要求
 
-开发环境需要：
+从源码开发或打包需要：
 
 - JDK 21（必须包含 `jlink` 与 `jdeps`）
 - Maven 3.9+
-- Node.js 20+
-- pnpm 9+
+- Node.js 22+
+- pnpm 10+
 - Rust stable 与 Cargo
-- Tauri 对应平台的系统依赖
+- 当前操作系统的 Tauri 原生构建依赖（见下方各平台说明）
+
+可从官方渠道安装：[Eclipse Temurin JDK 21](https://adoptium.net/temurin/releases/?version=21)、[Maven](https://maven.apache.org/install.html)、[Node.js](https://nodejs.org/en/download)、[pnpm](https://pnpm.io/installation) 和 [Rust](https://www.rust-lang.org/tools/install)。
 
 只有从源码开发或打包时需要这些工具。正式安装包会内嵌 Spring Boot sidecar 与最小 JRE，使用者无需单独安装 Java。
 
 ### 1. 获取代码与安装前端依赖
 
 ```bash
-git clone https://github.com/agent-butvan/OpenAgent-Van.git
-cd OpenAgent-Van
-pnpm --dir agent-frontend install
+git clone https://github.com/Kavanio/RecordAgent.git
+cd RecordAgent
+pnpm --dir agent-frontend install --frozen-lockfile
 ```
 
 ### 2. 启动后端
@@ -265,23 +267,66 @@ node scripts/sync-version.mjs --check
 
 ## 打包与发布
 
-本地一键打包：
+### 从源码获取并构建桌面应用
+
+以下步骤会检出稳定版本 `v0.4.0`，并在当前系统上构建原生安装包。后端 sidecar、最小 JRE、前端资源和 Tauri 桌面壳会由打包脚本自动组装。
+
+新目录中克隆指定版本：
+
+```bash
+git clone --branch v0.4.0 --depth 1 https://github.com/Kavanio/RecordAgent.git
+cd RecordAgent
+```
+
+已有仓库中更新到该版本：
+
+```bash
+git fetch origin --tags
+git checkout v0.4.0
+```
+
+每个平台都需要安装上方列出的通用工具。各系统还需要以下原生依赖：
+
+- **macOS**：安装 Xcode Command Line Tools（`xcode-select --install`）。需要构建当前 Mac 架构的应用；Apple Silicon 与 Intel 请分别在对应设备上构建。打包后的首次运行可能受到 Gatekeeper 提示，未配置 Developer ID 签名与公证时属于预期情况。[Tauri macOS 前置条件](https://v2.tauri.app/start/prerequisites/#macos)
+- **Windows**：安装 Visual Studio C++ Build Tools 并勾选“使用 C++ 的桌面开发”，确保 WebView2 Runtime 可用；另外安装 [Git for Windows](https://git-scm.com/download/win)，让 `bash` 命令可从终端调用。请在 Windows 原生的 Developer PowerShell 或“x64 Native Tools Command Prompt for VS”中打包，不要在 WSL 中执行，否则生成的是 Linux 应用。MSI 构建若提示 `light.exe` 或 VBScript 错误，请在 Windows 可选功能中启用 VBScript。[Tauri Windows 前置条件](https://v2.tauri.app/start/prerequisites/#windows)
+- **Linux（Debian/Ubuntu）**：安装 Tauri 桌面依赖：
+
+  ```bash
+  sudo apt update
+  sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+  ```
+
+  为了兼容较旧的发行版，建议在 Ubuntu 22.04 或 Debian 12 上构建；新系统生成的安装包可能依赖更新版本的 glibc。[Tauri Linux 前置条件](https://v2.tauri.app/start/prerequisites/#linux) · [AppImage 兼容说明](https://v2.tauri.app/distribute/appimage/)
+
+安装并启用 pnpm 10，然后在仓库根目录执行：
+
+```bash
+corepack enable
+corepack prepare pnpm@10 --activate
+node scripts/sync-version.mjs --check
+```
+
+macOS 和 Linux：
 
 ```bash
 ./scripts/build-app.sh
 ```
 
-快速验证可使用 debug 构建：
+Windows：在上述 Windows 原生开发终端中运行：
 
-```bash
-./scripts/build-app.sh --debug
+```powershell
+bash scripts/build-app.sh
 ```
 
-脚本会完成版本检查、后端 fat jar、最小 JRE、平台启动器和 Tauri 安装包组装。构建结果位于 `agent-frontend/src-tauri/target/<profile>/bundle/`。
+脚本默认执行 Release 构建，产物位于 `agent-frontend/src-tauri/target/release/bundle/`：macOS 为 `.dmg` 和 `.app`，Windows 为 `.msi` 和 `.exe`，Linux 为 `.AppImage` 和 `.deb`。快速验证可在命令末尾加 `--debug`，产物会转到 `target/debug/bundle/`。macOS 还可用 `./scripts/build-app.sh --install` 安装生成的 `.app`，或用 `--open` 安装后启动。
+
+当前打包流程按本机系统构建对应平台的 sidecar 和应用，不提供跨操作系统交叉构建。Windows 安装包未签名时，SmartScreen 提示也属于预期情况。
+
+`scripts/build-app.sh` 会完成版本检查、后端 fat jar、最小 JRE、平台启动器和 Tauri 安装包组装；各平台命令及 debug 构建方式见上文。构建结果位于 `agent-frontend/src-tauri/target/<profile>/bundle/`。
 
 PR、`develop` push 和其他分支 push 均不会触发 GitHub Actions。推送 `v<major>.<minor>.<patch>` tag 会创建正式 Release；推送带 `-alpha.N`、`-beta.N` 或 `-rc.N` 后缀的 SemVer tag 会创建 GitHub Pre-release。工作流校验版本与变更日志后直接创建 Release，正文取自对应 `CHANGELOG.md` 章节，不自动构建或上传安装包。
 
-### 桌面端正式发布
+### 桌面端版本发布
 
 1. 按分支规范完成开发分支到 `main`、再从 `main` 到 `develop` 的本地合并与验证。
 2. 在发布准备分支更新根目录 `VERSION`，然后同步并检查前端和 Tauri 版本：
@@ -291,7 +336,7 @@ PR、`develop` push 和其他分支 push 均不会触发 GitHub Actions。推送
    node scripts/sync-version.mjs --check
    ```
 
-3. 将本次变更从 `CHANGELOG.md` 的 `## [未发布]` 整理到严格匹配的章节，例如 `## v0.3.1` 或 `## v0.4.0-beta.1`。建议记录发布日期、对比基线、发布通道、分类变更、升级说明和关键提交。
+3. 将本次变更从 `CHANGELOG.md` 的 `## [未发布]` 整理到严格匹配的章节，例如 `## v0.4.1` 或 `## v0.4.1-beta.1`。建议记录发布日期、对比基线、发布通道、分类变更、升级说明和关键提交。
 4. 提交版本与变更日志，按分支规范合入 `main` 和 `develop`，在本地完成所需验证并推送 `develop`。
 5. 在已经推送到 `develop` 的提交上创建并推送带注释 tag。正式版本使用 `vX.Y.Z`；预览版本可使用 `vX.Y.Z-beta.N`（也支持 `alpha`、`rc`）：
 
@@ -302,7 +347,7 @@ PR、`develop` push 和其他分支 push 均不会触发 GitHub Actions。推送
 
    将示例版本替换为实际版本，并确认它与 `VERSION`、前端/Tauri 配置及 CHANGELOG 标题完全一致。tag 必须指向 `develop` 历史中的提交。版本后缀为 `alpha`、`beta` 或 `rc` 时，GitHub 会将其标记为预发布版本。
 
-发布工作流只监听 `v*` tag，不构建或上传安装包。tag、`VERSION`、同步后的前端/Tauri 版本或 CHANGELOG 校验失败时不会创建 Release；修正后应递增版本并创建新 tag，不要移动或复用正式版本 tag。
+发布工作流只监听 `v*` tag，不构建或上传安装包。tag、`VERSION`、同步后的前端/Tauri 版本或 CHANGELOG 校验失败时不会创建 Release；修正后应递增版本并创建新 tag，不要移动或复用已发布版本 tag。
 
 ## 开发约定
 
