@@ -318,9 +318,9 @@ Windows：在上述 Windows 原生开发终端中运行：
 bash scripts/build-app.sh
 ```
 
-脚本默认执行 Release 构建，产物位于 `agent-frontend/src-tauri/target/release/bundle/`：macOS 为 `.dmg` 和 `.app`，Windows 为 `.msi` 和 `.exe`，Linux 为 `.AppImage` 和 `.deb`。快速验证可在命令末尾加 `--debug`，产物会转到 `target/debug/bundle/`。macOS 还可用 `./scripts/build-app.sh --install` 安装生成的 `.app`，或用 `--open` 安装后启动。
+脚本默认执行 Release 构建，产物位于 `agent-frontend/src-tauri/target/release/bundle/`：macOS 为 `.dmg` 和 `.app`，Windows 为 `.msi` 和 `.exe`，Linux 交互终端会询问生成 `.deb`、`.AppImage` 或两者；无交互终端默认生成两者。Linux 可用 `--bundles deb` 或 `--bundles appimage` 只构建一种格式，缩短打包时间；`.deb` 将应用与 sidecar 安装到 `/opt/ButvanAgent`，`/usr/bin` 仅保留启动符号链接。快速验证可在命令末尾加 `--debug`，产物会转到 `target/debug/bundle/`。macOS 还可用 `./scripts/build-app.sh --install` 安装生成的 `.app`，或用 `--open` 安装后启动。
 
-当前打包流程按本机系统构建对应平台的 sidecar 和应用，不提供跨操作系统交叉构建。Windows 安装包未签名时，SmartScreen 提示也属于预期情况。
+当前打包流程按本机系统和 CPU 架构构建对应平台的 sidecar 和应用，不提供跨操作系统或跨 CPU 架构交叉构建。macOS Intel 与 Apple Silicon 请分别在对应架构的 Mac 上构建，并使用同架构 JDK；脚本会检查架构是否匹配。Linux 首次构建或后端 fat jar/JDK 变化时会重新生成最小 JRE，未变化时复用现有运行时。Windows 安装包未签名时，SmartScreen 提示也属于预期情况。
 
 `scripts/build-app.sh` 会完成版本检查、后端 fat jar、最小 JRE、平台启动器和 Tauri 安装包组装；各平台命令及 debug 构建方式见上文。构建结果位于 `agent-frontend/src-tauri/target/<profile>/bundle/`。
 

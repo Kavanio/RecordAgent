@@ -7,6 +7,7 @@
 #   ./scripts/build-app.sh                     # release 打包（默认）
 #   ./scripts/build-app.sh --debug             # debug 构建（快速验证用）
 #   ./scripts/build-app.sh --bundles dmg,app   # 指定安装包格式
+#   ./scripts/build-app.sh --bundles deb        # Linux：只生成 deb
 #   ./scripts/build-app.sh --install           # macOS：构建 .app 并安装/更新
 #   ./scripts/build-app.sh --open              # macOS：构建、安装并启动
 set -euo pipefail
@@ -16,6 +17,7 @@ FRONTEND_DIR="$ROOT_DIR/agent-frontend"
 
 DEBUG_MODE=0
 BUNDLES=""
+BUNDLES_SET=0
 INSTALL_APP=0
 OPEN_APP=0
 
@@ -24,11 +26,12 @@ usage() {
 用法：./scripts/build-app.sh [--debug] [--bundles <格式>] [--install | --open]
   默认          仅生成安装包，不安装、不启动
   --debug       使用 debug 配置
-  --bundles     指定格式，如 dmg,app
+  --bundles     指定格式，如 Linux 的 deb 或 appimage；macOS 的 dmg,app
   --install     macOS：构建并安装到 /Applications，无需打开 DMG
   --open        包含 --install，安装成功后启动应用
   --help        显示帮助
 安装模式默认只生成 .app；需要 DMG 时加 --bundles dmg,app。
+Linux 未指定 --bundles 时会在交互终端显示格式选择；非交互环境默认构建 deb,appimage。
 更新前请从菜单栏彻底退出应用，关闭主窗口可能仍在后台运行。
 EOF
 }
@@ -45,6 +48,7 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       BUNDLES="$2"
+      BUNDLES_SET=1
       shift 2
       ;;
     --install)
@@ -67,8 +71,29 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+PLATFORM="$(uname -s)"
+if [[ "$PLATFORM" == Linux && "$BUNDLES_SET" = 0 && -t 0 ]]; then
+  echo "选择 Linux 安装包格式："
+  echo "  1) deb"
+  echo "  2) appimage"
+  echo "  3) deb + appimage（默认）"
+  echo "  4) all（包含 Tauri 支持的全部格式）"
+  read -r -p "请选择 [1-4，默认 3]：" BUNDLE_CHOICE
+  case "${BUNDLE_CHOICE:-3}" in
+    1) BUNDLES=deb ;;
+    2) BUNDLES=appimage ;;
+    3) BUNDLES=deb,appimage ;;
+    4) BUNDLES=all ;;
+    *) echo "无效选择：$BUNDLE_CHOICE" >&2; exit 1 ;;
+  esac
+  BUNDLES_SET=1
+elif [[ "$PLATFORM" == Linux && "$BUNDLES_SET" = 0 ]]; then
+  BUNDLES=deb,appimage
+  BUNDLES_SET=1
+fi
+
 if [[ "$INSTALL_APP" = 1 ]]; then
-  if [[ "$(uname -s)" != Darwin ]]; then
+  if [[ "$PLATFORM" != Darwin ]]; then
     echo "--install / --open 目前仅支持 macOS。" >&2
     exit 1
   fi
@@ -77,6 +102,27 @@ if [[ "$INSTALL_APP" = 1 ]]; then
   elif [[ ",$BUNDLES," != *,app,* && "$BUNDLES" != all ]]; then
     BUNDLES="$BUNDLES,app"
   fi
+fi
+
+if [[ "$PLATFORM" == Linux && ( "$BUNDLES" == all || "$BUNDLES" == *deb* ) ]] && ! command -v dpkg-deb >/dev/null 2>&1; then
+  echo "生成并整理 deb 包需要 dpkg-deb，请先安装 dpkg 工具。" >&2
+  exit 1
+fi
+
+if [[ -n "$BUNDLES" && "$BUNDLES" != all ]]; then
+  case "$PLATFORM" in
+    Linux) VALID_BUNDLES="deb appimage rpm" ;;
+    Darwin) VALID_BUNDLES="app dmg" ;;
+    MINGW*|MSYS*|CYGWIN*) VALID_BUNDLES="msi nsis" ;;
+    *) VALID_BUNDLES="" ;;
+  esac
+  IFS=',' read -r -a REQUESTED_BUNDLES <<< "$BUNDLES"
+  for REQUESTED_BUNDLE in "${REQUESTED_BUNDLES[@]}"; do
+    if [[ " $VALID_BUNDLES " != *" $REQUESTED_BUNDLE "* ]]; then
+      echo "当前平台 $PLATFORM 不支持安装包格式 '$REQUESTED_BUNDLE'。" >&2
+      exit 1
+    fi
+  done
 fi
 
 # ---- 前置检查 ----
@@ -99,6 +145,19 @@ INSTALL_PATH="/Applications/$PRODUCT_NAME.app"
 if [[ "$INSTALL_APP" = 1 && ! -w /Applications ]]; then
   echo "没有 /Applications 写入权限，请手动安装生成的 .app。" >&2
   exit 1
+fi
+
+if [[ "$PLATFORM" == Darwin ]]; then
+  HOST_TRIPLE="$(rustc --print host-tuple)"
+  HOST_ARCH="$(uname -m)"
+  case "$HOST_ARCH:$HOST_TRIPLE" in
+    arm64:aarch64-apple-darwin|aarch64:aarch64-apple-darwin|x86_64:x86_64-apple-darwin) ;;
+    *)
+      echo "无法匹配当前 Mac 架构（$HOST_ARCH / $HOST_TRIPLE），请使用对应架构的 Rust 工具链和 JDK。" >&2
+      exit 1
+      ;;
+  esac
+  echo "macOS 原生架构打包：$HOST_TRIPLE（Intel 与 Apple Silicon 请分别在对应架构设备构建）"
 fi
 
 if [ ! -d node_modules ]; then
@@ -137,8 +196,16 @@ else
   PROFILE_DIR="$PROFILE_DIR/release"
 fi
 
+# Tauri 将 Debian 包中的可执行文件默认放在 /usr/bin；应用本体与 sidecar
+# 移入 /opt/<产品名>，/usr/bin 保留符号链接以兼容桌面入口和 sidecar 查找。
+if [[ "$PLATFORM" == Linux && ( "$BUNDLES" == all || ",$BUNDLES," == *,deb,* ) ]]; then
+  while IFS= read -r -d '' DEB_FILE; do
+    "$ROOT_DIR/scripts/relocate-deb-to-opt.sh" "$DEB_FILE" "$PRODUCT_NAME"
+  done < <(find "$PROFILE_DIR/bundle/deb" -maxdepth 1 -type f -name '*.deb' -print0 2>/dev/null)
+fi
+
 APP_SOURCE="$PROFILE_DIR/bundle/macos/$PRODUCT_NAME.app"
-if [[ "$(uname -s)" = Darwin && -d "$APP_SOURCE" ]]; then
+if [[ "$PLATFORM" = Darwin && -d "$APP_SOURCE" ]]; then
   # 通知服务校验代码签名身份；链接器临时签名不能代替完整 App 签名。
   codesign --verify --deep --strict "$APP_SOURCE"
   SIGNATURE_ID="$(codesign -dv "$APP_SOURCE" 2>&1 | sed -n 's/^Identifier=//p')"
