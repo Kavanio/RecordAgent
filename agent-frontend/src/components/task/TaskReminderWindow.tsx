@@ -163,7 +163,6 @@ export function TaskReminderWindow() {
   const time = remaining === null ? '' : `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`;
   const progress = remaining !== null && task ? Math.min(100, Math.max(0, (1 - remaining / (task.spec.breakMinutes * 60)) * 100)) : 0;
 
-  const resting = remaining !== null && remaining > 0;
   useEffect(() => {
     if (!active || !sedentary || !start) return;
     const restPayload = {

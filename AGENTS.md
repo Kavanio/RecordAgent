@@ -32,7 +32,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 | `agent-backend/scripts/` | 后端构建与打包脚本（sidecar 产物生成）；不得混入业务代码。 |
 | `scripts/` | 项目级一键打包脚本（前端 + 后端 sidecar 组装）；不得混入业务代码。 |
 | `scripts/backend-launcher/` | Windows 后端 sidecar 原生启动器源码（Rust）；由打包脚本在 Windows 上编译生成 exe。 |
-| `.github/workflows/` | GitHub Actions 自动化；包含 PR / develop 三平台构建验证，以及 tag 驱动的桌面端 Release 打包发布。 |
+| `.github/workflows/` | GitHub Actions 自动化；包含 PR 桌面端构建验证、develop push 驱动的桌面端预发布、SemVer tag 驱动的稳定版草稿 Release，以及 iOS 后端按路径验证。 |
 | `agent-backend/server-network/` | Spring Boot 启动、Controller、DTO、API 通用能力、AOP、网络适配层、自动任务、业务 Agent Tool Adapter、通用文件资产与存储 Adapter，以及单机业务数据的 SQLite 持久化；业务表必须按领域归属，禁止形成通用数据大杂烩。 |
 | `agent-backend/server-agents/` | AgentScope、模型工厂、智能体编排、Tool 注册 seam、工作区与配置领域逻辑；不得反向依赖 `server-network` 的业务实现。 |
 | `agent-backend/server-feishu/` | 飞书等即时通讯渠道集成：长连接事件接收、消息收发与渠道适配；仅依赖 `server-agents`，不承载 Agent 编排逻辑。 |
@@ -49,7 +49,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 - 一个文件只承担一个清晰职责；页面编排、可复用组件、请求服务、领域类型和样式不得无边界混写。
 - 重命名、移动或删除文件后，必须同步更新所有导入、文档、测试和相关 `AGENTS.md` 索引。
 - 桌面端打包采用 Tauri sidecar 方案：统一入口为 `scripts/build-app.sh`（内部执行 `pnpm tauri build`，由 beforeBuildCommand 调用 `agent-backend/scripts/package-sidecar.sh` 生成后端 sidecar）；`pnpm tauri dev` 不打包、不拉起 sidecar，开发时后端在 IDEA 等本机环境启动（默认 8081）。打包模式默认由 Tauri（`src-tauri/src/backend.rs`）启动、健康检查与退出清理 sidecar，端口动态分配；用户可在桌面设置中选择远程 API 地址，启动时先检查远程健康状态，8 秒未通过则本次自动降级到本机后端，重启后重新尝试远程连接；开发模式降级到本机 8081。远程可用时不启动本地 sidecar，远程不可用时才启动，保证自动任务只有一个调度器。前端 API 地址由 `services/api.ts` 统一获取，禁止在组件中硬编码后端地址或端口。远程部署必须设置 `BUTVAN_API_REQUIRE_TOKEN=true`、通过受保护环境配置提供至少 32 字符的 `BUTVAN_API_TOKEN`、设置受限 CORS 来源并配置网络访问控制；当前业务仍是单用户本地数据模型，不得暴露到不可信网络或作为多用户服务。
-- 发布采用完整 SemVer git tag（`v<major>.<minor>.<patch>`）驱动：根目录 `VERSION` 是桌面端版本唯一来源，必须先同步到前端包与 Tauri 配置；GitHub Actions 先校验版本、构建并验证 sidecar，再上传 macOS / Linux / Windows 安装包至草稿 Release。PR 与 `develop` 推送只执行构建验证，不创建 Release；独立 iOS 业务后端由 `.github/workflows/verify-ios-backend.yml` 按路径触发格式、单元测试及 PostgreSQL 集成验证；Windows 的 sidecar 由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
+- 桌面端发布统一由 `.github/workflows/release.yml` 管理：根目录 `VERSION` 是唯一版本源，必须先同步到前端包与 Tauri 配置。每次 `develop` push 使用 `v<VERSION>-develop.<run_number>` 创建唯一预发布 tag，四个平台构建并验证 sidecar 成功后才公开 GitHub Pre-release；完整 SemVer tag（`v<major>.<minor>.<patch>`）继续创建稳定版草稿 Release。桌面端 PR 构建验证由 `.github/workflows/verify-desktop.yml` 执行，避免 develop push 重复构建；独立 iOS 业务后端由 `.github/workflows/verify-ios-backend.yml` 按路径触发格式、单元测试及 PostgreSQL 集成验证；Windows 的 sidecar 由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
 
 ### 分支管理策略
 

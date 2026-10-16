@@ -279,7 +279,7 @@ node scripts/sync-version.mjs --check
 
 脚本会完成版本检查、后端 fat jar、最小 JRE、平台启动器和 Tauri 安装包组装。构建结果位于 `agent-frontend/src-tauri/target/<profile>/bundle/`。
 
-发布使用完整 SemVer tag 驱动，根目录 `VERSION` 是唯一版本源。CI 先校验版本，再构建并验证各平台 sidecar，最后上传到草稿 GitHub Release。
+桌面端发布由单一发布工作流管理：每次 `develop` push 会按 `VERSION` 和工作流运行号创建唯一预发布 tag，完成 macOS、Linux、Windows 构建及 sidecar 验证后公开 GitHub Pre-release；稳定版仍由完整 SemVer tag 驱动，并上传至草稿 GitHub Release。根目录 `VERSION` 是唯一版本源，必须与前端及 Tauri 配置同步。PR 构建验证由独立工作流执行。
 
 ## 开发约定
 
