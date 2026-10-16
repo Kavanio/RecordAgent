@@ -47,7 +47,7 @@ Controller 调用 Service，领域服务通过 Repository 读写自己的表，�
 - `mvn test`：单元和协议错误测试。
 - `mvn verify`：格式检查、单元测试、打包及真实 PostgreSQL 集成测试；需要 Docker。
 
-默认测试镜像锁定 `postgres:17.11`。镜像仓库不可用时可用 `-Dtest.postgres.image=postgres:17` 指向本地缓存的兼容镜像；此替代不等于锁定版本验收。Testcontainers 使用随机端口与独立数据库，不连接真实用户数据库。独立 CI 见 `.github/workflows/verify-ios-backend.yml`。
+默认测试镜像锁定 `postgres:17.11`。镜像仓库不可用时可用 `-Dtest.postgres.image=postgres:17` 指向本地缓存的兼容镜像；此替代不等于锁定版本验收。Testcontainers 使用随机端口与独立数据库，不连接真实用户数据库。当前仓库不配置自动 CI；按需在本地运行上述检查。
 
 ## 历史目录说明
 
