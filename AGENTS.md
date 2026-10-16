@@ -49,7 +49,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 - 一个文件只承担一个清晰职责；页面编排、可复用组件、请求服务、领域类型和样式不得无边界混写。
 - 重命名、移动或删除文件后，必须同步更新所有导入、文档、测试和相关 `AGENTS.md` 索引。
 - 桌面端打包采用 Tauri sidecar 方案：统一入口为 `scripts/build-app.sh`（内部执行 `pnpm tauri build`，由 beforeBuildCommand 调用 `agent-backend/scripts/package-sidecar.sh` 生成后端 sidecar）；`pnpm tauri dev` 不打包、不拉起 sidecar，开发时后端在 IDEA 等本机环境启动（默认 8081）。打包模式默认由 Tauri（`src-tauri/src/backend.rs`）启动、健康检查与退出清理 sidecar，端口动态分配；用户可在桌面设置中选择远程 API 地址，启动时先检查远程健康状态，8 秒未通过则本次自动降级到本机后端，重启后重新尝试远程连接；开发模式降级到本机 8081。远程可用时不启动本地 sidecar，远程不可用时才启动，保证自动任务只有一个调度器。前端 API 地址由 `services/api.ts` 统一获取，禁止在组件中硬编码后端地址或端口。远程部署必须设置 `BUTVAN_API_REQUIRE_TOKEN=true`、通过受保护环境配置提供至少 32 字符的 `BUTVAN_API_TOKEN`、设置受限 CORS 来源并配置网络访问控制；当前业务仍是单用户本地数据模型，不得暴露到不可信网络或作为多用户服务。
-- GitHub Actions 仅保留 `.github/workflows/release.yml`：只有推送严格格式 `v<major>.<minor>.<patch>` 或带 `-alpha.N`、`-beta.N`、`-rc.N` 后缀的 SemVer tag 才会运行；工作流校验 tag、根目录 `VERSION`、版本同步状态、tag 是否已合入 `develop`，以及 `CHANGELOG.md` 中对应的非空章节，然后仅创建 GitHub Release 并引用该章节作为说明。带预发布后缀的 tag 创建 GitHub Pre-release；普通版本 tag 创建正式 Release。工作流不运行构建、测试或安装包上传。PR、分支 push（包括 `develop`）和 iOS 后端路径变更均不触发 GitHub Actions。版本准备、变更日志格式和 tag 操作步骤见 `README.md` 的“桌面端正式发布”一节；Windows sidecar 仍由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
+- GitHub Actions 仅保留 `.github/workflows/release.yml`：只有推送严格格式 `v<major>.<minor>.<patch>` 或带 `-alpha.N`、`-beta.N`、`-rc.N` 后缀的 SemVer tag 才会运行；工作流校验 tag、根目录 `VERSION`、版本同步状态、tag 是否已合入 `develop`，以及 `CHANGELOG.md` 中对应的非空章节，然后仅创建 GitHub Release 并引用该章节作为说明。带预发布后缀的 tag 创建 GitHub Pre-release；普通版本 tag 创建正式 Release。工作流不运行构建、测试或安装包上传。PR、分支 push（包括 `develop`）和 iOS 后端路径变更均不触发 GitHub Actions。版本准备、变更日志格式和 tag 操作步骤见 `README.md` 的“桌面端版本发布”一节；Windows sidecar 仍由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
 
 ### 分支管理策略
 
