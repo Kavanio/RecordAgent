@@ -2,127 +2,113 @@ name: Release Desktop App
 
 on:
   push:
-    branches:
-      - develop
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 已推送、且与 VERSION 完全一致的发布 tag（例如 v0.1.1）
-        required: true
-        type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release-metadata:
-    name: 校验发布版本
+    name: 校验 tag、版本与变更日志
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
-      prerelease: ${{ steps.release.outputs.prerelease }}
-      target_commitish: ${{ steps.release.outputs.target_commitish }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - id: release
-        name: 校验 tag 与版本源
+        name: 校验发布版本
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-          EVENT_NAME: ${{ github.event_name }}
-          REF: ${{ github.ref }}
-          RUN_NUMBER: ${{ github.run_number }}
-          COMMIT_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          VERSION="$(tr -d '[:space:]' < VERSION)"
-          node scripts/sync-version.mjs --check
-
-          if [ "$EVENT_NAME" = "push" ] && [ "$REF" = "refs/heads/develop" ]; then
-            RELEASE_TAG="v$VERSION-develop.$RUN_NUMBER"
-            PRERELEASE=true
-            TARGET_COMMITISH="$COMMIT_SHA"
-          else
-            PRERELEASE=false
-            TARGET_COMMITISH="$RELEASE_TAG"
-          fi
-
-          if ! [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]]; then
-            echo "发布 tag 必须是 v<major>.<minor>.<patch> 形式，实际为：$RELEASE_TAG" >&2
+          if ! [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "正式发布 tag 必须是 v<major>.<minor>.<patch>，实际为：$RELEASE_TAG" >&2
             exit 1
           fi
 
-          if [ "$PRERELEASE" = "false" ]; then
-            git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG^{commit}" >/dev/null || {
-              echo "tag 不存在于仓库：$RELEASE_TAG" >&2
-              exit 1
-            }
-            if [ "v$VERSION" != "$RELEASE_TAG" ]; then
-              echo "VERSION=$VERSION 与 tag=$RELEASE_TAG 不一致，请先更新 VERSION 并运行 node scripts/sync-version.mjs。" >&2
-              exit 1
-            fi
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          if [ "v$VERSION" != "$RELEASE_TAG" ]; then
+            echo "VERSION=$VERSION 与 tag=$RELEASE_TAG 不一致，请先更新 VERSION 并运行 node scripts/sync-version.mjs。" >&2
+            exit 1
+          fi
+
+          node scripts/sync-version.mjs --check
+          git fetch --no-tags origin refs/heads/develop:refs/remotes/origin/develop
+          if ! git merge-base --is-ancestor "refs/tags/$RELEASE_TAG^{commit}" refs/remotes/origin/develop; then
+            echo "发布 tag 必须指向已合入 develop 的提交：$RELEASE_TAG" >&2
+            exit 1
           fi
 
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
-          echo "target_commitish=$TARGET_COMMITISH" >> "$GITHUB_OUTPUT"
 
-  create-release:
-    name: 创建草稿 Release
-    needs: release-metadata
-    runs-on: ubuntu-latest
-    outputs:
-      release_id: ${{ steps.create-release.outputs.id }}
-    steps:
-      - name: 创建草稿 Release
-        id: create-release
-        uses: softprops/action-gh-release@v2
+      - name: 校验 CHANGELOG 并提取本次发布说明
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          tag = os.environ["RELEASE_TAG"]
+          changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          pattern = re.compile(
+              rf"(?ms)^##[ \t]+{re.escape(tag)}[ \t]*\r?\n(.*?)(?=^##[ \t]+|\Z)"
+          )
+          match = pattern.search(changelog)
+          if match is None or not match.group(1).strip():
+              print(
+                  f"CHANGELOG.md 缺少非空的 `## {tag}` 发布章节。",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          Path("RELEASE_BODY.md").write_text(match.group(1).strip() + "\n", encoding="utf-8")
+          PY
+
+      - name: 保存发布说明
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ needs.release-metadata.outputs.tag }}
-          target_commitish: ${{ needs.release-metadata.outputs.target_commitish }}
-          name: ButvanAgent v${{ needs.release-metadata.outputs.version }}
-          body: |
-            ## 构建产物
-
-            - macOS：Apple Silicon 与 Intel 的 dmg 安装包
-            - Linux：AppImage 与 deb 安装包
-            - Windows：msi 与 NSIS 安装包
-            - 应用已内嵌 Spring Boot sidecar 与最小 JRE，无需另装 Java
-          draft: true
-          prerelease: ${{ needs.release-metadata.outputs.prerelease }}
-          generate_release_notes: true
+          name: release-notes
+          path: RELEASE_BODY.md
+          if-no-files-found: error
+          retention-days: 1
 
   publish-tauri:
     name: ${{ matrix.name }}
-    needs:
-      - release-metadata
-      - create-release
+    needs: release-metadata
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: macOS Apple Silicon
+            artifact_name: release-asset-macos-apple-silicon
             runner: macos-latest
             tauri_args: --target aarch64-apple-darwin
             release_files: agent-frontend/src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.dmg
           - name: macOS Intel
+            artifact_name: release-asset-macos-intel
             runner: macos-13
             tauri_args: --target x86_64-apple-darwin
             release_files: agent-frontend/src-tauri/target/x86_64-apple-darwin/release/bundle/**/*.dmg
           - name: Linux x64
+            artifact_name: release-asset-linux-x64
             runner: ubuntu-latest
             tauri_args: ''
             release_files: |
               agent-frontend/src-tauri/target/release/bundle/**/*.AppImage
               agent-frontend/src-tauri/target/release/bundle/**/*.deb
           - name: Windows x64
+            artifact_name: release-asset-windows-x64
             runner: windows-latest
             tauri_args: ''
             release_files: |
@@ -155,28 +141,44 @@ jobs:
         shell: bash
         run: node scripts/verify-sidecar.mjs
 
-      - name: 上传已验证的安装包
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 保存安装包供 Release 汇总
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ needs.release-metadata.outputs.tag }}
-          files: ${{ matrix.release_files }}
-          fail_on_unmatched_files: true
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.release_files }}
+          if-no-files-found: error
+          retention-days: 1
 
-  publish-prerelease:
-    name: 发布 develop 预发布
+  create-release:
+    name: 创建正式 GitHub Release
     needs:
       - release-metadata
       - publish-tauri
-    if: needs.release-metadata.outputs.prerelease == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: 构建完成后公开预发布
+      - name: 下载 CHANGELOG 发布说明
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes
+
+      - name: 下载全部平台安装包
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: release-asset-*
+          merge-multiple: true
+
+      - name: 发布 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.release-metadata.outputs.tag }}
-          name: ButvanAgent v${{ needs.release-metadata.outputs.version }} develop.${{ github.run_number }}
+          name: ButvanAgent v${{ needs.release-metadata.outputs.version }}
+          body_path: release-notes/RELEASE_BODY.md
           draft: false
-          prerelease: true
-          make_latest: false
+          prerelease: false
+          make_latest: true
+          files: release-assets/**/*
+          fail_on_unmatched_files: true
