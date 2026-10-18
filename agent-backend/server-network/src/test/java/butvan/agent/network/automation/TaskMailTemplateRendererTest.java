@@ -17,19 +17,37 @@ class TaskMailTemplateRendererTest {
                     new TaskReportBuilder.Section("todo", "待办进度", "<img src=x onerror=alert(1)> {{study}}")),
             "2026-09-23", "2026-09-23 18:00（Asia/Shanghai）");
 
-    @Test void digestUsesEditorialLayoutWithFewRulesAndEscapesContent() {
+    @Test void digestRestoresPaperLayoutWithFewRulesAndEscapesContent() {
         var html = TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), report);
         assertTrue(html.contains("background:#ebebe9"));
+        assertTrue(html.contains("max-width:680px"));
+        assertTrue(html.contains("butvan."));
+        assertTrue(html.contains("A day, recorded."));
         assertTrue(html.contains("把今天，留在这里。"));
         assertTrue(html.contains("今日支出"));
         assertTrue(html.contains("CNY 12.68"));
         assertTrue(html.contains("2026-09-23 18:00"));
-        assertFalse(html.contains("border-bottom"));
-        assertFalse(html.contains("border-top"));
+        assertFalse(html.contains("background:#f3f7fd"));
         assertFalse(html.contains("<hr"));
         assertFalse(html.contains("<img"));
         assertTrue(html.contains("&lt;img"));
         assertFalse(html.contains("<pre"));
+    }
+    @Test void paperLayoutShowsStructuredAssetsAndTimeline() {
+        var structured = new TaskReportBuilder.Report("日报", false,
+                List.of(new TaskReportBuilder.Section("expense", "资产与收支", ""),
+                        new TaskReportBuilder.Section("todo", "待办进度", "")),
+                "2026-09-23 · 对比 2026-09-22", "2026-09-23 18:00（Asia/Shanghai）",
+                List.of(new TaskReportBuilder.AccountSummary("微信零钱", "CNY", "577.84", "0.00", "10.00")),
+                List.of(new TaskReportBuilder.TimelineItem("16:57", "expense", "交通 · 地铁回家", "微信零钱", "− ¥10.00")));
+        var html = TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), structured);
+        assertTrue(html.contains("TOTAL ASSETS / 资产余额"));
+        assertTrue(html.contains("资产明细"));
+        assertTrue(html.contains("收支概况"));
+        assertTrue(html.contains("一天的轨迹"));
+        assertTrue(html.contains("微信零钱"));
+        assertTrue(html.contains("16:57"));
+        assertTrue(html.contains("− ¥10.00"));
     }
     @Test void allPreviouslySavedStylesRenderAsDigest() {
         var styles = List.of("CARDS", "MINIMAL", "LETTER", "EDITORIAL", "LEDGER", "RECEIPT", "CUSTOM");
@@ -47,8 +65,8 @@ class TaskMailTemplateRendererTest {
                         List.of(new TaskReportBuilder.Metric("CNY", "12.68", "8.00", "+4.68（+58.5%）")), "按币种分别统计。")),
                 "2026-09-23 · 对比 2026-09-22", "2026-09-24 08:30（Asia/Shanghai）");
         var html = TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), compared);
-        assertTrue(html.contains("<th align='right'>本期</th>"));
-        assertTrue(html.contains("<th align='right'>上期</th>"));
+        assertTrue(html.contains("本期支出"));
+        assertTrue(html.contains("上期支出"));
         assertTrue(html.contains("+58.5%"));
         assertTrue(html.contains("按币种分别统计"));
     }
