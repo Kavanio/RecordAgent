@@ -5,6 +5,9 @@ import butvan.agent.network.daily.model.DailyEventModels.TodoDetails;
 import butvan.agent.network.daily.service.DailyEventService;
 import butvan.agent.network.daily.service.ExpenseAnalyticsService;
 import butvan.agent.network.study.service.StudyService;
+import butvan.agent.network.finance.model.FinanceModels.FinanceAccount;
+import butvan.agent.network.finance.model.FinanceModels.FinanceTransaction;
+import butvan.agent.network.finance.service.FinanceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,6 +25,7 @@ public class TaskReportBuilder {
     private final DailyEventService daily;
     private final ExpenseAnalyticsService expenses;
     private final StudyService studies;
+    private final FinanceService finance;
 
     public record Metric(String label, String current, String previous, String change) {}
     public record Section(String key, String title, String text, List<Metric> metrics, String detail) {
@@ -30,7 +34,10 @@ public class TaskReportBuilder {
     public record Report(String text, boolean partial, List<Section> sections, String date, String generatedAt) {
         public Report(String text, boolean partial) { this(text, partial, List.of(), "", ""); }
     }
-    private record Snapshot(Map<String, BigDecimal> values, String detail) {}
+    private record Snapshot(Map<String, BigDecimal> values, String detail,
+                            List<ExpenseAnalyticsService.ExpenseEntry> expenseEntries) {
+        private Snapshot(Map<String, BigDecimal> values, String detail) { this(values, detail, List.of()); }
+    }
 
     /** 计划时刻决定本期；预览和手动执行由调用方传入当前时刻。 */
     public Report build(String owner, TaskSpec spec, Instant planned, Instant now) {
@@ -48,14 +55,28 @@ public class TaskReportBuilder {
             Snapshot previous = read(key, () -> snapshot(owner, key, period.previousFrom(), period.previousTo(), zone));
             if (current != null) available++;
             partial |= current == null || previous == null;
-            String title = switch (key) { case "expense" -> "支出概览"; case "todo" -> "待办进度"; default -> "学习时光"; };
+            String title = switch (key) {
+                case "expense" -> "DAILY_REPORT".equals(spec.kind()) ? "资产与收支" : "支出概览";
+                case "todo" -> "待办进度";
+                default -> "学习时光";
+            };
             List<Metric> metrics = compare(key, current, previous);
-            StringBuilder body = new StringBuilder(current == null ? "本期数据暂不可用。\n" : current.detail());
+            String currentDetail = current == null ? "本期数据暂不可用。\n" : current.detail();
+            if ("expense".equals(key) && "DAILY_REPORT".equals(spec.kind()) && current != null) {
+                FinanceService.DailyAssetData assetData = readDailyAssetData(owner, period.from());
+                if (assetData == null) {
+                    currentDetail += "资产余额与账户流水暂不可用。\n";
+                    partial = true;
+                } else {
+                    currentDetail += dailyAssetDetail(assetData, current.expenseEntries());
+                }
+            }
+            StringBuilder body = new StringBuilder(currentDetail);
             if (previous == null) body.append("上期数据暂不可用，无法比较。\n");
             for (Metric metric : metrics) body.append(metric.label()).append("：本期 ").append(metric.current())
                     .append(" · 上期 ").append(metric.previous()).append(" · ").append(metric.change()).append("\n");
             sections.add(new Section(key, title, body.toString(), metrics, current == null
-                    ? "本期数据暂不可用。" : current.detail() + (previous == null ? "上期数据暂不可用，无法比较。" : "")));
+                    ? "本期数据暂不可用。" : currentDetail + (previous == null ? "上期数据暂不可用，无法比较。" : "")));
             text.append("\n").append(title).append("\n").append(body);
         }
         if (available == 0) throw new IllegalStateException("报告所有本期栏目读取失败，请稍后重试");
@@ -70,8 +91,9 @@ public class TaskReportBuilder {
     private Snapshot snapshot(String owner, String key, LocalDate from, LocalDate to, ZoneId zone) {
         Map<String, BigDecimal> values = new TreeMap<>();
         if ("expense".equals(key)) {
-            for (var entry : expenses.reportExpenses(owner, from, to)) values.merge(entry.currency(), entry.amount(), BigDecimal::add);
-            return new Snapshot(values, values.isEmpty() ? "支出：无记录\n" : "按币种分别统计，不折算合计。\n");
+            var entries = expenses.reportExpenses(owner, from, to);
+            for (var entry : entries) values.merge(entry.currency(), entry.amount(), BigDecimal::add);
+            return new Snapshot(values, values.isEmpty() ? "支出：无记录\n" : "按币种分别统计，不折算合计。\n", entries);
         }
         if ("study".equals(key)) {
             var stat = studies.getStatistics(owner, from, to, zone);
@@ -103,6 +125,87 @@ public class TaskReportBuilder {
         String detail = total == 0 ? "本期无待办，完成率不适用。\n" : pending.isEmpty() ? "本期待办已全部完成。\n" : "尚未完成\n" + String.join("\n", pending) + "\n";
         if (total - done > pending.size()) detail += "仅列出前 8 项，请在日历查看全部。\n";
         return new Snapshot(values, detail);
+    }
+
+    /** 日报资产查询独立降级，不影响同一报告中的其他栏目。 */
+    private FinanceService.DailyAssetData readDailyAssetData(String owner, LocalDate date) {
+        try { return finance.getDailyAssetData(owner, date); }
+        catch (RuntimeException e) {
+            log.warn("日报资产与流水读取失败：{}", e.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    /** 汇总账户当前余额、当日真实收支和逐笔账单；旧日历支出明确标记为未关联账户。 */
+    private String dailyAssetDetail(FinanceService.DailyAssetData data,
+                                    List<ExpenseAnalyticsService.ExpenseEntry> expenseEntries) {
+        StringBuilder detail = new StringBuilder("资产余额（按账户币种，收益计提至报告日期）：\n");
+        if (data.accounts().isEmpty()) detail.append("未设置资产账户。\n");
+        for (FinanceAccount account : data.accounts()) {
+            BigDecimal income = BigDecimal.ZERO;
+            BigDecimal expense = BigDecimal.ZERO;
+            for (FinanceTransaction transaction : data.transactions()) {
+                if (!account.id().equals(transaction.accountId())) continue;
+                if ("expense".equals(transaction.transactionType())) expense = expense.add(transaction.amount());
+                if ("income".equals(transaction.transactionType()) || "yield".equals(transaction.transactionType()))
+                    income = income.add(transaction.amount());
+            }
+            detail.append("• ").append(account.name()).append("：余额 ").append(format(account.balance(), true))
+                    .append(' ').append(account.currency()).append("；收入 ").append(format(income, true))
+                    .append(' ').append(account.currency()).append("；支出 ").append(format(expense, true))
+                    .append(' ').append(account.currency()).append('\n');
+        }
+
+        detail.append("当日账户账单：\n");
+        List<FinanceTransaction> cashflows = data.transactions().stream()
+                .filter(transaction -> Set.of("expense", "income", "yield").contains(transaction.transactionType()))
+                .toList();
+        if (cashflows.isEmpty()) detail.append("无账户收入或支出记录。\n");
+        for (FinanceTransaction transaction : cashflows) {
+            String type = "expense".equals(transaction.transactionType()) ? "支出"
+                    : "yield".equals(transaction.transactionType()) ? "收益" : "收入";
+            detail.append("• ").append(transaction.time()).append(" · ").append(transaction.accountName())
+                    .append(type).append(' ').append(format(transaction.amount(), true)).append(' ')
+                    .append(transaction.currency()).append(" · ").append(transaction.category());
+            if (transaction.note() != null && !transaction.note().isBlank()) detail.append(" · ").append(transaction.note());
+            detail.append('\n');
+        }
+
+        List<FinanceTransaction> otherChanges = data.transactions().stream()
+                .filter(transaction -> !Set.of("expense", "income", "yield").contains(transaction.transactionType()))
+                .toList();
+        if (!otherChanges.isEmpty()) {
+            detail.append("其他资产变动（不计入收入/支出）：\n");
+            for (FinanceTransaction transaction : otherChanges) {
+                detail.append("• ").append(transaction.time()).append(" · ").append(transaction.accountName())
+                        .append(transactionTypeLabel(transaction.transactionType())).append(' ')
+                        .append(format(transaction.amount(), true)).append(' ').append(transaction.currency())
+                        .append(" · ").append(transaction.note()).append('\n');
+            }
+        }
+
+        List<ExpenseAnalyticsService.ExpenseEntry> unassignedExpenses = expenseEntries.stream()
+                .filter(entry -> "calendar".equals(entry.source())).toList();
+        if (!unassignedExpenses.isEmpty()) {
+            detail.append("旧日历支出（未关联资产账户）：\n");
+            for (var entry : unassignedExpenses) {
+                detail.append("• ").append(entry.time()).append(" · 支出 ").append(format(entry.amount(), true))
+                        .append(' ').append(entry.currency()).append(" · ").append(entry.category());
+                if (entry.note() != null && !entry.note().isBlank()) detail.append(" · ").append(entry.note());
+                detail.append('\n');
+            }
+        }
+        return detail.toString();
+    }
+
+    private String transactionTypeLabel(String type) {
+        return switch (type) {
+            case "transfer_out" -> "转出";
+            case "transfer_in" -> "转入";
+            case "adjustment_increase" -> "余额调增";
+            case "adjustment_decrease" -> "余额调减";
+            default -> "资产变动";
+        };
     }
 
     private List<Metric> compare(String key, Snapshot current, Snapshot previous) {

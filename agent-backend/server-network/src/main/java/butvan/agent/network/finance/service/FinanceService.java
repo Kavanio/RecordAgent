@@ -37,6 +37,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FinanceService {
 
+    /** 日报使用的当前资产余额与指定自然日账户流水。 */
+    public record DailyAssetData(List<FinanceAccount> accounts, List<FinanceTransaction> transactions) {}
+
     private static final Set<String> ACCOUNT_TYPES = Set.of(
             "wechat_balance", "wechat_yield", "alipay_balance", "alipay_yuebao", "bank", "other",
             "wechat", "alipay", "cash");
@@ -162,6 +165,15 @@ public class FinanceService {
         requireOwner(ownerId);
         if (date == null) throw new IllegalArgumentException("日期不能为空");
         return repository.findDayTransactions(ownerId, date);
+    }
+
+    /** 按日报任务时区结清收益后，读取当前资产余额和指定自然日的账户流水。 */
+    @Transactional
+    public DailyAssetData getDailyAssetData(String ownerId, LocalDate date) {
+        requireOwner(ownerId);
+        if (date == null) throw new IllegalArgumentException("日期不能为空");
+        settleYieldThrough(ownerId, date);
+        return new DailyAssetData(repository.findAccounts(ownerId), repository.findDayTransactions(ownerId, date));
     }
 
     /** 查询最多一年内的轻量收支汇总，与财务图表复用统计来源。 */
