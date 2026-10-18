@@ -1,0 +1,11 @@
+**/target/
+!server-network/target/
+server-network/target/*
+!server-network/target/server-network-0.0.1-SNAPSHOT.jar
+**/node_modules
+.git
+.idea
+*.log
+*.db
+*.db-shm
+*.db-wal
