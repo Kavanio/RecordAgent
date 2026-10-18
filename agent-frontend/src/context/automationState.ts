@@ -6,8 +6,9 @@ export interface AutomationState {
   snapshot: AutomationSnapshot;
   connected: boolean;
   activity: ComputerActivity | null;
+  activitySyncError: string | null;
 }
 export const AutomationStateContext = createContext<AutomationState>({
-  snapshot: { tasks: [], pending: [] }, connected: false, activity: null,
+  snapshot: { tasks: [], pending: [] }, connected: false, activity: null, activitySyncError: null,
 });
 export const useAutomations = () => useContext(AutomationStateContext);

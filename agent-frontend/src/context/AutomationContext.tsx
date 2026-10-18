@@ -10,6 +10,8 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<AutomationSnapshot>({ tasks: [], pending: [] });
   const [connected, setConnected] = useState(false);
   const [activity, setActivity] = useState<ComputerActivity | null>(null);
+  const [activitySyncError, setActivitySyncError] = useState<string | null>(null);
+  const activitySyncFailed = useRef(false);
   const inFlight = useRef(new Set<string>());
   const snapshotRef = useRef(snapshot); snapshotRef.current = snapshot;
   const { showMessage } = useMessage();
@@ -26,12 +28,27 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
     void listenTaskActivity(sample => {
       if (stopped) return;
       setActivity(sample);
-      if (sending || !snapshotRef.current.tasks.some(t => t.status === 'ENABLED' && t.spec.kind === 'SEDENTARY')) return;
+      if (!snapshotRef.current.tasks.some(t => t.status === 'ENABLED' && t.spec.kind === 'SEDENTARY')) {
+        activitySyncFailed.current = false;
+        setActivitySyncError(null);
+        return;
+      }
+      if (sending) return;
       sending = true;
-      void reportComputerActivity(sample).catch(() => setConnected(false)).finally(() => { sending = false; });
+      void reportComputerActivity(sample).then(() => {
+        activitySyncFailed.current = false;
+        setActivitySyncError(null);
+      }).catch(error => {
+        const reason = error instanceof TypeError
+          ? '网络或跨域请求失败'
+          : error instanceof Error ? error.message : '未知错误';
+        setActivitySyncError(reason);
+        if (!activitySyncFailed.current) showMessage('error', `久坐使用时长同步失败：${reason}`);
+        activitySyncFailed.current = true;
+      }).finally(() => { sending = false; });
     }).then(unlisten => { if (stopped) unlisten(); else remove = unlisten; }).catch(() => setActivity({ supported:false,locked:false,idleSeconds:0 }));
     return () => { stopped = true; remove?.(); };
-  }, [isReminder, isStudyWidget]);
+  }, [isReminder, isStudyWidget, showMessage]);
   useEffect(() => {
     if (isReminder || isStudyWidget || !connected) return;
     for (const run of snapshot.pending) {
@@ -58,5 +75,5 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
     if (isTaskDesktop()) void syncTaskReminder(snapshot.pending.some(run => run.confirmation === 'WAITING'))
       .catch(() => showMessage('error', '任务提醒窗口无法同步，请检查任务执行历史'));
   }, [snapshot, connected, isReminder, isStudyWidget, showMessage]);
-  return <AutomationStateContext.Provider value={{ snapshot, connected, activity }}>{children}</AutomationStateContext.Provider>;
+  return <AutomationStateContext.Provider value={{ snapshot, connected, activity, activitySyncError }}>{children}</AutomationStateContext.Provider>;
 }
