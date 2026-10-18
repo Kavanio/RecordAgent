@@ -4,6 +4,6 @@ import styles from './TaskMailTemplateEditor.module.css';
 export function TaskMailTemplateEditor({ disabled }: { disabled: boolean }) {
   return <fieldset disabled={disabled} className={styles.group}>
     <legend>报告邮件模板</legend>
-    <p className={styles.template}>蓝调摘要 <span>蓝灰背景、数据卡片与周期比较表格</span></p>
+    <p className={styles.template}>蓝调摘要 <span>纸张排版、留白分节与轻量收支强调</span></p>
   </fieldset>;
 }

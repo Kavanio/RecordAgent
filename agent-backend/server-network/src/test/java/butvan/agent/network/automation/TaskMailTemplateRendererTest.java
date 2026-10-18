@@ -17,12 +17,16 @@ class TaskMailTemplateRendererTest {
                     new TaskReportBuilder.Section("todo", "待办进度", "<img src=x onerror=alert(1)> {{study}}")),
             "2026-09-23", "2026-09-23 18:00（Asia/Shanghai）");
 
-    @Test void digestUsesBlueCardLayoutAndEscapesReportContent() {
+    @Test void digestUsesEditorialLayoutWithFewRulesAndEscapesContent() {
         var html = TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), report);
-        assertTrue(html.contains("background:#edf3fa"));
+        assertTrue(html.contains("background:#ebebe9"));
+        assertTrue(html.contains("把今天，留在这里。"));
         assertTrue(html.contains("今日支出"));
         assertTrue(html.contains("CNY 12.68"));
         assertTrue(html.contains("2026-09-23 18:00"));
+        assertFalse(html.contains("border-bottom"));
+        assertFalse(html.contains("border-top"));
+        assertFalse(html.contains("<hr"));
         assertFalse(html.contains("<img"));
         assertTrue(html.contains("&lt;img"));
         assertFalse(html.contains("<pre"));
@@ -31,8 +35,8 @@ class TaskMailTemplateRendererTest {
         var styles = List.of("CARDS", "MINIMAL", "LETTER", "EDITORIAL", "LEDGER", "RECEIPT", "CUSTOM");
         for (String style : styles) {
             var html = TaskMailTemplateRenderer.render(spec(new MailTemplate(style, "#123456", "旧标题", "旧开场", "旧页脚", "旧正文")), report);
-            assertTrue(html.contains("background:#edf3fa"));
-            assertTrue(html.contains("日报 · 生活摘要"));
+            assertTrue(html.contains("background:#ebebe9"));
+            assertTrue(html.contains("把今天，留在这里。"));
             assertFalse(html.contains("旧标题"));
             assertFalse(html.contains("旧正文"));
         }
