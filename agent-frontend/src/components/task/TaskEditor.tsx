@@ -73,7 +73,7 @@ export function TaskEditor({ task, copy, onClose, onSaved, activitySupported, on
         {spec.kind === 'SEDENTARY' && <FormField label="空闲多少分钟视为休息" htmlFor="task-break"><TextInput id="task-break" type="number" required min={1} max={120} value={spec.breakMinutes} onChange={e => update('breakMinutes', Number(e.target.value))} /></FormField>}
       </fieldset>
       {spec.kind.endsWith('_REPORT') && <fieldset disabled={busy} className={styles.group}><legend>报告栏目</legend><div className={styles.checks}>{checkbox('expense',spec.kind === 'DAILY_REPORT' ? '支出与资产' : '支出')}{checkbox('todo','待办')}{checkbox('study','学习记录')}</div>{spec.kind === 'DAILY_REPORT' && <p className={styles.hint}>启用后，日报会附上各资产余额、账户收支汇总和当日账单明细。</p>}</fieldset>}
-      {spec.kind.endsWith('_REPORT') && <TaskMailTemplateEditor value={spec.mailTemplate} disabled={busy} onChange={value => update('mailTemplate', value)} />}
+      {spec.kind.endsWith('_REPORT') && <TaskMailTemplateEditor disabled={busy} />}
       <fieldset disabled={busy} className={styles.group}><legend>通知方式</legend><div className={styles.checks}>{checkbox('desktop','桌面通知',spec.kind === 'SEDENTARY')}{checkbox('email','发送邮件')}{checkbox('sound','提醒声音',!spec.desktop)}{checkbox('confirm','需要手动确认',spec.kind === 'SEDENTARY' || !spec.desktop)}</div></fieldset>
 
       <label className={styles.check}><input type="checkbox" checked={enabled} disabled={busy} onChange={e => { onDirtyChange(true); setEnabled(e.target.checked); }} />保存后启用任务</label>

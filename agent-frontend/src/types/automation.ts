@@ -1,7 +1,6 @@
 /** 用户配置的自动任务，与聊天子 Agent TaskDto 独立。 */
 export interface MailTemplate {
-  style: 'DIGEST' | 'EDITORIAL' | 'LEDGER' | 'RECEIPT' | 'CUSTOM';
-  accent: string; heading: string; introduction: string; footer: string; body: string;
+  style: 'DIGEST';
 }
 export type AutomationTaskStatus = 'ENABLED' | 'PAUSED' | 'FINISHED' | 'DELETED';
 export interface AutomationSpec {
