@@ -156,26 +156,28 @@ public final class TaskMailTemplateRenderer {
     private static String timelineSection(List<TaskReportBuilder.TimelineItem> items, int number) {
         StringBuilder html = sectionHeading(number, "一天的轨迹", "TIMELINE");
         html.append("<div style='margin:0 0 16px;font-size:10px;color:#888'>")
-                .append("<span style='color:#303430'>●</span> 学习　 <span style='color:").append(RED).append("'>●</span> 支出　 <span style='color:").append(GREEN).append("'>●</span> 收入");
+                .append("<span style='color:#303430'>●</span> 学习　 <span style='color:").append(GREEN).append("'>●</span> 待办完成　 <span style='color:").append(RED).append("'>●</span> 支出　 <span style='color:#407a65'>●</span> 收入");
         if (items.stream().anyMatch(item -> "other".equals(item.type()))) {
             html.append("　 <span style='color:#8b8d88'>●</span> 其他变动");
         }
         html.append("</div><table class='timeline-table' role='presentation' width='100%' cellspacing='0' cellpadding='0' style='table-layout:fixed'>");
         for (var item : items) {
-            String color = switch (item.type()) { case "expense" -> RED; case "income" -> GREEN; case "study" -> "#303430"; default -> "#8b8d88"; };
-            html.append("<tr><td width='50' valign='top' align='right' style='padding:3px 0 21px;font-size:10px;color:#898989;font-variant-numeric:tabular-nums'>")
-                    .append(escape(item.time() == null || item.time().isBlank() ? "—" : item.time())).append("</td><td width='28' valign='top' align='center' style='padding:5px 0 0;border-left:1px solid #e2e3df'>")
+            String color = switch (item.type()) { case "expense" -> RED; case "income" -> "#407a65"; case "study" -> "#303430"; case "todo" -> GREEN; default -> "#8b8d88"; };
+            String typeLabel = switch (item.type()) {
+                case "expense" -> "支出";
+                case "income" -> "收入";
+                case "study" -> "学习";
+                case "todo" -> "待办完成";
+                default -> "其他变动";
+            };
+            html.append("<tr><td width='50' valign='top' align='right' style='padding:3px 0 20px;font-size:10px;color:#777;font-weight:600;font-variant-numeric:tabular-nums'>")
+                    .append(escape(item.time() == null || item.time().isBlank() ? "—" : item.time())).append("</td><td width='24' valign='top' align='center' style='padding:6px 0 0;border-left:1px solid #e2e3df'>")
                     .append("<span style='display:inline-block;width:8px;height:8px;border-radius:50%;background:").append(color).append(";border:1px solid ").append(color).append("'></span></td>")
-                    .append("<td valign='top' style='padding:0 0 21px 2px'>");
-            if ("study".equals(item.type())) {
-                html.append("<div style='border-left:2px solid #444;padding:3px 0 4px 12px'>");
-            }
-            html.append("<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='table-layout:fixed'><tr><td valign='top' style='font-size:12px;font-weight:570;line-height:1.5;word-break:break-word;color:")
-                    .append(INK).append("'>").append(escape(item.title())).append("</td><td width='132' align='right' valign='top' style='padding-left:8px;white-space:nowrap;font-size:12px;font-weight:600;color:")
-                    .append("study".equals(item.type()) ? "#555" : color).append("'>").append(escape(item.amount())).append("</td></tr></table>")
-                    .append("<div style='margin-top:4px;font-size:10px;color:#9a9a98;line-height:1.75'>").append(escape(item.detail())).append("</div>");
-            if ("study".equals(item.type())) html.append("</div>");
-            html.append("</td></tr>");
+                    .append("<td valign='top' style='padding:0 0 20px 4px'><table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='table-layout:fixed;border-left:2px solid ")
+                    .append(color).append("'><tr><td valign='top' style='padding:3px 8px 0 11px;font-size:12px;font-weight:600;line-height:1.5;word-break:break-word;color:")
+                    .append(INK).append("'><span style='display:block;margin-bottom:3px;font-size:9px;font-weight:500;letter-spacing:.4px;color:").append(color).append("'>")
+                    .append(typeLabel).append("</span>").append(escape(item.title())).append("</td><td width='132' align='right' valign='top' style='padding:17px 8px 0 0;white-space:nowrap;font-size:11px;font-weight:600;color:")
+                    .append(color).append("'>").append(escape(item.amount())).append("</td></tr><tr><td colspan='2' style='padding:2px 8px 6px 11px;font-size:10px;color:#8d8f8b;line-height:1.6'>").append(escape(item.detail())).append("</td></tr></table></td></tr>");
         }
         return html.append("</table>").toString();
     }

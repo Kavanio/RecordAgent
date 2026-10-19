@@ -7,8 +7,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjusters;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -73,13 +77,13 @@ public class TodoTypeHandler implements DailyEventTypeHandler<TodoCommand> {
     public void setCompleted(String eventId, LocalDate occurrenceDate, String recurrence, boolean completed) {
         String periodStart = periodStart(occurrenceDate, recurrence).toString();
         if (completed) {
-            String completedAt = occurrenceDate.toString() + "T"
-                    + java.time.LocalTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString();
+            String completedAt = Instant.now().toString();
+            String occurrenceMarker = occurrenceDate + "T00:00:00";
             jdbcTemplate.update("""
-                    INSERT INTO todo_completion (event_id, period_start, completed_at)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(event_id, period_start) DO UPDATE SET completed_at = excluded.completed_at
-                    """, eventId, periodStart, completedAt);
+                    INSERT INTO todo_completion (event_id, period_start, completed_at, completed_time)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(event_id, period_start) DO NOTHING
+                    """, eventId, periodStart, occurrenceMarker, completedAt);
         } else {
             jdbcTemplate.update("DELETE FROM todo_completion WHERE event_id = ? AND period_start = ?",
                     eventId, periodStart);
@@ -129,27 +133,46 @@ public class TodoTypeHandler implements DailyEventTypeHandler<TodoCommand> {
                 resultSet.getString("priority"), normalizeRecurrence(resultSet.getString("recurrence")),
                 nullableInteger(resultSet, "recurrence_weekday"),
                 nullableInteger(resultSet, "recurrence_month_day")));
-        Map<String, Set<String>> completions = namedJdbcTemplate.query("""
-                SELECT event_id, period_start
+        Map<String, String> completions = namedJdbcTemplate.query("""
+                SELECT event_id, period_start, completed_at, completed_time
                 FROM todo_completion
                 WHERE event_id IN (:ids)
                 """, Map.of("ids", eventIds), resultSet -> {
-                    Map<String, Set<String>> result = new LinkedHashMap<>();
+                    Map<String, String> result = new LinkedHashMap<>();
                     while (resultSet.next()) {
-                        result.computeIfAbsent(resultSet.getString("event_id"), ignored -> new java.util.HashSet<>())
-                                .add(resultSet.getString("period_start"));
+                        String completedAt = resultSet.getString("completed_time");
+                        if (completedAt == null || completedAt.isBlank()) {
+                            // 兼容升级前的完成记录；旧字段只保留了本地时分与发生日期。
+                            completedAt = resultSet.getString("completed_at");
+                        }
+                        result.put(resultSet.getString("event_id") + ":" + resultSet.getString("period_start"), completedAt);
                     }
                     return result;
                 });
         Map<String, Object> result = new LinkedHashMap<>();
         for (TodoRow todo : todos) {
             String key = periodStart(occurrenceDate, todo.recurrence()).toString();
-            boolean completed = completions.getOrDefault(todo.eventId(), Set.of()).contains(key);
+            String completedAt = completions.get(todo.eventId() + ":" + key);
+            boolean completed = completedAt != null;
             result.put(todo.eventId(), new TodoDetails(
                     todo.time(), todo.priority(), completed, todo.recurrence(),
-                    todo.recurrenceWeekday(), todo.recurrenceMonthDay()));
+                    todo.recurrenceWeekday(), todo.recurrenceMonthDay(), parseCompletedAt(completedAt)));
         }
         return result;
+    }
+
+    /** 兼容历史本地时间字符串；新记录使用 UTC Instant。 */
+    private Instant parseCompletedAt(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return Instant.parse(value);
+        } catch (DateTimeParseException ignored) {
+            try {
+                return LocalDateTime.parse(value).atZone(ZoneId.systemDefault()).toInstant();
+            } catch (DateTimeParseException e) {
+                throw new IllegalStateException("待办完成时间格式无效", e);
+            }
+        }
     }
 
     @Override

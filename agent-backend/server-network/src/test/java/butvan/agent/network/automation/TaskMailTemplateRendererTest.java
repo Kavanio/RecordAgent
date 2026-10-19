@@ -66,6 +66,7 @@ class TaskMailTemplateRendererTest {
                                 new TaskReportBuilder.Metric("学习记录（条）", "1", "1", "持平")), "按任务时区统计周期内的学习记录。")),
                 "2026-09-23 · 对比 2026-09-22", "2026-09-23 18:00（Asia/Shanghai）", List.of(),
                 List.of(new TaskReportBuilder.TimelineItem("08:00", "study", "完成 Java 练习", "后端 · 家中", "08:00 — 10:00 · 2h 0m"),
+                        new TaskReportBuilder.TimelineItem("10:14", "todo", "整理项目计划", "待办已勾选完成", ""),
                         new TaskReportBuilder.TimelineItem("11:00", "other", "余额调增", "微信零钱", "+ ¥10.00")));
 
         var html = TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), structured);
@@ -75,6 +76,9 @@ class TaskMailTemplateRendererTest {
         assertTrue(html.contains("2026-09-23"));
         assertTrue(html.contains("完成 Java 练习"));
         assertTrue(html.contains("2h 0m"));
+        assertTrue(html.contains("待办完成"));
+        assertTrue(html.contains("整理项目计划"));
+        assertTrue(html.contains("10:14"));
         assertTrue(html.contains("<span style='color:#8b8d88'>●</span> 其他变动</div><table class='timeline-table'"));
     }
     @Test void allPreviouslySavedStylesRenderAsDigest() {

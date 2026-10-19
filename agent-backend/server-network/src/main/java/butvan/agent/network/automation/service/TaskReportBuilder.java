@@ -35,7 +35,7 @@ public class TaskReportBuilder {
     }
     /** 报告当天单个资产账户的余额与收支汇总。 */
     public record AccountSummary(String name, String currency, String balance, String income, String expense) {}
-    /** 日报轨迹中的学习、收支或其他资产变动。 */
+    /** 日报轨迹中的待办完成、学习、收支或其他资产变动。 */
     public record TimelineItem(String time, String type, String title, String detail, String amount) {}
     public record Report(String text, boolean partial, List<Section> sections, String date, String generatedAt,
                          List<AccountSummary> accounts, List<TimelineItem> timeline) {
@@ -50,8 +50,13 @@ public class TaskReportBuilder {
         public Report(String text, boolean partial) { this(text, partial, List.of(), "", "", List.of(), List.of()); }
     }
     private record Snapshot(Map<String, BigDecimal> values, String detail,
-                            List<ExpenseAnalyticsService.ExpenseEntry> expenseEntries) {
-        private Snapshot(Map<String, BigDecimal> values, String detail) { this(values, detail, List.of()); }
+                            List<ExpenseAnalyticsService.ExpenseEntry> expenseEntries,
+                            List<TimelineItem> timeline) {
+        private Snapshot(Map<String, BigDecimal> values, String detail) { this(values, detail, List.of(), List.of()); }
+        private Snapshot(Map<String, BigDecimal> values, String detail,
+                         List<ExpenseAnalyticsService.ExpenseEntry> expenseEntries) {
+            this(values, detail, expenseEntries, List.of());
+        }
     }
 
     /** 计划时刻决定本期；预览和手动执行由调用方传入当前时刻。 */
@@ -77,6 +82,8 @@ public class TaskReportBuilder {
                 case "todo" -> "待办进度";
                 default -> "学习时光";
             };
+            if ("todo".equals(key) && "DAILY_REPORT".equals(spec.kind()) && current != null)
+                timeline.addAll(current.timeline());
             List<Metric> metrics = compare(key, current, previous);
             String currentDetail = current == null ? "本期数据暂不可用。\n" : current.detail();
             if ("expense".equals(key) && "DAILY_REPORT".equals(spec.kind()) && current != null) {
@@ -211,6 +218,7 @@ public class TaskReportBuilder {
         Set<String> occurrences = new HashSet<>();
         List<String> completed = new ArrayList<>();
         List<String> pending = new ArrayList<>();
+        List<TimelineItem> completedTimeline = new ArrayList<>();
         long total = 0, done = 0;
         for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
             for (var event : daily.getDay(owner, date).events()) {
@@ -225,7 +233,13 @@ public class TaskReportBuilder {
                 total++;
                 if (todo.completed()) {
                     done++;
-                    if (completed.size() < TODO_DETAIL_LIMIT) completed.add("• " + date + " · " + event.title());
+                    String completedTime = todo.completedAt() == null ? "" : todo.completedAt().atZone(zone)
+                            .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+                    if (completed.size() < TODO_DETAIL_LIMIT) completed.add("• " + date
+                            + (completedTime.isBlank() ? "" : " " + completedTime) + " · " + event.title());
+                    if (from.equals(to) && !completedTime.isBlank()) {
+                        completedTimeline.add(new TimelineItem(completedTime, "todo", event.title(), "待办已勾选完成", ""));
+                    }
                 } else if (pending.size() < TODO_DETAIL_LIMIT) {
                     pending.add("• " + date + " · " + event.title());
                 }
@@ -243,7 +257,7 @@ public class TaskReportBuilder {
             if (done > completed.size()) detail.append("已完成事项较多，仅列出前 ").append(TODO_DETAIL_LIMIT).append(" 项。\n");
             if (total - done > pending.size()) detail.append("未完成事项较多，仅列出前 ").append(TODO_DETAIL_LIMIT).append(" 项。\n");
         }
-        return new Snapshot(values, detail.toString());
+        return new Snapshot(values, detail.toString(), List.of(), completedTimeline);
     }
 
     /** 日报资产查询独立降级，不影响同一报告中的其他栏目。 */

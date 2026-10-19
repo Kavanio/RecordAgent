@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -115,6 +116,7 @@ class DailyEventServiceIntegrationTest {
                 "local-default", created.id(), true, created.version());
         assertEquals(1, completed.version());
         assertTrue(assertInstanceOf(TodoDetails.class, completed.details()).completed());
+        assertNotNull(assertInstanceOf(TodoDetails.class, completed.details()).completedAt());
 
         dailyEventService.delete("local-default", completed.id(), completed.version());
         assertTrue(dailyEventService.getDay("local-default", date).events().isEmpty());
