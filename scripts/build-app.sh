@@ -20,6 +20,8 @@ BUNDLES=""
 BUNDLES_SET=0
 INSTALL_APP=0
 OPEN_APP=0
+HOST_TRIPLE=""
+HOST_ARCH=""
 
 usage() {
   cat <<'EOF'
@@ -150,6 +152,10 @@ fi
 if [[ "$PLATFORM" == Darwin ]]; then
   HOST_TRIPLE="$(rustc --print host-tuple)"
   HOST_ARCH="$(uname -m)"
+  if [[ -z "$HOST_TRIPLE" ]]; then
+    echo "无法读取 Rust 主机架构，请检查 rustc 工具链配置。" >&2
+    exit 1
+  fi
   case "$HOST_ARCH:$HOST_TRIPLE" in
     arm64:aarch64-apple-darwin|aarch64:aarch64-apple-darwin|x86_64:x86_64-apple-darwin) ;;
     *)
