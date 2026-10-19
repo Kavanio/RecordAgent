@@ -123,12 +123,23 @@ test('久坐弹框确认后停止声音，倒计时结束确认并播放提示�
   const previousStorage = globalThis.localStorage;
   const previousNow = Date.now;
   let clock = previousNow();
+  const endedRestRuns = new Set();
+  const activeRestRuns = new Set();
   Date.now = () => clock;
   globalThis.localStorage = window.localStorage;
+  localStorage.removeItem('butvan-task-rest-data');
   globalThis.isTauri = true;
   let plays = 0;
   window.__TAURI_INTERNALS__ = { invoke: async (command, args) => {
     calls.push({ command, args });
+    if (command === 'sync_task_rest_lock') {
+      if (args.remainingSeconds === 0 && args.runId) {
+        endedRestRuns.add(args.runId);
+        activeRestRuns.delete(args.runId);
+      } else if (args.runId && !endedRestRuns.has(args.runId)) {
+        activeRestRuns.add(args.runId);
+      }
+    }
     if (command === 'task_reminder_configuration') return { preferences: { restLock: true, soundId: 'builtin:bell', repeatSeconds: 4 }, sounds: [] };
     if (command === 'task_reminder_audio') {
       if (args.action === 'supported') return true;
@@ -142,10 +153,12 @@ test('久坐弹框确认后停止声音，倒计时结束确认并播放提示�
     await React.act(async () => reminderRoot.render(React.createElement(StateContext.Provider, { value: { snapshot: reminderSnapshot, connected: true, activity: null } }, React.createElement(TaskReminderWindow))));
     assert.equal(plays, 1);
     assert.ok(locks().every(seconds => seconds === 0), '确认前不能遮挡桌面');
+    assert.equal(endedRestRuns.has('rest-run'), false, '等待确认不能提前结束休息轮次');
     const button = [...reminder.querySelectorAll('button')].find(value => value.textContent === '确认并开始休息');
     await React.act(async () => button.click());
     assert.ok(calls.some(value => value.command === 'task_reminder_audio' && value.args.action === 'stop'));
     assert.equal(locks().at(-1), 60, '确认后才开始锁定桌面');
+    assert.ok(activeRestRuns.has('rest-run'), '原生层不能因确认前的空闲清理而拒绝本轮锁定');
     assert.match(reminder.textContent, /休息中/);
     assert.equal(requests.filter(value => value.url.endsWith('/rest-run/confirm')).length, 0);
     assert.equal(plays, 1);
@@ -161,6 +174,7 @@ test('久坐弹框确认后停止声音，倒计时结束确认并播放提示�
   } finally {
     await React.act(async () => reminderRoot.unmount()); reminder.remove();
     localStorage.removeItem('task-reminder-rest:rest-run');
+    localStorage.removeItem('butvan-task-rest-data');
     globalThis.localStorage = previousStorage;
     Date.now = previousNow;
     globalThis.isTauri = false; delete window.__TAURI_INTERNALS__;

@@ -200,9 +200,10 @@ export function TaskReminderWindow() {
     return () => window.clearInterval(timer);
   }, [lockUntil, connected, active?.id, restLockSnapshot?.runId]);
   useEffect(() => {
-    if (lockUntil) return;
-    void syncTaskRestLock(0, active?.id ?? restLockSnapshot?.runId).catch(e => console.warn('休息遮罩清理失败', e));
-  }, [lockUntil, active?.id, restLockSnapshot?.runId]);
+    if (lockUntil || !restLockSnapshot?.restLock) return;
+    if (active?.id && active.id !== restLockSnapshot.runId) return;
+    void syncTaskRestLock(0, restLockSnapshot.runId).catch(e => console.warn('休息遮罩清理失败', e));
+  }, [lockUntil, active?.id, restLockSnapshot?.runId, restLockSnapshot?.restLock]);
 
   return <main className={styles.window}>
     <header className={styles.header}>
