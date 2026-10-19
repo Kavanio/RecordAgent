@@ -24,7 +24,7 @@ class TaskMailTemplateRendererTest {
         assertTrue(html.contains("butvan."));
         assertTrue(html.contains("A day, recorded."));
         assertTrue(html.contains("把今天，留在这里。"));
-        assertTrue(html.contains("今日支出"));
+        assertTrue(html.contains("收支概况"));
         assertTrue(html.contains("CNY 12.68"));
         assertTrue(html.contains("2026-09-23 18:00"));
         assertFalse(html.contains("background:#f3f7fd"));
@@ -38,7 +38,7 @@ class TaskMailTemplateRendererTest {
                 List.of(new TaskReportBuilder.Section("expense", "资产与收支", ""),
                         new TaskReportBuilder.Section("todo", "待办进度", "")),
                 "2026-09-23 · 对比 2026-09-22", "2026-09-23 18:00（Asia/Shanghai）",
-                List.of(new TaskReportBuilder.AccountSummary("微信零钱", "CNY", "577.84", "0.00", "10.00")),
+                List.of(new TaskReportBuilder.AccountSummary("微信零钱", "CNY", "577.84", "5.00", "10.00")),
                 List.of(new TaskReportBuilder.TimelineItem("16:57", "expense", "交通 · 地铁回家", "微信零钱", "− ¥10.00")));
         var html = TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), structured);
         assertTrue(html.contains("TOTAL ASSETS / 资产余额"));
@@ -47,7 +47,35 @@ class TaskMailTemplateRendererTest {
         assertTrue(html.contains("一天的轨迹"));
         assertTrue(html.contains("微信零钱"));
         assertTrue(html.contains("16:57"));
-        assertTrue(html.contains("− ¥10.00"));
+        assertTrue(html.contains("10.00"));
+        assertTrue(html.contains("color:#365f8b"));
+        assertTrue(html.contains("font-weight:650;color:#467460"));
+        assertTrue(html.contains("font-weight:650;color:#ac685c"));
+        assertFalse(html.contains("padding:12px 0;border-bottom:1px solid #ededeb"));
+    }
+
+    @Test void progressShowsCompletedTodoNamesWithoutDuplicatingPercentAndKeepsTimelineLegendInPlace() {
+        var structured = new TaskReportBuilder.Report("日报", false,
+                List.of(new TaskReportBuilder.Section("todo", "待办进度", "", List.of(
+                                new TaskReportBuilder.Metric("应办（项）", "1", "1", "持平"),
+                                new TaskReportBuilder.Metric("已完成（项）", "1", "0", "+1"),
+                                new TaskReportBuilder.Metric("完成率", "100%", "0%", "+100 个百分点")),
+                                "已完成\n• 2026-09-23 · 整理项目计划\n"),
+                        new TaskReportBuilder.Section("study", "学习时光", "", List.of(
+                                new TaskReportBuilder.Metric("学习时长（分钟）", "120", "60", "+60"),
+                                new TaskReportBuilder.Metric("学习记录（条）", "1", "1", "持平")), "按任务时区统计周期内的学习记录。")),
+                "2026-09-23 · 对比 2026-09-22", "2026-09-23 18:00（Asia/Shanghai）", List.of(),
+                List.of(new TaskReportBuilder.TimelineItem("08:00", "study", "完成 Java 练习", "后端 · 家中", "08:00 — 10:00 · 2h 0m"),
+                        new TaskReportBuilder.TimelineItem("11:00", "other", "余额调增", "微信零钱", "+ ¥10.00")));
+
+        var html = TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), structured);
+
+        assertTrue(html.contains("完成率</div><div style='margin-top:10px;font-size:24px;letter-spacing:-1px;font-weight:520;font-variant-numeric:tabular-nums;color:#20211f'>100%</div>"));
+        assertTrue(html.contains("整理项目计划"));
+        assertTrue(html.contains("2026-09-23"));
+        assertTrue(html.contains("完成 Java 练习"));
+        assertTrue(html.contains("2h 0m"));
+        assertTrue(html.contains("<span style='color:#8b8d88'>●</span> 其他变动</div><table class='timeline-table'"));
     }
     @Test void allPreviouslySavedStylesRenderAsDigest() {
         var styles = List.of("CARDS", "MINIMAL", "LETTER", "EDITORIAL", "LEDGER", "RECEIPT", "CUSTOM");
@@ -68,7 +96,7 @@ class TaskMailTemplateRendererTest {
         assertTrue(html.contains("本期支出"));
         assertTrue(html.contains("上期支出"));
         assertTrue(html.contains("+58.5%"));
-        assertTrue(html.contains("按币种分别统计"));
+        assertTrue(html.contains("CNY"));
     }
     @Test void unknownStylesAreRejected() {
         assertThrows(IllegalArgumentException.class, () -> new MailTemplate("FUTURE_UNKNOWN", null, null, null, null, null).validate());

@@ -23,6 +23,7 @@ import java.util.function.Supplier;
 @Service
 @RequiredArgsConstructor
 public class TaskReportBuilder {
+    private static final int TODO_DETAIL_LIMIT = 30;
     private final DailyEventService daily;
     private final ExpenseAnalyticsService expenses;
     private final StudyService studies;
@@ -107,7 +108,7 @@ public class TaskReportBuilder {
             text.append("\n").append(title).append("\n").append(body);
         }
         if (available == 0) throw new IllegalStateException("报告所有本期栏目读取失败，请稍后重试");
-        timeline.sort(Comparator.comparing(TimelineItem::time));
+        timeline.sort(Comparator.comparing(item -> item.time() == null || item.time().isBlank() ? "99:99" : item.time()));
         return new Report(text.toString(), partial, List.copyOf(sections), period.currentLabel() + " · 对比 " + period.previousLabel(), generated,
                 accounts, timeline);
     }
@@ -208,6 +209,7 @@ public class TaskReportBuilder {
             return new Snapshot(values, "按任务时区统计周期内的学习记录。\n");
         }
         Set<String> occurrences = new HashSet<>();
+        List<String> completed = new ArrayList<>();
         List<String> pending = new ArrayList<>();
         long total = 0, done = 0;
         for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
@@ -221,16 +223,27 @@ public class TaskReportBuilder {
                 };
                 if (!occurrences.add(event.id() + ":" + cycle)) continue;
                 total++;
-                if (todo.completed()) done++;
-                else if (pending.size() < 8) pending.add("• " + date + " · " + event.title());
+                if (todo.completed()) {
+                    done++;
+                    if (completed.size() < TODO_DETAIL_LIMIT) completed.add("• " + date + " · " + event.title());
+                } else if (pending.size() < TODO_DETAIL_LIMIT) {
+                    pending.add("• " + date + " · " + event.title());
+                }
             }
         }
         values.put("应办（项）", BigDecimal.valueOf(total));
         values.put("已完成（项）", BigDecimal.valueOf(done));
         if (total > 0) values.put("完成率", BigDecimal.valueOf(done * 100).divide(BigDecimal.valueOf(total), 1, RoundingMode.HALF_UP));
-        String detail = total == 0 ? "本期无待办，完成率不适用。\n" : pending.isEmpty() ? "本期待办已全部完成。\n" : "尚未完成\n" + String.join("\n", pending) + "\n";
-        if (total - done > pending.size()) detail += "仅列出前 8 项，请在日历查看全部。\n";
-        return new Snapshot(values, detail);
+        StringBuilder detail = new StringBuilder();
+        if (total == 0) {
+            detail.append("本期无待办，完成率不适用。\n");
+        } else {
+            if (!completed.isEmpty()) detail.append("已完成\n").append(String.join("\n", completed)).append('\n');
+            if (!pending.isEmpty()) detail.append("尚未完成\n").append(String.join("\n", pending)).append('\n');
+            if (done > completed.size()) detail.append("已完成事项较多，仅列出前 ").append(TODO_DETAIL_LIMIT).append(" 项。\n");
+            if (total - done > pending.size()) detail.append("未完成事项较多，仅列出前 ").append(TODO_DETAIL_LIMIT).append(" 项。\n");
+        }
+        return new Snapshot(values, detail.toString());
     }
 
     /** 日报资产查询独立降级，不影响同一报告中的其他栏目。 */

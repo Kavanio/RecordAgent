@@ -16,6 +16,7 @@ public final class TaskMailTemplateRenderer {
     private static final String LINE = "#ededeb";
     private static final String GREEN = "#467460";
     private static final String RED = "#ac685c";
+    private static final String BALANCE = "#365f8b";
 
     private TaskMailTemplateRenderer() {}
 
@@ -38,7 +39,7 @@ public final class TaskMailTemplateRenderer {
         if (expense != null) body.append(cashflowSection(expense, number++, dailyAssets));
         if ("DAILY_REPORT".equals(spec.kind()) && !report.timeline().isEmpty())
             body.append(timelineSection(report.timeline(), number++));
-        if (todo != null || study != null) body.append(progressSection(todo, study, number));
+        if (todo != null || study != null) body.append(progressSection(todo, study, report.timeline(), number));
         if (!isReport) body.append(paragraph(report.text(), INK));
 
         String currentDate = isReport ? currentPeriod(report.date()) : "任务提醒";
@@ -89,7 +90,7 @@ public final class TaskMailTemplateRenderer {
             amount.append("<div style='font-size:24px;color:#999;margin-top:14px'>").append(unavailable).append("</div>");
         } else {
             for (var total : totals.entrySet()) {
-                amount.append("<div style='margin-top:8px;font-size:clamp(38px,8vw,54px);letter-spacing:-2px;font-weight:450;font-variant-numeric:tabular-nums'>")
+                amount.append("<div style='margin-top:8px;font-size:clamp(38px,8vw,54px);letter-spacing:-2px;font-weight:450;font-variant-numeric:tabular-nums;color:").append(BALANCE).append("'>")
                         .append("<span style='font-size:23px;vertical-align:9%;margin-right:6px'>").append(currencySymbol(total.getKey())).append("</span>")
                         .append(format(total.getValue())).append("</div>");
             }
@@ -110,12 +111,12 @@ public final class TaskMailTemplateRenderer {
         html.append("<table class='account-table' role='presentation' width='100%' cellspacing='0' cellpadding='0' style='margin-top:8px;table-layout:fixed'>")
                 .append("<tr style='color:#929292;font-size:10px'><td width='43%' style='padding:10px 0;border-bottom:1px solid #333'>账户</td><td align='right' width='19%' style='padding:10px 0;border-bottom:1px solid #333'>余额</td><td align='right' width='19%' style='padding:10px 0;border-bottom:1px solid #333'>收入</td><td align='right' width='19%' style='padding:10px 0;border-bottom:1px solid #333'>支出</td></tr>");
         for (TaskReportBuilder.AccountSummary account : accounts) {
-            html.append("<tr style='font-size:11px'><td style='padding:12px 4px 12px 0;border-bottom:1px solid ").append(LINE).append(";font-weight:560'>")
+            html.append("<tr style='font-size:11px'><td style='padding:12px 4px 12px 0;font-weight:560'>")
                     .append(escape(account.name())).append("<div style='margin-top:4px;font-size:9px;color:#aaa'>").append(escape(account.currency())).append("</div></td>")
-                    .append("<td align='right' style='padding:12px 0;border-bottom:1px solid ").append(LINE).append(";font-variant-numeric:tabular-nums'>").append(escape(account.balance())).append("</td>")
-                    .append("<td align='right' style='padding:12px 0;border-bottom:1px solid ").append(LINE).append(";font-variant-numeric:tabular-nums;color:").append(zero(account.income()) ? MUTED : GREEN).append("'>")
+                    .append("<td align='right' style='padding:12px 0;font-variant-numeric:tabular-nums'>").append(escape(account.balance())).append("</td>")
+                    .append("<td align='right' style='padding:12px 0;font-variant-numeric:tabular-nums;font-weight:650;color:").append(zero(account.income()) ? MUTED : GREEN).append("'>")
                     .append(zero(account.income()) ? "—" : escape(account.income())).append("</td>")
-                    .append("<td align='right' style='padding:12px 0;border-bottom:1px solid ").append(LINE).append(";font-variant-numeric:tabular-nums;color:").append(zero(account.expense()) ? MUTED : RED).append("'>")
+                    .append("<td align='right' style='padding:12px 0;font-variant-numeric:tabular-nums;font-weight:650;color:").append(zero(account.expense()) ? MUTED : RED).append("'>")
                     .append(zero(account.expense()) ? "—" : escape(account.expense())).append("</td></tr>");
         }
         html.append("</table><p style='margin:14px 0 0;font-size:10px;color:#999;line-height:1.8'>— 表示该账户本期无收支。不同币种分别统计，不跨币种折算。</p>");
@@ -155,23 +156,22 @@ public final class TaskMailTemplateRenderer {
     private static String timelineSection(List<TaskReportBuilder.TimelineItem> items, int number) {
         StringBuilder html = sectionHeading(number, "一天的轨迹", "TIMELINE");
         html.append("<div style='margin:0 0 16px;font-size:10px;color:#888'>")
-                .append("<span style='color:#303430'>●</span> 学习　 <span style='color:").append(RED).append("'>●</span> 支出　 <span style='color:").append(GREEN).append("'>●</span> 收入</div>")
-                .append("<table role='presentation' width='100%' cellspacing='0' cellpadding='0'>");
+                .append("<span style='color:#303430'>●</span> 学习　 <span style='color:").append(RED).append("'>●</span> 支出　 <span style='color:").append(GREEN).append("'>●</span> 收入");
         if (items.stream().anyMatch(item -> "other".equals(item.type()))) {
-            int legendEnd = html.indexOf("</div>");
-            html.insert(legendEnd, "　 <span style='color:#8b8d88'>●</span> 其他变动");
+            html.append("　 <span style='color:#8b8d88'>●</span> 其他变动");
         }
+        html.append("</div><table class='timeline-table' role='presentation' width='100%' cellspacing='0' cellpadding='0' style='table-layout:fixed'>");
         for (var item : items) {
             String color = switch (item.type()) { case "expense" -> RED; case "income" -> GREEN; case "study" -> "#303430"; default -> "#8b8d88"; };
             html.append("<tr><td width='50' valign='top' align='right' style='padding:3px 0 21px;font-size:10px;color:#898989;font-variant-numeric:tabular-nums'>")
-                    .append(escape(item.time())).append("</td><td width='33' valign='top' align='center' style='padding:5px 0 0;border-left:1px solid #e2e3df'>")
+                    .append(escape(item.time() == null || item.time().isBlank() ? "—" : item.time())).append("</td><td width='28' valign='top' align='center' style='padding:5px 0 0;border-left:1px solid #e2e3df'>")
                     .append("<span style='display:inline-block;width:8px;height:8px;border-radius:50%;background:").append(color).append(";border:1px solid ").append(color).append("'></span></td>")
                     .append("<td valign='top' style='padding:0 0 21px 2px'>");
             if ("study".equals(item.type())) {
                 html.append("<div style='border-left:2px solid #444;padding:3px 0 4px 12px'>");
             }
-            html.append("<table role='presentation' width='100%' cellspacing='0' cellpadding='0'><tr><td style='font-size:12px;font-weight:570;line-height:1.5;color:")
-                    .append(INK).append("'>").append(escape(item.title())).append("</td><td align='right' valign='top' style='padding-left:8px;white-space:nowrap;font-size:12px;font-weight:600;color:")
+            html.append("<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='table-layout:fixed'><tr><td valign='top' style='font-size:12px;font-weight:570;line-height:1.5;word-break:break-word;color:")
+                    .append(INK).append("'>").append(escape(item.title())).append("</td><td width='132' align='right' valign='top' style='padding-left:8px;white-space:nowrap;font-size:12px;font-weight:600;color:")
                     .append("study".equals(item.type()) ? "#555" : color).append("'>").append(escape(item.amount())).append("</td></tr></table>")
                     .append("<div style='margin-top:4px;font-size:10px;color:#9a9a98;line-height:1.75'>").append(escape(item.detail())).append("</div>");
             if ("study".equals(item.type())) html.append("</div>");
@@ -180,7 +180,8 @@ public final class TaskMailTemplateRenderer {
         return html.append("</table>").toString();
     }
 
-    private static String progressSection(TaskReportBuilder.Section todo, TaskReportBuilder.Section study, int number) {
+    private static String progressSection(TaskReportBuilder.Section todo, TaskReportBuilder.Section study,
+                                          List<TaskReportBuilder.TimelineItem> timeline, int number) {
         StringBuilder html = sectionHeading(number, "待办与学习", "PROGRESS");
         if (todo != null) {
             Map<String, String> values = new HashMap<>();
@@ -190,15 +191,15 @@ public final class TaskMailTemplateRenderer {
             String rateText = values.getOrDefault("完成率", "不适用");
             int total = integer(totalText), done = integer(doneText), remaining = Math.max(0, total - done);
             html.append("<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='margin-top:17px'><tr>")
-                    .append(stat("完成率", rateText.equals("不适用") ? rateText : rateText + "%", INK))
+                    .append(stat("完成率", rateText, INK))
                     .append(stat("已完成", done + " 项", INK)).append(stat("进行中", remaining + " 项", INK)).append("</tr></table>");
             if (total > 0) {
                 int percent = Math.min(100, Math.max(0, done * 100 / total));
                 html.append("<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='height:3px;margin-top:20px;background:#ececeb'><tr><td width='")
                         .append(percent).append("%' style='height:3px;background:").append(GREEN).append("'></td><td></td></tr></table>");
             }
-            String pending = pendingDetails(todo.detail());
-            if (!pending.isBlank()) html.append("<div style='margin-top:28px;font-size:11px;color:#999'>尚未完成</div>").append(pending);
+            String details = todoDetails(todo.detail());
+            if (!details.isBlank()) html.append(details);
         }
         if (study != null) {
             String duration = value(study, "学习时长（分钟）");
@@ -206,24 +207,45 @@ public final class TaskMailTemplateRenderer {
             html.append("<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='padding-top:21px;margin-top:15px'><tr><td style='font-size:12px'>已记录学习时长</td>")
                     .append("<td align='right' style='font-size:19px;font-variant-numeric:tabular-nums'>").append(escape(duration)).append(" <span style='font-size:11px;color:#aaa'>分钟</span></td></tr>")
                     .append("<tr><td style='padding-top:6px;font-size:10px;color:#999'>学习记录</td><td align='right' style='padding-top:6px;font-size:11px;color:#888'>").append(escape(sessions)).append(" 条</td></tr></table>");
+            List<TaskReportBuilder.TimelineItem> studyItems = timeline.stream().filter(item -> "study".equals(item.type())).toList();
+            if (!studyItems.isEmpty()) {
+                html.append("<div style='margin-top:20px;font-size:10px;color:#929292'>学习记录明细</div>");
+                for (var item : studyItems) {
+                    html.append("<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='table-layout:fixed;margin-top:8px'><tr><td style='font-size:11px;font-weight:600;line-height:1.5;word-break:break-word'>")
+                            .append(escape(item.title())).append("</td><td width='132' align='right' valign='top' style='padding-left:8px;white-space:nowrap;font-size:10px;color:#666'>")
+                            .append(escape(item.amount())).append("</td></tr><tr><td colspan='2' style='padding-top:2px;font-size:10px;color:#999'>")
+                            .append(escape(item.detail())).append("</td></tr></table>");
+                }
+            }
         }
         return html.toString();
     }
 
-    private static String pendingDetails(String content) {
+    private static String todoDetails(String content) {
         StringBuilder html = new StringBuilder();
+        String group = "";
         for (String line : content.split("\\R")) {
-            if (line.isBlank() || "尚未完成".equals(line)) continue;
+            if (line.isBlank()) continue;
+            if ("已完成".equals(line) || "尚未完成".equals(line)) {
+                group = line;
+                html.append("<div style='margin-top:24px;font-size:11px;color:#999'>").append(line).append("</div>");
+                continue;
+            }
             if (!line.startsWith("• ")) {
                 html.append(paragraph(line, MUTED));
                 continue;
             }
             String item = line.substring(2);
             int separator = item.indexOf(" · ");
+            String date = separator >= 0 ? item.substring(0, separator) : "";
             String title = separator >= 0 ? item.substring(separator + 3) : item;
-            html.append("<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='font-size:12px'><tr><td width='26' style='padding:12px 0;border-bottom:1px solid ")
-                    .append(LINE).append(";color:").append(RED).append("'>○</td><td style='padding:12px 0;border-bottom:1px solid ").append(LINE).append("'>")
-                    .append(escape(title)).append("</td></tr></table>");
+            String marker = "已完成".equals(group) ? "✓" : "○";
+            String color = "已完成".equals(group) ? GREEN : RED;
+            html.append("<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='font-size:12px'><tr><td width='26' valign='top' style='padding:8px 0;color:")
+                    .append(color).append("'>").append(marker).append("</td><td style='padding:8px 0;line-height:1.6'>")
+                    .append(escape(title));
+            if (!date.isBlank()) html.append("<span style='margin-left:8px;font-size:10px;color:#999;white-space:nowrap'>").append(escape(date)).append("</span>");
+            html.append("</td></tr></table>");
         }
         return html.toString();
     }
