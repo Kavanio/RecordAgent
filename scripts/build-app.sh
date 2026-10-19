@@ -159,11 +159,11 @@ if [[ "$PLATFORM" == Darwin ]]; then
   case "$HOST_ARCH:$HOST_TRIPLE" in
     arm64:aarch64-apple-darwin|aarch64:aarch64-apple-darwin|x86_64:x86_64-apple-darwin) ;;
     *)
-      echo "无法匹配当前 Mac 架构（$HOST_ARCH / $HOST_TRIPLE），请使用对应架构的 Rust 工具链和 JDK。" >&2
+      echo "无法匹配当前 Mac 架构（${HOST_ARCH} / ${HOST_TRIPLE}），请使用对应架构的 Rust 工具链和 JDK。" >&2
       exit 1
       ;;
   esac
-  echo "macOS 原生架构打包：$HOST_TRIPLE（Intel 与 Apple Silicon 请分别在对应架构设备构建）"
+  echo "macOS 原生架构打包：${HOST_TRIPLE}（Intel 与 Apple Silicon 请分别在对应架构设备构建）"
 fi
 
 if [ ! -d node_modules ]; then
