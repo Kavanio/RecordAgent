@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, type ReactNode } from 'react';
 import type { AutomationSnapshot, ComputerActivity } from '../types/automation';
 import { AutomationStateContext } from './automationState';
 import { subscribeAutomations, claimAutomation, automationReceipt, reportComputerActivity } from '../services/automationApi';
-import { deliverTaskNotification, isTaskDesktop, listenTaskActivity, syncTaskReminder, taskActivityStatus, taskNotificationStatus } from '../services/taskDesktop';
+import { deliverTaskNotification, isTaskDesktop, listenTaskActivity, prepareTaskReminderWindow, syncTaskReminder, taskActivityStatus, taskNotificationStatus } from '../services/taskDesktop';
 import { useMessage } from '../components/common/Message';
 
 /** 主窗口只订阅一次；辅助提醒窗口只读快照，不负责投递和采样。 */
@@ -13,6 +13,7 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
   const [activitySyncError, setActivitySyncError] = useState<string | null>(null);
   const activitySyncFailed = useRef(false);
   const inFlight = useRef(new Set<string>());
+  const reminderPrepared = useRef(false);
   const snapshotRef = useRef(snapshot); snapshotRef.current = snapshot;
   const { showMessage } = useMessage();
   const isReminder = new URLSearchParams(window.location.search).get('view') === 'task-reminder';
@@ -49,6 +50,15 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
     }).then(unlisten => { if (stopped) unlisten(); else remove = unlisten; }).catch(() => setActivity({ supported:false,locked:false,idleSeconds:0 }));
     return () => { stopped = true; remove?.(); };
   }, [isReminder, isStudyWidget, showMessage]);
+  useEffect(() => {
+    if (isReminder || isStudyWidget || !connected || reminderPrepared.current) return;
+    if (!snapshot.tasks.some(task => task.status === 'ENABLED' && task.spec.kind === 'SEDENTARY')) return;
+    reminderPrepared.current = true;
+    void prepareTaskReminderWindow().catch(error => {
+      reminderPrepared.current = false;
+      console.warn('久坐提醒窗口预热失败，将在提醒时再打开', error);
+    });
+  }, [connected, isReminder, isStudyWidget, snapshot.tasks]);
   useEffect(() => {
     if (isReminder || isStudyWidget || !connected) return;
     for (const run of snapshot.pending) {

@@ -25,9 +25,9 @@ export const importTaskReminderAudio = async (file: File) => {
 };
 // 串行提交关闭与续约，避免旧 effect 的异步清理覆盖新倒计时。
 let lockQueue: Promise<void> = Promise.resolve();
-export function syncTaskRestLock(remainingSeconds: number): Promise<void> {
+export function syncTaskRestLock(remainingSeconds: number, runId?: string): Promise<void> {
   const request = lockQueue.then(() => isTauri()
-    ? invoke<void>('sync_task_rest_lock', { remainingSeconds: Math.max(0, Math.ceil(remainingSeconds)) })
+    ? invoke<void>('sync_task_rest_lock', { remainingSeconds: Math.max(0, Math.ceil(remainingSeconds)), runId })
     : undefined);
   lockQueue = request.catch(() => {});
   return request;

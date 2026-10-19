@@ -55,7 +55,7 @@ export function TaskReminderWindow() {
     const stop = () => {
       ringingController.current?.abort();
       endingController.current?.abort();
-      void syncTaskRestLock(0).catch(e => console.warn('提醒窗口退出时清理遮罩失败', e));
+      void syncTaskRestLock(0, readRestLockSnapshot()?.runId).catch(e => console.warn('提醒窗口退出时清理遮罩失败', e));
     };
     window.addEventListener('pagehide', stop);
     return () => { window.removeEventListener('pagehide', stop); stop(); };
@@ -81,6 +81,10 @@ export function TaskReminderWindow() {
       await confirmAutomation(id);
       const run = pending.find(value => value.id === id);
       const sedentary = snapshot.tasks.some(value => value.id === run?.taskId && value.spec.kind === 'SEDENTARY');
+      if (sedentary) {
+        // 先在原生层结束本轮租约，屏蔽可能迟到的同轮续约。
+        await syncTaskRestLock(0, id).catch(e => console.warn('休息遮罩提前清理失败，将由后续清理或看门狗释放', e));
+      }
       if (sedentary && run?.sound) {
         try {
           const controller = new AbortController(); endingController.current = controller;
@@ -188,17 +192,17 @@ export function TaskReminderWindow() {
   useEffect(() => {
     if (!lockUntil || !connected) return;
     const sync = () => {
-      void syncTaskRestLock(Math.max(0, (lockUntil - Date.now()) / 1000))
+      void syncTaskRestLock(Math.max(0, (lockUntil - Date.now()) / 1000), active?.id ?? restLockSnapshot?.runId)
         .catch(e => setError(`休息遮罩无法同步：${String(e)}`));
     };
     sync();
     const timer = window.setInterval(sync, 1000);
     return () => window.clearInterval(timer);
-  }, [lockUntil, connected]);
+  }, [lockUntil, connected, active?.id, restLockSnapshot?.runId]);
   useEffect(() => {
     if (lockUntil) return;
-    void syncTaskRestLock(0).catch(e => console.warn('休息遮罩清理失败', e));
-  }, [lockUntil]);
+    void syncTaskRestLock(0, active?.id ?? restLockSnapshot?.runId).catch(e => console.warn('休息遮罩清理失败', e));
+  }, [lockUntil, active?.id, restLockSnapshot?.runId]);
 
   return <main className={styles.window}>
     <header className={styles.header}>
