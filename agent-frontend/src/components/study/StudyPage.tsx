@@ -6,6 +6,7 @@ import { formatLocalDate } from '../../services/dailyEvents';
 import { useStudyRealtime } from '../../context/studyRealtimeState';
 import type { SaveStudySessionInput, StudySession, StudyStatistics } from '../../types/study';
 import { Button } from '../common/Button';
+import { AnimatedNumber } from '../common/AnimatedNumber';
 import { mergeCategoryOptions } from '../common/categoryOptions';
 import { useMessage } from '../common/Message';
 import { TopBar } from '../common/TopBar';
@@ -62,6 +63,8 @@ export function StudyPage() {
   const [now, setNow] = useState(Date.now()); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false);
   const todayKey = formatLocalDate(new Date());
   const [timelineDate, setTimelineDate] = useState(todayKey); const [timelineSessions, setTimelineSessions] = useState<StudySession[]>([]);
+  // 同日期 SSE 刷新保留已展示的轨迹节点，避免加载占位导致入场动画重播。
+  const [timelineSessionsDate, setTimelineSessionsDate] = useState<string | null>(null);
   const [timelineLoading, setTimelineLoading] = useState(true); const [timelineError, setTimelineError] = useState<string | null>(null); const [timelineRefresh, setTimelineRefresh] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false); const [recordError, setRecordError] = useState<string | null>(null);
   const [startModalOpen, setStartModalOpen] = useState(false); const [startError, setStartError] = useState<string | null>(null);
@@ -95,7 +98,7 @@ export function StudyPage() {
     let current = true;
     setTimelineLoading(true); setTimelineError(null);
     fetchStudySessions(timelineDate, timelineDate, TIMEZONE)
-      .then((records) => { if (current) setTimelineSessions(records); })
+      .then((records) => { if (current) { setTimelineSessions(records); setTimelineSessionsDate(timelineDate); } })
       .catch((cause: unknown) => { if (current) setTimelineError(cause instanceof Error ? cause.message : '轨迹加载失败，请稍后重试。'); })
       .finally(() => { if (current) setTimelineLoading(false); });
     return () => { current = false; };
@@ -161,8 +164,8 @@ export function StudyPage() {
     <div className={styles.page}><div className={styles.content}>
       <header className={styles.pageHeading}><div><h1>让专注有迹可循</h1><p>记录每一次投入，看见日积月累的进步。</p></div><span className={styles.pageDate}>{formatTimelineDate(todayKey, todayKey)}</span></header>
       <section className={styles.overview} aria-label="学习概览">
-        <div className={styles.todayBlock}><span>今天已学习</span><strong>{formatDuration(todaySeconds)}</strong><small>{todayStat?.sessionCount ?? 0} 段已完成记录</small></div>
-        <dl className={styles.periodStats}><div><dt>近 7 天</dt><dd>{formatDuration(liveWeekTotal)}</dd></div><div><dt>本月累计</dt><dd>{formatDuration(liveMonthTotal)}</dd></div><div><dt>本月学习天数</dt><dd>{monthStats?.studyDays ?? 0} 天</dd></div></dl>
+        <div className={styles.todayBlock}><span>今天已学习</span><strong><AnimatedNumber value={todaySeconds} ready={weekStats !== null} format={formatDuration} /></strong><small><AnimatedNumber value={todayStat?.sessionCount ?? 0} ready={weekStats !== null} /> 段已完成记录</small></div>
+        <dl className={styles.periodStats}><div><dt>近 7 天</dt><dd><AnimatedNumber value={liveWeekTotal} ready={weekStats !== null} format={formatDuration} /></dd></div><div><dt>本月累计</dt><dd><AnimatedNumber value={liveMonthTotal} ready={monthStats !== null} format={formatDuration} /></dd></div><div><dt>本月学习天数</dt><dd><AnimatedNumber value={monthStats?.studyDays ?? 0} ready={monthStats !== null} /> 天</dd></div></dl>
       </section>
       <div className={styles.mainLayout}><div className={styles.primaryColumn}>
         {active && <section className={styles.section}><Heading title="正在学习" subtitle="这段时间会持续计入今天的学习记录" />
@@ -174,7 +177,7 @@ export function StudyPage() {
           <label className={styles.datePicker} title="选择日期"><span>{timelineDate.slice(5).replace('-', '.')}</span><input type="date" value={timelineDate} max={todayKey} aria-label="选择轨迹日期" onChange={(event) => { if (event.target.value) setTimelineDate(event.target.value); }} /></label>
           <button type="button" className={styles.dateArrow} aria-label="后一天" title="后一天" disabled={timelineDate >= todayKey} onClick={() => setTimelineDate((date) => shiftDateKey(date, 1))}><CaretRightIcon size={13} /></button>
         </div>} />
-          {timelineLoading ? <div className={styles.compactEmpty}>正在读取这一天的轨迹…</div> : timelineError ? <div className={styles.timelineError} role="alert"><span>{timelineError}</span><button type="button" onClick={() => setTimelineRefresh((value) => value + 1)}>重试</button></div> : timelineDaySessions.length ? <StudyTimeline sessions={timelineDaySessions} dateKey={timelineDate} now={now} /> : <div className={styles.timelineEmpty}><ClockCounterClockwiseIcon size={22} /><div><strong>{timelineDate === todayKey ? '今天的专注，从这里开始' : '这一天还没有学习记录'}</strong><p>{timelineDate === todayKey ? '开始一次学习，自动记录你的时间轨迹。' : '可以通过补卡，记录这一天的投入。'}</p></div><Button size="sm" variant="ghost" onClick={timelineDate === todayKey ? () => { setStartError(null); setStartModalOpen(true); } : openManual} disabled={timelineDate === todayKey && Boolean(active)}>{timelineDate === todayKey ? (active ? '学习中' : '开始学习') : '补卡'}</Button></div>}
+          {timelineLoading && timelineSessionsDate !== timelineDate ? <div className={styles.compactEmpty}>正在读取这一天的轨迹…</div> : timelineError ? <div className={styles.timelineError} role="alert"><span>{timelineError}</span><button type="button" onClick={() => setTimelineRefresh((value) => value + 1)}>重试</button></div> : timelineDaySessions.length ? <StudyTimeline sessions={timelineDaySessions} dateKey={timelineDate} now={now} /> : <div className={styles.timelineEmpty}><ClockCounterClockwiseIcon size={22} /><div><strong>{timelineDate === todayKey ? '今天的专注，从这里开始' : '这一天还没有学习记录'}</strong><p>{timelineDate === todayKey ? '开始一次学习，自动记录你的时间轨迹。' : '可以通过补卡，记录这一天的投入。'}</p></div><Button size="sm" variant="ghost" onClick={timelineDate === todayKey ? () => { setStartError(null); setStartModalOpen(true); } : openManual} disabled={timelineDate === todayKey && Boolean(active)}>{timelineDate === todayKey ? (active ? '学习中' : '开始学习') : '补卡'}</Button></div>}
         </section>
         <section className={styles.section}><Heading title="最近记录" subtitle="最近完成的学习片段" side={completedSessions.length > 0 ? <button className={styles.linkButton} type="button" onClick={() => setHistoryOpen(true)}>查看全部<ArrowRightIcon size={12} /></button> : undefined} />
           {loading ? <div className={styles.loading}>正在读取学习记录…</div> : completedSessions.length ? <RecentSessions sessions={completedSessions.slice(0, 4)} onSelect={openEdit} /> : <div className={styles.empty}><ClockCounterClockwiseIcon size={19} /><strong>还没有学习记录</strong><span>开始一次学习，或使用右上角补卡。</span></div>}

@@ -6,8 +6,15 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
     method, headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(35000),
   });
-  const payload: ApiResponse<T> = await response.json();
-  if (!response.ok || payload.code !== 200) throw new Error(payload.message || '任务服务暂不可用');
+  let payload: ApiResponse<T> | null = null;
+  try { payload = await response.json() as ApiResponse<T>; } catch { /* 代理错误可能返回非 JSON 内容。 */ }
+  if (!response.ok || !payload || payload.code !== 200) {
+    if (!response.ok) {
+      const status = response.status ? `（HTTP ${response.status}）` : '';
+      throw new Error(`${payload?.message || '任务服务暂不可用'}${status}`);
+    }
+    throw new Error(payload?.message || '任务服务返回了无效响应');
+  }
   return payload.data;
 }
 export const fetchAutomations = () => request<AutomationSnapshot>('');

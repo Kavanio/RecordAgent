@@ -59,7 +59,7 @@ function isTauri(): boolean {
  * 健康检查通过后写入动态端口；非 Tauri 环境保持开发地址不变。
  * 应在应用渲染前调用一次。
  */
-export async function initApiBaseUrl(): Promise<void> {
+export async function initApiBaseUrl(options: { reuseEstablishedConnection?: boolean } = {}): Promise<void> {
   if (!isTauri()) return;
 
   // 开发模式：后端由开发者在本机（如 IDEA）启动，直接连固定开发端口
@@ -68,6 +68,11 @@ export async function initApiBaseUrl(): Promise<void> {
     const connection = await invoke<BackendConnectionInfo>('get_backend_connection');
     if (!connection.remoteUrl) throw new Error('远程后端地址未配置');
     apiAccessToken = await invoke<string | null>('get_backend_api_token').catch(() => null);
+    // 辅助窗口只会在主窗口已连接并准备使用时创建；复用主窗口选定的地址，避免再次等待 8 秒健康检查。
+    if (options.reuseEstablishedConnection) {
+      apiBaseUrl = connection.remoteUrl;
+      return;
+    }
     try {
       const headers = new Headers();
       if (apiAccessToken) headers.set('Authorization', `Bearer ${apiAccessToken}`);

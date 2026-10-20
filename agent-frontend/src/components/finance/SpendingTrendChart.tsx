@@ -2,6 +2,7 @@ import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } f
 import { gsap } from 'gsap';
 import type { FinanceChartRange, FinanceExpenseChart } from '../../types/finance';
 import { Button } from '../common/Button';
+import { AnimatedNumber } from '../common/AnimatedNumber';
 import { LoadingTree } from '../common/LoadingTree';
 import { trendBuckets, trendCeiling, trendTicks, hasOutlier, createTrendScale } from './spendingTrendData';
 import { financeCategoryColor } from './financeCategoryColors';
@@ -160,9 +161,9 @@ export const SpendingTrendChart: React.FC<SpendingTrendChartProps> = ({ chart, r
     </div>
     <div className={styles.summary}>
       <dl className={styles.periodTotals}>
-        <div><dt><i className={styles.expenseSwatch} />区间支出</dt><dd className={styles.expenseText}>{displayedChart ? money(displayedChart.totalExpense) : '—'}</dd></div>
-        <div><dt><i className={styles.incomeSwatch} />区间收入</dt><dd className={styles.incomeText}>{displayedChart ? money(displayedChart.totalIncome) : '—'}</dd></div>
-        <div><dt>区间结余</dt><dd>{displayedChart ? money(displayedChart.totalIncome - displayedChart.totalExpense) : '—'}</dd></div>
+        <div><dt><i className={styles.expenseSwatch} />区间支出</dt><dd className={styles.expenseText}><AnimatedNumber key={range} value={displayedChart?.totalExpense ?? 0} ready={Boolean(displayedChart)} fractionDigits={2} format={money} /></dd></div>
+        <div><dt><i className={styles.incomeSwatch} />区间收入</dt><dd className={styles.incomeText}><AnimatedNumber key={range} value={displayedChart?.totalIncome ?? 0} ready={Boolean(displayedChart)} fractionDigits={2} format={money} /></dd></div>
+        <div><dt>区间结余</dt><dd><AnimatedNumber key={range} value={displayedChart ? displayedChart.totalIncome - displayedChart.totalExpense : 0} ready={Boolean(displayedChart)} fractionDigits={2} format={money} /></dd></div>
       </dl>
     </div>
     <div className={styles.chartHost} ref={hostRef} onPointerLeave={() => setActiveIndex(null)}

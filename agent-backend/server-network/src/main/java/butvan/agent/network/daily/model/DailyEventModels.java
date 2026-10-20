@@ -53,7 +53,12 @@ public final class DailyEventModels {
             boolean completed,
             String recurrence,
             Integer recurrenceWeekday,
-            Integer recurrenceMonthDay) {
+            Integer recurrenceMonthDay,
+            Instant completedAt) {
+        public TodoDetails(String time, String priority, boolean completed, String recurrence,
+                           Integer recurrenceWeekday, Integer recurrenceMonthDay) {
+            this(time, priority, completed, recurrence, recurrenceWeekday, recurrenceMonthDay, null);
+        }
     }
 
     /** 创建日程的领域命令。 */

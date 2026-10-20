@@ -39,6 +39,10 @@ export async function requestTaskNotificationPermission(): Promise<boolean> {
 export async function syncTaskReminder(visible: boolean): Promise<void> {
   if (isTauri()) await invoke('sync_task_reminder', { visible });
 }
+/** 在启用久坐任务后预热轻量提醒窗口，避免触发提醒时冷启动。 */
+export async function prepareTaskReminderWindow(): Promise<void> {
+  if (isTauri()) await invoke('prepare_task_reminder_window');
+}
 export const getTaskBackground = () => isTauri() ? invoke<boolean>('task_background_enabled') : Promise.resolve(false);
 export const setTaskBackground = (enabled: boolean) => invoke<void>('set_task_background', { enabled });
 export const openTaskMain = () => invoke<void>('open_task_main');

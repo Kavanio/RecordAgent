@@ -16,7 +16,7 @@ import styles from './TaskPage.module.css';
 
 
 export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
-  const { snapshot, connected, activity } = useAutomations();
+  const { snapshot, connected, activity, activitySyncError } = useAutomations();
   const [search, setSearch] = useState('');
   const [showDeleted, setShowDeleted] = useState(false);
   const [editor, setEditor] = useState<{task?:AutomationTask;copy?:boolean} | null>(null);
@@ -127,6 +127,7 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
           <div className={styles.heading}><h2>{task.spec.title}</h2><span className={styles.badge}>{taskStatus[task.status] ?? task.status}</span></div>
           <p className={styles.rule}>{scheduleText(task.spec)}</p>
           <div className={styles.meta}><span>{task.spec.desktop ? '桌面通知' : ''}{task.spec.desktop && task.spec.email ? ' · ' : ''}{task.spec.email ? '邮件通知' : ''}{task.spec.confirm ? ' · 需确认' : ''}</span><span>{task.nextAt ? `下次：${new Date(task.nextAt).toLocaleString('zh-CN')}` : task.spec.kind === 'SEDENTARY' && task.status === 'ENABLED' ? (activity?.supported ? `累计 ${Math.floor(task.activeSeconds/60)} 分钟` : '当前环境不支持使用状态检测') : '暂无计划时间'}</span></div>
+          {task.spec.kind === 'SEDENTARY' && task.status === 'ENABLED' && activitySyncError && <p className={styles.syncError} role="status">使用时长同步失败：{activitySyncError}</p>}
           <div className={styles.actions} role="group" aria-label={`${task.spec.title}的操作`}>
             <Button size="toolbar" variant="ghost" iconOnly aria-label="执行历史" title="执行历史"
               onClick={() => openHistory(task)}>
