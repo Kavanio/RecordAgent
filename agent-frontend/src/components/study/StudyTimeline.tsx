@@ -84,6 +84,6 @@ export function StudyTimeline({ sessions, dateKey, now }: StudyTimelineProps) {
         })}
       </div>
     </div>
-    <div className={styles.navigation}><span>全天 00:00–24:00 · 横向滚动查看</span><div><button type="button" onClick={() => scroll(-1)} aria-label="时间轴向左滚动"><CaretLeftIcon size={13} /></button><button type="button" onClick={() => scroll(1)} aria-label="时间轴向右滚动"><CaretRightIcon size={13} /></button></div></div>
+    <div className={styles.navigation}><span>全天 00:00–24:00 · 横向滚动查看</span><div><button type="button" onClick={() => scroll(-1)} aria-label="时间轴向左滚动"><CaretLeftIcon size={14} weight="light" aria-hidden="true" /></button><button type="button" onClick={() => scroll(1)} aria-label="时间轴向右滚动"><CaretRightIcon size={14} weight="light" aria-hidden="true" /></button></div></div>
   </div>;
 }
