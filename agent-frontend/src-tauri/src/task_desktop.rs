@@ -56,6 +56,8 @@ pub fn task_activity_status() -> Activity { activity() }
 /// 固定路由提醒窗口，不接受任意 URL 或脚本。
 #[tauri::command]
 pub fn sync_task_reminder(app: tauri::AppHandle, visible: bool) -> Result<(), String> {
+    // 待确认记录在休息完成前一直存在；快照更新不能把已隐藏的小窗口重新显示在遮罩下。
+    let visible = crate::task_rest_lock::reminder_visible(visible)?;
     if let Some(window) = app.get_webview_window("task-reminder") {
         return if visible { window.show().and_then(|_| window.set_focus()) } else { window.hide() }.map_err(|e| e.to_string());
     }
@@ -78,6 +80,9 @@ fn build_task_reminder_window(app: &tauri::AppHandle, visible: bool) -> Result<(
     tauri::WebviewWindowBuilder::new(app, "task-reminder", tauri::WebviewUrl::App("task-reminder.html?view=task-reminder".into()))
         .title("任务提醒").inner_size(440.0, 400.0)
         .always_on_top(true).resizable(false).maximizable(false).minimizable(false)
+        // 全屏遮罩期间小窗口虽然隐藏，仍须运行倒计时、SSE 与每秒租约续约。
+        // macOS 14+ 支持禁用后台节流，避免隐藏约五分钟后脚本暂停、遮罩租约提前失效。
+        .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled)
         .visible(visible).build().map(|_| ()).map_err(|e| e.to_string())
 }
 

@@ -22,6 +22,23 @@ struct LockState {
     lease: Option<Lease>,
     ended_rest_runs: VecDeque<String>,
 }
+impl LockState {
+    /// 提醒窗口与全屏遮罩共用显示决策，避免主窗口快照同步抢回焦点。
+    fn reminder_visible(&self, requested: bool, now: Instant) -> bool {
+        requested
+            && !self
+                .lease
+                .as_ref()
+                .is_some_and(|lease| lease.kind == LeaseKind::Rest && now < lease.until)
+    }
+}
+
+/// 主窗口仍负责待确认状态，正式休息遮罩有效时则保持小提醒窗口隐藏。
+pub fn reminder_visible(requested: bool) -> Result<bool, String> {
+    let state = LOCK_STATE.lock().map_err(|e| e.to_string())?;
+    Ok(state.reminder_visible(requested, Instant::now()))
+}
+
 static LOCK_STATE: Mutex<LockState> = Mutex::new(LockState {
     lease: None,
     ended_rest_runs: VecDeque::new(),
@@ -290,6 +307,48 @@ fn set_macos_level(window: &tauri::WebviewWindow, level: isize) -> Result<(), St
     let _ = (window, level);
     Ok(())
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn state_with_lease(kind: LeaseKind, until: Instant) -> LockState {
+        LockState {
+            lease: Some(Lease {
+                until,
+                kind,
+                run_id: (kind == LeaseKind::Rest).then(|| "rest-run".to_string()),
+            }),
+            ..LockState::default()
+        }
+    }
+
+    #[test]
+    fn pending_snapshot_cannot_reopen_reminder_during_rest() {
+        let now = Instant::now();
+        let state = state_with_lease(LeaseKind::Rest, now + Duration::from_secs(15));
+        assert!(!state.reminder_visible(true, now));
+        // 最后几秒仍应保持遮罩，不让后端快照重新显示小窗口并抢走焦点。
+        assert!(!state.reminder_visible(true, now + Duration::from_secs(14)));
+        assert!(!state.reminder_visible(false, now));
+    }
+
+    #[test]
+    fn released_or_expired_rest_allows_pending_reminder() {
+        let now = Instant::now();
+        assert!(LockState::default().reminder_visible(true, now));
+        assert!(state_with_lease(LeaseKind::Rest, now).reminder_visible(true, now));
+        assert!(!LockState::default().reminder_visible(false, now));
+    }
+
+    #[test]
+    fn preview_does_not_hide_real_pending_reminder() {
+        let now = Instant::now();
+        let state = state_with_lease(LeaseKind::Preview, now + Duration::from_secs(15));
+        assert!(state.reminder_visible(true, now));
+        assert!(!state.reminder_visible(false, now));
+    }
+}
+
 pub fn setup(app: &tauri::AppHandle) {
     let handle = app.clone();
     std::thread::spawn(move || loop {
