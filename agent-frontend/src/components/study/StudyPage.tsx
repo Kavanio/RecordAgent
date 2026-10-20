@@ -6,6 +6,7 @@ import { formatLocalDate } from '../../services/dailyEvents';
 import { useStudyRealtime } from '../../context/studyRealtimeState';
 import type { SaveStudySessionInput, StudySession, StudyStatistics } from '../../types/study';
 import { Button } from '../common/Button';
+import { AnimatedNumber } from '../common/AnimatedNumber';
 import { mergeCategoryOptions } from '../common/categoryOptions';
 import { useMessage } from '../common/Message';
 import { TopBar } from '../common/TopBar';
@@ -161,8 +162,8 @@ export function StudyPage() {
     <div className={styles.page}><div className={styles.content}>
       <header className={styles.pageHeading}><div><h1>让专注有迹可循</h1><p>记录每一次投入，看见日积月累的进步。</p></div><span className={styles.pageDate}>{formatTimelineDate(todayKey, todayKey)}</span></header>
       <section className={styles.overview} aria-label="学习概览">
-        <div className={styles.todayBlock}><span>今天已学习</span><strong>{formatDuration(todaySeconds)}</strong><small>{todayStat?.sessionCount ?? 0} 段已完成记录</small></div>
-        <dl className={styles.periodStats}><div><dt>近 7 天</dt><dd>{formatDuration(liveWeekTotal)}</dd></div><div><dt>本月累计</dt><dd>{formatDuration(liveMonthTotal)}</dd></div><div><dt>本月学习天数</dt><dd>{monthStats?.studyDays ?? 0} 天</dd></div></dl>
+        <div className={styles.todayBlock}><span>今天已学习</span><strong><AnimatedNumber value={todaySeconds} ready={weekStats !== null} format={formatDuration} /></strong><small><AnimatedNumber value={todayStat?.sessionCount ?? 0} ready={weekStats !== null} /> 段已完成记录</small></div>
+        <dl className={styles.periodStats}><div><dt>近 7 天</dt><dd><AnimatedNumber value={liveWeekTotal} ready={weekStats !== null} format={formatDuration} /></dd></div><div><dt>本月累计</dt><dd><AnimatedNumber value={liveMonthTotal} ready={monthStats !== null} format={formatDuration} /></dd></div><div><dt>本月学习天数</dt><dd><AnimatedNumber value={monthStats?.studyDays ?? 0} ready={monthStats !== null} /> 天</dd></div></dl>
       </section>
       <div className={styles.mainLayout}><div className={styles.primaryColumn}>
         {active && <section className={styles.section}><Heading title="正在学习" subtitle="这段时间会持续计入今天的学习记录" />

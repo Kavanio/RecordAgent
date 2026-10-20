@@ -1,0 +1,83 @@
+import assert from 'node:assert/strict';
+import { after, afterEach, before, beforeEach, test } from 'node:test';
+import { JSDOM } from 'jsdom';
+import { createServer } from 'vite';
+
+let dom, server, React, createRoot, AnimatedNumber, root, container, frames, media, listeners;
+before(async () => {
+  dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' });
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  React = await import('react');
+  ({ createRoot } = await import('react-dom/client'));
+  server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
+  ({ AnimatedNumber } = await server.ssrLoadModule('/src/components/common/AnimatedNumber.tsx'));
+});
+after(async () => { await server?.close(); dom?.window.close(); });
+beforeEach(() => {
+  frames = new Map(); listeners = new Set(); let sequence = 0;
+  window.requestAnimationFrame = callback => { const id = ++sequence; frames.set(id, callback); return id; };
+  window.cancelAnimationFrame = id => frames.delete(id);
+  media = { matches: false, addEventListener: (_, callback) => listeners.add(callback), removeEventListener: (_, callback) => listeners.delete(callback) };
+  window.matchMedia = () => media;
+  container = document.createElement('div'); document.body.append(container); root = createRoot(container);
+});
+afterEach(async () => { await React.act(async () => root.unmount()); container.remove(); });
+const render = async props => React.act(async () => root.render(React.createElement(AnimatedNumber, props)));
+const visible = () => container.querySelector('[aria-hidden="true"]').textContent;
+async function advance(time) {
+  const callbacks = [...frames.values()]; frames.clear();
+  await React.act(async () => callbacks.forEach(callback => callback(time)));
+}
+
+test('等待数据就绪后才播放，600ms 内递增到真实值，读屏不播报中间值', async () => {
+  await render({ value: 100, ready: false });
+  assert.equal(visible(), '—'); assert.equal(frames.size, 0);
+  await render({ value: 100, ready: true });
+  assert.equal(visible(), '0');
+  assert.equal(container.lastElementChild.lastElementChild.textContent, '100');
+  await advance(0); await advance(300);
+  assert.ok(Number(visible()) > 0 && Number(visible()) < 100);
+  await advance(600);
+  assert.equal(visible(), '100'); assert.equal(frames.size, 0);
+  await render({ value: 120 });
+  assert.equal(visible(), '120'); assert.equal(frames.size, 0, '实时更新不能重播入场动画');
+});
+
+test('动画过程中数据更新不回到零，格式化函数保持单位', async () => {
+  const format = value => `${value} 分钟`;
+  await render({ value: 100, format });
+  await advance(0); await advance(300);
+  await render({ value: 110, format });
+  assert.notEqual(visible(), '0 分钟');
+  await advance(600);
+  assert.equal(visible(), '110 分钟');
+});
+
+test('减少动态效果从一开始生效，也能立即终止正在播放的动画', async () => {
+  media.matches = true;
+  await render({ value: 80 });
+  assert.equal(visible(), '80'); assert.equal(frames.size, 0);
+  await React.act(async () => root.unmount());
+  root = createRoot(container); media.matches = false;
+  await render({ value: 90 });
+  assert.equal(frames.size, 1);
+  media.matches = true;
+  await React.act(async () => listeners.forEach(callback => callback()));
+  assert.equal(visible(), '90'); assert.equal(frames.size, 0);
+});
+
+test('严格模式下可正常完成；卸载清理帧回调和偏好监听', async () => {
+  await React.act(async () => root.render(React.createElement(React.StrictMode, null, React.createElement(AnimatedNumber, { value: 60 }))));
+  assert.equal(frames.size, 1); assert.equal(listeners.size, 1);
+  await advance(0); await advance(600);
+  assert.equal(visible(), '60');
+  await React.act(async () => root.unmount());
+  assert.equal(frames.size, 0); assert.equal(listeners.size, 0);
+  root = createRoot(container);
+  await render({ value: 40 });
+  await React.act(async () => root.unmount());
+  assert.equal(frames.size, 0); assert.equal(listeners.size, 0);
+  root = createRoot(container);
+});
