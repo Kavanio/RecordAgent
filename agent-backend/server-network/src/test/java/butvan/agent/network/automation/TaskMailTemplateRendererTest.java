@@ -5,6 +5,7 @@ import butvan.agent.network.automation.service.*;
 import org.junit.jupiter.api.Test;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.web.util.HtmlUtils.htmlEscape;
 
 /** 验证蓝调摘要布局、旧模板兼容与内容安全，不依赖真实 SMTP。 */
 class TaskMailTemplateRendererTest {
@@ -54,7 +55,7 @@ class TaskMailTemplateRendererTest {
         assertFalse(html.contains("padding:12px 0;border-bottom:1px solid #ededeb"));
     }
 
-    @Test void progressShowsCompletedTodoNamesWithoutDuplicatingPercentAndKeepsTimelineLegendInPlace() {
+    @Test void progressShowsCompletedTodoNamesWithoutDuplicatingPercentAndKeepsTimelineCategories() {
         var structured = new TaskReportBuilder.Report("日报", false,
                 List.of(new TaskReportBuilder.Section("todo", "待办进度", "", List.of(
                                 new TaskReportBuilder.Metric("应办（项）", "1", "1", "持平"),
@@ -79,8 +80,50 @@ class TaskMailTemplateRendererTest {
         assertTrue(html.contains("待办完成"));
         assertTrue(html.contains("整理项目计划"));
         assertTrue(html.contains("10:14"));
-        assertTrue(html.contains("<span style='color:#8b8d88'>●</span> 其他变动</div><table class='timeline-table'"));
+        assertTrue(html.contains("其他变动"));
     }
+    /** 学习时段属于事件元信息，不应像金额一样挤占标题右侧的固定宽度。 */
+    @Test void timelineKeepsStudyTimingBelowFullWidthTitle() {
+        var html = renderTimeline(List.of(new TaskReportBuilder.TimelineItem(
+                "08:16", "study", "看八股文", "八股文", "08:16 — 09:35 · 1h 19m")));
+        assertTrue(html.contains("class='timeline-meta'"));
+        assertTrue(html.indexOf("看八股文") < html.indexOf(htmlEscape("08:16 — 09:35 · 1h 19m")));
+        assertFalse(html.contains("class='timeline-amount'"));
+        assertFalse(html.contains("width='132'"));
+        assertFalse(html.contains("●"), "分类标签已说明事件类型，不再重复堆叠图例和圆点");
+        assertFalse(html.contains("border-left:2px"), "仅保留一条浅色时间轴，不再为每条事件增加彩色竖线");
+    }
+
+    @Test void timelineAlignsFinancialAmountsAndStacksOnNarrowScreens() {
+        var html = renderTimeline(List.of(
+                new TaskReportBuilder.TimelineItem("11:19", "expense", "餐饮 · 午饭", "微信余额", "− ¥10.00"),
+                new TaskReportBuilder.TimelineItem("12:00", "income", "工资", "银行卡", "+ ¥12,345.67")));
+        assertEquals(2, html.split("class='timeline-amount'", -1).length - 1);
+        assertTrue(html.contains(htmlEscape("− ¥10.00")));
+        assertTrue(html.contains(htmlEscape("+ ¥12,345.67")));
+        assertTrue(html.contains("@media(max-width:420px)"));
+        assertTrue(html.contains(".timeline-title,.timeline-amount{display:block!important;width:auto!important}"));
+        assertTrue(html.contains("text-align:left!important"));
+        assertTrue(html.contains("overflow-wrap:anywhere"));
+    }
+
+    @Test void timelineEscapesLongTextAndDoesNotReserveEmptyAmountOrDetailRows() {
+        var title = "很长的待办名称".repeat(25) + "<img src=x onerror=alert(1)>";
+        var html = renderTimeline(List.of(new TaskReportBuilder.TimelineItem(null, "todo", title, "", "")));
+        assertTrue(html.contains("很长的待办名称".repeat(25)));
+        assertTrue(html.contains("&lt;img"));
+        assertFalse(html.contains("<img"));
+        assertFalse(html.contains("class='timeline-amount'"));
+        assertFalse(html.contains("class='timeline-meta'"));
+        assertFalse(html.contains("class='timeline-detail'"));
+        assertTrue(html.contains(">" + htmlEscape("—") + "</td>"));
+    }
+
+    private String renderTimeline(List<TaskReportBuilder.TimelineItem> items) {
+        return TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), new TaskReportBuilder.Report(
+                "日报", false, List.of(), "2026-09-23", "2026-09-23 18:00（Asia/Shanghai）", List.of(), items));
+    }
+
     @Test void allPreviouslySavedStylesRenderAsDigest() {
         var styles = List.of("CARDS", "MINIMAL", "LETTER", "EDITORIAL", "LEDGER", "RECEIPT", "CUSTOM");
         for (String style : styles) {

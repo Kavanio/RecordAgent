@@ -63,7 +63,9 @@ public final class TaskMailTemplateRenderer {
                 : "";
 
         return "<!doctype html><html lang='zh-CN'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'>"
-                + "<style>@media(max-width:500px){.outer-cell{padding:0!important}.paper-cell{padding:30px 22px!important}.paper{box-shadow:none!important}.account-table{font-size:10px!important}.hero-title{font-size:43px!important}}@media print{body{background:#fff!important}.outer-cell{padding:0!important}.paper{max-width:none!important;box-shadow:none!important}.section-block{break-inside:avoid}}</style></head>"
+                + "<style>@media(max-width:500px){.outer-cell{padding:0!important}.paper-cell{padding:30px 22px!important}.paper{box-shadow:none!important}.account-table{font-size:10px!important}.hero-title{font-size:43px!important}}"
+                + "@media(max-width:420px){.timeline-time{width:38px!important;padding-right:10px!important;font-size:10px!important}.timeline-content{padding-left:12px!important}.timeline-title,.timeline-amount{display:block!important;width:auto!important}.timeline-title{padding-right:0!important}.timeline-amount{padding-top:4px!important;text-align:left!important}}"
+                + "@media print{body{background:#fff!important}.outer-cell{padding:0!important}.paper{max-width:none!important;box-shadow:none!important}.section-block{break-inside:avoid}}</style></head>"
                 + "<body style='margin:0;background:#ebebe9;color:" + INK + ";font-family:-apple-system,BlinkMacSystemFont,\"Helvetica Neue\",\"PingFang SC\",\"Microsoft YaHei\",sans-serif'>"
                 + "<table class='outer' role='presentation' width='100%' cellspacing='0' cellpadding='0'><tr><td class='outer-cell' align='center' style='padding:22px 10px'>"
                 + "<table class='paper' role='presentation' width='100%' cellspacing='0' cellpadding='0' style='max-width:680px;background:#ffffff;box-shadow:0 12px 42px #00000007'><tr><td class='paper-cell' style='padding:44px 48px 32px'>"
@@ -153,15 +155,12 @@ public final class TaskMailTemplateRenderer {
                 + escape(value) + "</div></td>";
     }
 
+    /** 单一浅色时间轴；学习时段放在标题下方，仅收支等非学习数值占用右侧金额列。 */
     private static String timelineSection(List<TaskReportBuilder.TimelineItem> items, int number) {
         StringBuilder html = sectionHeading(number, "一天的轨迹", "TIMELINE");
-        html.append("<div style='margin:0 0 16px;font-size:10px;color:#888'>")
-                .append("<span style='color:#303430'>●</span> 学习　 <span style='color:").append(GREEN).append("'>●</span> 待办完成　 <span style='color:").append(RED).append("'>●</span> 支出　 <span style='color:#407a65'>●</span> 收入");
-        if (items.stream().anyMatch(item -> "other".equals(item.type()))) {
-            html.append("　 <span style='color:#8b8d88'>●</span> 其他变动");
-        }
-        html.append("</div><table class='timeline-table' role='presentation' width='100%' cellspacing='0' cellpadding='0' style='table-layout:fixed'>");
-        for (var item : items) {
+        html.append("<table class='timeline-table' role='presentation' width='100%' cellspacing='0' cellpadding='0' style='margin-top:20px;table-layout:fixed;border-collapse:collapse'>");
+        for (int index = 0; index < items.size(); index++) {
+            var item = items.get(index);
             String color = switch (item.type()) { case "expense" -> RED; case "income" -> "#407a65"; case "study" -> "#303430"; case "todo" -> GREEN; default -> "#8b8d88"; };
             String typeLabel = switch (item.type()) {
                 case "expense" -> "支出";
@@ -170,14 +169,32 @@ public final class TaskMailTemplateRenderer {
                 case "todo" -> "待办完成";
                 default -> "其他变动";
             };
-            html.append("<tr><td width='50' valign='top' align='right' style='padding:3px 0 20px;font-size:10px;color:#777;font-weight:600;font-variant-numeric:tabular-nums'>")
-                    .append(escape(item.time() == null || item.time().isBlank() ? "—" : item.time())).append("</td><td width='24' valign='top' align='center' style='padding:6px 0 0;border-left:1px solid #e2e3df'>")
-                    .append("<span style='display:inline-block;width:8px;height:8px;border-radius:50%;background:").append(color).append(";border:1px solid ").append(color).append("'></span></td>")
-                    .append("<td valign='top' style='padding:0 0 20px 4px'><table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='table-layout:fixed;border-left:2px solid ")
-                    .append(color).append("'><tr><td valign='top' style='padding:3px 8px 0 11px;font-size:12px;font-weight:600;line-height:1.5;word-break:break-word;color:")
-                    .append(INK).append("'><span style='display:block;margin-bottom:3px;font-size:9px;font-weight:500;letter-spacing:.4px;color:").append(color).append("'>")
-                    .append(typeLabel).append("</span>").append(escape(item.title())).append("</td><td width='132' align='right' valign='top' style='padding:17px 8px 0 0;white-space:nowrap;font-size:11px;font-weight:600;color:")
-                    .append(color).append("'>").append(escape(item.amount())).append("</td></tr><tr><td colspan='2' style='padding:2px 8px 6px 11px;font-size:10px;color:#8d8f8b;line-height:1.6'>").append(escape(item.detail())).append("</td></tr></table></td></tr>");
+            boolean study = "study".equals(item.type());
+            boolean hasValue = item.amount() != null && !item.amount().isBlank();
+            boolean amountColumn = hasValue && !study;
+            int bottom = index == items.size() - 1 ? 0 : 24;
+            html.append("<tr class='timeline-item'><td class='timeline-time' width='44' valign='top' align='right' style='width:44px;padding:0 14px ")
+                    .append(bottom).append("px 0;border-right:1px solid #e2e3df;white-space:nowrap;font-size:11px;line-height:18px;color:#858782;font-weight:500;font-variant-numeric:tabular-nums'>")
+                    .append(escape(item.time() == null || item.time().isBlank() ? "—" : item.time()))
+                    .append("</td><td class='timeline-content' valign='top' style='padding:0 0 ").append(bottom).append("px 18px'>")
+                    .append("<div style='margin-bottom:5px;font-size:10px;line-height:18px;color:").append(color).append("'>").append(typeLabel).append("</div>")
+                    .append("<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='table-layout:fixed;border-collapse:collapse'><tr><td class='timeline-title' valign='top' style='padding:0 ")
+                    .append(amountColumn ? "12" : "0").append("px 0 0;font-size:13px;font-weight:600;line-height:1.6;overflow-wrap:anywhere;word-wrap:break-word;word-break:break-word;color:")
+                    .append(INK).append("'>").append(escape(item.title())).append("</td>");
+            if (amountColumn) {
+                html.append("<td class='timeline-amount' width='96' align='right' valign='top' style='width:96px;padding:0;font-size:13px;font-weight:600;line-height:1.6;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;word-wrap:break-word;color:")
+                        .append(color).append("'>").append(escape(item.amount())).append("</td>");
+            }
+            html.append("</tr></table>");
+            if (study && hasValue) {
+                html.append("<div class='timeline-meta' style='margin-top:5px;font-size:11px;line-height:1.6;color:#747772;overflow-wrap:anywhere'>")
+                        .append(escape(item.amount())).append("</div>");
+            }
+            if (item.detail() != null && !item.detail().isBlank()) {
+                html.append("<div class='timeline-detail' style='margin-top:4px;font-size:11px;line-height:1.6;color:#8d8f8b;overflow-wrap:anywhere'>")
+                        .append(escape(item.detail())).append("</div>");
+            }
+            html.append("</td></tr>");
         }
         return html.append("</table>").toString();
     }
