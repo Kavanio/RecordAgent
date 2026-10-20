@@ -119,6 +119,34 @@ class TaskMailTemplateRendererTest {
         assertTrue(html.contains(">" + htmlEscape("—") + "</td>"));
     }
 
+    @Test void timelineRowHeightsFollowElapsedTimeRatherThanEqualSpacing() {
+        var html = renderTimeline(List.of(timelineAt("01:00"), timelineAt("02:00"), timelineAt("04:00"), timelineAt("07:00")));
+        assertEquals(List.of(96, 192, 288), timelineHeights(html), "一小时、两小时、三小时应映射为递增的行高");
+    }
+
+    @Test void timelineLimitsDenseAndLongGapsWithoutAddingHeightAfterLastEvent() {
+        var html = renderTimeline(List.of(timelineAt("08:00"), timelineAt("08:00"), timelineAt("08:01"), timelineAt("23:59")));
+        assertEquals(List.of(80, 80, 360), timelineHeights(html));
+        assertTrue(timelineHeights(renderTimeline(List.of(timelineAt("08:00")))).isEmpty());
+    }
+
+    @Test void timelineUsesReadableFallbackForUnknownInvalidOrReversedTimes() {
+        var html = renderTimeline(List.of(timelineAt(null), timelineAt(""), timelineAt("25:00"),
+                timelineAt("09:99"), timelineAt("未知"), timelineAt("08:00"), timelineAt("07:00")));
+        assertEquals(List.of(80, 80, 80, 80, 80, 80), timelineHeights(html));
+        assertTrue(html.contains("未知"), "降级布局不应丢弃事件");
+    }
+
+    private TaskReportBuilder.TimelineItem timelineAt(String time) {
+        return new TaskReportBuilder.TimelineItem(time, "todo", "完成任务", "", "");
+    }
+
+    /** 从实际渲染的时间单元格读取行高，验证时间差确实进入邮件内联布局。 */
+    private List<Integer> timelineHeights(String html) {
+        return java.util.regex.Pattern.compile("class='timeline-time'[^>]*?height='(\\d+)'")
+                .matcher(html).results().map(match -> Integer.parseInt(match.group(1))).toList();
+    }
+
     private String renderTimeline(List<TaskReportBuilder.TimelineItem> items) {
         return TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), new TaskReportBuilder.Report(
                 "日报", false, List.of(), "2026-09-23", "2026-09-23 18:00（Asia/Shanghai）", List.of(), items));

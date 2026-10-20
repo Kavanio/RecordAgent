@@ -17,6 +17,10 @@ public final class TaskMailTemplateRenderer {
     private static final String GREEN = "#467460";
     private static final String RED = "#ac685c";
     private static final String BALANCE = "#365f8b";
+    /** 时间轴每小时映射 96px；密集事件至少 80px，长时间空档最多 360px。 */
+    private static final int TIMELINE_PIXELS_PER_HOUR = 96;
+    private static final int TIMELINE_MIN_ROW_HEIGHT = 80;
+    private static final int TIMELINE_MAX_ROW_HEIGHT = 360;
 
     private TaskMailTemplateRenderer() {}
 
@@ -172,8 +176,15 @@ public final class TaskMailTemplateRenderer {
             boolean study = "study".equals(item.type());
             boolean hasValue = item.amount() != null && !item.amount().isBlank();
             boolean amountColumn = hasValue && !study;
-            int bottom = index == items.size() - 1 ? 0 : 24;
-            html.append("<tr class='timeline-item'><td class='timeline-time' width='44' valign='top' align='right' style='width:44px;padding:0 14px ")
+            boolean last = index == items.size() - 1;
+            int bottom = last ? 0 : 24;
+            int rowHeight = last ? 0 : timelineRowHeight(item.time(), items.get(index + 1).time());
+            // 单元格高度是下限，长正文仍可自然撑开；HTML 属性兼容不完整支持 CSS 的邮件客户端。
+            html.append("<tr class='timeline-item'><td class='timeline-time' width='44'")
+                    .append(last ? "" : " height='" + rowHeight + "'")
+                    .append(" valign='top' align='right' style='")
+                    .append(last ? "" : "height:" + rowHeight + "px;")
+                    .append("width:44px;padding:0 14px ")
                     .append(bottom).append("px 0;border-right:1px solid #e2e3df;white-space:nowrap;font-size:11px;line-height:18px;color:#858782;font-weight:500;font-variant-numeric:tabular-nums'>")
                     .append(escape(item.time() == null || item.time().isBlank() ? "—" : item.time()))
                     .append("</td><td class='timeline-content' valign='top' style='padding:0 0 ").append(bottom).append("px 18px'>")
@@ -197,6 +208,20 @@ public final class TaskMailTemplateRenderer {
             html.append("</td></tr>");
         }
         return html.append("</table>").toString();
+    }
+
+    /** 相邻事件的开始时刻决定最小行高；未知、同刻或倒序时间不推算跨日间隔。 */
+    private static int timelineRowHeight(String current, String next) {
+        int start = timelineMinute(current), end = timelineMinute(next);
+        if (start < 0 || end <= start) return TIMELINE_MIN_ROW_HEIGHT;
+        int height = ((end - start) * TIMELINE_PIXELS_PER_HOUR + 30) / 60;
+        return Math.max(TIMELINE_MIN_ROW_HEIGHT, Math.min(TIMELINE_MAX_ROW_HEIGHT, height));
+    }
+
+    /** 仅解析报告约定的有效 HH:mm，避免用不完整时间伪造时间差。 */
+    private static int timelineMinute(String value) {
+        if (value == null || !value.matches("(?:[01][0-9]|2[0-3]):[0-5][0-9]")) return -1;
+        return Integer.parseInt(value.substring(0, 2)) * 60 + Integer.parseInt(value.substring(3, 5));
     }
 
     private static String progressSection(TaskReportBuilder.Section todo, TaskReportBuilder.Section study,
