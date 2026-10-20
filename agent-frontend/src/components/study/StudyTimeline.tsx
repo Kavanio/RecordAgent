@@ -41,6 +41,7 @@ function palette(index: number): CSSProperties {
     '--task-bg': `hsl(${hue} 27% 88%)`,
     '--task-accent': `hsl(${hue} 29% 58%)`,
     '--task-text': `hsl(${hue} 30% 31%)`,
+    '--task-enter-delay': `${Math.min(index * 40, 160)}ms`,
   } as CSSProperties;
 }
 
@@ -72,7 +73,7 @@ export function StudyTimeline({ sessions, dateKey, now }: StudyTimelineProps) {
           const taskPosition = position(session, dateKey, now);
           const endTime = session.endedAt ? formatClock(session.endedAt) : '现在';
           const duration = formatDuration(session.durationSeconds);
-          return <div className={styles.row} style={palette(index)} key={session.id}>
+          return <div className={styles.row} style={palette(index)} key={`${dateKey}:${session.id}`}>
             <div className={styles.label}><i /><strong>{session.content}</strong><span>{formatClock(session.startedAt)} — {endTime} · {duration}</span></div>
             <div className={styles.track}>
               <div className={`${styles.task} ${session.status === 'active' ? styles.activeTask : ''}`} style={{ left: `${taskPosition.left}%`, width: `${taskPosition.width}%` }}
