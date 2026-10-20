@@ -55,6 +55,20 @@ test('动画过程中数据更新不回到零，格式化函数保持单位', as
   assert.equal(visible(), '110 分钟');
 });
 
+test('金额动画保留两位小数，完成和后续更新不丢失分、零值或负金额', async () => {
+  const format = value => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
+  await render({ value: 12345.67, fractionDigits: 2, format });
+  await advance(0); await advance(300);
+  assert.equal(visible(), format(10802.46));
+  await advance(600);
+  assert.equal(visible(), format(12345.67));
+  for (const value of [0.01, 0, -25.37]) {
+    await render({ value, fractionDigits: 2, format });
+    assert.equal(visible(), format(value));
+    assert.equal(frames.size, 0);
+  }
+});
+
 test('减少动态效果从一开始生效，也能立即终止正在播放的动画', async () => {
   media.matches = true;
   await render({ value: 80 });

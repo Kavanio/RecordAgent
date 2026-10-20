@@ -6,13 +6,15 @@ interface AnimatedNumberProps {
   /** 数据未就绪时显示占位符，不提前消耗入场动画。 */
   ready?: boolean;
   format?: (value: number) => string;
+  /** 动画中保留的小数位；金额使用 2，计数默认 0。 */
+  fractionDigits?: 0 | 1 | 2;
 }
 
 const plainNumber = (value: number) => String(value);
 const DURATION_MS = 600;
 
 /** 首次数据就绪后轻量递增；后续实时更新直达真实值，读屏始终读取最终统计。 */
-export function AnimatedNumber({ value, ready = true, format = plainNumber }: AnimatedNumberProps) {
+export function AnimatedNumber({ value, ready = true, format = plainNumber, fractionDigits = 0 }: AnimatedNumberProps) {
   const [progress, setProgress] = useState(0);
   const completed = useRef(false);
 
@@ -44,8 +46,10 @@ export function AnimatedNumber({ value, ready = true, format = plainNumber }: An
   }, [ready]);
 
   const target = Number.isFinite(value) ? value : 0;
+  const scale = 10 ** fractionDigits;
+  const displayed = Math.round(target * progress * scale) / scale;
   return <span className={styles.number}>
-    <span aria-hidden="true">{ready ? format(Math.round(target * progress)) : '—'}</span>
+    <span aria-hidden="true">{ready ? format(displayed) : '—'}</span>
     <span className={styles.accessible}>{ready ? format(target) : '正在加载'}</span>
   </span>;
 }

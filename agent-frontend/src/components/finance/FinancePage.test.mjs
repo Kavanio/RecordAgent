@@ -39,9 +39,10 @@ before(async () => {
   globalThis.ResizeObserver = class { observe() {} disconnect() {} };
   dom.window.matchMedia = (query) => {
     const listeners = new Set();
-    const result = { media: query, matches: !reducedMotion, addListener: (fn) => listeners.add(fn), removeListener: (fn) => listeners.delete(fn),
+    const matches = () => query.includes('no-preference') ? !reducedMotion : reducedMotion;
+    const result = { media: query, matches: matches(), addListener: (fn) => listeners.add(fn), removeListener: (fn) => listeners.delete(fn),
       addEventListener: (_, fn) => listeners.add(fn), removeEventListener: (_, fn) => listeners.delete(fn),
-      notify() { result.matches = !reducedMotion; listeners.forEach((fn) => fn(result)); } };
+      notify() { result.matches = matches(); listeners.forEach((fn) => fn(result)); } };
     mediaQueries.push(result);
     return result;
   };
@@ -87,7 +88,8 @@ async function click(name) {
 }
 const summary = () => container.querySelector('[aria-label="本月财务概览"]');
 const trend = () => [...container.querySelectorAll('section')].find((item) => item.querySelector('h2')?.textContent === '收支趋势');
-const totals = () => [...trend().querySelectorAll('dd')].map((item) => item.textContent);
+// 读取可见动画数值，不把供读屏使用的最终值重复拼进断言。
+const totals = () => [...trend().querySelectorAll('dd')].map((item) => item.querySelector('[aria-hidden="true"]')?.textContent ?? item.textContent);
 const analysis = () => container.querySelector('section[aria-label="支出分析"]');
 async function selectCategory(value) {
   const select = [...document.querySelectorAll('select')].find((item) => [...item.options].some((option) => option.value === '__custom_category__'));
@@ -96,6 +98,28 @@ async function selectCategory(value) {
     select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
   });
 }
+
+test('财务统计动画保留金额小数、负结余，普通刷新复用已展示的数字节点', async () => {
+  const normal = respond;
+  const precise = { ...overview, totalAssets: 12345.67, monthIncome: 6000.12, monthExpense: 1200.34, monthYield: 15.09 };
+  respond = url => {
+    if (url.pathname.endsWith('/overview')) return response(precise);
+    if (url.pathname.endsWith('/expense-chart')) return response({ ...chart(), totalExpense: 12.34, totalIncome: 0 });
+    return normal(url);
+  };
+  await render();
+  const money = value => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
+  const visibleSummary = () => [...summary().querySelectorAll('strong [aria-hidden="true"], dd [aria-hidden="true"]')].map(item => item.textContent);
+  assert.deepEqual(visibleSummary(), [12345.67, 6000.12, 1200.34, 15.09].map(money));
+  assert.deepEqual(totals(), [12.34, 0, -12.34].map(money));
+  const assetNumber = summary().querySelector('strong [aria-hidden="true"]');
+  const trendNumber = trend().querySelector('dd [aria-hidden="true"]');
+  precise.totalAssets = 12346.68;
+  await click('刷新财务数据');
+  assert.equal(summary().querySelector('strong [aria-hidden="true"]'), assetNumber);
+  assert.equal(trend().querySelector('dd [aria-hidden="true"]'), trendNumber);
+  assert.equal(assetNumber.textContent, money(12346.68));
+});
 
 test('首次概览失败不伪造零资产，图表仍独立可用，重试后恢复', async () => {
   const normal = respond;

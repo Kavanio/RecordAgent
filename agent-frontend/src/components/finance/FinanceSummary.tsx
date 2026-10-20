@@ -1,6 +1,7 @@
 import { ArrowDownLeftIcon, ArrowUpRightIcon, CaretRightIcon, SparkleIcon, WalletIcon } from '@phosphor-icons/react';
 import type { FinanceOverview } from '../../types/finance';
 import { Button } from '../common/Button';
+import { AnimatedNumber } from '../common/AnimatedNumber';
 import { LoadingTree } from '../common/LoadingTree';
 import styles from './FinanceSummary.module.css';
 
@@ -24,13 +25,13 @@ export function FinanceSummary({ overview, loading, error, onRetry, onOpenAssets
     {!overview ? (!error && <div className={styles.loading}><LoadingTree size="small" label="正在读取资产与收支…" /></div>) : <div className={styles.metrics}>
       <button type="button" className={styles.assets} onClick={onOpenAssets} aria-label="查看全部资产详情">
         <span className={styles.label}><WalletIcon size={16} />总资产</span>
-        <strong className={styles.assetAmount}>{money(overview.totalAssets)}</strong>
+        <strong className={styles.assetAmount}><AnimatedNumber value={overview.totalAssets} fractionDigits={2} format={money} /></strong>
         <span className={styles.assetFoot}>{overview.accounts.length} 个资产账户<span>查看详情<CaretRightIcon size={12} /></span></span>
       </button>
       <dl className={styles.monthStats}>
-        <div className={styles.income}><dt><ArrowDownLeftIcon size={15} />本月收入</dt><dd>{money(overview.monthIncome)}</dd><small>含自动计提收益</small></div>
-        <div className={styles.expense}><dt><ArrowUpRightIcon size={15} />本月支出</dt><dd>{money(overview.monthExpense)}</dd><small>日常消费与支出</small></div>
-        <div className={styles.yield}><dt><SparkleIcon size={15} />理财收益</dt><dd>{money(overview.monthYield)}</dd><small>本月累计计提</small></div>
+        <div className={styles.income}><dt><ArrowDownLeftIcon size={15} />本月收入</dt><dd><AnimatedNumber value={overview.monthIncome} fractionDigits={2} format={money} /></dd><small>含自动计提收益</small></div>
+        <div className={styles.expense}><dt><ArrowUpRightIcon size={15} />本月支出</dt><dd><AnimatedNumber value={overview.monthExpense} fractionDigits={2} format={money} /></dd><small>日常消费与支出</small></div>
+        <div className={styles.yield}><dt><SparkleIcon size={15} />理财收益</dt><dd><AnimatedNumber value={overview.monthYield} fractionDigits={2} format={money} /></dd><small>本月累计计提</small></div>
       </dl>
     </div>}
   </section>;
