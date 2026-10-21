@@ -1,0 +1,7 @@
+# 将此文件复制到 Windows 现有部署目录，与 compose.yaml、.env、user-data 同级。
+# 必须与原 compose.yaml 一起使用；本文件不替代端口、安全设置或数据挂载。
+services:
+  backend:
+    image: crpi-46o5657v3drrpfcl.cn-hangzhou.personal.cr.aliyuncs.com/butvan/record-agent-backend:${BUTVAN_IMAGE_TAG:-develop}
+    platform: linux/amd64
+    pull_policy: missing
