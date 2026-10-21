@@ -1,7 +1,6 @@
 //! 桌面提醒的本机偏好、受限声音目录与用户主动导入的音频。
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Mutex};
-use tauri::Manager;
 
 static SETTINGS_IO: Mutex<()> = Mutex::new(());
 const MAX_AUDIO_BYTES: usize = 10 * 1024 * 1024;
@@ -30,8 +29,9 @@ pub struct Sound { id: String, name: String, source: &'static str }
 #[derive(Serialize)]
 pub struct Configuration { preferences: Preferences, sounds: Vec<Sound> }
 
+/// 提醒偏好与上传音频跟随后端数据目录，重装应用后仍然可用。
 fn directory(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    app.path().app_config_dir().map(|dir| dir.join("task-reminder")).map_err(|e| e.to_string())
+    crate::desktop_preferences::root(app).map(|dir| dir.join("task-reminder"))
 }
 fn read(app: &tauri::AppHandle) -> Result<StoredSettings, String> {
     match std::fs::read(directory(app)?.join("settings.json")) {
@@ -143,7 +143,7 @@ pub fn import_task_reminder_audio(app: tauri::AppHandle, window: tauri::WebviewW
     }
     Ok(configuration(stored))
 }
-fn valid_custom_filename(name: &str) -> bool {
+pub(crate) fn valid_custom_filename(name: &str) -> bool {
     name.strip_prefix("custom-").and_then(|name| name.strip_suffix(".audio"))
         .is_some_and(|revision| !revision.is_empty() && revision.bytes().all(|byte| byte.is_ascii_digit()))
 }
