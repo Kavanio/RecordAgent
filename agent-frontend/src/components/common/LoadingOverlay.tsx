@@ -1,14 +1,15 @@
 import { useEffect, useRef } from 'react';
-import { LoadingTree } from './LoadingTree';
+import { LoadingTree, type LoadingTreeProps } from './LoadingTree';
 import styles from './LoadingOverlay.module.css';
 
 export interface LoadingOverlayProps {
   active: boolean;
   label?: string;
+  size?: LoadingTreeProps['size'];
 }
 
 /** 局部毛玻璃等待层；父容器需定位，并将被遮挡内容设为 inert。 */
-export function LoadingOverlay({ active, label = '正在处理，请稍候…' }: LoadingOverlayProps) {
+export function LoadingOverlay({ active, label = '正在处理，请稍候…', size = 'small' }: LoadingOverlayProps) {
   const overlay = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!active) return;
@@ -23,6 +24,6 @@ export function LoadingOverlay({ active, label = '正在处理，请稍候…' }
   }, [active]);
   if (!active) return null;
   return <div ref={overlay} className={styles.overlay} tabIndex={-1} onMouseDown={event => event.stopPropagation()}>
-    <LoadingTree size="small" label={label} />
+    <LoadingTree size={size} label={label} />
   </div>;
 }

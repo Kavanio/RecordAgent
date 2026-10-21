@@ -3,7 +3,6 @@
 .rangeTabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; border-radius: var(--radius-md); background: var(--bg-surface); }
 .rangeTabs button[aria-pressed='true'] { background: var(--bg-app); color: var(--text-primary); font-weight: 600; }
 .localNote { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 11px; }
-.refreshStatus { flex-direction: row; }
 .overview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: center; gap: 32px; }
 .total h2 { margin: 0 0 12px; color: var(--text-secondary); font-size: 12px; font-weight: 500; }
 .total > strong { display: block; color: var(--text-primary); font-size: clamp(28px, 4vw, 44px); font-weight: 600; line-height: 1.15; letter-spacing: -0.03em; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }

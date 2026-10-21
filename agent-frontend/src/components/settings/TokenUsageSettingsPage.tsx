@@ -5,7 +5,6 @@ import type { TokenUsageOverview } from '../../types/tokenUsage';
 import { formatTokenCount } from '../chat/tokenUsageFormat';
 import { Button } from '../common/Button';
 import { Select } from '../common/Select';
-import { LoadingTree } from '../common/LoadingTree';
 import { SettingsPageLayout } from './SettingsPageLayout';
 import { UsageRanking } from './UsageRanking';
 import { UsageTrend } from './UsageTrend';
@@ -41,9 +40,8 @@ export function TokenUsageSettingsPage() {
     return () => { requestId.current += 1; };
   }, [load]);
 
-  return <SettingsPageLayout title="Token 用量" description="了解每一次调用的消耗，让模型、上下文与工具的用量更清晰。" actions={<Button variant="ghost" icon={<RefreshCw size={14} />} onClick={() => void load()} disabled={loading}>{loading ? '正在刷新' : '刷新统计'}</Button>}>
-    <div className={styles.toolbar}><div className={styles.rangeTabs} role="group" aria-label="统计时间范围">{RANGES.map(item => <Button key={item.value} size="sm" variant="ghost" aria-pressed={range === item.value} onClick={() => setRange(item.value)}>{item.label}</Button>)}</div>{loading && overview ? <LoadingTree size="small" className={styles.refreshStatus} label="正在更新 Token 用量…" /> : <span className={styles.localNote}><ShieldCheck size={14} aria-hidden="true" />仅统计本地记录</span>}</div>
-    {loading && !overview && <div className={styles.state}><LoadingTree label="正在汇总所选范围的 Token 用量…" /></div>}
+  return <SettingsPageLayout title="Token 用量" loading={loading} loadingLabel="正在汇总所选范围的 Token 用量…" description="了解每一次调用的消耗，让模型、上下文与工具的用量更清晰。" actions={<Button variant="ghost" icon={<RefreshCw size={14} />} onClick={() => void load()} disabled={loading}>{loading ? '正在刷新' : '刷新统计'}</Button>}>
+    <div className={styles.toolbar}><div className={styles.rangeTabs} role="group" aria-label="统计时间范围">{RANGES.map(item => <Button key={item.value} size="sm" variant="ghost" aria-pressed={range === item.value} onClick={() => setRange(item.value)}>{item.label}</Button>)}</div><span className={styles.localNote}><ShieldCheck size={14} aria-hidden="true" />仅统计本地记录</span></div>
     {error && !overview && <div className={styles.state} role="alert"><p>{error}</p><Button variant="outline" onClick={() => void load()}>重新加载</Button></div>}
     {overview && <div aria-busy={loading}>{error && <p className={styles.notice} role="alert">刷新失败：{error}。当前显示上次成功加载的数据。</p>}<UsageContent overview={overview} /></div>}
   </SettingsPageLayout>;

@@ -1,4 +1,5 @@
-.page { width: 100%; max-width: 920px; margin: 0 auto; }
+.page { position: relative; width: 100%; max-width: 920px; margin: 0 auto; }
+.body { display: contents; }
 .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .header h1 { margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 700; line-height: 1.25; }
 .header p { margin: 6px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }

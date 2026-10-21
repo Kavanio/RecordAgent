@@ -11,6 +11,7 @@ import styles from './ProfileSettingsPage.module.css';
 
 interface ProfileSettingsPageProps {
   accountStatus: AccountStatus | null;
+  accountLoading?: boolean;
   onAccountStatusChange?: (status: AccountStatus) => void;
 }
 
@@ -28,9 +29,10 @@ interface ActivityWeek {
 }
 
 /** 将本地账户资料与真实 Token 统计汇总到同一资料页。 */
-export function ProfileSettingsPage({ accountStatus, onAccountStatusChange }: ProfileSettingsPageProps) {
+export function ProfileSettingsPage({ accountStatus, accountLoading = false, onAccountStatusChange }: ProfileSettingsPageProps) {
   const { showMessage } = useMessage();
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const requestId = useRef(0);
   const [overview, setOverview] = useState<TokenUsageOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,18 +41,23 @@ export function ProfileSettingsPage({ accountStatus, onAccountStatusChange }: Pr
   const [avatarFailed, setAvatarFailed] = useState(false);
 
   const load = useCallback(async () => {
+    const id = ++requestId.current;
     setLoading(true);
     setError(null);
     try {
-      setOverview(await fetchTokenUsageOverview());
+      const result = await fetchTokenUsageOverview();
+      if (id === requestId.current) setOverview(result);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : '读取 Token 用量失败');
+      if (id === requestId.current) setError(loadError instanceof Error ? loadError.message : '读取 Token 用量失败');
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { requestId.current += 1; };
+  }, [load]);
   useEffect(() => {
     setAvatarVersion(accountStatus?.avatarVersion ?? null);
     setAvatarFailed(false);
@@ -59,7 +66,7 @@ export function ProfileSettingsPage({ accountStatus, onAccountStatusChange }: Pr
   const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file) return;
+    if (!file || avatarUploading) return;
     if (!['image/png', 'image/jpeg'].includes(file.type)) {
       showMessage('error', '请选择 PNG 或 JPEG 格式的头像图片');
       return;
@@ -91,6 +98,8 @@ export function ProfileSettingsPage({ accountStatus, onAccountStatusChange }: Pr
     <SettingsPageLayout
       title="个人资料"
       description="查看本机用户状态与本地 Token 消耗总览。"
+      loading={loading || accountLoading || avatarUploading}
+      loadingLabel={avatarUploading ? '正在上传头像…' : '正在读取个人资料与用量…'}
       actions={
         <Button variant="ghost" icon={<RefreshCw size={14} />} onClick={() => void load()} disabled={loading}>
           {loading ? '正在刷新' : '刷新统计'}
@@ -139,7 +148,6 @@ export function ProfileSettingsPage({ accountStatus, onAccountStatusChange }: Pr
         </div>
       </div>
 
-      {loading && !overview && <ProfileState message="正在汇总本地 Token 用量…" />}
       {error && !overview && (
         <div className={styles.state} role="alert">
           <p>{error}</p>
@@ -213,10 +221,6 @@ export function ProfileSettingsPage({ accountStatus, onAccountStatusChange }: Pr
 
 function Metric({ value, label }: { value: string; label: string }) {
   return <div><dt>{label}</dt><dd>{value}</dd></div>;
-}
-
-function ProfileState({ message }: { message: string }) {
-  return <div className={styles.state}><p>{message}</p></div>;
 }
 
 function buildActivity(daily: DailyTokenUsage[]) {
