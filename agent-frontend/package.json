@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "test:tasks": "node --test src/components/task/TaskPage.test.mjs src/context/AutomationContext.test.mjs src/services/automationRealtime.test.mjs src/services/taskReminderAudio.test.mjs",
     "test:finance": "node --test src/components/finance/*.test.mjs",
+    "test:sidebar": "node --test src/components/layout/Sidebar.test.mjs",
     "test:loading": "node --test src/components/common/LoadingFeedback.test.mjs src/components/common/WorkspaceLoading.test.mjs src/components/calendar/CalendarView.test.mjs src/components/finance/FinancePage.test.mjs src/components/settings/TokenUsageSettingsPage.test.mjs src/components/settings/SettingsMainRegion.test.mjs",
     "preview": "vite preview",
     "version:check": "node ../scripts/sync-version.mjs --check",

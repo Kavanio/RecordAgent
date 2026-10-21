@@ -40,4 +40,24 @@ class ProjectLifecycleServiceTest {
         assertEquals(SessionKind.GENERAL, sessions.listActive().getFirst().kind());
         assertNull(sessions.listActive().getFirst().projectId());
     }
+
+    @Test
+    void removesMovedProjectReferenceAndKeepsSessions() throws Exception {
+        AgentStorageProperties storage = new AgentStorageProperties(temporaryDirectory.resolve("app-data"));
+        CurrentUserProvider user = new CurrentUserProvider();
+        ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+        ProjectRegistry registry = new ProjectRegistry(storage, user, mapper);
+        SessionCatalogService sessions = new SessionCatalogService(storage, user, mapper, registry);
+        ProjectLifecycleService lifecycle = new ProjectLifecycleService(registry, sessions);
+        Path root = Files.createDirectories(temporaryDirectory.resolve("projects/moved"));
+        ProjectSummary project = lifecycle.importProject("Moved", root.toString());
+        sessions.create(new CreateSessionRequest(SessionKind.PROJECT, "移动前会话", project.id()));
+        Files.delete(root);
+
+        lifecycle.removeProject(project.id());
+
+        assertTrue(registry.listProjects().isEmpty());
+        assertEquals(SessionKind.GENERAL, sessions.listActive().getFirst().kind());
+        assertNull(sessions.listActive().getFirst().projectId());
+    }
 }
