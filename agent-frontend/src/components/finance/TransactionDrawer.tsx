@@ -4,6 +4,7 @@ import type { FinanceAccount, FinanceTransaction } from '../../types/finance';
 import { Drawer } from '../common/Drawer';
 import { Select } from '../common/Select';
 import { Button } from '../common/Button';
+import { Skeleton } from '../common/Skeleton';
 import { TransactionTypeIcon } from './TransactionTypeIcon';
 import styles from './TransactionDrawer.module.css';
 
@@ -139,7 +140,7 @@ export const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
     </div>
 
     <div className={styles.list} aria-live="polite">
-      {loading ? <div className={styles.state}>正在读取全部流水…</div>
+      {loading ? <Skeleton label="正在读取全部流水…" />
         : error ? <div className={styles.state}><strong>流水加载失败</strong><p>{error}</p><Button variant="outline" size="sm" onClick={onRetry}>重新加载</Button></div>
           : filtered.length ? filtered.map((transaction) => {
             const isExpense = transaction.transactionType === 'expense';

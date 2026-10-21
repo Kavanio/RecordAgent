@@ -2,7 +2,7 @@ import { ArrowDownLeftIcon, ArrowUpRightIcon, CaretRightIcon, SparkleIcon, Walle
 import type { FinanceOverview } from '../../types/finance';
 import { Button } from '../common/Button';
 import { AnimatedNumber } from '../common/AnimatedNumber';
-import { LoadingTree } from '../common/LoadingTree';
+import { Skeleton } from '../common/Skeleton';
 import styles from './FinanceSummary.module.css';
 
 interface FinanceSummaryProps {
@@ -22,7 +22,8 @@ export function FinanceSummary({ overview, loading, error, onRetry, onOpenAssets
       <div><strong>{overview ? '更新未完成，以下为上次读取的数据' : '财务概览加载失败'}</strong><p>{error}</p></div>
       <Button type="button" variant="outline" size="sm" onClick={onRetry} disabled={loading}>重新加载概览</Button>
     </div>}
-    {!overview ? (!error && <div className={styles.loading}><LoadingTree size="small" label="正在读取资产与收支…" /></div>) : <div className={styles.metrics}>
+    {overview && loading && <span className={styles.refreshStatus} role="status">正在更新资产与收支…</span>}
+    {!overview ? (!error && <Skeleton variant="metrics" label="正在读取资产与收支…" />) : <div className={styles.metrics}>
       <button type="button" className={styles.assets} onClick={onOpenAssets} aria-label="查看全部资产详情">
         <span className={styles.label}><WalletIcon size={16} />总资产</span>
         <strong className={styles.assetAmount}><AnimatedNumber value={overview.totalAssets} fractionDigits={2} format={money} /></strong>

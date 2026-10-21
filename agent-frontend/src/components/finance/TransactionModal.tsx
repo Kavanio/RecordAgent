@@ -66,6 +66,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const submitTransaction = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSaving) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     setIsSaving(true);
@@ -91,7 +92,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   return (
-    <Modal open={open} title={transaction ? '编辑流水' : '记一笔'} onClose={closeModal} width={600} centered>
+    <Modal open={open} title={transaction ? '编辑流水' : '记一笔'} onClose={closeModal} width={600} centered busy={isSaving} busyLabel="正在保存流水并同步账户…">
       <form key={`${open}-${transaction?.id ?? defaultDate ?? 'today'}`} className={styles.transactionForm} onSubmit={(event) => { void submitTransaction(event); }}>
         <div className={styles.typeSwitch} aria-label="流水类型">
           <button type="button" className={entryType === 'expense' ? styles.typeActive : ''} onClick={() => { setEntryType('expense'); setCategory(EXPENSE_CATEGORIES[0]); }}>支出</button>

@@ -49,7 +49,7 @@ before(async () => {
   React = await import('react');
   ({ createRoot } = await import('react-dom/client'));
   ({ gsap } = await import('gsap'));
-  server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
+  server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' });
   ({ FinancePage } = await server.ssrLoadModule('/src/components/finance/FinancePage.tsx'));
   ({ MessageProvider } = await server.ssrLoadModule('/src/components/common/Message.tsx'));
 });
@@ -98,6 +98,55 @@ async function selectCategory(value) {
     select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
   });
 }
+
+test('慢速首次读取展示骨架而非零余额或空账户，刷新保留金额和节点', async () => {
+  const normal = respond, pending = deferred();
+  respond = url => url.pathname.endsWith('/overview') ? pending.promise : normal(url);
+  await render();
+  assert.ok(summary().querySelector('[role="status"][aria-label="正在读取资产与收支…"]'));
+  assert.ok(container.querySelector('[aria-label="正在读取最近流水…"]'));
+  assert.doesNotMatch(container.textContent, /还没有流水记录|暂无账户/);
+  await React.act(async () => pending.resolve(response(overview)));
+  const number = summary().querySelector('strong [aria-hidden="true"]');
+  const refresh = deferred();
+  respond = url => url.pathname.endsWith('/overview') ? refresh.promise : normal(url);
+  await click('刷新财务数据');
+  assert.equal(summary().querySelector('strong [aria-hidden="true"]'), number);
+  assert.match(summary().textContent, /正在更新资产与收支/);
+  assert.match(number.textContent, /12,345/);
+  await React.act(async () => refresh.resolve(response(overview)));
+  assert.doesNotMatch(summary().textContent, /正在更新资产与收支/);
+});
+
+test('流水慢速提交显示局部遮罩，阻止关闭与重复提交；失败保留草稿并解除忙碌', async () => {
+  await render();
+  await click('记一笔');
+  const normal = respond, write = deferred();
+  let writes = 0;
+  respond = (url, init) => {
+    if (init?.method === 'POST') { writes++; return write.promise; }
+    return normal(url);
+  };
+  const form = document.querySelector('form');
+  form.querySelector('[name="amount"]').value = '25';
+  form.querySelector('[name="note"]').value = '保留这份草稿';
+  const submit = () => React.act(async () => form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
+  await submit();
+  const dialog = document.querySelector('[role="dialog"]');
+  assert.equal(dialog.getAttribute('aria-busy'), 'true');
+  assert.match(dialog.querySelector('[role="status"]').textContent, /正在保存流水/);
+  assert.ok(form.closest('[inert]'));
+  await React.act(async () => window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  await React.act(async () => dialog.parentElement.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true })));
+  await submit();
+  assert.equal(writes, 1);
+  assert.equal(document.querySelector('[role="dialog"]'), dialog);
+  await React.act(async () => write.reject(new Error('服务器暂时不可用')));
+  assert.equal(dialog.getAttribute('aria-busy'), 'false');
+  assert.equal(form.closest('[inert]'), null);
+  assert.equal(form.querySelector('[name="note"]').value, '保留这份草稿');
+  assert.match(dialog.textContent, /服务器暂时不可用/);
+});
 
 test('财务统计动画保留金额小数、负结余，普通刷新复用已展示的数字节点', async () => {
   const normal = respond;

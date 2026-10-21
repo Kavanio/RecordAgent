@@ -36,6 +36,7 @@ export const AssetAdjustmentModal: React.FC<AssetAdjustmentModalProps> = ({
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSaving) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     setIsSaving(true);
@@ -54,7 +55,7 @@ export const AssetAdjustmentModal: React.FC<AssetAdjustmentModalProps> = ({
     }
   };
 
-  return <Modal open={open} title="调整资产余额" onClose={closeModal} width={500} centered>
+  return <Modal open={open} title="调整资产余额" onClose={closeModal} width={500} centered busy={isSaving} busyLabel="正在校准资产余额…">
     <form key={account?.id ?? 'none'} className={styles.form} onSubmit={(event) => { void submit(event); }}>
       <div className={styles.warning}>
         <strong>余额校准不代表真实收支</strong>

@@ -86,6 +86,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSaving) return;
     setError(null);
 
     if (isSameAccount) {
@@ -120,7 +121,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   };
 
   return (
-    <Modal open={open} title="资产划账" onClose={closeModal} width={560} centered>
+    <Modal open={open} title="资产划账" onClose={closeModal} width={560} centered busy={isSaving} busyLabel="正在划账并同步余额…">
       <form className={styles.transferForm} onSubmit={(e) => { void handleSubmit(e); }}>
         {error && <div className={styles.modalError} role="alert">{error}</div>}
 

@@ -1,5 +1,5 @@
 import { TopBarAction } from '../common/TopBarAction';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarDotsIcon,
   CaretLeftIcon,
@@ -28,6 +28,8 @@ import type { CreateFinanceTransactionInput, FinanceAccount, FinanceCategoryOpti
 import { Button } from '../common/Button';
 import { useMessage } from '../common/Message';
 import { Modal } from '../common/Modal';
+import { LoadingOverlay } from '../common/LoadingOverlay';
+import { Skeleton } from '../common/Skeleton';
 import { TopBar } from '../common/TopBar';
 import { formatStudyDuration } from './calendarPresentation';
 import { CalendarMonthGrid } from './CalendarMonthGrid';
@@ -105,6 +107,15 @@ export const CalendarView: React.FC = () => {
   const [entries, setEntries] = useState<Record<string, CalendarDayEntry>>({});
   const [summaries, setSummaries] = useState<Record<string, DailyDaySummary>>({});
   const [isDayLoading, setIsDayLoading] = useState(true);
+  const [dayError, setDayError] = useState('');
+  const [dayRetry, setDayRetry] = useState(0);
+  const [isMonthLoading, setIsMonthLoading] = useState(true);
+  const [isOverviewLoading, setIsOverviewLoading] = useState(true);
+  const [monthError, setMonthError] = useState('');
+  const [isPreparingFinance, setIsPreparingFinance] = useState(false);
+  const preparingFinance = useRef(false);
+  const pendingTodos = useRef(new Set<string>());
+  const [pendingTodoIds, setPendingTodoIds] = useState<ReadonlySet<string>>(new Set());
   const [journalEditorDate, setJournalEditorDate] = useState<Date | null>(null);
   const [journalEditorId, setJournalEditorId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -126,6 +137,7 @@ export const CalendarView: React.FC = () => {
   useEffect(() => {
     let active = true;
     setStudyStats(null); setRecordDays([]); setOverviewError(''); setCashflow(null); setRecordsReady(false);
+    setIsOverviewLoading(true);
     const from = formatLocalDate(new Date(cursor.getFullYear(), cursor.getMonth(), 1));
     const to = formatLocalDate(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0));
     void Promise.allSettled([
@@ -134,6 +146,7 @@ export const CalendarView: React.FC = () => {
       fetchFinanceCashflowSummary(from, to),
     ]).then(([study, records, finances]) => {
       if (!active) return;
+      setIsOverviewLoading(false);
       if (study.status === 'fulfilled') setStudyStats(study.value);
       if (records.status === 'fulfilled') { setRecordDays(records.value); setRecordsReady(true); }
       if (finances.status === 'fulfilled') setCashflow(finances.value);
@@ -191,23 +204,26 @@ export const CalendarView: React.FC = () => {
   useEffect(() => {
     let active = true;
     setIsDayLoading(true);
+    setDayError('');
     fetchDailyDay(selected)
       .then((day) => {
         if (active) setEntries((current) => ({ ...current, [day.date]: toCalendarDayEntry(day) }));
       })
       .catch((error: unknown) => {
-        if (active) showMessage('error', error instanceof Error ? error.message : '读取日记录失败');
+        if (active) setDayError(error instanceof Error ? error.message : '读取日记录失败');
       })
       .finally(() => {
         if (active) setIsDayLoading(false);
       });
     return () => { active = false; };
-  }, [selected, showMessage, syncGeneration]);
+  }, [selected, dayRetry, syncGeneration]);
 
   useEffect(() => {
     let active = true;
     setSummaries({});
     setSummariesReady(false);
+    setIsMonthLoading(true);
+    setMonthError('');
     const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
     const last = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
     fetchDailySummaries(first, last)
@@ -215,8 +231,9 @@ export const CalendarView: React.FC = () => {
         if (active) { setSummaries(Object.fromEntries(items.map((item) => [item.date, item]))); setSummariesReady(true); }
       })
       .catch((error: unknown) => {
-        if (active) showMessage('error', error instanceof Error ? error.message : '读取月度摘要失败');
-      });
+        if (active) setMonthError(error instanceof Error ? error.message : '读取月度摘要失败');
+      })
+      .finally(() => { if (active) setIsMonthLoading(false); });
     return () => { active = false; };
   }, [cursor, showMessage, overviewRetry]);
 
@@ -226,6 +243,9 @@ export const CalendarView: React.FC = () => {
   };
 
   const openFinanceTransactionModal = async () => {
+    if (preparingFinance.current) return;
+    preparingFinance.current = true;
+    setIsPreparingFinance(true);
     try {
       const [overview, categories] = await Promise.all([fetchFinanceOverview(), fetchFinanceCategories()]);
       if (!overview.accounts.length) {
@@ -237,6 +257,9 @@ export const CalendarView: React.FC = () => {
       setIsFinanceTransactionModalOpen(true);
     } catch (error: unknown) {
       showMessage('error', error instanceof Error ? error.message : '读取财务账户失败，请稍后重试');
+    } finally {
+      preparingFinance.current = false;
+      setIsPreparingFinance(false);
     }
   };
 
@@ -252,21 +275,28 @@ export const CalendarView: React.FC = () => {
 
   const toggleTodo = async (todoId: string) => {
     const todo = selectedEntry.todos.find((item) => item.id === todoId);
-    if (!todo) return;
+    if (!todo || pendingTodos.current.has(todoId)) return;
+    pendingTodos.current.add(todoId);
+    setPendingTodoIds(new Set(pendingTodos.current));
     try {
       await setDailyTodoCompleted(todo.id, !todo.completed, todo.version ?? 0, selected);
       await refreshSelectedAndMonth();
     } catch (error: unknown) {
       showMessage('error', error instanceof Error ? error.message : '修改待办失败');
+    } finally {
+      pendingTodos.current.delete(todoId);
+      setPendingTodoIds(new Set(pendingTodos.current));
     }
   };
 
   const createRecord = async (draft: CalendarRecordDraft) => {
+    // 写入失败交回表单展示并保留草稿；写入成功后的刷新失败不能诱导重复创建。
+    await createDailyRecord(selected, draft);
+    showMessage('success', '日历记录已保存');
     try {
-      await createDailyRecord(selected, draft);
       await refreshSelectedAndMonth();
     } catch (error: unknown) {
-      showMessage('error', error instanceof Error ? error.message : '创建日记录失败');
+      showMessage('error', error instanceof Error ? `记录已保存，但刷新失败：${error.message}` : '记录已保存，但刷新失败');
     }
   };
 
@@ -344,7 +374,8 @@ export const CalendarView: React.FC = () => {
   }
 
   return (
-    <main className={styles.workspace}>
+    <main className={styles.workspace} aria-busy={isPreparingFinance}>
+      <div className={styles.interactive} inert={isPreparingFinance}>
       <TopBar
         icon={<CalendarDotsIcon size={16} />}
         title="日历"
@@ -379,6 +410,7 @@ export const CalendarView: React.FC = () => {
               </div>
               <CalendarMonthGrid days={days} month={cursor.getMonth()} selectedKey={selectedKey} todayKey={todayKey}
                 available={summariesReady && recordsReady && studyStats !== null}
+                loading={isMonthLoading || isOverviewLoading}
                 summaries={summaries} studyByDate={studyByDate} recordsByDate={recordsByDate}
                 onSelect={date => setSelected(startOfDay(date))} />
               <div className={styles.itemLegend} aria-label="事项类别">
@@ -388,40 +420,39 @@ export const CalendarView: React.FC = () => {
               </div>
               <section className={styles.monthReview} aria-label="本月摘要">
                 <div className={styles.monthReviewHeading}><h3>本月摘要</h3><span>待办统计截至今天</span></div>
-                {overviewError && <p className={styles.monthReviewEmpty}>{overviewError} <button type="button" onClick={() => setOverviewRetry(value => value + 1)}>重试</button></p>}
-                <dl className={styles.monthStats}>
+                {(overviewError || monthError) && <p className={styles.monthReviewEmpty}>{monthError || overviewError} <button type="button" onClick={() => setOverviewRetry(value => value + 1)}>重试</button></p>}
+                {isMonthLoading || isOverviewLoading ? <Skeleton variant="metrics" label="正在读取本月摘要…" /> : <dl className={styles.monthStats}>
                   <div><dt>学习时长</dt><dd>{studyStats ? formatStudyDuration(studyStats.totalDurationSeconds) : '—'}</dd></div>
                   <div><dt>完成待办</dt><dd>{summariesReady ? `${monthTodoCompleted} / ${monthTodoTotal}` : '—'}</dd></div>
                   <div><dt>资料篇数</dt><dd>{recordsReady ? `${monthRecordCount} 篇` : '—'}</dd></div>
                   <div><dt>收支结余</dt><dd>{cashflow ? `¥${(cashflow.income - cashflow.expense).toFixed(2)}` : '—'}</dd></div>
-                </dl>
+                </dl>}
               </section>
             </section>
 
-          <section className={styles.dayPanel} aria-label={`${selectedLabel}的日记录`}>
+          <section className={styles.dayPanel} aria-label={`${selectedLabel}的日记录`} aria-busy={isDayLoading}>
             <div className={styles.dayHeading}>
               <div>
                 <h2>{selectedLabel}</h2>
-                <p>{hasDailyRecord ? '当天记录' : '暂无记录'}</p>
+                <p>{isDayLoading ? '正在读取当天记录…' : dayError ? '日记录尚未更新' : hasDailyRecord ? '当天记录' : '暂无记录'}</p>
               </div>
             </div>
 
-            <div className={styles.summaryLine} aria-label="当天汇总">
+            {dayError && <p className={styles.monthReviewEmpty} role="alert">{dayError} {entries[selectedKey] && '以下为上次读取的数据。'}<Button size="sm" variant="ghost" onClick={() => setDayRetry(value => value + 1)}>重新读取日记录</Button></p>}
+            {!entries[selectedKey] ? (isDayLoading && <Skeleton variant="metrics" label="正在读取当天汇总…" />) : <div className={styles.summaryLine} aria-label="当天汇总">
               <span className={styles.todoSummary}><ChecksIcon size={16} /><span><small>待办完成</small><strong>{completedCount}/{selectedEntry.todos.length || 0}</strong></span></span>
               <span className={styles.expenseSummary}><WalletIcon size={16} /><span><small>今日支出</small><strong>¥{totalExpense(selectedEntry).toFixed(2)}</strong></span></span>
               <span className={styles.incomeSummary}><WalletIcon size={16} /><span><small>今日收入</small><strong>¥{totalIncome(selectedEntry).toFixed(2)}</strong></span></span>
               <span className={styles.scheduleSummary}><ClockIcon size={16} /><span><small>日程</small><strong>{selectedEntry.schedules.length} 个</strong></span></span>
-            </div>
+            </div>}
 
-            {isDayLoading ? <div className={styles.emptyDay}>
-              <CalendarDotsIcon size={20} aria-hidden="true" />
-              <strong>正在读取日记录</strong>
-            </div> : hasDailyRecord ? <div className={styles.recordSections}>
+            {isDayLoading && !entries[selectedKey] ? <Skeleton label="正在读取日记录…" /> : !entries[selectedKey] && dayError ? null : hasDailyRecord ? <div className={styles.recordSections}>
               <section className={styles.recordSection}>
-                <div className={styles.sectionHeading}><ChecksIcon size={15} aria-hidden="true" /><h3>待办事项</h3></div>
+                <div className={styles.sectionHeading}><ChecksIcon size={15} aria-hidden="true" /><h3>待办事项</h3>{pendingTodoIds.size > 0 && <span role="status">正在同步待办…</span>}</div>
                 <DailyTodoList
                   todos={selectedEntry.todos}
                   onToggle={toggleTodo}
+                  pendingIds={pendingTodoIds}
                   onDelete={(todo) => requestDelete(todo, '待办', todo.title)}
                 />
               </section>
@@ -506,6 +537,8 @@ export const CalendarView: React.FC = () => {
         revision={overviewRetry}
         onChanged={refreshSelectedAndMonth}
       />
+      </div>
+      <LoadingOverlay active={isPreparingFinance} label="正在读取财务账户与分类…" />
       <TransactionModal
         open={isFinanceTransactionModalOpen}
         accounts={financeAccounts}
@@ -535,6 +568,8 @@ export const CalendarView: React.FC = () => {
       </Modal>
       <Modal
         open={deleteTarget !== null}
+        busy={isDeleting}
+        busyLabel="正在删除日历记录…"
         title={deleteTarget?.recurrence && deleteTarget.recurrence !== 'none'
           ? '删除整个重复待办？'
           : `删除${deleteTarget?.kind ?? '记录'}？`}

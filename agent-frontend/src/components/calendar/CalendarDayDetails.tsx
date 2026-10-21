@@ -7,6 +7,7 @@ import type {
 } from '../../types/finance';
 import { formatStudyDuration } from './calendarPresentation';
 import { useStudyRealtime } from '../../context/studyRealtimeState';
+import { Skeleton } from '../common/Skeleton';
 import styles from './CalendarDayDetails.module.css';
 const LABELS: Record<FinanceTransactionType, string> = {
   income: '收入',
@@ -100,7 +101,7 @@ export function CalendarDayDetails({
   return (
     <div className={compact ? styles.compact : styles.full}>
       {!data ? (
-        <p className={styles.empty}>正在读取当天记录…</p>
+        <Skeleton label="正在读取当天记录…" />
       ) : (
         <>
           {failed && (

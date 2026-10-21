@@ -78,6 +78,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       icon={headerIcon}
       width={width}
       centered
+      busy={busy}
       onClose={() => {
         if (!busy) onClose();
       }}
