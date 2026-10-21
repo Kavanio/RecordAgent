@@ -1,3 +1,4 @@
+import { readPreference, writePreference } from '../../services/desktopPreferences';
 import type { SlashCommandDefinition, SlashCommandName } from './slashCommands.ts';
 
 const STORAGE_KEY = 'butvan.slashCommandPreferences';
@@ -35,7 +36,7 @@ function sanitizeOverride(value: unknown): SlashCommandOverride | null {
 export function getSlashCommandPreferences(): SlashCommandPreferences {
   if (typeof localStorage === 'undefined') return {};
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as Record<string, unknown>;
+    const stored = JSON.parse(readPreference(STORAGE_KEY) ?? '{}') as Record<string, unknown>;
     return Object.fromEntries(
       Object.entries(stored)
         .map(([name, value]) => [name, sanitizeOverride(value)] as const)
@@ -48,7 +49,7 @@ export function getSlashCommandPreferences(): SlashCommandPreferences {
 
 function saveSlashCommandPreferences(preferences: SlashCommandPreferences): SlashCommandPreferences {
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+    writePreference(STORAGE_KEY, JSON.stringify(preferences));
   }
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent<SlashCommandPreferences>(

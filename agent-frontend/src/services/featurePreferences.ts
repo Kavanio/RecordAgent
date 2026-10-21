@@ -1,3 +1,4 @@
+import { readPreference, writePreference } from './desktopPreferences';
 import type {
   CalendarPreferences,
   ChatTopBarPreferences,
@@ -30,7 +31,7 @@ function isStudyWindowMode(value: unknown): value is StudyWindowMode {
 /** 读取本机功能偏好；损坏或过期的数据自动回退为安全默认值。 */
 export function getFeaturePreferences(): FeaturePreferences {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as Partial<FeaturePreferences>;
+    const saved = JSON.parse(readPreference(STORAGE_KEY) ?? '{}') as Partial<FeaturePreferences>;
     const savedTopBar = saved.chatTopBar;
     const savedCalendar = saved.calendar;
     return {
@@ -69,7 +70,7 @@ export function getFeaturePreferences(): FeaturePreferences {
 }
 
 function saveFeaturePreferences(next: FeaturePreferences): FeaturePreferences {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  writePreference(STORAGE_KEY, JSON.stringify(next));
   window.dispatchEvent(new CustomEvent<FeaturePreferences>(FEATURE_PREFERENCES_EVENT, { detail: next }));
   return next;
 }

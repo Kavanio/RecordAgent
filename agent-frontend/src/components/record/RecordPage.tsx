@@ -1,4 +1,5 @@
 import { TopBarAction } from '../common/TopBarAction';
+import { readPreference, writePreference } from '../../services/desktopPreferences';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   ArrowCounterClockwiseIcon,
@@ -59,7 +60,7 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
   const [loadedQuery, setLoadedQuery] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const requestId = useRef(0);
-  const [summaryCopy, setSummaryCopy] = useState(() => localStorage.getItem(SUMMARY_COPY_KEY) || DEFAULT_SUMMARY_COPY);
+  const [summaryCopy, setSummaryCopy] = useState(() => readPreference(SUMMARY_COPY_KEY) || DEFAULT_SUMMARY_COPY);
   const [summaryDraft, setSummaryDraft] = useState(summaryCopy);
   const [editingSummaryCopy, setEditingSummaryCopy] = useState(false);
   const [newTabName, setNewTabName] = useState('');
@@ -310,7 +311,7 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
         {editingSummaryCopy ? <input className={styles.summaryCopyInput} value={summaryDraft} autoFocus maxLength={120}
           aria-label="学习提示文案" onChange={(event) => setSummaryDraft(event.target.value)} onBlur={() => {
             const nextCopy = summaryDraft.trim() || DEFAULT_SUMMARY_COPY;
-            setSummaryCopy(nextCopy); setSummaryDraft(nextCopy); localStorage.setItem(SUMMARY_COPY_KEY, nextCopy); setEditingSummaryCopy(false);
+            setSummaryCopy(nextCopy); setSummaryDraft(nextCopy); writePreference(SUMMARY_COPY_KEY, nextCopy); setEditingSummaryCopy(false);
           }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { setSummaryDraft(summaryCopy); setEditingSummaryCopy(false); } }} />
           : <p className={styles.summaryCopy} tabIndex={0} role="button" aria-label="学习提示文案，双击编辑" title="双击编辑" onDoubleClick={() => setEditingSummaryCopy(true)}
             onKeyDown={(event) => { if (event.key === 'Enter' || event.key === 'F2') setEditingSummaryCopy(true); }}>{summaryCopy}</p>}

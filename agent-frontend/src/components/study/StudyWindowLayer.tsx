@@ -3,6 +3,7 @@ import { getFeaturePreferences, subscribeFeaturePreferences } from '../../servic
 import { finishStudySession } from '../../services/studyApi';
 import { useStudyRealtime } from '../../context/studyRealtimeState';
 import { hideDesktopStudyWindow, showDesktopStudyWindow } from '../../services/studyWindow';
+import { readPreference, writePreference } from '../../services/desktopPreferences';
 import type { StudyWindowMode } from '../../types/preferences';
 import { ActiveStudyCard } from './ActiveStudyCard';
 import { useMessage } from '../common/Message';
@@ -47,7 +48,7 @@ function clampGeometry(geometry: WidgetGeometry): WidgetGeometry {
 function readGeometry(): WidgetGeometry {
   const defaults = defaultGeometry();
   try {
-    const saved = JSON.parse(localStorage.getItem(POSITION_KEY) ?? '{}') as Partial<WidgetGeometry>;
+    const saved = JSON.parse(readPreference(POSITION_KEY) ?? '{}') as Partial<WidgetGeometry>;
     if (Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
       return clampGeometry({
         x: saved.x!,
@@ -147,7 +148,7 @@ export function StudyWindowLayer() {
     const interaction = interactionRef.current;
     if (!interaction || interaction.pointerId !== event.pointerId) return;
     interactionRef.current = null;
-    localStorage.setItem(POSITION_KEY, JSON.stringify(geometryRef.current));
+    writePreference(POSITION_KEY, JSON.stringify(geometryRef.current));
     if (interaction.captureElement.hasPointerCapture(event.pointerId)) {
       interaction.captureElement.releasePointerCapture(event.pointerId);
     }

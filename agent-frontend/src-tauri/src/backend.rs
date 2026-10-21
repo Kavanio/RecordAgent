@@ -202,11 +202,9 @@ fn validate_remote_url(url: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// 连接配置与业务数据同寿命，避免重装应用后远程地址丢失。
 fn connection_path(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_config_dir()
-        .map(|dir| dir.join(CONNECTION_FILE))
-        .map_err(|e| e.to_string())
+    crate::desktop_preferences::root(app).map(|dir| dir.join(CONNECTION_FILE))
 }
 
 fn load_connection(app: &AppHandle) -> Result<BackendConnectionConfig, String> {
