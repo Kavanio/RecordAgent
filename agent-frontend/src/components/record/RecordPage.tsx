@@ -17,7 +17,7 @@ import { clearRecordTrash, createRecord, createRecordTab, deleteRecordTab, expor
 import type { RecordEntry, RecordTab, RecordType, SaveRecordInput } from '../../types/record';
 import { RecordEditor } from './RecordEditor';
 import { RECORD_TYPES } from './recordTypes';
-import { LoadingTree } from '../common/LoadingTree';
+import { Skeleton } from '../common/Skeleton';
 import { TopBar } from '../common/TopBar';
 import { Button } from '../common/Button';
 import { TextInput } from '../common/TextInput';
@@ -56,6 +56,9 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
   const [editing, setEditing] = useState<EditorTarget | null>(() => initialEntry === undefined ? null : { entry: initialEntry ?? undefined, type: initialEntry?.type ?? initialType });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadedQuery, setLoadedQuery] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const requestId = useRef(0);
   const [summaryCopy, setSummaryCopy] = useState(() => localStorage.getItem(SUMMARY_COPY_KEY) || DEFAULT_SUMMARY_COPY);
   const [summaryDraft, setSummaryDraft] = useState(summaryCopy);
   const [editingSummaryCopy, setEditingSummaryCopy] = useState(false);
@@ -112,20 +115,26 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
   };
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const id = ++requestId.current;
+    setLoading(true); setLoadError(null);
     try {
       const [recordItems, tabItems] = await Promise.all([fetchRecords(range.from, range.to, { query: query.trim() }), fetchRecordTabs()]);
-      setRecords(recordItems); setTabs(tabItems);
-    } catch (reason) { showMessage('error', reason instanceof Error ? reason.message : '资料加载失败'); }
-    finally { setLoading(false); }
-  }, [query, range.from, range.to, showMessage]);
-  useEffect(() => { const timer = window.setTimeout(() => void load(), query ? 250 : 0); return () => window.clearTimeout(timer); }, [load, query]);
+      if (id === requestId.current) { setRecords(recordItems); setTabs(tabItems); setLoadedQuery(query.trim()); }
+    } catch (reason) {
+      if (id === requestId.current) setLoadError(reason instanceof Error ? reason.message : '资料加载失败');
+    } finally { if (id === requestId.current) setLoading(false); }
+  }, [query, range.from, range.to]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), query ? 250 : 0);
+    return () => { window.clearTimeout(timer); requestId.current += 1; };
+  }, [load, query]);
   useEffect(() => {
     if (!isNewTabModalOpen) return;
     const frame = window.requestAnimationFrame(() => newTabInputRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
   }, [isNewTabModalOpen]);
 
+  const canShowRecords = loadedQuery === query.trim();
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const visibleRecords = activeTabId === 'all' ? records : records.filter((entry) => entry.tabId === activeTabId);
   const startOfWeek = formatDate(mondayOf(today));
@@ -269,7 +278,9 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
     moveTab(tabId, currentIndex + (event.key === 'ArrowLeft' ? -1 : 1));
   };
 
-  if (editing && loading && tabs.length === 0) return <main className={styles.workspace}><LoadingTree label="正在读取资料分类…" /></main>;
+  if (editing && loadedQuery === null && tabs.length === 0) return <main className={styles.workspace}><div className={styles.editorLoading}><h1>准备资料编辑器</h1>
+    {loading ? <Skeleton variant="document" label="正在读取资料分类…" /> : <div className={styles.loadError} role="alert"><span>{loadError}</span><Button onClick={() => void load()}>重新加载资料</Button><Button variant="ghost" onClick={() => setEditing(null)}>返回资料</Button></div>}
+  </div></main>;
 
   if (editing) return <RecordEditor date={editing.entry?.recordDate ?? todayKey} entry={editing.entry}
     initialType={editing.entry?.type ?? editing.type} initialTabId={editing.entry?.tabId ?? editing.tabId ?? (editing.type === 'journal' ? tabs.find((tab) => tab.systemKey === 'journal')?.id : undefined)}
@@ -277,7 +288,7 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
 
   return <main className={styles.workspace}>
     <TopBar title="资料" subtitle="个人资料库" icon={<FileTextIcon size={16} />} search={
-      <div className={styles.search}><MagnifyingGlassIcon size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="搜索资料" placeholder="搜索标题或正文…" /></div>
+      <div className={styles.search}><MagnifyingGlassIcon size={15} /><input value={query} onChange={(event) => { setLoading(true); setLoadError(null); setQuery(event.target.value); }} aria-label="搜索资料" placeholder="搜索标题或正文…" /></div>
     } actions={<>
         <TopBarAction iconOnly aria-label="导出备份" onClick={() => void exportRecordBackup()} title="导出备份"><DownloadSimpleIcon size={14} /></TopBarAction>
         <TopBarAction iconOnly aria-label="导入备份" title="导入备份" onClick={() => importInputRef.current?.click()}><UploadSimpleIcon size={14} /></TopBarAction><input ref={importInputRef} hidden type="file" aria-label="导入备份" accept=".zip,application/zip" onChange={(event) => {
@@ -290,7 +301,10 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
     </>} />
     <div className={styles.dashboard}>
       <header className={styles.pageHeading}><div><span className={styles.eyebrow}>个人资料库</span><h1>资料</h1><p>捕捉想法，沉淀值得留下的内容。</p></div><span className={styles.todayLabel}>{todayKey.replaceAll('-', ' / ')}</span></header>
-      <section className={styles.summary} aria-label="本周资料概况">
+      <section className={styles.summary} aria-label="本周资料概况" aria-busy={loading}>
+        {!canShowRecords ? <div className={styles.summaryLoading} role={loading ? 'status' : undefined} aria-label={loading ? '正在读取资料概况…' : undefined}>
+          {loading ? <><Skeleton variant="text" decorative /><Skeleton variant="text" decorative /><Skeleton variant="text" decorative /></> : <span>资料概况暂不可用</span>}
+        </div> : <>
         <div><strong>{weekRecords.length}</strong><span>本周新增资料</span></div>
         <div className={weekReviews.length ? styles.reviewComplete : undefined}><strong>{weekReviews.length ? <CheckIcon size={20} weight="bold" /> : '—'}</strong><span>{weekReviews.length ? `已完成 ${weekReviews.length} 次复盘` : '本周尚未复盘'}</span></div>
         {editingSummaryCopy ? <input className={styles.summaryCopyInput} value={summaryDraft} autoFocus maxLength={120}
@@ -300,10 +314,11 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
           }} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { setSummaryDraft(summaryCopy); setEditingSummaryCopy(false); } }} />
           : <p className={styles.summaryCopy} tabIndex={0} role="button" aria-label="学习提示文案，双击编辑" title="双击编辑" onDoubleClick={() => setEditingSummaryCopy(true)}
             onKeyDown={(event) => { if (event.key === 'Enter' || event.key === 'F2') setEditingSummaryCopy(true); }}>{summaryCopy}</p>}
+        </>}
       </section>
 
       <section className={styles.library}>
-        <div className={styles.libraryHeader}><div><h2>{activeTab?.name ?? '全部资料'}</h2><span>{visibleRecords.length} 篇</span></div>
+        <div className={styles.libraryHeader}><div><h2>{activeTab?.name ?? '全部资料'}</h2><span>{canShowRecords ? `${visibleRecords.length} 篇` : loading ? '正在读取…' : '— 篇'}</span>{loading && canShowRecords && <span role="status">正在更新资料…</span>}</div>
           {activeTab && !activeTab.systemKey && <button className={styles.deleteTabButton} onClick={() => setDeleteTabTarget(activeTab)}>删除 Tab</button>}
         </div>
         <nav className={styles.tabs} aria-label="资料分类">
@@ -317,7 +332,8 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
           <button className={styles.addTab} onClick={() => setIsNewTabModalOpen(true)}><PlusIcon size={13} weight="bold" />新建分类</button>
         </nav>
 
-        <div key={activeTabId} className={styles.recordList} aria-busy={loading}>{loading ? <div className={styles.empty}>正在加载…</div> : visibleRecords.length ? visibleRecords.map((entry) => <article key={entry.id} className={styles.recordRow}>
+        {loadError && <div className={styles.loadError} role="alert"><span>{loadError}{canShowRecords && '，当前显示上次读取的资料。'}</span><Button variant="outline" size="sm" onClick={() => void load()}>重新加载资料</Button></div>}
+        <div key={activeTabId} className={styles.recordList} aria-busy={loading}>{loading && !canShowRecords ? <Skeleton variant="document" label="正在整理资料列表…" /> : !canShowRecords ? null : visibleRecords.length ? visibleRecords.map((entry) => <article key={entry.id} className={styles.recordRow}>
           <div className={styles.recordDate}><strong>{entry.recordDate.slice(8)}</strong><span>{entry.recordDate.slice(5, 7)}月</span></div>
           <div className={styles.recordContent}><div><button className={styles.recordOpen} onClick={() => setEditing({ entry, type: entry.type })}>{displayTitle(entry)}</button>{entry.pinned && <span>置顶</span>}</div><p>{entry.contentText || '暂无正文'}</p>
             <footer><span className={styles.typeBadge} data-type={entry.type}>{TYPE_LABELS[entry.type]}</span>{entry.tags.map((tag) => <span key={tag}>#{tag}</span>)}</footer></div>

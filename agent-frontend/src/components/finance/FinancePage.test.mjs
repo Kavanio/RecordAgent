@@ -214,6 +214,9 @@ test('切换区间立即隐藏旧金额和图形，失败后就地重试展示�
   await click('本周');
   assert.deepEqual(totals(), ['—', '—', '—']);
   assert.equal(trend().querySelectorAll('[data-finance-bar-reveal]').length, 0);
+  assert.equal(trend().querySelector('svg[aria-label="收支趋势图"]'), null, '等待时不绘制真实零坐标轴');
+  assert.equal(trend().querySelectorAll('[role="status"] svg path').length, 2, '占位是轻量曲线/面积，不是三根大柱子');
+  assert.equal(trend().querySelectorAll('[role="status"] svg line').length, 5);
   await React.act(async () => week.reject(new Error('趋势请求失败')));
   assert.deepEqual(totals(), ['—', '—', '—']);
   assert.match(trend().textContent, /收支趋势加载失败/);

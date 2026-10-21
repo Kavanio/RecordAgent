@@ -1,0 +1,12 @@
+.root { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 160px; min-width: 0; overflow: hidden; isolation: isolate; }
+.graphic { display: block; flex: 1; width: 100%; min-height: 0; }
+.grid { stroke: #edf1f4; stroke-width: 1; stroke-dasharray: 3 6; vector-effect: non-scaling-stroke; }
+.tick { fill: #e9edf1; }
+.bars { fill: #edf1f5; }
+.area { fill: #f3f6f8; fill-opacity: .6; }
+.curve { fill: none; stroke: #cdd8df; stroke-width: 2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.caption { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 0 0; color: var(--text-muted); font-size: 10px; line-height: 1.5; }
+.caption i { width: 5px; height: 5px; border-radius: 50%; background: #bccdd4; }
+.root::after { content: ''; pointer-events: none; position: absolute; inset: 0; z-index: 1; background: linear-gradient(100deg, transparent 25%, rgba(255,255,255,.65) 50%, transparent 75%); transform: translateX(-100%); animation: sweep 2.8s ease-in-out infinite; }
+@keyframes sweep { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .root::after { display: none; animation: none; } }

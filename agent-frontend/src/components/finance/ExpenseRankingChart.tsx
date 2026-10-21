@@ -1,6 +1,7 @@
 import { ChartBarHorizontalIcon } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
 import type { FinanceExpenseInsights } from '../../types/finance';
+import { Skeleton } from '../common/Skeleton';
 import { FinanceChartCard } from './FinanceChartCard';
 import { FinanceChartTabs } from './FinanceChartTabs';
 import { financeCategoryColor } from './financeCategoryColors';
@@ -34,8 +35,8 @@ export function ExpenseRankingChart({ insights, mode, onModeChange, categoryColo
     actions={<FinanceChartTabs label="排行方式" value={mode} options={modes} onChange={onModeChange} />}
     footer={<><span>按金额从高到低</span><span>含旧日历花销</span></>}>
     {!insights ? <div className={styles.loadingContent} role="status" aria-label="正在加载支出排行">
-      <span className={styles.loadingAmount} aria-hidden="true" />
-      <div className={styles.loadingRows} aria-hidden="true"><i /><i /><i /></div>
+      <Skeleton variant="text" decorative />
+      <div className={styles.loadingRows}><Skeleton decorative /></div>
     </div> : <>
     <div className={styles.summary}>
       <div className={styles.total}><span>本期支出合计</span>

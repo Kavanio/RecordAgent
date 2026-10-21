@@ -1,22 +1,44 @@
-.root { display: flex; width: 100%; min-width: 0; gap: 12px; }
-.block {
-  display: block;
-  background: #edf0f2;
-  border-radius: 6px;
-  animation: breathe 1.6s ease-in-out infinite alternate;
-}
+.root { position: relative; display: flex; width: 100%; min-width: 0; gap: 12px; overflow: hidden; isolation: isolate; }
+.root::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(100deg, transparent 25%, rgba(255,255,255,.65) 50%, transparent 75%); transform: translateX(-100%); animation: sweep 2.8s ease-in-out infinite; }
+.block { display: block; flex-shrink: 0; height: 10px; background: #edf0f3; border-radius: 5px; }
+.item { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.copy { display: flex; flex: 1; flex-direction: column; gap: 9px; min-width: 0; }
+.title { width: 46%; height: 12px; }
+.line { width: 72%; height: 8px; background: #f0f3f5; }
+.meta { width: 24%; height: 7px; margin-top: 3px; background: #f0f3f5; }
+.marker { width: 30px; height: 30px; border-radius: 8px; }
+.trailing { width: 54px; height: 10px; margin-left: auto; }
 .text { flex-direction: column; gap: 5px; padding: 3px 0; }
-.text .block { height: 10px; width: 90%; }
-.text .block:last-child { width: 65%; }
-.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 24px 0; }
-.metrics .block { height: 110px; }
-.list { flex-direction: column; padding: 16px 0; gap: 20px; }
-.list .block { height: 48px; }
-.list .block:last-child { width: 75%; }
-.chart { height: 230px; align-items: end; padding: 24px; gap: 10%; }
-.chart .block { flex: 1; height: 50%; border-radius: 8px 8px 0 0; }
-.chart .block:nth-child(2) { height: 85%; }
-.chart .block:nth-child(3) { height: 65%; }
-@keyframes breathe { to { opacity: .45; } }
-@media (max-width: 620px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (prefers-reduced-motion: reduce) { .block { animation: none; } }
+.text > .block { width: 90%; }
+.text > .block:last-child { width: 65%; }
+.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 24px 0; gap: 24px; }
+.metrics .item { min-height: 100px; align-items: stretch; padding: 12px 0; }
+.metrics .title { height: 9px; width: 42%; }
+.metrics .line { height: 25px; width: 76%; margin-top: 5px; background: #e7ecf0; }
+.metrics .meta { width: 60%; margin-top: 7px; }
+.list { flex-direction: column; padding: 12px 0; gap: 0; }
+.list .item { min-height: 70px; }
+.list .item:nth-child(2) .title { width: 62%; }
+.document { flex-direction: column; padding: 4px 0; gap: 0; }
+.document .item { min-height: 110px; align-items: flex-start; padding: 18px 12px; border-bottom: 1px solid #f0f3f5; }
+.document .copy { gap: 7px; }
+.document .marker { width: 38px; height: 42px; border-radius: 7px; }
+.document .title { width: 53%; height: 13px; }
+.document .line { width: 94%; margin-top: 4px; }
+.document .excerpt { width: 70%; height: 8px; background: #f0f3f5; }
+.document .meta { width: 90px; height: 12px; border-radius: 4px; margin-top: 3px; }
+.document .trailing { width: 28px; margin-top: 3px; }
+.document .item:nth-child(2n) .title { width: 37%; }
+.timeline { flex-direction: column; gap: 12px; padding: 12px 0; }
+.timeline .item { display: grid; grid-template-columns: minmax(70px, .35fr) minmax(0, 1fr); gap: 18px; min-height: 58px; }
+.timeline .title { width: 72%; }
+.timeline .meta { width: 88%; }
+.timeTrack { position: relative; display: flex; align-items: center; height: 58px; background: repeating-linear-gradient(90deg, #edf1f5 0 1px, transparent 1px 12.5%); }
+.timeSegment { width: 36%; height: 28px; margin-left: 8%; background: #e8eef2; border-radius: 5px; }
+.timeline .item:nth-child(2) .timeSegment { width: 46%; margin-left: 30%; }
+.timeline .item:nth-child(3) .timeSegment { width: 24%; margin-left: 62%; }
+.heatmap { padding: 12px 0 6px; }
+.heatmap svg { width: 100%; height: auto; min-width: 0; max-height: 140px; fill: #edf1f3; }
+@keyframes sweep { to { transform: translateX(100%); } }
+@media (max-width: 620px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; } .document .trailing { display: none; } }
+@media (prefers-reduced-motion: reduce) { .root::after { animation: none; display: none; } }

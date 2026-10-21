@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom';
 import { createServer } from 'vite';
 import { readFile } from 'node:fs/promises';
 
-let dom, server, React, createRoot, Modal, Skeleton, LoadingOverlay, LoadingTree, root, container;
+let dom, server, React, createRoot, Modal, Skeleton, LoadingOverlay, LoadingTree, ChartSkeleton, root, container;
 before(async () => {
   dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' });
   for (const key of ['window', 'document', 'HTMLElement']) globalThis[key] = dom.window[key];
@@ -16,6 +16,7 @@ before(async () => {
   ({ Skeleton } = await server.ssrLoadModule('/src/components/common/Skeleton.tsx'));
   ({ LoadingOverlay } = await server.ssrLoadModule('/src/components/common/LoadingOverlay.tsx'));
   ({ LoadingTree } = await server.ssrLoadModule('/src/components/common/LoadingTree.tsx'));
+  ({ ChartSkeleton } = await server.ssrLoadModule('/src/components/common/ChartSkeleton.tsx'));
 });
 after(async () => { await server?.close(); dom?.window.close(); });
 beforeEach(() => { container = document.createElement('div'); document.body.append(container); root = createRoot(container); });
@@ -92,6 +93,29 @@ test('描边阶段统一周期，先画外缘、保留成型时段；减少动�
       assert.match(rule.style.getPropertyValue('animation'), /var\(--tree-cycle\)/);
     }
   } finally { style.remove(); }
+});
+
+test('图表占位使用细网格、窄柱与淡曲线，不伪造坐标数值或可聚焦数据点', async () => {
+  await render(React.createElement(ChartSkeleton, { label: '正在读取趋势…' }));
+  assert.equal(container.querySelectorAll('[role="status"]').length, 1);
+  assert.equal(container.querySelectorAll('svg line').length, 5);
+  assert.equal(container.querySelectorAll('svg path').length, 2);
+  assert.equal(container.querySelectorAll('svg text, button, [tabindex="0"]').length, 0);
+  assert.doesNotMatch(container.textContent, /[0-9¥]/);
+  await render(React.createElement(ChartSkeleton, { variant: 'bars', decorative: true }));
+  assert.equal(container.querySelectorAll('svg path').length, 0);
+  assert.equal(container.querySelector('[role="status"]'), null);
+});
+
+test('文章、横向轨迹与热力图骨架只保留真实布局特征，不输出假内容', async () => {
+  await render(React.createElement(Skeleton, { variant: 'document', label: '正在读取资料…' }));
+  assert.equal(container.firstElementChild.children.length, 4);
+  assert.equal(container.querySelectorAll('button, input').length, 0);
+  await render(React.createElement(Skeleton, { variant: 'timeline', label: '正在读取轨迹…' }));
+  assert.equal(container.firstElementChild.children.length, 3);
+  await render(React.createElement(Skeleton, { variant: 'heatmap', label: '正在生成热力图…' }));
+  assert.equal(container.querySelectorAll('svg rect').length, 53 * 7);
+  assert.equal(container.querySelector('svg').getAttribute('aria-hidden'), 'true');
 });
 
 test('骨架有单一中文状态语义，装饰模式不生成重复播报', async () => {

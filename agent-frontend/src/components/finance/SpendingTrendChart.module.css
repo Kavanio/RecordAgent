@@ -36,6 +36,7 @@
 .expensePoint { stroke: var(--expense-color); }
 .incomePoint { stroke: var(--income-color); }
 .cursorLine { stroke: var(--border-medium); stroke-width: 1; stroke-dasharray: 3 3; }
+.loadingState { position: absolute; inset: 0; }
 .state { position: absolute; inset: 10px 0 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 14px; background: var(--bg-app); color: var(--text-secondary); font-size: 11px; text-align: center; overflow-wrap: anywhere; }
 .state strong { color: var(--text-primary); font-weight: 600; }
 .error { color: var(--expense-color); }
