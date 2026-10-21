@@ -57,12 +57,44 @@ const ICONS: Record<string, IconDef> = {
 /** 未知厂商的通用占位图标。 */
 const FALLBACK = 'M4.5 3h15A1.5 1.5 0 0 1 21 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-15A1.5 1.5 0 0 1 4.5 3z';
 
+/** 自定义 API 的专属标记：用插头表达可接入任意兼容端点，避免继续使用空方框兜底。 */
+const CustomVendorIcon: React.FC<{ size: number; className?: string }> = ({ size, className }) => {
+  const gradientId = `custom-vendor-${React.useId().replace(/:/g, '')}`;
+  const stroke = '#4F46E5';
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="6" y1="7" x2="18" y2="17" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#6366F1" />
+          <stop offset="1" stopColor="#8B5CF6" />
+        </linearGradient>
+      </defs>
+      <rect x="5.8" y="7.1" width="12.4" height="9.8" rx="4.7" fill={`url(#${gradientId})`} />
+      <path d="M9.1 2.8v4.3M14.9 2.8v4.3M12 16.9v4.3" stroke={stroke} strokeWidth="2.1" strokeLinecap="round" />
+      <path d="M9.4 11.8h5.2" stroke="#FFFFFF" strokeWidth="1.65" strokeLinecap="round" opacity="0.92" />
+    </svg>
+  );
+};
+
 export const VendorIcon: React.FC<VendorIconProps> = ({
   vendor,
   size = 20,
   className,
 }) => {
-  const icon = ICONS[vendor.toLowerCase()];
+  const vendorKey = vendor.toLowerCase();
+  const icon = ICONS[vendorKey];
+
+  if (vendorKey === 'custom') {
+    return <CustomVendorIcon size={size} className={className} />;
+  }
 
   if (!icon) {
     return (
