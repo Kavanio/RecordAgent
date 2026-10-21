@@ -7,7 +7,6 @@ import type {
 } from '../types/chat';
 import type { SubagentProgressDto } from '../types/team';
 import { invoke } from '@tauri-apps/api/core';
-import { waitForRequestDelay } from './requestDelay';
 
 export interface ModelConfig {
   vendor: string;
@@ -38,9 +37,6 @@ export interface BackendConnectionInfo {
 
 /** 远程服务启动检查最多等待 8 秒，再切换到本机后端。 */
 const REMOTE_STARTUP_TIMEOUT_MS = 8_000;
-
-/** 临时弱网测试：开发客户端每次业务请求额外等待 1 秒；改为 0 即可关闭。生产包与 SSR 测试不启用。 */
-const DEV_API_DELAY_MS = import.meta.env.DEV && !import.meta.env.SSR ? 1_000 : 0;
 
 /** 后端地址：浏览器/非 Tauri 环境回退到开发地址，Tauri 环境由 Rust 端动态注入 */
 let apiBaseUrl = 'http://localhost:8081';
@@ -137,8 +133,8 @@ export async function saveBackendConnection(url: string | null, token: string | 
   await invoke('save_remote_backend_url', { remoteUrl: url, apiToken: token });
 }
 
-/** 统一注入远程 Bearer Token，并在开发客户端模拟请求延迟；本机模式不附加认证头。 */
-export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+/** 统一为 API 请求注入远程 Bearer Token；本机模式不附加认证头。 */
+export function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers ?? (input instanceof Request ? input.headers : undefined));
   const requestUrl = input instanceof Request ? input.url : String(input);
   if (apiAccessToken) {
@@ -149,10 +145,6 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
     } catch {
       // 非 URL 请求交由浏览器 Fetch API 返回标准错误。
     }
-  }
-  if (DEV_API_DELAY_MS > 0) {
-    const signal = init.signal ?? (input instanceof Request ? input.signal : undefined);
-    await waitForRequestDelay(DEV_API_DELAY_MS, signal);
   }
   return fetch(input, { ...init, headers });
 }

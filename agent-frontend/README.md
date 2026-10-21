@@ -1,11 +1,9 @@
 # React + TypeScript + Vite
 
-## 桌面端加载反馈测试（临时）
+## 桌面端加载反馈测试
 
-- `services/api.ts` 的 `DEV_API_DELAY_MS` 当前为开发客户端启用 **1000ms**：每次经过 `apiFetch` 的业务 HTTP 请求发送前额外等待一秒，并行请求独立计时；串行调用会逐次累加。
-- 仅 `pnpm dev` / `pnpm tauri dev` 的客户端启用；生产构建、SSR 自动化测试、直接健康检查及 EventSource 推送不受影响，聊天流也只延迟初始请求，不逐条延迟事件。
-- 无需重启后端；Vite 热更新或刷新前端窗口即可测试。测试结束后将 `DEV_API_DELAY_MS` 设为 `0` 关闭模拟，不要据此判断真实接口性能。
-- 验证：`node --test src/services/requestDelay.test.mjs`、`pnpm test:loading`。
+业务请求直接发送，不附加人为等待；加载动画和骨架屏由真实请求状态驱动。
+运行 `pnpm test:loading` 可验证慢请求、失败重试与过期响应处理，测试使用可控响应，不访问真实用户数据。
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
