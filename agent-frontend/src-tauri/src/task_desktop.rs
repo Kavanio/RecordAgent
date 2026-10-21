@@ -187,7 +187,7 @@ pub fn task_background_enabled(state: tauri::State<'_, TaskDesktopState>) -> boo
 /// 用户主动设置后台驻留，写入 Tauri 应用配置目录，不访问业务 SQLite。
 #[tauri::command]
 pub fn set_task_background(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
-    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let dir = crate::desktop_preferences::root(&app)?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     std::fs::write(dir.join("task-desktop.json"), if enabled { "true" } else { "false" }).map_err(|e| e.to_string())?;
     app.state::<TaskDesktopState>().background.store(enabled, Ordering::Relaxed);
@@ -204,7 +204,7 @@ pub fn open_task_main(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 pub fn setup(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    let file = app.path().app_config_dir()?.join("task-desktop.json");
+    let file = crate::desktop_preferences::root(app).map_err(|e| std::io::Error::other(e))?.join("task-desktop.json");
     let background = match std::fs::read_to_string(file) {
         Ok(value) => value.trim() == "true",
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,

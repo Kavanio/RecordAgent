@@ -1,3 +1,5 @@
+import { readPreference, writePreference } from './desktopPreferences';
+
 export type CalendarStickyNoteKind = 'weekly' | 'monthly';
 
 export interface CalendarStickyNoteExpansion {
@@ -11,7 +13,7 @@ const CHANGE_EVENT = 'butvan:calendar-sticky-notes-changed';
 /** 读取周、月便签的持久化展开状态；首次使用时采用日历设置中的默认值。 */
 export function getCalendarStickyNoteExpansion(defaultExpanded: boolean): CalendarStickyNoteExpansion {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as Partial<CalendarStickyNoteExpansion>;
+    const saved = JSON.parse(readPreference(STORAGE_KEY) ?? '{}') as Partial<CalendarStickyNoteExpansion>;
     return {
       weekly: typeof saved.weekly === 'boolean' ? saved.weekly : defaultExpanded,
       monthly: typeof saved.monthly === 'boolean' ? saved.monthly : defaultExpanded,
@@ -22,7 +24,7 @@ export function getCalendarStickyNoteExpansion(defaultExpanded: boolean): Calend
 }
 
 function saveCalendarStickyNoteExpansion(next: CalendarStickyNoteExpansion): CalendarStickyNoteExpansion {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  writePreference(STORAGE_KEY, JSON.stringify(next));
   window.dispatchEvent(new CustomEvent<CalendarStickyNoteExpansion>(CHANGE_EVENT, { detail: next }));
   return next;
 }

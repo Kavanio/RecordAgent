@@ -27,6 +27,7 @@ import { useMessage } from '../common/Message';
 import { EmailBindingModal } from '../account/EmailBindingModal';
 import { fetchAccountStatus, getAccountAvatarUrl } from '../../services/api';
 import { canPickProjectDirectory, pickProjectDirectory } from '../../services/projectPicker';
+import { readPreference, writePreference } from '../../services/desktopPreferences';
 import styles from './Sidebar.module.css';
 
 function getAvatarText(email: string | null): string {
@@ -158,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const sidebarRef = useRef<HTMLElement>(null);
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     try {
-      const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+      const saved = Number(readPreference(SIDEBAR_WIDTH_KEY));
       if (saved >= SIDEBAR_MIN_WIDTH && saved <= SIDEBAR_MAX_WIDTH) {
         return saved;
       }
@@ -189,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       try {
-        localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidthRef.current));
+        writePreference(SIDEBAR_WIDTH_KEY, String(sidebarWidthRef.current));
       } catch {
         // 忽略本地存储异常
       }

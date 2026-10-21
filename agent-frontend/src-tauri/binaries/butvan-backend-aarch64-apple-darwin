@@ -12,6 +12,18 @@ for CAND in "$BASE_DIR" "$BASE_DIR/../Resources" "$BASE_DIR/../Resources/binarie
   fi
 done
 
+# Linux Debian 包将 Tauri resources 放在 /usr/lib/<package-name>，
+# 而 sidecar 启动器仍由 /usr/bin 的兼容链接启动。
+if [ -z "$JAR" ]; then
+  for CAND in "$BASE_DIR"/../lib/* "$BASE_DIR"/../../usr/lib/* /usr/lib/*; do
+    if [ -f "$CAND/butvan-backend.jar" ] && [ -x "$CAND/butvan-backend-runtime/bin/java" ]; then
+      JAR="$CAND/butvan-backend.jar"
+      RUNTIME="$CAND/butvan-backend-runtime"
+      break
+    fi
+  done
+fi
+
 if [ -z "$JAR" ]; then
   echo "未找到 butvan-backend.jar 或 butvan-backend-runtime，请先执行 agent-backend/scripts/package-sidecar.sh" >&2
   exit 1

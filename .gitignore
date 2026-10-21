@@ -38,3 +38,6 @@ logs/
 
 # 后端启动器构建产物
 scripts/backend-launcher/target/
+
+# sidecar 打包缓存标记（fat jar / JRE 复用依据，不入库）
+agent-frontend/src-tauri/binaries/.butvan-backend-runtime-build-key

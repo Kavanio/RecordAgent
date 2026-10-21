@@ -14,6 +14,8 @@ mod task_reminder_settings;
 mod task_rest_lock;
 #[cfg(desktop)]
 mod task_reminder_audio;
+#[cfg(desktop)]
+mod desktop_preferences;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -29,6 +31,8 @@ pub fn run() {
             .build(),
         )?;
       }
+      #[cfg(desktop)]
+      desktop_preferences::setup(app.handle());
       #[cfg(desktop)]
       backend::setup(app.handle())?;
       #[cfg(desktop)]
@@ -81,6 +85,8 @@ pub fn run() {
     task_reminder_settings::save_task_reminder_preferences,
     task_reminder_settings::import_task_reminder_audio,
     task_reminder_settings::read_task_reminder_audio,
+    desktop_preferences::load_desktop_preferences,
+    desktop_preferences::save_desktop_preference,
     task_rest_lock::sync_task_rest_lock,
     task_rest_lock::preview_task_rest_lock
   ]);
