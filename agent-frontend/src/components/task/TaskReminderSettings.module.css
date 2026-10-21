@@ -1,5 +1,8 @@
-.sounds { display:flex; flex-direction:column; gap:10px; width:280px; max-width:100%; }
-.actions { display:flex; gap:8px; }
+.sounds { display:flex; flex-direction:column; gap:10px; width:100%; min-width:0; container-type:inline-size; }
+.soundControls { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; }
+.soundSelect { min-width:0; }
+.actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+@container (max-width:480px) { .soundControls { grid-template-columns:minmax(0,1fr); gap:10px; } }
 .file { display:none; }
 .hint { color:#7c8797; font-size:12px; line-height:1.5; }
 .interval { display:flex; align-items:center; gap:8px; width:120px; font-size:13px; color:#667184; }

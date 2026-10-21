@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { TaskReminderConfiguration, TaskReminderPreferences } from '../../types/taskReminder';
 import { getTaskReminderConfiguration, importTaskReminderAudio, previewTaskRestLock, saveTaskReminderPreferences } from '../../services/taskReminderPreferences';
 import { playReminderAudio } from '../../services/taskReminderAudio';
@@ -22,6 +22,7 @@ export function TaskReminderSettings() {
   const preview = useRef<AbortController | null>(null);
   const lockPreviewTimer = useRef<number | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const soundHelpId = useId();
   const { showMessage } = useMessage();
   const desktop = isTaskDesktop();
   async function load() {
@@ -63,7 +64,7 @@ export function TaskReminderSettings() {
   useEffect(() => { void load(); return () => { preview.current?.abort(); stopLockPreview(); }; }, [stopLockPreview]);
   const disabled = !desktop || busy || !config;
   const validInterval = /^\d+$/.test(interval) && Number(interval) >= 1 && Number(interval) <= 3600;
-  const options = config?.sounds.map(sound => ({ value: sound.id, label: `${sound.name} · ${{ builtin: '内置', system: '系统', custom: '上传' }[sound.source]}` })) ?? [];
+  const options = config?.sounds.map(sound => ({ value: sound.id, label: `${sound.name} · ${{ builtin: '内置', system: '系统', custom: '本机导入' }[sound.source]}` })) ?? [];
   const saving = useRef(false);
 
   async function handleToggleLockPreview() {
@@ -115,7 +116,7 @@ export function TaskReminderSettings() {
     stopPreview(); setBusy(true);
     try {
       const value = await importTaskReminderAudio(file);
-      setConfig(value); showMessage('success', '音频已上传并设为提示音');
+      setConfig(value); showMessage('success', '音频已保存到本机并设为提示音');
     } catch (e) { showMessage('error', e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -148,17 +149,20 @@ export function TaskReminderSettings() {
         <LeverSwitch checked={config?.preferences.restLock ?? false} disabled={disabled} label="休息时锁定桌面" showLabel={false}
           onChange={restLock => void save({ restLock })} />
       </div>} />
-    <SettingsRow label="提示音" description="内置音色、当前电脑的系统提示音或上传的音频；任务自身须开启声音。"
+    <SettingsRow label="提示音" layout="stacked" description="选择内置音色、当前电脑的系统提示音或导入的音频；任务自身须开启声音。"
       control={<div className={styles.sounds}>
-        <Select aria-label="选择提示音" options={options} value={config?.preferences.soundId ?? ''} disabled={disabled} fieldSize="md" fullWidth
-          onChange={event => { stopPreview(); const soundId = event.target.value; void save({ soundId }); }} />
-        <div className={styles.actions}>
-          <Button size="sm" disabled={disabled} onClick={() => playing ? stopPreview() : void listen()}>{playing ? '停止试听' : '试听'}</Button>
-          <Button size="sm" disabled={disabled} onClick={() => fileInput.current?.click()}>上传音频</Button>
-          <input ref={fileInput} className={styles.file} type="file" accept=".wav,.mp3,.m4a,.ogg" aria-label="上传提示音文件" disabled={disabled}
-            onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void upload(file); }} />
+        <div className={styles.soundControls}>
+          <Select aria-label="选择提示音" aria-describedby={soundHelpId} title={config?.sounds.find(sound => sound.id === config.preferences.soundId)?.name}
+            containerClassName={styles.soundSelect} options={options} value={config?.preferences.soundId ?? ''} disabled={disabled} fieldSize="md" fullWidth
+            onChange={event => { stopPreview(); const soundId = event.target.value; void save({ soundId }); }} />
+          <div className={styles.actions}>
+            <Button size="sm" disabled={disabled} onClick={() => playing ? stopPreview() : void listen()}>{playing ? '停止试听' : '试听'}</Button>
+            <Button size="sm" disabled={disabled} onClick={() => fileInput.current?.click()}>导入音频</Button>
+            <input ref={fileInput} className={styles.file} type="file" accept=".wav,.mp3,.m4a,.ogg" aria-label="导入提示音文件" disabled={disabled}
+              onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void upload(file); }} />
+          </div>
         </div>
-        <span className={styles.hint}>WAV、MP3、M4A、OGG，最大 10 MB；再次上传会替换原文件。</span>
+        <span id={soundHelpId} className={styles.hint}>WAV、MP3、M4A、OGG，最大 10 MB。仅保存在当前电脑，不上传服务器；再次导入会替换原音频。</span>
       </div>} />
     <SettingsRow label="重复播放间隔" description="每段音频完整播放结束后，再等待指定秒数播放下一次；确认休息后停止。"
       control={<div className={styles.interval}><TextInput type="number" aria-label="重复播放间隔（秒）" min={1} max={3600} step={1} value={interval}
