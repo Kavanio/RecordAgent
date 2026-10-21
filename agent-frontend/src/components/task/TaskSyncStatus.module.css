@@ -1,0 +1,6 @@
+.status { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.label { display:inline-flex; align-items:center; gap:6px; color:var(--text-muted); font-size:12px; white-space:nowrap; }
+.dot { width:6px; height:6px; border-radius:50%; background:#9ca3af; }
+.label[data-state='LIVE'] .dot { background:#6e9a80; }
+.label[data-state='RECONNECTING'] .dot,
+.label[data-state='OFFLINE'] .dot { background:#bc9258; }

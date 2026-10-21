@@ -1,4 +1,4 @@
-import { apiEventSourceUrl, apiFetch, getApiBaseUrl, type ApiResponse } from './api';
+import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
 import type { AutomationPreview, AutomationRun, AutomationSnapshot, AutomationSpec, AutomationTask, ComputerActivity, SaveTaskMailSettings, TaskMailSettings } from '../types/automation';
 
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
@@ -35,16 +35,4 @@ export const reportComputerActivity = (sample: ComputerActivity) => request<void
 export const fetchTaskMailSettings = () => request<TaskMailSettings>('/mail/settings');
 export const saveTaskMailSettings = (input: SaveTaskMailSettings) => request<TaskMailSettings>('/mail/settings', 'PUT', input);
 export const testTaskMail = () => request<{ status: string; message: string }>('/mail/test', 'POST');
-/** 单一主窗口订阅；重连总是重新获取完整权威快照。 */
-export function subscribeAutomations(onSnapshot: (value: AutomationSnapshot) => void, onError: () => void): () => void {
-  const source = new EventSource(apiEventSourceUrl(`${getApiBaseUrl()}/agent/automations/stream`));
-  source.addEventListener('snapshot', event => {
-    try {
-      const value: AutomationSnapshot = JSON.parse(event.data);
-      if (!Array.isArray(value.tasks) || !Array.isArray(value.pending)) throw new Error('无效任务快照');
-      onSnapshot(value);
-    } catch { onError(); }
-  });
-  source.onerror = onError;
-  return () => source.close();
-}
+export { subscribeAutomations } from './automationRealtime';
