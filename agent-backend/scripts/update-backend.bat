@@ -1,8 +1,8 @@
 @echo off
 chcp 65001 >nul
 setlocal EnableExtensions DisableDelayedExpansion
-rem 复制本文件到 compose.yaml、compose.acr.yaml、.env、user-data 所在目录后双击。
-rem 仅更新 develop 镜像，不构建源码、不修改模型配置、不删除数据。
+rem Keep CMD comments ASCII-only; save this file as UTF-8 without BOM, with CRLF.
+rem Copy beside Compose files, .env and user-data. Does not repair model config.
 pushd "%~dp0" || exit /b 1
 set "BUTVAN_IMAGE_TAG=develop"
 set "COMPOSE_FILE="
@@ -21,6 +21,7 @@ for %%F in (compose.acr.yaml .env user-data) do if not exist "%%F" (
 )
 set "DC=docker compose -f "%COMPOSE_FILE%" -f "compose.acr.yaml""
 echo [1/6] 检查 Docker 和 Compose 配置
+ echo 使用主配置：%COMPOSE_FILE%，覆盖配置：compose.acr.yaml
  docker info >nul 2>&1
 if errorlevel 1 goto failed
 %DC% config --quiet
@@ -33,7 +34,7 @@ if errorlevel 1 (
     goto failed
 )
 
-rem 在停机前准备唯一备份目录名，避免合并到已有备份。
+rem Prepare a unique backup directory before stopping the service.
 set "BACKUP="
 for /f "delims=" %%T in ('powershell.exe -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss-fff"') do set "BACKUP=user-data-backup-%%T"
 if not defined BACKUP goto failed
@@ -53,8 +54,10 @@ if errorlevel 8 (
 echo [5/6] 使用已拉取镜像重建容器，并等待健康检查
 %DC% up -d --no-build --pull never --force-recreate --wait --wait-timeout 240 backend
 if errorlevel 1 (
-    echo 后端未就绪。备份位于 %BACKUP%，请勿删除 user-data。
-    echo 更新镜像不会修复已有模型配置；若仍提示缺少 API 地址，需要另行修复配置。
+    echo 容器已尝试启动，但未通过健康检查；这不等同于镜像拉取失败。
+    echo 备份位于 %BACKUP%，请勿删除 user-data。
+    echo 请先查看下面命令的最新日志，不要反复更新或关闭健康检查。
+    echo 若日志仍提示缺少 API 地址，需修复 user-data 中的模型配置。
     echo 可执行以下命令查看日志；分享前请隐藏密钥和个人信息：
     echo docker compose -f "%COMPOSE_FILE%" -f compose.acr.yaml logs --tail 60 backend
     goto failed
