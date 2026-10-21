@@ -2,6 +2,56 @@
 
 本文档记录桌面端版本的变更。发布工作流只读取与推送 tag 完全一致的二级标题，例如 `## v0.4.0` 或 `## v0.4.1-beta.1`；该章节正文会成为 GitHub Release 说明。带 `-alpha.N`、`-beta.N` 或 `-rc.N` 后缀的 tag 会创建 GitHub 预发布版本，普通 SemVer tag 会创建正式 Release。
 
+## v0.5.0
+
+- **发布日期（Asia/Shanghai）**：2026-10-21
+- **对比基线**：v0.4.1...v0.5.0
+- **发布通道**：Stable（正式版）
+
+本版新增自定义模型 API 接入，并集中完善项目与会话管理、任务同步、自动报告、桌面加载体验和后端容器部署。
+
+### 自定义模型与模型配置
+
+- 新增“自定义 API”模型，可填写基础地址、Model ID 和密钥，并选择 OpenAI Chat Completions 或 Anthropic Messages 请求格式。
+- 自定义连接使用独立 Provider ID，支持多套网关与密钥并存，协议和地址可随配置保存并在重启后恢复。
+- 模型连接测试改为由后端发起真实请求，失败时返回可执行的中文提示，不暴露密钥或供应商原始错误正文。
+- 自定义 API 使用专属图标，并补齐首次配置、模型编辑、切换与删除流程。
+
+### 项目、会话与同步
+
+- 项目目录移动或失效时显示明确警告，并禁用新建项目会话入口。
+- 项目支持从应用移除登记；移除不会删除磁盘文件，关联会话会保留为普通会话。
+- 修复任务列表、执行历史与桌面通知的多窗口状态同步，区分断线与显式操作，避免自动重放有副作用的请求。
+
+### 桌面体验
+
+- 日历、财务、资料、设置与 Token 用量等工作区补充统一加载骨架、大树动画和局部操作遮罩。
+- 明确后端连接配置的保存、待生效与重启流程，并优化窗口尺寸、提示音设置和资料/图表展示。
+- 修复久坐休息遮罩、提醒窗口、日报邮件时间线和学习热力图等桌面体验问题。
+
+### 自动任务与报告
+
+- 日报蓝调摘要补充资产收支和待办完成情况，并统一周期报告的时间线与邮件布局。
+- 完善任务执行、邮件排队、久坐提醒和确认状态处理，减少离线及进程中断后的重复投递。
+
+### 后端与部署
+
+- 提供后端容器镜像构建与 Linux 部署说明，`develop` 的后端变更可自动发布到阿里云 ACR。
+- 更新 Windows 服务器的 ACR 镜像拉取、Compose 覆盖和数据保留操作说明。
+
+### Commits
+
+- `0f45cee` feat(model): support custom OpenAI and Anthropic API endpoints
+- `96cd115` style(model): replace custom API placeholder icon
+- `f785bd8` fix(projects): allow removing moved project references
+- `ec35405` fix(tasks): restore reliable synchronization and offline-safe management
+- `1b353d0` feat(desktop): 重设计图表与资料记录工作区加载骨架
+- `a51d673` feat: include asset cashflow in daily reports
+- `0870796` feat: containerize agent backend
+- `9e0809a` fix(desktop): clarify backend connection changes and offer app restart
+
+**Full Changelog**: https://github.com/Kavanio/RecordAgent/compare/v0.4.1...v0.5.0
+
 ## v0.4.1
 
 - **发布日期（Asia/Shanghai）**：2026-10-16
