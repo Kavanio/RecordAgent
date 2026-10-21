@@ -4,6 +4,8 @@ package butvan.agent.agents.usage;
 public enum UsagePurpose {
     CHAT,
     SESSION_TITLE,
+    /** 用户主动发起的模型 API 连接测试。 */
+    MODEL_CONNECTION_TEST,
     PROFILE_MAINTENANCE,
     CONTEXT_COMPACTION,
     BACKGROUND_AGENT

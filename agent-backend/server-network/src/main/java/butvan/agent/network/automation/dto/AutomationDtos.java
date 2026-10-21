@@ -44,7 +44,12 @@ public final class AutomationDtos {
                 r.plannedAt(), r.createdAt(), r.source(), r.status(), r.desktopStatus(), r.emailStatus(),
                 r.confirmation(), r.sound(), r.error()); }
     }
-    public record Snapshot(List<TaskView> tasks, List<RunView> pending) {}
+    /** activityOnly 仅标记本次推送原因；首次、重连与 REST 读取均为完整状态刷新。 */
+    public record Snapshot(List<TaskView> tasks, List<RunView> pending, boolean activityOnly, String sourceId, long revision) {
+        public Snapshot(List<TaskView> tasks, List<RunView> pending) { this(tasks, pending, false, null, 0); }
+        /** 保留来源和序号，仅替换本次刷新原因。 */
+        public Snapshot withActivityOnly(boolean value) { return new Snapshot(tasks, pending, value, sourceId, revision); }
+    }
     public record Preview(String title, String content, Long nextAt, String html) {}
     public record DesktopReceipt(String status) {}
     public record RetryEmailRequest(boolean allowUnknown) {}

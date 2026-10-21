@@ -5,7 +5,7 @@ import { createServer } from 'vite';
 
 // 真实 React 组件与内存 DOM；HTTP 全部拦截，不访问用户后端。
 let server, dom, React, createRoot, TaskPage, TaskReminderWindow, StateContext, MessageProvider, newAutomation;
-let root, container, snapshot, requests, historyStatus;
+let root, container, snapshot, requests, historyStatus, historyRevision;
 const originalFetch = globalThis.fetch;
 before(async () => {
   dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' });
@@ -13,7 +13,7 @@ before(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   React = await import('react');
   ({ createRoot } = await import('react-dom/client'));
-  server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
+  server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' });
   ({ TaskPage } = await server.ssrLoadModule('/src/components/task/TaskPage.tsx'));
   ({ TaskReminderWindow } = await server.ssrLoadModule('/src/components/task/TaskReminderWindow.tsx'));
   ({ AutomationStateContext: StateContext } = await server.ssrLoadModule('/src/context/automationState.ts'));
@@ -22,7 +22,7 @@ before(async () => {
 });
 after(async () => { await server?.close(); dom?.window.close(); globalThis.fetch = originalFetch; });
 beforeEach(async () => {
-  requests = []; historyStatus = 'PENDING';
+  requests = []; historyStatus = 'PENDING'; historyRevision = 0;
   snapshot = { tasks: ['A', 'B'].map((id, i) => ({ id, version: 1, status: i ? 'PAUSED' : 'ENABLED', nextAt: null, activeSeconds: 0,
     spec: { ...newAutomation(), title: `任务${id}`, content: `内容${id}` } })), pending: [] };
   globalThis.fetch = async (url, options = {}) => {
@@ -38,7 +38,8 @@ beforeEach(async () => {
 afterEach(async () => { await React.act(async () => root?.unmount()); container?.remove(); });
 async function render(connected = true) {
   await React.act(async () => root.render(React.createElement(MessageProvider, null,
-    React.createElement(StateContext.Provider, { value: { snapshot, connected, activity: null } },
+    React.createElement(StateContext.Provider, { value: { snapshot, connected, syncStatus: connected ? 'LIVE' : 'RECONNECTING', lastSyncedAt: 1, historyRevision,
+      refreshSnapshot: async () => snapshot, retrySync() {}, activity: null } },
       React.createElement(TaskPage, { onOpenSettings() {} })))));
 }
 async function click(text, index = 0) {
@@ -82,7 +83,7 @@ test('执行状态 SSE 快照变化刷新已打开的历史', async () => {
   assert.ok(drawer);
   assert.equal(drawer.getAttribute('aria-modal'), 'true');
   assert.ok(drawer.querySelector('[role="img"][aria-label="邮件：等待投递"]'));
-  historyStatus = 'SUBMITTED'; snapshot = { ...snapshot }; await render();
+  historyStatus = 'SUBMITTED'; snapshot = { ...snapshot }; historyRevision++; await render();
   assert.ok(drawer.querySelector('[role="img"][aria-label="邮件：已提交"]'));
   await click('关闭抽屉');
   assert.equal([...document.querySelectorAll('[role="dialog"]')].some(element => element.textContent.includes('任务A · 执行历史')), false);
@@ -355,13 +356,13 @@ test('提示音导入通过原生接口保存本机副本，界面明确本机�
 test('任务同步异常使用全局 Message，同次异常不重复提示，恢复后更新提示', async () => {
   assert.equal(container.querySelector('[aria-label="任务运行条件"]'), null);
   await render(false);
-  assert.doesNotMatch(container.textContent, /任务同步暂未就绪/);
+  assert.doesNotMatch(container.textContent, /任务实时同步中断/);
   await React.act(async () => { await new Promise(resolve => setTimeout(resolve, 1550)); });
-  assert.match(container.textContent, /任务同步暂未就绪/);
-  assert.doesNotMatch(container.querySelector('main').textContent, /任务同步暂未就绪/);
+  assert.match(container.textContent, /任务实时同步中断/);
+  assert.doesNotMatch(container.querySelector('main').textContent, /任务实时同步中断/);
   await click('关闭提示');
   await render(false);
-  assert.doesNotMatch(container.textContent, /任务同步暂未就绪/);
+  assert.doesNotMatch(container.textContent, /任务实时同步中断/);
   await render(true);
   assert.match(container.textContent, /任务同步已恢复/);
 });

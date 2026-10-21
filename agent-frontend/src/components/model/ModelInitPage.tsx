@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Bot } from 'lucide-react';
 import { saveModelConfig } from '../../services/api';
 import { Select } from '../common/Select';
+import { ModelEndpointFields } from './ModelEndpointFields';
+import type { ModelProtocol } from '../../types/model';
 import styles from './ModelInitPage.module.css';
 
 interface ModelInitPageProps {
@@ -22,12 +24,16 @@ export const ModelInitPage: React.FC<ModelInitPageProps> = ({ vendors, onSuccess
   const [selectedVendor, setSelectedVendor] = useState<string>(() => vendors[0] || 'gemini');
   const [modelName, setModelName] = useState<string>(() => DEFAULT_MODEL_NAMES[vendors[0]] || 'gemini-3.6-flash');
   const [apiKey, setApiKey] = useState<string>('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [protocol, setProtocol] = useState<ModelProtocol>('openai');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleVendorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const v = e.target.value;
     setSelectedVendor(v);
+    setBaseUrl('');
+    if (v === 'custom') setModelName('');
     if (DEFAULT_MODEL_NAMES[v]) {
       setModelName(DEFAULT_MODEL_NAMES[v]);
     }
@@ -53,6 +59,10 @@ export const ModelInitPage: React.FC<ModelInitPageProps> = ({ vendors, onSuccess
       return;
     }
 
+    if (selectedVendor === 'custom' && !baseUrl.trim()) {
+      setErrorMsg('请填写自定义 API 基础地址');
+      return;
+    }
     setIsSubmitting(true);
     setErrorMsg(null);
 
@@ -60,6 +70,8 @@ export const ModelInitPage: React.FC<ModelInitPageProps> = ({ vendors, onSuccess
       vendor: selectedVendor,
       modelName: modelName.trim(),
       apiKey: apiKey.trim(),
+      baseUrl: baseUrl.trim(),
+      protocol: selectedVendor === 'custom' ? protocol : undefined,
     });
 
     setIsSubmitting(false);
@@ -87,13 +99,16 @@ export const ModelInitPage: React.FC<ModelInitPageProps> = ({ vendors, onSuccess
           <div className={styles.fieldGroup}>
             <Select
               label={<span className={styles.label}>模型厂商 Vendor</span>}
-              options={vendors.map((vendor) => ({ value: vendor, label: `${vendor.toUpperCase()} (${vendor})` }))}
+              options={[...new Set([...vendors, 'custom'])].map((vendor) => ({ value: vendor, label: vendor === 'custom' ? '自定义 API' : `${vendor.toUpperCase()} (${vendor})` }))}
               value={selectedVendor}
               onChange={handleVendorChange}
               fieldSize="lg"
               fullWidth
             />
           </div>
+
+          <ModelEndpointFields idPrefix="init-model" vendor={selectedVendor} baseUrl={baseUrl} protocol={protocol}
+            onBaseUrlChange={setBaseUrl} onProtocolChange={setProtocol} />
 
           {/* 模型名称 */}
           <div className={styles.fieldGroup}>
