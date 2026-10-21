@@ -8,15 +8,18 @@ import { TopBar } from '../common/TopBar';
 import { TopBarAction } from '../common/TopBarAction';
 import { Button } from '../common/Button';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { LoadingTree } from '../common/LoadingTree';
 import { useMessage } from '../common/Message';
 import { TaskEditor } from './TaskEditor';
 import { TaskHistoryDrawer } from './TaskHistoryDrawer';
 import { TaskRunConfirmModal } from './TaskRunConfirmModal';
+import { TaskSyncStatus } from './TaskSyncStatus';
 import styles from './TaskPage.module.css';
 
 
 export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
-  const { snapshot, connected, activity, activitySyncError } = useAutomations();
+  const { snapshot, connected, syncStatus, lastSyncedAt, historyRevision, refreshSnapshot, retrySync, activity, activitySyncError } = useAutomations();
+  const hasSnapshot = lastSyncedAt !== null;
   const [search, setSearch] = useState('');
   const [showDeleted, setShowDeleted] = useState(false);
   const [editor, setEditor] = useState<{task?:AutomationTask;copy?:boolean} | null>(null);
@@ -42,20 +45,23 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
       connectionNoticeShown.current = false;
       return;
     }
-    // 短暂首次加载不弹提示；同一次未就绪期间仅提示一次。
+    if (connectionNoticeShown.current) return;
+    // 短暂重连不打扰用户；保留数据，操作前通过 REST 校验，不把推送中断等同于任务停止。
     const timer = window.setTimeout(() => {
       connectionNoticeShown.current = true;
-      showMessage('info', '任务同步暂未就绪，请稍后再操作');
+      showMessage('info', hasSnapshot ? '任务实时同步中断，正在自动重连；操作前将校验最新状态' : '暂未连接任务服务，请检查后端连接或重试', {
+        action: { label: '重试连接', onClick: retrySync },
+      });
     }, 1500);
     return () => window.clearTimeout(timer);
-  }, [connected, showMessage]);
+  }, [connected, hasSnapshot, showMessage, retrySync]);
   useEffect(() => {
     if (!historyTask) return;
     let stopped = false;
     setHistoryLoading(true); setHistoryError('');
     void fetchAutomationHistory(historyTask.id).then(value => { if (!stopped) setHistory(value); }).catch(e => { if (!stopped) setHistoryError(e instanceof Error ? e.message : '历史读取失败'); }).finally(() => { if (!stopped) setHistoryLoading(false); });
     return () => { stopped = true; };
-  }, [historyTask, snapshot, historyRefresh]);
+  }, [historyTask, historyRevision, historyRefresh]);
   function switchEditor(next: {task?: AutomationTask; copy?: boolean} | null) {
     if (editorBusy) return;
     if (editorDirty) { setEditorSwitch({ next }); return; }
@@ -67,11 +73,31 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
   function openHistory(task: AutomationTask) {
     setHistory([]); setHistoryTask(task);
   }
-  async function act(work: () => Promise<unknown>, success: string) {
+  function refreshAfterWrite() {
+    void refreshSnapshot().catch(() => showMessage('info', '操作已完成，列表暂未刷新，请重试同步', {
+      action: { label: '重试连接', onClick: retrySync },
+    }));
+  }
+  async function act(work: () => Promise<unknown>, success: string, task?: AutomationTask) {
+    if (busy) return;
     setBusy(true);
-    try { await work(); showMessage('success',success); setConfirm(null); }
-    catch (e) { showMessage('error', e instanceof Error ? e.message : '操作失败'); }
-    finally { setBusy(false); }
+    let attemptedWrite = false;
+    try {
+      if (!connected) {
+        const latest = await refreshSnapshot();
+        const current = task && latest.tasks.find(value => value.id === task.id);
+        if (task && (!current || current.version !== task.version || current.status !== task.status)) {
+          throw new Error('任务状态已变化，列表已刷新，请核对后重试');
+        }
+      }
+      attemptedWrite = true;
+      await work(); showMessage('success',success); setConfirm(null);
+      refreshAfterWrite();
+    } catch (e) {
+      showMessage('error', e instanceof Error ? e.message : '操作失败');
+      // 版本冲突只刷新视图，不自动重放有副作用的操作。
+      if (attemptedWrite) void refreshSnapshot().catch(() => retrySync());
+    } finally { setBusy(false); }
   }
   const tasks = snapshot.tasks.filter(t => (showDeleted ? t.status === 'DELETED' : filter === 'ALL' ? t.status !== 'DELETED' : t.status === filter) && t.spec.title.toLowerCase().includes(search.toLowerCase()));
   const deletedCount = snapshot.tasks.filter(task => task.status === 'DELETED').length;
@@ -111,18 +137,21 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
           ))}
         </div>}
         <div className={styles.toolbarActions}>
+          <TaskSyncStatus status={syncStatus} lastSyncedAt={lastSyncedAt} onRetry={retrySync} />
           <label className={styles.search}>
             <Search size={16} aria-hidden="true" />
             <input value={search} onChange={e => setSearch(e.target.value)} aria-label="搜索任务" placeholder="搜索任务" />
           </label>
           {showDeleted && <Button size="sm" variant="ghost" icon={<Trash2 size={15} />}
-            disabled={busy || !connected || deletedCount === 0} onClick={() => setPurgeConfirm(true)}>
+            disabled={busy || deletedCount === 0} onClick={() => setPurgeConfirm(true)}>
             清空
           </Button>}
         </div>
       </div>
 
-      {tasks.length === 0 ? <section className={styles.empty}><Search size={28} /><h2>{search ? '没有找到匹配任务' : showDeleted ? '没有已删除任务' : '让提醒按计划发生'}</h2><p>创建日报、周报、月报、久坐提醒或自定义通知，选择桌面或邮件接收。</p>{!showDeleted && <button type="button" className={styles.emptyAction} onClick={() => switchEditor({})}>创建第一个任务</button>}</section>
+      {!hasSnapshot ? <section className={styles.empty}>
+        {syncStatus === 'OFFLINE' ? <p role="status">暂时无法读取任务，请检查后端连接并重试同步。</p> : <LoadingTree label="正在读取任务…" />}
+      </section> : tasks.length === 0 ? <section className={styles.empty}><Search size={28} /><h2>{search ? '没有找到匹配任务' : showDeleted ? '没有已删除任务' : '让提醒按计划发生'}</h2><p>创建日报、周报、月报、久坐提醒或自定义通知，选择桌面或邮件接收。</p>{!showDeleted && <button type="button" className={styles.emptyAction} onClick={() => switchEditor({})}>创建第一个任务</button>}</section>
         : <div className={styles.list}>{tasks.map(task => <article key={task.id} className={styles.card}>
           <div className={styles.heading}><h2>{task.spec.title}</h2><span className={styles.badge}>{taskStatus[task.status] ?? task.status}</span></div>
           <p className={styles.rule}>{scheduleText(task.spec)}</p>
@@ -134,7 +163,7 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
               <History size={16} aria-hidden="true" />
             </Button>
             {task.status === 'DELETED' ? <Button size="sm" variant="ghost" icon={<RotateCcw size={15} />}
-              disabled={busy || !connected} onClick={() => void act(() => restoreAutomation(task), '任务已恢复为暂停状态')}>
+              disabled={busy} onClick={() => void act(() => restoreAutomation(task), '任务已恢复为暂停状态', task)}>
               恢复
             </Button> : <>
               <Button size="toolbar" variant="ghost" iconOnly aria-label="编辑" title="编辑"
@@ -147,23 +176,23 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
               </Button>
               <Button size="toolbar" variant="ghost" iconOnly aria-label="立即执行"
                 title={task.status !== 'ENABLED' ? '启用任务后可立即执行' : '立即执行'}
-                disabled={busy || !connected || task.status !== 'ENABLED'} onClick={() => setConfirm({task,action:'run'})}>
+                disabled={busy || task.status !== 'ENABLED'} onClick={() => setConfirm({task,action:'run'})}>
                 <Zap size={16} aria-hidden="true" />
               </Button>
               <Button size="toolbar" variant="ghost" iconOnly
                 aria-label={task.status === 'ENABLED' ? '暂停' : '启用'} title={task.status === 'ENABLED' ? '暂停' : '启用'}
-                disabled={busy || !connected} onClick={() => void act(() => setAutomationEnabled(task,task.status !== 'ENABLED'),'任务状态已更新')}>
+                disabled={busy} onClick={() => void act(() => setAutomationEnabled(task,task.status !== 'ENABLED'),'任务状态已更新', task)}>
                 {task.status === 'ENABLED' ? <Pause size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
               </Button>
               <Button size="toolbar" variant="ghost" iconOnly aria-label="删除" title="删除"
-                disabled={busy || !connected} onClick={() => setConfirm({task,action:'delete'})}>
+                disabled={busy} onClick={() => setConfirm({task,action:'delete'})}>
                 <Trash2 size={16} aria-hidden="true" />
               </Button>
             </>}
           </div>
         </article>)}</div>}
     </div></div>
-    {editor && <TaskEditor key={editorKey} {...editor} onDirtyChange={setEditorDirty} onBusyChange={setEditorBusy} activitySupported={activity?.supported ?? false} onClose={() => switchEditor(null)} onSaved={() => applyEditor(null)} />}
+    {editor && <TaskEditor key={editorKey} {...editor} onDirtyChange={setEditorDirty} onBusyChange={setEditorBusy} activitySupported={activity?.supported ?? false} onClose={() => switchEditor(null)} onSaved={() => { applyEditor(null); refreshAfterWrite(); }} />}
     {historyTask && <TaskHistoryDrawer task={historyTask} runs={history} loading={historyLoading} error={historyError} busy={busy}
       onClose={() => setHistoryTask(null)} onReload={() => setHistoryRefresh(value => value + 1)} onRetryEmail={setRetryRun} />}
     </div>
@@ -201,7 +230,7 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
       }}
       onConfirm={() => {
         if (confirm?.action === 'run') {
-          void act(() => runAutomation(confirm.task.id), '任务已执行');
+          void act(() => runAutomation(confirm.task.id), '任务已执行', confirm.task);
         }
       }}
     />
@@ -217,7 +246,7 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
       }}
       onConfirm={() => {
         if (confirm?.action === 'delete') {
-          void act(() => deleteAutomation(confirm.task), '任务已删除');
+          void act(() => deleteAutomation(confirm.task), '任务已删除', confirm.task);
         }
       }}
     >

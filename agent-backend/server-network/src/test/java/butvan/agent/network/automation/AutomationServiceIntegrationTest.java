@@ -14,6 +14,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.RecordApplicationEvents;
+import org.springframework.test.context.event.ApplicationEvents;
+import butvan.agent.network.automation.event.TasksChanged;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.*;
 import java.io.IOException;
 import java.time.*;
@@ -23,6 +27,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /** 使用临时 SQLite、可控时间及模拟投递验证任务状态闭环，不接触用户配置或 SMTP。 */
+@RecordApplicationEvents
 @SpringBootTest(classes={LocalDatabaseConfiguration.class, AutomationRepository.class,
         AutomationService.class, AutomationServiceIntegrationTest.TimeConfig.class})
 class AutomationServiceIntegrationTest {
@@ -40,12 +45,21 @@ class AutomationServiceIntegrationTest {
     private static final AtomicLong TIME = new AtomicLong(Instant.parse("2026-09-23T10:00:00Z").toEpochMilli());
     @Autowired AutomationService service;
     @Autowired AutomationRepository repository;
+    @Autowired ApplicationEvents applicationEvents;
     @MockitoBean TaskReportBuilder reports;
     @MockitoBean TaskMailService mail;
 
     private Spec reminder(String trigger, boolean confirm) {
         return new Spec("喝水提醒", "起来喝水", "REMINDER", trigger, "Asia/Shanghai", "18:01", "2026-09-23T10:01:00Z",
                 127, 1, 5, "00:00", "00:00", true, false, confirm, true, false, false, false);
+    }
+    @Test void snapshotsCarryStableSourceAndIncreasingReadRevision() {
+        var first = service.snapshot("owner-snapshot-order");
+        var second = service.snapshot("owner-snapshot-order");
+        assertNotNull(first.sourceId());
+        assertEquals(first.sourceId(), second.sourceId());
+        assertTrue(second.revision() > first.revision());
+        assertFalse(second.activityOnly());
     }
     @Test void weeklyAndMonthlyReportsPersistTheirScheduleAndTemplate() {
         TIME.set(Instant.parse("2026-09-23T10:00:00Z").toEpochMilli());
@@ -134,6 +148,26 @@ class AutomationServiceIntegrationTest {
         assertEquals(1,service.history("owner-s",task.id()).size());
         service.confirm("owner-s",service.history("owner-s",task.id()).getFirst().id());
         assertEquals(0,service.snapshot("owner-s").tasks().getFirst().activeSeconds());
+    }
+    @Test void activityProgressDoesNotInvalidateHistoryUnlessItGeneratesARun() {
+        TIME.set(Instant.parse("2026-09-23T10:00:00Z").toEpochMilli());
+        when(reports.build(anyString(), any(TaskSpec.class), any(Instant.class), any(Instant.class)))
+                .thenReturn(new TaskReportBuilder.Report("起身休息", false));
+        var spec = new Spec("计时同步", "起身休息", "SEDENTARY", "ACTIVITY", "Asia/Shanghai", "18:01", null,
+                127, 1, 5, "00:00", "00:00", true, false, true, true, false, false, false);
+        var task = service.save("owner-sync-progress", null, new SaveRequest(spec, true, 0));
+        applicationEvents.clear();
+        service.activity("owner-sync-progress", new ActivitySample(0, false, true));
+        TIME.addAndGet(5_000);
+        service.activity("owner-sync-progress", new ActivitySample(0, false, true));
+        var mapper = new ObjectMapper();
+        assertTrue(applicationEvents.stream(TasksChanged.class).allMatch(event ->
+                mapper.valueToTree(event).path("activityOnly").asBoolean()));
+        applicationEvents.clear();
+        for (int i = 0; i < 11; i++) { TIME.addAndGet(5_000); service.activity("owner-sync-progress", new ActivitySample(0, false, true)); }
+        assertEquals(1, service.history("owner-sync-progress", task.id()).size());
+        var last = applicationEvents.stream(TasksChanged.class).reduce((previous, next) -> next).orElseThrow();
+        assertFalse(mapper.valueToTree(last).path("activityOnly").asBoolean(), "产生执行记录必须通知历史刷新");
     }
     @Test void lockedScreenResetsContinuousUse() {
         TIME.set(Instant.parse("2026-09-23T10:00:00Z").toEpochMilli());

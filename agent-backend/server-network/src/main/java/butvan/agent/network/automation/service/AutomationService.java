@@ -25,10 +25,14 @@ public class AutomationService {
     private final Clock automationClock;
     /** 仅保存最后一次原生采样时间，无法观察的间隙绝不推算为使用时长。 */
     private final Map<String, Instant> samples = new HashMap<>();
+    /** 同步读取时分配序号，跨 REST/SSE 传输可比较；重启更换来源，不持久化运行态序号。 */
+    private final String snapshotSource = UUID.randomUUID().toString();
+    private long snapshotRevision;
 
-    private <T> T transaction(String owner, Supplier<T> action) {
+    private <T> T transaction(String owner, Supplier<T> action) { return transaction(owner, false, action); }
+    private <T> T transaction(String owner, boolean activityOnly, Supplier<T> action) {
         return new TransactionTemplate(transactions).execute(status -> {
-            T result = action.get(); events.publishEvent(new TasksChanged(owner)); return result;
+            T result = action.get(); events.publishEvent(new TasksChanged(owner, activityOnly)); return result;
         });
     }
     private AutomationTask require(String owner, String id) {
@@ -41,7 +45,7 @@ public class AutomationService {
                 repository.expireDesktopNotices(owner, automationClock.millis() - Duration.ofMinutes(15).toMillis()));
         if (expired > 0) events.publishEvent(new TasksChanged(owner));
         return new Snapshot(repository.list(owner).stream().map(TaskView::from).toList(),
-                repository.pending(owner).stream().map(RunView::from).toList());
+                repository.pending(owner).stream().map(RunView::from).toList(), false, snapshotSource, ++snapshotRevision);
     }
     /** 创建或更新任务，版本冲突拒绝覆盖。 */
     public synchronized TaskView save(String owner, String id, SaveRequest input) {
@@ -169,14 +173,15 @@ public class AutomationService {
         long delta = previous == null ? 0 : Duration.between(previous, now).getSeconds();
         for (var task : repository.list(owner)) {
             if (!"ENABLED".equals(task.status()) || !"ACTIVITY".equals(task.spec().trigger()) || repository.waiting(task.id())) continue;
-            transaction(owner, () -> {
-                var s = task.spec(); long seconds = task.activeSeconds();
-                boolean activelyUsed = sample.supported() && !sample.locked() && s.activeAt(now)
-                        && sample.idleSeconds() < s.breakMinutes()*60L;
-                // 首次采样、长间隔及非活动状态只暂停；不能据此推算遗漏时间或清除已保存进度。
-                if (activelyUsed && delta > 0 && delta <= 15) seconds += delta;
+            var spec = task.spec();
+            boolean activelyUsed = sample.supported() && !sample.locked() && spec.activeAt(now)
+                    && sample.idleSeconds() < spec.breakMinutes()*60L;
+            // 首次采样、长间隔及非活动状态只暂停；不能据此推算遗漏时间或清除已保存进度。
+            long seconds = task.activeSeconds() + (activelyUsed && delta > 0 && delta <= 15 ? delta : 0);
+            boolean executeNow = seconds >= spec.minutes()*60L;
+            transaction(owner, !executeNow, () -> {
                 repository.progress(task.id(), null, seconds, task.status());
-                if (seconds >= s.minutes()*60L) execute(task, now.toEpochMilli(), "ACTIVITY");
+                if (executeNow) execute(task, now.toEpochMilli(), "ACTIVITY");
                 return null;
             });
         }
