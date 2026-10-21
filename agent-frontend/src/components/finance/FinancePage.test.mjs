@@ -39,16 +39,17 @@ before(async () => {
   globalThis.ResizeObserver = class { observe() {} disconnect() {} };
   dom.window.matchMedia = (query) => {
     const listeners = new Set();
-    const result = { media: query, matches: !reducedMotion, addListener: (fn) => listeners.add(fn), removeListener: (fn) => listeners.delete(fn),
+    const matches = () => query.includes('no-preference') ? !reducedMotion : reducedMotion;
+    const result = { media: query, matches: matches(), addListener: (fn) => listeners.add(fn), removeListener: (fn) => listeners.delete(fn),
       addEventListener: (_, fn) => listeners.add(fn), removeEventListener: (_, fn) => listeners.delete(fn),
-      notify() { result.matches = !reducedMotion; listeners.forEach((fn) => fn(result)); } };
+      notify() { result.matches = matches(); listeners.forEach((fn) => fn(result)); } };
     mediaQueries.push(result);
     return result;
   };
   React = await import('react');
   ({ createRoot } = await import('react-dom/client'));
   ({ gsap } = await import('gsap'));
-  server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
+  server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' });
   ({ FinancePage } = await server.ssrLoadModule('/src/components/finance/FinancePage.tsx'));
   ({ MessageProvider } = await server.ssrLoadModule('/src/components/common/Message.tsx'));
 });
@@ -87,7 +88,8 @@ async function click(name) {
 }
 const summary = () => container.querySelector('[aria-label="本月财务概览"]');
 const trend = () => [...container.querySelectorAll('section')].find((item) => item.querySelector('h2')?.textContent === '收支趋势');
-const totals = () => [...trend().querySelectorAll('dd')].map((item) => item.textContent);
+// 读取可见动画数值，不把供读屏使用的最终值重复拼进断言。
+const totals = () => [...trend().querySelectorAll('dd')].map((item) => item.querySelector('[aria-hidden="true"]')?.textContent ?? item.textContent);
 const analysis = () => container.querySelector('section[aria-label="支出分析"]');
 async function selectCategory(value) {
   const select = [...document.querySelectorAll('select')].find((item) => [...item.options].some((option) => option.value === '__custom_category__'));
@@ -96,6 +98,77 @@ async function selectCategory(value) {
     select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
   });
 }
+
+test('慢速首次读取展示骨架而非零余额或空账户，刷新保留金额和节点', async () => {
+  const normal = respond, pending = deferred();
+  respond = url => url.pathname.endsWith('/overview') ? pending.promise : normal(url);
+  await render();
+  assert.ok(summary().querySelector('[role="status"][aria-label="正在读取资产与收支…"]'));
+  assert.ok(container.querySelector('[aria-label="正在读取最近流水…"]'));
+  assert.doesNotMatch(container.textContent, /还没有流水记录|暂无账户/);
+  await React.act(async () => pending.resolve(response(overview)));
+  const number = summary().querySelector('strong [aria-hidden="true"]');
+  const refresh = deferred();
+  respond = url => url.pathname.endsWith('/overview') ? refresh.promise : normal(url);
+  await click('刷新财务数据');
+  assert.equal(summary().querySelector('strong [aria-hidden="true"]'), number);
+  assert.match(summary().textContent, /正在更新资产与收支/);
+  assert.match(number.textContent, /12,345/);
+  await React.act(async () => refresh.resolve(response(overview)));
+  assert.doesNotMatch(summary().textContent, /正在更新资产与收支/);
+});
+
+test('流水慢速提交显示局部遮罩，阻止关闭与重复提交；失败保留草稿并解除忙碌', async () => {
+  await render();
+  await click('记一笔');
+  const normal = respond, write = deferred();
+  let writes = 0;
+  respond = (url, init) => {
+    if (init?.method === 'POST') { writes++; return write.promise; }
+    return normal(url);
+  };
+  const form = document.querySelector('form');
+  form.querySelector('[name="amount"]').value = '25';
+  form.querySelector('[name="note"]').value = '保留这份草稿';
+  const submit = () => React.act(async () => form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
+  await submit();
+  const dialog = document.querySelector('[role="dialog"]');
+  assert.equal(dialog.getAttribute('aria-busy'), 'true');
+  assert.match(dialog.querySelector('[role="status"]').textContent, /正在保存流水/);
+  assert.ok(form.closest('[inert]'));
+  await React.act(async () => window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  await React.act(async () => dialog.parentElement.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true })));
+  await submit();
+  assert.equal(writes, 1);
+  assert.equal(document.querySelector('[role="dialog"]'), dialog);
+  await React.act(async () => write.reject(new Error('服务器暂时不可用')));
+  assert.equal(dialog.getAttribute('aria-busy'), 'false');
+  assert.equal(form.closest('[inert]'), null);
+  assert.equal(form.querySelector('[name="note"]').value, '保留这份草稿');
+  assert.match(dialog.textContent, /服务器暂时不可用/);
+});
+
+test('财务统计动画保留金额小数、负结余，普通刷新复用已展示的数字节点', async () => {
+  const normal = respond;
+  const precise = { ...overview, totalAssets: 12345.67, monthIncome: 6000.12, monthExpense: 1200.34, monthYield: 15.09 };
+  respond = url => {
+    if (url.pathname.endsWith('/overview')) return response(precise);
+    if (url.pathname.endsWith('/expense-chart')) return response({ ...chart(), totalExpense: 12.34, totalIncome: 0 });
+    return normal(url);
+  };
+  await render();
+  const money = value => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
+  const visibleSummary = () => [...summary().querySelectorAll('strong [aria-hidden="true"], dd [aria-hidden="true"]')].map(item => item.textContent);
+  assert.deepEqual(visibleSummary(), [12345.67, 6000.12, 1200.34, 15.09].map(money));
+  assert.deepEqual(totals(), [12.34, 0, -12.34].map(money));
+  const assetNumber = summary().querySelector('strong [aria-hidden="true"]');
+  const trendNumber = trend().querySelector('dd [aria-hidden="true"]');
+  precise.totalAssets = 12346.68;
+  await click('刷新财务数据');
+  assert.equal(summary().querySelector('strong [aria-hidden="true"]'), assetNumber);
+  assert.equal(trend().querySelector('dd [aria-hidden="true"]'), trendNumber);
+  assert.equal(assetNumber.textContent, money(12346.68));
+});
 
 test('首次概览失败不伪造零资产，图表仍独立可用，重试后恢复', async () => {
   const normal = respond;
@@ -141,6 +214,9 @@ test('切换区间立即隐藏旧金额和图形，失败后就地重试展示�
   await click('本周');
   assert.deepEqual(totals(), ['—', '—', '—']);
   assert.equal(trend().querySelectorAll('[data-finance-bar-reveal]').length, 0);
+  assert.equal(trend().querySelector('svg[aria-label="收支趋势图"]'), null, '等待时不绘制真实零坐标轴');
+  assert.equal(trend().querySelectorAll('[role="status"] svg path').length, 2, '占位是轻量曲线/面积，不是三根大柱子');
+  assert.equal(trend().querySelectorAll('[role="status"] svg line').length, 5);
   await React.act(async () => week.reject(new Error('趋势请求失败')));
   assert.deepEqual(totals(), ['—', '—', '—']);
   assert.match(trend().textContent, /收支趋势加载失败/);

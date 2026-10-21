@@ -1,6 +1,7 @@
 import type { DailyDaySummary } from '../../types/dailyEvent';
 import { calendarCellItems } from '../../features/calendar/calendarItems';
 import { formatStudyDuration } from './calendarPresentation';
+import { Skeleton } from '../common/Skeleton';
 import styles from './CalendarDateCell.module.css';
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
   today: boolean;
   selected: boolean;
   available: boolean;
+  loading?: boolean;
   previewOpen: boolean;
   summary?: DailyDaySummary;
   studySeconds?: number;
@@ -26,6 +28,7 @@ export function CalendarDateCell({
   today,
   selected,
   available,
+  loading = false,
   previewOpen,
   summary,
   studySeconds = 0,
@@ -64,13 +67,14 @@ export function CalendarDateCell({
       aria-current={today ? 'date' : undefined}
       aria-expanded={previewOpen}
       aria-controls={previewOpen ? 'calendar-day-preview' : undefined}
-      aria-label={`${dateKey}，${items.map((item) => item.title).join('，') || '暂无事项'}${!available ? '，部分摘要暂不可用' : ''}`}
+      aria-label={loading ? `${dateKey}，正在读取摘要` : `${dateKey}，${items.map((item) => item.title).join('，') || '暂无事项'}${!available ? '，部分摘要暂不可用' : ''}`}
     >
       <span className={`${styles.number} ${today ? styles.today : ''}`}>
         {date.getDate()}
       </span>
       {inMonth && (
         <span className={styles.items}>
+          {loading ? <Skeleton variant="text" decorative /> : <>
           {visibleItems.map((item) => (
             <span
               key={item.id}
@@ -81,6 +85,7 @@ export function CalendarDateCell({
           ))}
           {hasMore && <span className={styles.more}>更多事项…</span>}
           {!available && <span className={styles.more}>部分摘要暂不可用</span>}
+          </>}
         </span>
       )}
     </button>

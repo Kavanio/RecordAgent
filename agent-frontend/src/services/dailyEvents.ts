@@ -63,6 +63,7 @@ function parseEvent(raw: RawEvent): DailyEvent {
         : 'none',
       recurrenceWeekday: typeof details.recurrenceWeekday === 'number' ? details.recurrenceWeekday : null,
       recurrenceMonthDay: typeof details.recurrenceMonthDay === 'number' ? details.recurrenceMonthDay : null,
+      completedAt: typeof details.completedAt === 'string' ? details.completedAt : null,
     } } satisfies TodoDailyEvent;
   }
   if (raw.eventType === 'schedule') {

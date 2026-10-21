@@ -1,88 +1,75 @@
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { SettingsGroup, SettingsRow } from './SettingsGroup';
 import { SettingsPageLayout } from './SettingsPageLayout';
-import { TextInput } from '../common/TextInput';
+import { BackendConnectionModal } from './BackendConnectionModal';
 import { Button } from '../common/Button';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { useMessage } from '../common/Message';
-import { saveBackendConnection, testBackendConnection, type BackendConnectionInfo } from '../../services/api';
+import { fetchBackendConnection, restartApplication, type BackendConnectionInfo } from '../../services/api';
 import styles from './BackendConnectionSettings.module.css';
 
-/** 桌面端后端连接入口；保存后重启切换，避免本地与远程调度器并行运行。 */
+/** 区分本次实际连接与下次启动配置，保存变更后由用户确认自动重启。 */
 export function BackendConnectionSettings() {
   const [connection, setConnection] = useState<BackendConnectionInfo | null>(null);
-  const [url, setUrl] = useState('');
-  const [token, setToken] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [restartPrompt, setRestartPrompt] = useState(false);
+  const [restarting, setRestarting] = useState(false);
   const { showMessage } = useMessage();
 
   useEffect(() => {
-    void invoke<BackendConnectionInfo>('get_backend_connection').then((value) => {
-      setConnection(value);
-      setUrl(value.remoteUrl ?? '');
-    }).catch((error: unknown) => showMessage('error', error instanceof Error ? error.message : '读取后端设置失败'));
+    let active = true;
+    void fetchBackendConnection().then((value) => {
+      if (active) setConnection(value);
+    }).catch((error: unknown) => {
+      if (!active) return;
+      setFailed(true);
+      showMessage('error', error instanceof Error ? error.message : typeof error === 'string' ? error : '读取后端设置失败');
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [showMessage]);
 
-  const test = async () => {
-    setBusy(true);
+  const restart = async () => {
+    setRestarting(true);
     try {
-      const savedToken = token.trim() || await invoke<string | null>('get_backend_api_token');
-      await testBackendConnection(url, savedToken);
-      showMessage('success', '后端连接成功');
+      await restartApplication();
     } catch (error) {
-      showMessage('error', error instanceof Error ? error.message : '无法连接后端');
+      showMessage('error', error instanceof Error ? error.message : '自动重启失败，请退出应用后重新打开');
     } finally {
-      setBusy(false);
-    }
-  };
-
-  const save = async (remoteUrl: string | null) => {
-    setBusy(true);
-    try {
-      await saveBackendConnection(remoteUrl, remoteUrl ? token : null);
-      showMessage('success', remoteUrl ? '远程地址已保存，请重启应用切换' : '已保存本地后端模式，请重启应用切换');
-      setUrl(remoteUrl ?? '');
-      setToken('');
-      setConnection((current) => current ? { ...current, remoteUrl, hasApiToken: Boolean(remoteUrl) } : current);
-    } catch (error) {
-      showMessage('error', error instanceof Error ? error.message : '保存后端设置失败');
-    } finally {
-      setBusy(false);
+      setRestarting(false);
     }
   };
 
   return (
-    <SettingsPageLayout title="后端连接" description="选择由本机或工作室服务器运行 Agent 与自动任务。">
-      <SettingsGroup title="运行位置" description="切换在重启应用后生效。远程可用时只由服务器执行日报和邮件任务；远程不可用时本次启动会自动回退到本机后端。">
+    <SettingsPageLayout title="后端连接" description="选择由本机或工作室服务器运行 Agent 与自动任务。" loading={loading}>
+      <SettingsGroup title="运行位置" description="切换在重启应用后生效。远程不可用时，本次启动会自动回退到本机后端，重启后重新尝试远程连接。">
         <SettingsRow
-          label="当前模式"
-          description={connection?.mode === 'remote' ? '远程服务器负责 Agent、数据与自动任务；本机保留桌面提醒和使用状态采样。启动时连接超过 8 秒会自动切换到本机数据，重启后重新尝试远程连接。' : connection?.remoteUrl ? '远程服务器启动时不可达，本次已自动切换到本机数据；重启后会重新尝试远程连接。' : connection?.mode === 'sidecar' ? '应用在本机启动独立后端。' : '开发模式连接本机 8081 端口。'}
-          control={<span className={styles.mode}>{connection?.mode === 'remote' ? '远程服务器' : connection?.remoteUrl ? '本机后端（自动降级）' : connection?.mode === 'sidecar' ? '本机打包后端' : '本机开发后端'}</span>}
+          label="当前连接"
+          description={connection?.mode === 'remote' ? `当前连接：${connection.remoteUrl}。远程服务器负责 Agent、数据与自动任务，本机保留桌面提醒和使用状态采样。` : connection?.remoteUrl ? '远程服务器启动时不可达，本次已自动切换到本机数据。' : connection?.mode === 'sidecar' ? '应用在本机启动独立后端。' : connection ? '开发模式连接本机 8081 端口。' : failed ? '读取失败，请重新进入此页面重试。' : '正在读取连接状态。'}
+          control={<span className={styles.mode}>{connection?.mode === 'remote' ? '远程服务器' : connection?.remoteUrl ? '本机后端（自动降级）' : connection ? '本机后端' : '尚未读取'}</span>}
         />
         <SettingsRow
-          label="服务器 API 地址"
-          description="例如 http://工作室服务器局域网地址:8081。服务器需要允许桌面端来源跨域访问。"
-          labelFor="remote-backend-url"
-          control={<TextInput id="remote-backend-url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="http://192.168.1.10:8081" autoComplete="url" />}
+          label="连接配置"
+          description={connection ? `${connection.savedRemoteUrl ? `已保存：${connection.savedRemoteUrl}` : '已保存：本机后端'}${connection.restartRequired ? '；等待重启生效，当前连接尚未切换。' : '。点击配置可修改运行位置、服务器地址和 API Token。'}` : '配置保存到当前设备。'}
+          control={<div className={styles.actions}>
+            {connection?.restartRequired && <Button variant="outline" onClick={() => setRestartPrompt(true)}>立即重启</Button>}
+            <Button variant="outline" disabled={!connection} onClick={() => setEditing(true)}>配置连接</Button>
+          </div>}
         />
-        <SettingsRow
-          label="API Token"
-          description={connection?.hasApiToken ? '系统钥匙串中已有 Token；重新保存时请输入新 Token。' : '填写服务器配置的 BUTVAN_API_TOKEN，至少 32 个字符。Token 保存到本机系统钥匙串。'}
-          labelFor="remote-backend-token"
-          control={<TextInput id="remote-backend-token" type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder={connection?.hasApiToken ? '已安全保存，输入新 Token 可替换' : '服务器 API Token'} autoComplete="new-password" />}
-        />
-        <div className={styles.actions}>
-          <Button variant="outline" onClick={() => void test()} disabled={busy || !url.trim()}>测试连接</Button>
-          <Button variant="primary" onClick={() => void save(url.trim())} disabled={busy || !url.trim() || token.trim().length < 32}>保存远程连接</Button>
-          {connection?.remoteUrl && <Button variant="ghost" onClick={() => void save(null)} disabled={busy}>切回本机</Button>}
-        </div>
       </SettingsGroup>
       <SettingsGroup title="设备提醒说明">
-        <p className={styles.note}>日报、周报、月报和邮件由服务器持续执行。桌面通知、休息遮罩和久坐采样由本机 App 处理；电脑关机或 App 完全退出时，本机采样与提醒会暂停。未确认的普通桌面通知超过 15 分钟后会过期跳过，待确认提醒会保留到你处理。</p>
+        <p className={styles.note}>日报、周报、月报和邮件由当前连接的后端执行，连接远程时由服务器持续执行。桌面通知、休息遮罩和久坐采样由本机 App 处理；电脑关机或 App 完全退出时，本机采样与提醒会暂停。未确认的普通桌面通知超过 15 分钟后会过期跳过，待确认提醒会保留到你处理。</p>
       </SettingsGroup>
       <SettingsGroup title="远程访问安全">
         <p className={styles.note}>服务器必须开启令牌校验（BUTVAN_API_REQUIRE_TOKEN=true），并限制防火墙只允许你的设备访问。当前业务仍是单用户服务；请通过 HTTPS 或可信 VPN 连接，不要把 8081 端口开放到公网。</p>
       </SettingsGroup>
+      {editing && connection && <BackendConnectionModal connection={connection} onClose={() => setEditing(false)} onSaved={(changed, remoteUrl) => {
+        setConnection((current) => current ? { ...current, savedRemoteUrl: remoteUrl, hasApiToken: Boolean(remoteUrl), restartRequired: current.restartRequired || changed } : current);
+        setEditing(false);
+        if (changed) setRestartPrompt(true);
+      }} />}
+      <ConfirmDialog open={restartPrompt} title="重启应用以切换后端" tone="info" description="连接配置已保存，重启后生效。请先结束正在进行的对话并保存未完成的编辑；点击立即重启后，应用将自动退出并重新打开。" cancelText="稍后重启" confirmText="立即重启" busy={restarting} onClose={() => setRestartPrompt(false)} onConfirm={restart} />
     </SettingsPageLayout>
   );
 }

@@ -43,6 +43,7 @@ export const AssetAccountModal: React.FC<AssetAccountModalProps> = ({
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSaving) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     const name = String(data.get('name') ?? '').trim();
@@ -71,7 +72,7 @@ export const AssetAccountModal: React.FC<AssetAccountModalProps> = ({
   };
 
   return (
-    <Modal open={open} title="添加资产账户" onClose={handleClose} width={500} centered>
+    <Modal open={open} title="添加资产账户" onClose={handleClose} width={500} centered busy={isSaving} busyLabel="正在添加资产账户…">
       <form className={styles.form} onSubmit={(e) => void handleSubmit(e)}>
         <p className={styles.description}>记录账户当前余额；零钱通、余额宝等可开启每日收益。</p>
         {error && <div className={styles.error} role="alert">{error}</div>}

@@ -1,3 +1,5 @@
+.interactive { display: contents; }
+
 .workspace {
   position: relative;
   flex: 1;

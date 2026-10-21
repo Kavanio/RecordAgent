@@ -18,6 +18,7 @@ export interface TodoDailyEvent extends DailyEventBase {
     recurrence: 'none' | 'daily' | 'weekly' | 'monthly';
     recurrenceWeekday: number | null;
     recurrenceMonthDay: number | null;
+    completedAt: string | null;
   };
 }
 

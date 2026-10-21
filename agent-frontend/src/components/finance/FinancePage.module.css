@@ -3,6 +3,7 @@
 .content { width: 100%; max-width: 1240px; margin: 0 auto; padding: 28px 32px 40px; display: flex; flex-direction: column; gap: 28px; }
 .financeLayout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, 1fr); gap: 28px; align-items: start; }
 .historyPanel, .accountPanel { min-width: 0; }
+.historyPanel > h2, .accountPanel > h2 { color: var(--text-primary); font-size: 14px; font-weight: 600; }
 .historyPanel { padding-right: 28px; }
 .sectionHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .sectionHeading h2 { margin: 0; color: var(--text-primary); font-size: 14px; font-weight: 600; letter-spacing: -.01em; }

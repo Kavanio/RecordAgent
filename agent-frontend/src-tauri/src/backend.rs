@@ -34,6 +34,8 @@ pub struct BackendConnectionInfo {
     pub mode: String,
     pub remote_url: Option<String>,
     pub has_api_token: bool,
+    pub saved_remote_url: Option<String>,
+    pub restart_required: bool,
 }
 
 /// 后端进程与端口共享状态（通过 Tauri 状态管理注入）
@@ -48,6 +50,8 @@ pub struct BackendState {
     pub remote_url: Option<String>,
     /// 远程健康检查超时后，标记本次启动已切换到本机后端。
     pub local_fallback: AtomicBool,
+    /// 已保存的连接配置变化，等待重启后生效。
+    pub restart_required: AtomicBool,
 }
 
 impl Default for BackendState {
@@ -62,6 +66,7 @@ impl Default for BackendState {
             },
             remote_url: None,
             local_fallback: AtomicBool::new(false),
+            restart_required: AtomicBool::new(false),
         }
     }
 }
@@ -74,12 +79,26 @@ pub fn get_backend_mode(state: State<'_, BackendState>) -> String {
 
 /// 返回当前启动模式和远程地址，供桌面设置页显示。
 #[tauri::command]
-pub fn get_backend_connection(state: State<'_, BackendState>) -> BackendConnectionInfo {
-    BackendConnectionInfo {
+pub fn get_backend_connection(
+    app: AppHandle,
+    state: State<'_, BackendState>,
+) -> Result<BackendConnectionInfo, String> {
+    let saved = load_connection(&app)?;
+    Ok(BackendConnectionInfo {
         mode: resolved_mode(&state),
         remote_url: state.remote_url.clone(),
-        has_api_token: read_api_token().ok().flatten().is_some(),
-    }
+        has_api_token: read_api_token()
+            .map_err(|e| format!("读取系统钥匙串失败：{e}"))?
+            .is_some(),
+        saved_remote_url: saved.remote_url,
+        restart_required: state.restart_required.load(Ordering::Relaxed),
+    })
+}
+
+/// 使用 Tauri 的正常退出流程重启，确保退出事件先清理本机 sidecar。
+#[tauri::command]
+pub fn restart_application(app: AppHandle) {
+    app.request_restart();
 }
 
 fn resolved_mode(state: &BackendState) -> String {
@@ -101,13 +120,20 @@ pub fn save_remote_backend_url(
     app: AppHandle,
     remote_url: Option<String>,
     api_token: Option<String>,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let cleaned = remote_url
         .map(|url| url.trim().trim_end_matches('/').to_string())
         .filter(|url| !url.is_empty());
+    let previous = load_connection(&app)?;
+    let previous_token = read_api_token().map_err(|e| format!("读取系统钥匙串失败：{e}"))?;
+    let token = api_token.as_deref().unwrap_or_default().trim();
+    let changed = previous.remote_url != cleaned
+        || (cleaned.is_some() && previous_token.as_deref() != Some(token));
+    if !changed {
+        return Ok(false);
+    }
     if let Some(url) = &cleaned {
         validate_remote_url(url)?;
-        let token = api_token.as_deref().unwrap_or_default().trim();
         if token.len() < 32 {
             return Err("远程模式需要至少 32 个字符的 API Token".into());
         }
@@ -130,7 +156,11 @@ pub fn save_remote_backend_url(
     .map_err(|e| e.to_string())?;
     let temp = path.with_extension("json.tmp");
     std::fs::write(&temp, bytes).map_err(|e| format!("写入后端连接配置失败：{e}"))?;
-    std::fs::rename(temp, path).map_err(|e| format!("保存后端连接配置失败：{e}"))
+    std::fs::rename(temp, path).map_err(|e| format!("保存后端连接配置失败：{e}"))?;
+    app.state::<BackendState>()
+        .restart_required
+        .store(true, Ordering::Relaxed);
+    Ok(true)
 }
 
 /// 将令牌从系统钥匙串读取到前端内存，仅用于构造本次 API 请求头。

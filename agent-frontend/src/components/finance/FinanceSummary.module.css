@@ -1,4 +1,5 @@
-.summary { min-width: 0; }
+.summary { position: relative; min-width: 0; }
+.refreshStatus { position: absolute; right: 0; top: -16px; color: var(--text-muted); font-size: 10px; }
 .metrics { display: grid; grid-template-columns: minmax(240px, 1.1fr) minmax(0, 2fr); gap: 24px; align-items: center; }
 .assets { min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 14px; padding: 24px; border: 0; border-radius: var(--radius-lg); background: #F5F9FF; color: var(--text-primary); text-align: left; cursor: pointer; transition: background-color 180ms ease; }
 .assets:hover { background: #EDF5FF; }
@@ -19,7 +20,6 @@
 .error { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; padding: 18px 20px; border: 0; border-radius: var(--radius-lg); background: #fffaf9; color: #913f38; font-size: 12px; }
 .error strong { font-weight: 600; }
 .error p { margin-top: 5px; overflow-wrap: anywhere; }
-.loading { min-height: 160px; display: grid; place-items: center; }
 @container finance (max-width: 850px) {
   .metrics { grid-template-columns: 1fr; gap: 14px; }
   .assets { gap: 10px; }

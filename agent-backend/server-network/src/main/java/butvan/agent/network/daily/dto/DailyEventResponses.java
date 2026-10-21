@@ -72,7 +72,8 @@ public final class DailyEventResponses {
             boolean completed,
             String recurrence,
             Integer recurrenceWeekday,
-            Integer recurrenceMonthDay) {
+            Integer recurrenceMonthDay,
+            Instant completedAt) {
     }
 
     /** 日程详情响应。 */
@@ -127,7 +128,7 @@ public final class DailyEventResponses {
         if (details instanceof TodoDetails todo) {
             return new TodoDetailResponse(
                     todo.time(), todo.priority(), todo.completed(), todo.recurrence(),
-                    todo.recurrenceWeekday(), todo.recurrenceMonthDay());
+                    todo.recurrenceWeekday(), todo.recurrenceMonthDay(), todo.completedAt());
         }
         if (details instanceof ScheduleDetails schedule) {
             return new ScheduleDetailResponse(

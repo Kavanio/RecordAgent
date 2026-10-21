@@ -31,10 +31,6 @@
 .empty strong { color: var(--text-secondary); font-weight: 500; }
 .empty > span { line-height: 1.7; }
 .loadingContent { display: flex; flex-direction: column; min-height: 444px; padding-top: 32px; }
-.loadingAmount { width: min(60%, 210px); height: 30px; border-radius: 7px; background: var(--bg-surface); }
-.loadingRows { display: flex; flex-direction: column; gap: 30px; margin-top: 66px; }
-.loadingRows i { width: 100%; height: 37px; border-bottom: 4px solid var(--bg-surface); }
-.loadingRows i:nth-child(2) { width: 85%; }
-.loadingRows i:nth-child(3) { width: 68%; }
+.loadingRows { margin-top: 34px; }
 @container finance (max-width: 580px) { .summary { margin-top: 24px; } .row { gap: 8px; } }
 @media (prefers-reduced-motion: reduce) { .bar { transition: none; } }

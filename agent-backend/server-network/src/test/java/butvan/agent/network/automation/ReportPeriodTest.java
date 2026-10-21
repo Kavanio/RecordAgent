@@ -30,7 +30,8 @@ class ReportPeriodTest {
         assertEquals(Instant.parse("2024-02-01T00:30:00Z").toEpochMilli(),
                 TaskSchedule.next(spec, Instant.parse("2024-01-30T00:00:00Z")));
         assertEquals("DIGEST", new MailTemplate("CARDS", null, null, null, null, null).style());
-        assertEquals("EDITORIAL", new MailTemplate("MINIMAL", null, null, null, null, null).style());
-        assertEquals("LEDGER", new MailTemplate("LETTER", null, null, null, null, null).style());
+        assertEquals("DIGEST", new MailTemplate("MINIMAL", null, null, null, null, null).style());
+        assertEquals("DIGEST", new MailTemplate("LETTER", null, null, null, null, null).style());
+        assertEquals("DIGEST", new MailTemplate("CUSTOM", null, null, null, null, "旧正文").style());
     }
 }

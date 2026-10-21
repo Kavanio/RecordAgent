@@ -4,6 +4,7 @@ import { ArrowClockwiseIcon, ArrowsLeftRightIcon, CaretRightIcon, PencilSimpleIc
 import { createFinanceAccount, createFinanceBalanceAdjustment, createFinanceTransaction, createFinanceTransfer, fetchFinanceCategories, fetchFinanceExpenseChart, fetchFinanceExpenseInsights, fetchFinanceOverview, fetchFinanceTransactions, updateFinanceTransaction } from '../../services/financeApi';
 import type { CreateFinanceAccountInput, CreateFinanceBalanceAdjustmentInput, CreateFinanceTransactionInput, CreateFinanceTransferInput, FinanceAccount, FinanceCategoryOptions, FinanceChartRange, FinanceExpenseChart, FinanceExpenseInsights, FinanceOverview, FinanceTransaction } from '../../types/finance';
 import { Button } from '../common/Button';
+import { Skeleton } from '../common/Skeleton';
 import { useMessage } from '../common/Message';
 import { TopBar } from '../common/TopBar';
 import styles from './FinancePage.module.css';
@@ -233,6 +234,10 @@ export const FinancePage: React.FC = () => {
         <ExpenseInsightsPanel insights={insights} range={insightsRange} loading={isInsightsLoading} error={insightsError}
           onRangeChange={setInsightsRange} onRetry={() => void loadInsights(insightsRange)} categoryColors={categoryOptions.colors?.expense} />
 
+        {!overview && isLoading && <div className={styles.financeLayout}>
+          <section className={styles.historyPanel} aria-label="最近流水"><h2>最近流水</h2><Skeleton label="正在读取最近流水…" /></section>
+          <section className={styles.accountPanel} aria-label="我的账户"><h2>我的账户</h2><Skeleton label="正在读取资产账户…" /></section>
+        </div>}
         {overview && <div className={styles.financeLayout}>
           <section className={styles.historyPanel}>
             <div className={styles.sectionHeading}><div><h2>最近流水</h2><p>最近 {recentTransactions.length} 笔记录</p></div><div className={styles.sectionMeta}>{overview.transactions.length ? <Button type="button" variant="ghost" size="sm" onClick={openTransactionDrawer}>全部流水<CaretRightIcon size={12} /></Button> : null}</div></div>

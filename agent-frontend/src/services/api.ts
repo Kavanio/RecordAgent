@@ -33,6 +33,9 @@ export interface BackendConnectionInfo {
   mode: 'dev' | 'sidecar' | 'remote';
   remoteUrl: string | null;
   hasApiToken: boolean;
+  /** 已保存但不一定生效的配置；remoteUrl 始终表示本次启动的地址。 */
+  savedRemoteUrl: string | null;
+  restartRequired: boolean;
 }
 
 /** 远程服务启动检查最多等待 8 秒，再切换到本机后端。 */
@@ -59,7 +62,7 @@ function isTauri(): boolean {
  * 健康检查通过后写入动态端口；非 Tauri 环境保持开发地址不变。
  * 应在应用渲染前调用一次。
  */
-export async function initApiBaseUrl(): Promise<void> {
+export async function initApiBaseUrl(options: { reuseEstablishedConnection?: boolean } = {}): Promise<void> {
   if (!isTauri()) return;
 
   // 开发模式：后端由开发者在本机（如 IDEA）启动，直接连固定开发端口
@@ -68,6 +71,11 @@ export async function initApiBaseUrl(): Promise<void> {
     const connection = await invoke<BackendConnectionInfo>('get_backend_connection');
     if (!connection.remoteUrl) throw new Error('远程后端地址未配置');
     apiAccessToken = await invoke<string | null>('get_backend_api_token').catch(() => null);
+    // 辅助窗口只会在主窗口已连接并准备使用时创建；复用主窗口选定的地址，避免再次等待 8 秒健康检查。
+    if (options.reuseEstablishedConnection) {
+      apiBaseUrl = connection.remoteUrl;
+      return;
+    }
     try {
       const headers = new Headers();
       if (apiAccessToken) headers.set('Authorization', `Bearer ${apiAccessToken}`);
@@ -124,8 +132,18 @@ export async function testBackendConnection(url: string, token?: string | null):
 }
 
 /** 保存远程地址；变更需重启，确保本机 sidecar 与远程调度互斥。 */
-export async function saveBackendConnection(url: string | null, token: string | null): Promise<void> {
-  await invoke('save_remote_backend_url', { remoteUrl: url, apiToken: token });
+export async function saveBackendConnection(url: string | null, token: string | null): Promise<boolean> {
+  return invoke<boolean>('save_remote_backend_url', { remoteUrl: url, apiToken: token });
+}
+
+/** 在本机系统钥匙串中复用已有 Token，不将凭据显示在表单中。 */
+export async function getSavedBackendToken(): Promise<string | null> {
+  return invoke<string | null>('get_backend_api_token');
+}
+
+/** 正常退出并重新启动桌面应用，重新选择后端并清理原 sidecar。 */
+export async function restartApplication(): Promise<void> {
+  await invoke('restart_application');
 }
 
 /** 统一为 API 请求注入远程 Bearer Token；本机模式不附加认证头。 */

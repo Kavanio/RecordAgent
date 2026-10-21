@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { LoadingOverlay } from './LoadingOverlay';
 import styles from './Modal.module.css';
 
 export interface ModalProps {
@@ -13,6 +14,9 @@ export interface ModalProps {
   /** 是否在应用窗口中垂直居中；默认保持顶部对齐 */
   centered?: boolean;
   className?: string;
+  /** 提交期间阻止关闭与底层交互，复用局部加载遮罩。 */
+  busy?: boolean;
+  busyLabel?: string;
   /** 标题栏图标（可选） */
   icon?: React.ReactNode;
 }
@@ -35,13 +39,15 @@ export const Modal: React.FC<ModalProps> = ({
   centered = false,
   className = '',
   icon,
+  busy = false,
+  busyLabel,
 }) => {
 
   const panelRef = useRef<HTMLDivElement>(null);
   const modalIdRef = useRef(0);
   if (modalIdRef.current === 0) modalIdRef.current = ++nextModalId;
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  onCloseRef.current = () => { if (!busy) onClose(); };
 
   useEffect(() => {
     if (!open) return;
@@ -64,8 +70,12 @@ export const Modal: React.FC<ModalProps> = ({
 
       const focusables = Array.from(
         panel.querySelectorAll<HTMLElement>(FOCUSABLE)
-      ).filter((el) => !el.hasAttribute('disabled'));
-      if (focusables.length === 0) return;
+      ).filter((el) => !el.hasAttribute('disabled') && !el.closest('[inert]'));
+      if (focusables.length === 0) {
+        e.preventDefault();
+        panel.focus();
+        return;
+      }
 
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
@@ -92,19 +102,20 @@ export const Modal: React.FC<ModalProps> = ({
   return createPortal(
     <div
       className={`${styles.overlay} ${centered ? styles.overlayCentered : ''}`}
-      onMouseDown={onClose}
+      onMouseDown={() => onCloseRef.current()}
     >
       <div
         ref={panelRef}
         className={`${styles.panel} ${className}`}
         role="dialog"
         aria-modal="true"
+        aria-busy={busy}
         aria-label={title}
         tabIndex={-1}
         style={{ width }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className={styles.header}>
+        <div className={styles.header} inert={busy}>
           <div className={styles.titleWrapper}>
             {icon && <span className={styles.headerIcon}>{icon}</span>}
             <h3 className={styles.title}>{title}</h3>
@@ -112,7 +123,7 @@ export const Modal: React.FC<ModalProps> = ({
           <button
             type="button"
             className={styles.closeBtn}
-            onClick={onClose}
+            onClick={() => onCloseRef.current()}
             aria-label="关闭"
             title="关闭 (Esc)"
           >
@@ -120,7 +131,8 @@ export const Modal: React.FC<ModalProps> = ({
           </button>
         </div>
 
-        {children}
+        <div className={styles.body} inert={busy}>{children}</div>
+        <LoadingOverlay active={busy} label={busyLabel} />
       </div>
     </div>,
     document.body,

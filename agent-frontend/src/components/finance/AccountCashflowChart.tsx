@@ -1,5 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import type { FinanceAccountType, FinanceExpenseInsights } from '../../types/finance';
+import { ChartSkeleton } from '../common/ChartSkeleton';
+import { Skeleton } from '../common/Skeleton';
 import { FinanceChartCard } from './FinanceChartCard';
 import { FinanceChartTabs } from './FinanceChartTabs';
 import styles from './AccountCashflowChart.module.css';
@@ -64,8 +66,8 @@ export const AccountCashflowChart: React.FC<AccountCashflowChartProps> = ({ acco
       onChange={(next) => { setActive(null); onModeChange(next); }} />}
     footer={mode === 'income' ? '包含自动收益，不含账户划转与余额校准' : '旧日历花销未关联资产账户，不计入此图'}>
     {loading ? <div className={styles.loadingContent} role="status" aria-label={`正在加载账户${label}分析`}>
-      <span className={styles.loadingAmount} aria-hidden="true" />
-      <div className={styles.loadingColumns} aria-hidden="true"><i /><i /><i /><i /></div>
+      <Skeleton variant="text" decorative />
+      <div className={styles.loadingColumns}><ChartSkeleton variant="bars" label={`正在读取账户${label}分布…`} decorative /></div>
     </div> : <>
     <div className={styles.summary}>
       <div className={styles.total}>
