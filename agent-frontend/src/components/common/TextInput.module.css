@@ -34,6 +34,11 @@
   border-color: #ef4444;
 }
 
+.input.ghost { border-color: transparent; background: transparent; }
+.input.ghost:hover:not(:disabled):not(:focus):not(.invalid) { border-color: transparent; }
+.input.ghost:focus { border-color: #2563eb; background: #ffffff; }
+.input.ghost.invalid { border-color: #ef4444; }
+
 .numberWrapper {
   position: relative;
   display: flex;

@@ -267,6 +267,16 @@ test('提醒设置自动保存、失败回退；数字微调同步受控值并�
     await React.act(async () => root.render(React.createElement(MessageProvider, null, React.createElement(TaskReminderSettings))));
     assert.doesNotMatch(container.textContent, /保存提醒设置/);
     assert.equal(saved.length, 0, '加载不应触发保存');
+    const { default: rowStyles } = await server.ssrLoadModule('/src/components/settings/SettingsGroup.module.css');
+    const soundSelect = container.querySelector('[aria-label="选择提示音"]');
+    const { default: selectStyles } = await server.ssrLoadModule('/src/components/common/Select.module.css');
+    const { default: inputStyles } = await server.ssrLoadModule('/src/components/common/TextInput.module.css');
+    assert.ok(soundSelect.classList.contains(selectStyles.ghost), '提示音平时无边框，聚焦时才显边框');
+    assert.ok(container.querySelector('input[type="number"]').classList.contains(inputStyles.ghost), '间隔输入采用同样的无边框待机状态');
+    assert.equal(container.querySelector('input[type="number"]').hasAttribute('appearance'), false, '外观属性不能泄漏到原生输入框');
+    assert.ok(soundSelect.closest(`.${rowStyles.row}`).classList.contains(rowStyles.stacked), '提示音采用上下布局，控件不再挤在右侧窄栏');
+    assert.match(document.getElementById(soundSelect.getAttribute('aria-describedby')).textContent, /仅保存在当前电脑，不上传服务器/);
+    assert.equal(container.querySelector('input[type="number"]').closest(`.${rowStyles.row}`).classList.contains(rowStyles.stacked), false, '简单设置仍沿用原来的左右布局');
     await React.act(async () => container.querySelector('[role="switch"]').click());
     assert.equal(preferences.restLock, true);
     const select = container.querySelector('select');
@@ -301,6 +311,46 @@ test('提醒设置自动保存、失败回退；数字微调同步受控值并�
   }
 });
 
+
+test('提示音导入通过原生接口保存本机副本，界面明确本机范围并显示长文件名', async () => {
+  const { TaskReminderSettings } = await server.ssrLoadModule('/src/components/task/TaskReminderSettings.tsx');
+  const previousInternals = window.__TAURI_INTERNALS__, previousTauri = globalThis.isTauri;
+  const previousAudioContext = globalThis.AudioContext, previousFetch = globalThis.fetch;
+  const name = '用于提醒测试的很长音频文件名-notification-sound.wav';
+  const preferences = { restLock: false, soundId: 'builtin:bell', repeatSeconds: 4 };
+  const calls = [];
+  globalThis.isTauri = true;
+  globalThis.fetch = () => { throw new Error('导入本机提示音不应发送 HTTP 请求'); };
+  globalThis.AudioContext = class { async decodeAudioData() { return { duration: 1 }; } async close() {} };
+  window.__TAURI_INTERNALS__ = { invoke: async (command, payload) => {
+    calls.push({ command, payload });
+    if (command === 'task_reminder_configuration') return { preferences, sounds: [{ id: 'builtin:bell', name: '铃声', source: 'builtin' }] };
+    if (command === 'import_task_reminder_audio') return { preferences: { ...preferences, soundId: 'custom' }, sounds: [{ id: 'custom', name, source: 'custom' }] };
+  } };
+  try {
+    await React.act(async () => root.render(React.createElement(MessageProvider, null, React.createElement(TaskReminderSettings))));
+    const input = container.querySelector('[aria-label="导入提示音文件"]');
+    const file = new dom.window.File(['audio'], name, { type: 'audio/wav' });
+    Object.defineProperty(file, 'arrayBuffer', { value: async () => new Uint8Array([82, 73, 70, 70]).buffer });
+    Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+    await React.act(async () => input.dispatchEvent(new dom.window.Event('change', { bubbles: true })));
+    const imported = calls.find(item => item.command === 'import_task_reminder_audio');
+    assert.equal(imported.payload.name, name);
+    assert.deepEqual(imported.payload.bytes, [82, 73, 70, 70]);
+    const select = container.querySelector('[aria-label="选择提示音"]');
+    assert.equal(select.value, 'custom');
+    assert.equal(select.title, name);
+    assert.match(select.textContent, /本机导入/);
+    assert.match(document.body.textContent, /音频已保存到本机并设为提示音/);
+    assert.match(container.textContent, /再次导入会替换原音频/);
+    assert.equal(input.value, '');
+  } finally {
+    window.__TAURI_INTERNALS__ = previousInternals;
+    globalThis.isTauri = previousTauri;
+    globalThis.AudioContext = previousAudioContext;
+    globalThis.fetch = previousFetch;
+  }
+});
 
 test('任务同步异常使用全局 Message，同次异常不重复提示，恢复后更新提示', async () => {
   assert.equal(container.querySelector('[aria-label="任务运行条件"]'), null);

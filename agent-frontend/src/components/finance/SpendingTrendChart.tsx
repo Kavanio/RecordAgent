@@ -3,7 +3,7 @@ import { gsap } from 'gsap';
 import type { FinanceChartRange, FinanceExpenseChart } from '../../types/finance';
 import { Button } from '../common/Button';
 import { AnimatedNumber } from '../common/AnimatedNumber';
-import { LoadingTree } from '../common/LoadingTree';
+import { ChartSkeleton } from '../common/ChartSkeleton';
 import { trendBuckets, trendCeiling, trendTicks, hasOutlier, createTrendScale } from './spendingTrendData';
 import { financeCategoryColor } from './financeCategoryColors';
 import styles from './SpendingTrendChart.module.css';
@@ -168,7 +168,7 @@ export const SpendingTrendChart: React.FC<SpendingTrendChartProps> = ({ chart, r
     </div>
     <div className={styles.chartHost} ref={hostRef} onPointerLeave={() => setActiveIndex(null)}
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setActiveIndex(null); }}>
-      {width > 0 && <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} role="group"
+      {width > 0 && !pending && !error && <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} role="group"
         tabIndex={interactive ? 0 : -1} aria-label="收支趋势图" aria-describedby={helpId}
         onPointerMove={selectFromPointer} onPointerDown={selectFromPointer} onKeyDown={selectFromKeyboard}
         onFocus={() => { if (interactive) setActiveIndex((current) => current ?? 0); }}>
@@ -221,7 +221,7 @@ export const SpendingTrendChart: React.FC<SpendingTrendChartProps> = ({ chart, r
         </g>
         {trendTicks(days.length, plotWidth).map((index) => <text key={days[index].date} x={x(index)} y={height - 9} textAnchor="middle" className={styles.axisLabel}>{dateLabel(days[index].date, range)}</text>)}
       </svg>}
-      {pending ? <div className={styles.state}><LoadingTree size="small" label="正在更新收支趋势…" /></div>
+      {pending ? <div className={styles.loadingState}><ChartSkeleton label="正在更新收支趋势…" /></div>
         : error ? <div className={`${styles.state} ${styles.error}`} role="alert"><strong>收支趋势加载失败</strong><span>{error}</span><Button type="button" variant="outline" size="sm" onClick={onRetry}>重新加载趋势</Button></div>
           : !hasData && <div className={styles.state}><strong>这个区间还没有收支记录</strong><span>记一笔后，趋势会显示在这里。</span></div>}
       {interactive && activeDay && <div className={styles.tooltip} role="status" aria-live="polite" aria-atomic="true"

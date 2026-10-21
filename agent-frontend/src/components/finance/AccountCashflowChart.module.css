@@ -64,12 +64,7 @@
 .empty > span:last-child { font-size: 11px; }
 
 .loadingContent { display: flex; flex-direction: column; min-height: 444px; padding-top: 32px; }
-.loadingAmount { width: min(60%, 210px); height: 30px; border-radius: 7px; background: var(--bg-surface); }
-.loadingColumns { display: flex; align-items: flex-end; justify-content: space-around; gap: 20px; height: 260px; margin: 54px 30px 0; border-bottom: 1px solid var(--border-subtle); }
-.loadingColumns i { width: min(42px, 20%); height: 42%; border-radius: 8px 8px 0 0; background: var(--bg-surface); }
-.loadingColumns i:nth-child(2) { height: 68%; }
-.loadingColumns i:nth-child(3) { height: 85%; }
-.loadingColumns i:nth-child(4) { height: 57%; }
+.loadingColumns { height: 300px; margin-top: 32px; }
 @keyframes reveal { from { opacity: 0; } to { opacity: 1; } }
 @container finance (max-width: 580px) {
   .summary { gap: 10px; margin-top: 22px; }

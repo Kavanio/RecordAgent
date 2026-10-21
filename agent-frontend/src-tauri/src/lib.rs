@@ -63,6 +63,7 @@ pub fn run() {
     backend::get_backend_connection,
     backend::get_backend_api_token,
     backend::save_remote_backend_url,
+    backend::restart_application,
     backend::start_local_backend_fallback,
     system_settings::open_location_settings,
     task_desktop::task_activity_status,

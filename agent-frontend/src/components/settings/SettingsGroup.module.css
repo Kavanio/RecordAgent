@@ -81,6 +81,10 @@
   justify-content: flex-end;
 }
 
+.stacked { align-items: stretch; flex-direction: column; gap: 12px; }
+.stacked .copy { max-width: none; }
+.stacked .control { min-width: 0; width: 100%; justify-content: flex-start; }
+
 .control button:not([role="switch"]):not([data-input-stepper]) {
   box-sizing: border-box;
   height: 28px;

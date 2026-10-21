@@ -10,6 +10,9 @@
 .pageHeading p { margin: 8px 0 0; color: var(--text-muted); font-size: 12px; }
 .pageDate { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
 .overview { display: grid; grid-template-columns: 1.2fr 2.8fr; align-items: center; gap: 32px; padding: 22px 24px; margin-bottom: 32px; border-radius: 14px; background: #fafbfc; }
+.overviewPlaceholder { grid-column: 1 / -1; min-width: 0; }
+.overviewPlaceholder > span { padding: 0; }
+.chartPlaceholder { height: 185px; }
 .todayBlock { display: flex; flex-direction: column; }
 .todayBlock > span, .periodStats dt { color: var(--text-secondary); font-size: 11px; font-weight: 400; }
 .todayBlock strong { margin-top: 10px; color: var(--text-primary); font-size: 30px; font-weight: 600; line-height: 1.2; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
@@ -36,7 +39,6 @@
 .dateArrow:hover:not(:disabled), .todayAction:hover, .datePicker:hover { background: var(--bg-surface-hover); }
 .datePicker:focus-within { outline: 2px solid var(--border-focus); outline-offset: 1px; }
 .dateArrow:disabled { color: var(--text-muted); opacity: .4; cursor: default; }
-.compactEmpty { min-height: 88px; display: flex; align-items: center; color: var(--text-muted); font-size: 12px; }
 .timelineEmpty { min-height: 100px; display: flex; align-items: center; gap: 14px; padding: 18px; border-radius: 10px; background: var(--bg-surface); color: #6f8da2; }
 .timelineEmpty > div { flex: 1; min-width: 0; }
 .timelineEmpty strong { color: var(--text-secondary); font-size: 12px; font-weight: 500; }
@@ -53,11 +55,10 @@
 .sessionContent span { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 6px; font-size: 10px; }
 .sessionContent em { padding: 2px 6px; border-radius: 4px; background: #eff3f7; color: #58758f; font-style: normal; }
 .sessionRow b { color: #52769b; font-size: 12px; font-weight: 550; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.empty, .loading { min-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted); font-size: 12px; text-align: center; }
+.empty { min-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted); font-size: 12px; text-align: center; }
 .empty strong { color: var(--text-secondary); font-size: 13px; }
 .heatmapSection { margin-top: 10px; padding-top: 22px; }
 .heatmapSummary { color: var(--text-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
-.heatmapLoading { min-height: 120px; display: flex; align-items: center; color: var(--text-muted); font-size: 11px; }
 .chart { height: 132px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: end; gap: 7px; margin-top: 7px; }
 .chartDay { min-width: 0; height: 100%; display: grid; grid-template-rows: 18px minmax(0, 1fr) 22px; justify-items: center; align-items: end; }
 .chartDay strong { color: var(--text-muted); font-size: 10px; font-weight: 400; }

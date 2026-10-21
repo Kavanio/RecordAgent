@@ -14,6 +14,7 @@ import { FeatureSettingsPage, type FeatureSettingsTab } from '../settings/Featur
 import { TokenUsageSettingsPage } from '../settings/TokenUsageSettingsPage';
 import { PersonalContextSettingsPage } from '../settings/PersonalContextSettingsPage';
 import { ProfileSettingsPage } from '../settings/ProfileSettingsPage';
+import { SettingsMainRegion } from '../settings/SettingsMainRegion';
 import { SlashCommandSettingsPage } from '../settings/SlashCommandSettingsPage';
 import { DailyContextSettingsPage } from '../settings/DailyContextSettingsPage';
 import { BackendConnectionSettings } from '../settings/BackendConnectionSettings';
@@ -133,6 +134,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
     'ollama',
   ]);
   const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null);
+  const [accountLoading, setAccountLoading] = useState(true);
   const [featurePreferences, setFeaturePreferencesState] = useState<FeaturePreferences>(getFeaturePreferences);
 
   const allModels = useMemo(() => (providers ? getAllModels() : []), [getAllModels, providers]);
@@ -188,7 +190,11 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
   useEffect(() => subscribeFeaturePreferences(setFeaturePreferencesState), []);
 
   useEffect(() => {
-    fetchAccountStatus().then(setAccountStatus);
+    let active = true;
+    void fetchAccountStatus().then(status => {
+      if (active) { setAccountStatus(status); setAccountLoading(false); }
+    });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => setActiveTab(initialTab), [initialTab]);
@@ -498,7 +504,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
       </div>
 
       {/* Main Settings Content */}
-      <div className={`${styles.settingsContent} ${activeTab === 'config' ? styles.settingsContentConfig : ''}`}>
+      <SettingsMainRegion contentClassName={`${styles.settingsContent} ${activeTab === 'config' ? styles.settingsContentConfig : ''}`}>
         {activeTab === 'config' && (
           <div className={styles.configContainer}>
             {/* 左侧列表主区域 */}
@@ -1047,7 +1053,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
         )}
 
         {activeTab === 'account' && (
-          <ProfileSettingsPage accountStatus={accountStatus} onAccountStatusChange={setAccountStatus} />
+          <ProfileSettingsPage accountStatus={accountStatus} accountLoading={accountLoading} onAccountStatusChange={setAccountStatus} />
         )}
 
         {activeTab === 'usage' && <TokenUsageSettingsPage />}
@@ -1078,7 +1084,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
             onCalendarChange={handleCalendarPreferenceChange}
           />
         )}
-      </div>
+      </SettingsMainRegion>
     </div>
   );
 };

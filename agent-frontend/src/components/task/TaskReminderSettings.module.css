@@ -1,5 +1,7 @@
-.sounds { display:flex; flex-direction:column; gap:10px; width:280px; max-width:100%; }
-.actions { display:flex; gap:8px; }
+.sounds { display:flex; flex-direction:column; gap:10px; width:100%; min-width:0; }
+.soundControls { display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px; }
+.soundSelect { flex:0 1 360px; min-width:0; max-width:360px; }
+.actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; max-width:100%; }
 .file { display:none; }
 .hint { color:#7c8797; font-size:12px; line-height:1.5; }
 .interval { display:flex; align-items:center; gap:8px; width:120px; font-size:13px; color:#667184; }

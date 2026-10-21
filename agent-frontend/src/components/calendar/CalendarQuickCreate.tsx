@@ -140,6 +140,8 @@ export const CalendarQuickCreate: React.FC<CalendarQuickCreateProps> = ({ select
 
       <Modal
         open={isOpen}
+        busy={saving}
+        busyLabel="正在保存日历记录…"
         title={activeKind ? FORM_TITLES[activeKind] : '新建记录'}
         onClose={closeModal}
         width={640}

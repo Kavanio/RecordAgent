@@ -15,7 +15,10 @@
   padding: 20px;
 }
 
+.body { display: contents; }
+
 .panel {
+  position: relative;
   max-width: calc(100vw - 40px);
   background: #ffffff;
   border: 1px solid #cbd5e1;

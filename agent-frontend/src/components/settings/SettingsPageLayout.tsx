@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { LoadingOverlay } from '../common/LoadingOverlay';
+import { useSettingsLoading } from './settingsLoadingState';
 import styles from './SettingsPageLayout.module.css';
 
 interface SettingsPageLayoutProps {
@@ -6,6 +8,9 @@ interface SettingsPageLayoutProps {
   description: string;
   actions?: ReactNode;
   density?: 'default' | 'compact';
+  /** 覆盖整个设置右侧主区域；侧栏保持可交互。 */
+  loading?: boolean;
+  loadingLabel?: string;
   children: ReactNode;
 }
 
@@ -15,21 +20,27 @@ export function SettingsPageLayout({
   description,
   actions,
   density = 'default',
+  loading = false,
+  loadingLabel = '正在读取设置…',
   children,
 }: SettingsPageLayoutProps) {
+  const hasMainRegion = useSettingsLoading(loading, loadingLabel);
   return (
     <section
       className={`${styles.page} ${density === 'compact' ? styles.compact : ''}`}
       aria-labelledby="settings-page-title"
     >
-      <header className={styles.header}>
-        <div>
-          <h1 id="settings-page-title">{title}</h1>
-          <p>{description}</p>
-        </div>
-        {actions && <div className={styles.actions}>{actions}</div>}
-      </header>
-      <div className={styles.content}>{children}</div>
+      <div className={styles.body} inert={loading} aria-busy={loading}>
+        <header className={styles.header}>
+          <div>
+            <h1 id="settings-page-title">{title}</h1>
+            <p>{description}</p>
+          </div>
+          {actions && <div className={styles.actions}>{actions}</div>}
+        </header>
+        <div className={styles.content}>{children}</div>
+      </div>
+      <LoadingOverlay active={loading && !hasMainRegion} label={loadingLabel} size="large" />
     </section>
   );
 }

@@ -33,6 +33,9 @@ export interface BackendConnectionInfo {
   mode: 'dev' | 'sidecar' | 'remote';
   remoteUrl: string | null;
   hasApiToken: boolean;
+  /** 已保存但不一定生效的配置；remoteUrl 始终表示本次启动的地址。 */
+  savedRemoteUrl: string | null;
+  restartRequired: boolean;
 }
 
 /** 远程服务启动检查最多等待 8 秒，再切换到本机后端。 */
@@ -129,8 +132,18 @@ export async function testBackendConnection(url: string, token?: string | null):
 }
 
 /** 保存远程地址；变更需重启，确保本机 sidecar 与远程调度互斥。 */
-export async function saveBackendConnection(url: string | null, token: string | null): Promise<void> {
-  await invoke('save_remote_backend_url', { remoteUrl: url, apiToken: token });
+export async function saveBackendConnection(url: string | null, token: string | null): Promise<boolean> {
+  return invoke<boolean>('save_remote_backend_url', { remoteUrl: url, apiToken: token });
+}
+
+/** 在本机系统钥匙串中复用已有 Token，不将凭据显示在表单中。 */
+export async function getSavedBackendToken(): Promise<string | null> {
+  return invoke<string | null>('get_backend_api_token');
+}
+
+/** 正常退出并重新启动桌面应用，重新选择后端并清理原 sidecar。 */
+export async function restartApplication(): Promise<void> {
+  await invoke('restart_application');
 }
 
 /** 统一为 API 请求注入远程 Bearer Token；本机模式不附加认证头。 */

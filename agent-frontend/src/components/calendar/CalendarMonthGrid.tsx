@@ -11,6 +11,7 @@ interface Props {
   selectedKey: string;
   todayKey: string;
   available: boolean;
+  loading?: boolean;
   summaries: Record<string, DailyDaySummary>;
   studyByDate: Map<string, number>;
   recordsByDate: Map<string, number>;
@@ -23,6 +24,7 @@ export function CalendarMonthGrid({
   selectedKey,
   todayKey,
   available,
+  loading = false,
   summaries,
   studyByDate,
   recordsByDate,
@@ -52,7 +54,7 @@ export function CalendarMonthGrid({
   }, [days]);
   return (
     <>
-      <div className={styles.grid}>
+      <div className={styles.grid} aria-busy={loading} aria-label={loading ? '正在读取月历摘要' : '月历日期'}>
         {days.map((date) => {
           const key = formatLocalDate(date);
           return (
@@ -64,6 +66,7 @@ export function CalendarMonthGrid({
               today={key === todayKey}
               selected={key === selectedKey}
               available={available}
+              loading={loading}
               summary={summaries[key]}
               studySeconds={studyByDate.get(key)}
               recordCount={recordsByDate.get(key)}
