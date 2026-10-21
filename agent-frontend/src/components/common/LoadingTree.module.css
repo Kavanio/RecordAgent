@@ -1,5 +1,5 @@
 .root {
-  --tree-cycle: 3.2s;
+  --tree-cycle: 6.4s;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -23,13 +23,13 @@
 .guide { stroke-width: 1.3; opacity: .12; }
 .growth { animation: settle var(--tree-cycle) linear infinite both; }
 .draw { stroke-dasharray: 1; stroke-dashoffset: 1; }
-.outline { animation: outlineDraw var(--tree-cycle) cubic-bezier(.3, .08, .35, 1) infinite both; }
+.outline { animation: outlineDraw var(--tree-cycle) linear infinite both; }
 .trace {
   stroke: #c4dfcb;
   stroke-width: 3.2;
   stroke-dasharray: .012 .988;
   stroke-dashoffset: 1;
-  animation: penTrace var(--tree-cycle) cubic-bezier(.3, .08, .35, 1) infinite both;
+  animation: penTrace var(--tree-cycle) linear infinite both;
 }
 .stem { stroke-width: 1.8; animation: stemDraw var(--tree-cycle) ease-in-out infinite both; }
 .branches { stroke-width: 1.45; }
@@ -47,7 +47,7 @@
 .small .label { font-size: 12px; }
 .small .leaves { display: none; }
 
-/* 约 0.9 秒已画完整棵树的外缘，短请求也能看到清晰轮廓。 */
+/* 外缘与追光同步匀速描绘约 1.8 秒；枝叶、停留和淡出同步放慢。 */
 @keyframes outlineDraw {
   0% { stroke-dashoffset: 1; }
   28%, 100% { stroke-dashoffset: 0; }

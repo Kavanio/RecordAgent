@@ -71,6 +71,10 @@ test('描边阶段统一周期，先画外缘、保留成型时段；减少动�
   document.head.append(style);
   try {
     const rules = [...style.sheet.cssRules];
+    assert.equal(rules.find(rule => rule.selectorText === '.root').style.getPropertyValue('--tree-cycle'), '6.4s');
+    for (const selector of ['.outline', '.trace']) {
+      assert.match(rules.find(rule => rule.selectorText === selector).style.getPropertyValue('animation'), /linear/);
+    }
     const outline = rules.find(rule => rule.name === 'outlineDraw');
     assert.equal(outline.cssRules[0].style.getPropertyValue('stroke-dashoffset'), '1');
     assert.match(outline.cssRules[1].keyText, /28%/);
