@@ -269,6 +269,11 @@ test('提醒设置自动保存、失败回退；数字微调同步受控值并�
     assert.equal(saved.length, 0, '加载不应触发保存');
     const { default: rowStyles } = await server.ssrLoadModule('/src/components/settings/SettingsGroup.module.css');
     const soundSelect = container.querySelector('[aria-label="选择提示音"]');
+    const { default: selectStyles } = await server.ssrLoadModule('/src/components/common/Select.module.css');
+    const { default: inputStyles } = await server.ssrLoadModule('/src/components/common/TextInput.module.css');
+    assert.ok(soundSelect.classList.contains(selectStyles.ghost), '提示音平时无边框，聚焦时才显边框');
+    assert.ok(container.querySelector('input[type="number"]').classList.contains(inputStyles.ghost), '间隔输入采用同样的无边框待机状态');
+    assert.equal(container.querySelector('input[type="number"]').hasAttribute('appearance'), false, '外观属性不能泄漏到原生输入框');
     assert.ok(soundSelect.closest(`.${rowStyles.row}`).classList.contains(rowStyles.stacked), '提示音采用上下布局，控件不再挤在右侧窄栏');
     assert.match(document.getElementById(soundSelect.getAttribute('aria-describedby')).textContent, /仅保存在当前电脑，不上传服务器/);
     assert.equal(container.querySelector('input[type="number"]').closest(`.${rowStyles.row}`).classList.contains(rowStyles.stacked), false, '简单设置仍沿用原来的左右布局');

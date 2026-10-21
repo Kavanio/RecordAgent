@@ -4,6 +4,8 @@ import styles from './TextInput.module.css';
 
 export interface TextInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean;
+  /** ghost 默认无边框，仅聚焦编辑时显示；outline 保持原有样式。 */
+  appearance?: 'outline' | 'ghost';
 }
 
 /**
@@ -13,11 +15,13 @@ export interface TextInputProps extends React.InputHTMLAttributes<HTMLInputEleme
 export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(({
   className = '',
   invalid = false,
+  appearance = 'outline',
   type,
   disabled,
   ...props
 }, ref) => {
   const internalRef = useRef<HTMLInputElement>(null);
+  const appearanceClass = appearance === 'ghost' ? styles.ghost : '';
   useImperativeHandle(ref, () => internalRef.current!);
 
   const handleStep = (direction: 'up' | 'down') => {
@@ -61,7 +65,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(({
           ref={internalRef}
           type="number"
           disabled={disabled}
-          className={`${styles.input} ${styles.numberInput} ${invalid ? styles.invalid : ''} ${className}`}
+          className={`${styles.input} ${styles.numberInput} ${appearanceClass} ${invalid ? styles.invalid : ''} ${className}`}
           {...props}
         />
         <div className={styles.stepper} aria-hidden="true">
@@ -99,7 +103,7 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(({
       ref={internalRef}
       type={type}
       disabled={disabled}
-      className={`${styles.input} ${invalid ? styles.invalid : ''} ${className}`}
+      className={`${styles.input} ${appearanceClass} ${invalid ? styles.invalid : ''} ${className}`}
       {...props}
     />
   );

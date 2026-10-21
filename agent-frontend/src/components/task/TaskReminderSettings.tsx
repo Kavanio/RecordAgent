@@ -153,7 +153,7 @@ export function TaskReminderSettings() {
       control={<div className={styles.sounds}>
         <div className={styles.soundControls}>
           <Select aria-label="选择提示音" aria-describedby={soundHelpId} title={config?.sounds.find(sound => sound.id === config.preferences.soundId)?.name}
-            containerClassName={styles.soundSelect} options={options} value={config?.preferences.soundId ?? ''} disabled={disabled} fieldSize="md" fullWidth
+            appearance="ghost" containerClassName={styles.soundSelect} options={options} value={config?.preferences.soundId ?? ''} disabled={disabled} fieldSize="md" fullWidth
             onChange={event => { stopPreview(); const soundId = event.target.value; void save({ soundId }); }} />
           <div className={styles.actions}>
             <Button size="sm" disabled={disabled} onClick={() => playing ? stopPreview() : void listen()}>{playing ? '停止试听' : '试听'}</Button>
@@ -162,10 +162,10 @@ export function TaskReminderSettings() {
               onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void upload(file); }} />
           </div>
         </div>
-        <span id={soundHelpId} className={styles.hint}>WAV、MP3、M4A、OGG，最大 10 MB。仅保存在当前电脑，不上传服务器；再次导入会替换原音频。</span>
+        <span id={soundHelpId} className={styles.hint}>WAV、MP3、M4A、OGG，最大 10 MB。即使连接远程后端，也仅保存在当前电脑，不上传服务器；再次导入会替换原音频。</span>
       </div>} />
     <SettingsRow label="重复播放间隔" description="每段音频完整播放结束后，再等待指定秒数播放下一次；确认休息后停止。"
-      control={<div className={styles.interval}><TextInput type="number" aria-label="重复播放间隔（秒）" min={1} max={3600} step={1} value={interval}
+      control={<div className={styles.interval}><TextInput type="number" appearance="ghost" aria-label="重复播放间隔（秒）" min={1} max={3600} step={1} value={interval}
         disabled={disabled} invalid={!validInterval} onChange={event => setInterval(event.target.value)} onBlur={saveInterval}
         onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} /><span>秒</span></div>} />
     {!validInterval && <p className={styles.error} role="alert">请输入 1 至 3600 的整数秒数</p>}
