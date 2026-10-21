@@ -1,90 +1,108 @@
 .root {
+  --tree-cycle: 3.2s;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  color: #334155;
+  gap: 12px;
+  color: #507f78;
   text-align: center;
 }
 .tree {
   display: block;
   overflow: visible;
-  stroke: currentColor;
-  stroke-width: 2.4;
+  stroke-width: 1.9;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.small .tree { width: 32px; height: 38px; }
+.medium .tree { width: 52px; height: 61px; }
+.large .tree { width: 72px; height: 84px; }
 
-.small .tree {
-  width: 32px;
-  height: 38px;
-}
-
-.medium .tree {
-  width: 52px;
-  height: 61px;
-}
-
-.large .tree {
-  width: 72px;
-  height: 84px;
-}
-
-.path {
-  stroke-dasharray: 1;
+/* 各层共享同一周期，以百分比编排阶段；不用独立延迟，避免多轮循环后节奏脱节。 */
+.guide { stroke-width: 1.3; opacity: .12; }
+.growth { animation: settle var(--tree-cycle) linear infinite both; }
+.draw { stroke-dasharray: 1; stroke-dashoffset: 1; }
+.outline { animation: outlineDraw var(--tree-cycle) cubic-bezier(.3, .08, .35, 1) infinite both; }
+.trace {
+  stroke: #c4dfcb;
+  stroke-width: 3.2;
+  stroke-dasharray: .012 .988;
   stroke-dashoffset: 1;
-  animation: growTree 2.8s cubic-bezier(0.5, 0.1, 0.5, 1) infinite both;
+  animation: penTrace var(--tree-cycle) cubic-bezier(.3, .08, .35, 1) infinite both;
 }
+.stem { stroke-width: 1.8; animation: stemDraw var(--tree-cycle) ease-in-out infinite both; }
+.branches { stroke-width: 1.45; }
+.branchEarly { animation: branchDraw var(--tree-cycle) ease-in-out infinite both; }
+.branchLate { animation: twigDraw var(--tree-cycle) ease-in-out infinite both; }
+.wash { animation: canopyWash var(--tree-cycle) ease-in-out infinite both; }
+.leaf { transform-box: fill-box; transform-origin: center bottom; }
+.leafEarly { animation: leafUnfurl var(--tree-cycle) ease-out infinite both; }
+.leafLate { animation: budUnfurl var(--tree-cycle) ease-out infinite both; }
+.ground { stroke-width: 1.2; animation: groundDraw var(--tree-cycle) ease-out infinite both; }
+.aura { transform-origin: 48px 54px; animation: auraBreathe var(--tree-cycle) ease-in-out infinite both; }
 
-.branches {
-  animation-delay: 100ms;
+.label { max-width: 32ch; color: #64748b; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.small { gap: 6px; }
+.small .label { font-size: 12px; }
+.small .leaves { display: none; }
+
+/* 约 0.9 秒已画完整棵树的外缘，短请求也能看到清晰轮廓。 */
+@keyframes outlineDraw {
+  0% { stroke-dashoffset: 1; }
+  28%, 100% { stroke-dashoffset: 0; }
 }
-
-.crown {
-  animation-delay: 220ms;
+@keyframes penTrace {
+  0% { stroke-dashoffset: 1; opacity: 0; }
+  3% { opacity: .9; }
+  28% { stroke-dashoffset: 0; opacity: .9; }
+  33%, 100% { stroke-dashoffset: 0; opacity: 0; }
 }
-
-.ground {
-  animation-delay: 320ms;
+@keyframes stemDraw {
+  0%, 12% { stroke-dashoffset: 1; }
+  40%, 100% { stroke-dashoffset: 0; }
 }
-
-.label {
-  max-width: 32ch;
-  color: #64748b;
-  font-size: 13px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+@keyframes branchDraw {
+  0%, 24% { stroke-dashoffset: 1; }
+  47%, 100% { stroke-dashoffset: 0; }
 }
-
-.small {
-  gap: 6px;
+@keyframes twigDraw {
+  0%, 32% { stroke-dashoffset: 1; }
+  54%, 100% { stroke-dashoffset: 0; }
 }
-
-.small .label {
-  font-size: 12px;
+@keyframes canopyWash {
+  0%, 26% { opacity: 0; }
+  62%, 100% { opacity: .5; }
 }
-
-@keyframes growTree {
-  0% {
-    opacity: 0.28;
-    stroke-dashoffset: 1;
-  }
-  58%,
-  78% {
-    opacity: 1;
-    stroke-dashoffset: 0;
-  }
-  100% {
-    opacity: 0.28;
-    stroke-dashoffset: -1;
-  }
+@keyframes leafUnfurl {
+  0%, 42% { opacity: 0; transform: scale(.35) rotate(-12deg); }
+  59%, 100% { opacity: .88; transform: scale(1) rotate(0deg); }
+}
+@keyframes budUnfurl {
+  0%, 50% { opacity: 0; transform: scale(.35) rotate(12deg); }
+  66%, 100% { opacity: .88; transform: scale(1) rotate(0deg); }
+}
+@keyframes groundDraw {
+  0%, 38% { stroke-dashoffset: 1; opacity: 0; }
+  60%, 100% { stroke-dashoffset: 0; opacity: .45; }
+}
+/* 成型后停留，整树柔和淡去再起笔；不反向擦除或旋转整棵树。 */
+@keyframes settle {
+  0% { opacity: 0; }
+  5%, 82% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes auraBreathe {
+  0%, 100% { opacity: .13; transform: scale(.94); }
+  66%, 82% { opacity: .35; transform: scale(1.04); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .path {
-    animation: none;
-    opacity: 1;
-    stroke-dashoffset: 0;
-  }
+  .growth, .draw, .trace, .wash, .leaf, .aura { animation: none; }
+  .growth, .draw { opacity: 1; stroke-dashoffset: 0; }
+  .trace { display: none; }
+  .wash { opacity: .5; }
+  .leaf { opacity: .88; transform: none; }
+  .ground { opacity: .45; }
+  .aura { opacity: .2; transform: none; }
 }
