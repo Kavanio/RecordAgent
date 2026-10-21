@@ -1,0 +1,107 @@
+name: Publish Backend Image
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'agent-backend/**/pom.xml'
+      - 'agent-backend/**/src/**'
+      - 'agent-backend/.mvn/**'
+      - 'agent-backend/mvnw*'
+      - 'agent-backend/Dockerfile'
+      - 'agent-backend/.dockerignore'
+      - 'agent-backend/docker-entrypoint.sh'
+      - '.github/workflows/backend-image.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 串行发布；develop 标签还会校验分支最新提交，防止旧任务或旧任务重跑覆盖新镜像。
+concurrency:
+  group: backend-image-develop
+  cancel-in-progress: false
+
+env:
+  ACR_REGISTRY: crpi-46o5657v3drrpfcl.cn-hangzhou.personal.cr.aliyuncs.com
+  ACR_REPOSITORY: butvan/record-agent-backend
+
+jobs:
+  publish:
+    name: 构建 linux/amd64 后端并推送 ACR
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 检查镜像仓库凭据
+        shell: bash
+        env:
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          if [[ -z "$ACR_USERNAME" || -z "$ACR_PASSWORD" ]]; then
+            echo '请先在仓库 Settings → Secrets and variables → Actions 配置 ACR_USERNAME 和 ACR_PASSWORD。' >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: 'agent-backend/**/pom.xml'
+
+      # 测试由 main 本地集成验证承担；此工作流只负责产物构建和发布。
+      - name: 构建可执行 JAR
+        run: mvn -B -ntp -f agent-backend/pom.xml -pl server-network -am package -DskipTests
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: 登录阿里云私有镜像仓库
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: 构建并推送提交镜像
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./agent-backend
+          file: ./agent-backend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.ACR_REGISTRY }}/${{ env.ACR_REPOSITORY }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=backend-amd64
+          cache-to: type=gha,mode=max,scope=backend-amd64
+          provenance: false
+          sbom: false
+
+      - name: 更新 develop 标签并输出部署信息
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IMAGE="$ACR_REGISTRY/$ACR_REPOSITORY"
+          CURRENT_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/develop" --jq '.object.sha')"
+          {
+            echo '## 后端镜像发布结果'
+            echo "- 提交镜像：\`$IMAGE:sha-$GITHUB_SHA\`"
+            echo "- 固定摘要：\`$IMAGE@$IMAGE_DIGEST\`"
+            echo '- 平台：`linux/amd64`；服务器仍需手动拉取并重新创建容器。'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$CURRENT_SHA" != "$GITHUB_SHA" ]]; then
+            echo '- develop 已有更新提交，本次不覆盖 develop 镜像标签。' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          docker buildx imagetools create --tag "$IMAGE:develop" "$IMAGE@$IMAGE_DIGEST"
+          echo "- 已更新跟随标签：\`$IMAGE:develop\`" >> "$GITHUB_STEP_SUMMARY"

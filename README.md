@@ -263,7 +263,7 @@ cargo check --manifest-path agent-frontend/src-tauri/Cargo.toml
 node scripts/sync-version.mjs --check
 ```
 
-后端当前覆盖 Agent 运行、权限、上下文、Token 归因、项目与会话、日历、财务、资料、学习、文件资产和 SSE 等关键路径。GitHub Actions 当前只负责依据版本 tag 创建正式 Release，不自动运行构建或测试。
+后端当前覆盖 Agent 运行、权限、上下文、Token 归因、项目与会话、日历、财务、资料、学习、文件资产和 SSE 等关键路径。GitHub Actions 的桌面 Release 工作流只负责依据版本 tag 创建 Release；独立的后端镜像工作流在 `develop` 后端相关变更时构建并推送阿里云 ACR，不运行自动测试，也不自动部署服务器。测试仍需在本地集成阶段完成。
 
 ## 打包与发布
 
@@ -324,7 +324,13 @@ bash scripts/build-app.sh
 
 `scripts/build-app.sh` 会完成版本检查、后端 fat jar、最小 JRE、平台启动器和 Tauri 安装包组装；各平台命令及 debug 构建方式见上文。构建结果位于 `agent-frontend/src-tauri/target/<profile>/bundle/`。
 
-PR、`develop` push 和其他分支 push 均不会触发 GitHub Actions。推送 `v<major>.<minor>.<patch>` tag 会创建正式 Release；推送带 `-alpha.N`、`-beta.N` 或 `-rc.N` 后缀的 SemVer tag 会创建 GitHub Pre-release。工作流校验版本与变更日志后直接创建 Release，正文取自对应 `CHANGELOG.md` 章节，不自动构建或上传安装包。
+PR 和其他分支 push 不触发 GitHub Actions；`develop` 上的后端相关变更会触发私有镜像构建发布，不构建桌面安装包。推送 `v<major>.<minor>.<patch>` tag 会创建正式 Release；推送带 `-alpha.N`、`-beta.N` 或 `-rc.N` 后缀的 SemVer tag 会创建 GitHub Pre-release。工作流校验版本与变更日志后直接创建 Release，正文取自对应 `CHANGELOG.md` 章节，不自动构建或上传安装包。
+
+### 后端镜像自动发布与 Windows 更新
+
+`develop` 的桌面后端源码、Maven 配置、Docker 构建文件或镜像工作流变化时，GitHub Actions 构建 Java 21 JAR 和 `linux/amd64` 镜像，推送至阿里云私有仓库 `butvan/record-agent-backend`。仅前端、iOS 或文档变化不触发镜像构建；也可手动选择 `develop` 触发。需要先配置 GitHub Secrets `ACR_USERNAME`、`ACR_PASSWORD`。
+
+Windows 服务器保留原 `compose.yaml`、`.env` 和 `user-data`，添加 `agent-backend/compose.acr.yaml` 覆盖文件，登录 ACR 后拉取并重新创建容器，无需本地构建、导出或手动传输镜像。首次配置、更新、固定提交回滚及数据备份步骤见 [后端容器部署](agent-backend/DOCKER.md)。该流程不修改桌面端 SemVer Release 规则，不会自动访问服务器。
 
 ### 桌面端版本发布
 
