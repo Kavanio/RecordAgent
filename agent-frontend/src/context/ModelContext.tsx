@@ -1,6 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import type { ModelProvider, ModelItem } from '../types/model';
-import { fetchFullModelConfig, saveFullModelConfig, saveModelConfig } from '../services/api';
+import type { ModelProvider, ModelItem, ModelProtocol, FullModelConfig, ProviderType } from '../types/model';
+import { fetchFullModelConfig, saveFullModelConfig, testModelConnection } from '../services/api';
+
+interface ModelInput {
+  vendor: string;
+  baseUrl: string;
+  protocol?: ModelProtocol;
+  apiKey: string;
+  modelId: string;
+  name: string;
+  makeDefault?: boolean;
+}
+
+type ListedModel = ModelItem & {
+  providerName: string; providerType: string; baseUrl: string; apiKey: string; protocol?: ModelProtocol;
+};
 
 interface ModelContextType {
   providers: ModelProvider[];
@@ -8,436 +22,142 @@ interface ModelContextType {
   activeModelId: string;
   temperature: number;
   maxTokens: number;
-  setActiveProviderId: (id: string) => void;
-  setActiveModelId: (id: string) => void;
   selectActiveModel: (providerId: string, modelId: string) => Promise<void>;
-  setTemperature: (temp: number) => void;
-  setMaxTokens: (tokens: number) => void;
-  updateProvider: (providerId: string, updates: Partial<ModelProvider>) => void;
-  addModelItem: (params: {
-    vendor: string;
-    baseUrl: string;
-    apiKey: string;
-    modelId: string;
-    name: string;
-    description?: string;
-    supportsReasoning?: boolean;
-  }) => void;
-  updateModelItem: (
-    oldTarget: { providerId: string; modelId: string },
-    params: {
-      vendor: string;
-      baseUrl?: string;
-      apiKey?: string;
-      modelId: string;
-      name: string;
-      description?: string;
-      supportsReasoning?: boolean;
-    }
-  ) => void;
-  deleteModelItem: (providerId: string, modelId: string) => void;
-  testConnectionByUrl: (baseUrl: string, apiKey: string, type: string) => Promise<{ success: boolean; message: string }>;
+  addModelItem: (params: ModelInput) => Promise<string>;
+  updateModelItem: (oldTarget: { providerId: string; modelId: string }, params: ModelInput) => Promise<string>;
+  deleteModelItem: (providerId: string, modelId: string) => Promise<void>;
+  testConnectionByUrl: (baseUrl: string, apiKey: string, type: string, modelId: string, protocol?: ModelProtocol) => Promise<{ success: boolean; message: string }>;
   getActiveModel: () => ModelItem | undefined;
   getActiveProvider: () => ModelProvider | undefined;
-  getAllModels: () => (ModelItem & { providerName: string; providerType: string; baseUrl: string; apiKey: string })[];
+  getAllModels: () => ListedModel[];
 }
 
-const STORAGE_KEY_PROVIDERS = 'butvan_agent_providers_v2';
-const STORAGE_KEY_ACTIVE_PROVIDER = 'butvan_agent_active_provider';
-const STORAGE_KEY_ACTIVE_MODEL = 'butvan_agent_active_model';
-
 const ModelContext = createContext<ModelContextType | undefined>(undefined);
+const EMPTY_CONFIG: FullModelConfig = {
+  activeVendor: '', activeModel: '', vendor: '', name: '', apiKey: '', temperature: 0.7, stream: true, providers: [],
+};
 
+/** 只保留模型字段，避免把启动时读取的账户或渠道快照写回并覆盖其他模块的新配置。 */
+function modelDocument(data: FullModelConfig): FullModelConfig {
+  return { providers: data.providers || [], activeVendor: data.activeVendor || data.vendor || '',
+    activeModel: data.activeModel || data.name || '', vendor: data.vendor || '', name: data.name || '',
+    apiKey: data.apiKey || '', baseUrl: data.baseUrl, protocol: data.protocol,
+    temperature: data.temperature ?? 0.7, stream: data.stream ?? true };
+}
+
+/** 后端 config.json 是权威配置；每次修改串行保存，成功后再更新界面，禁止挂载自动写回。 */
 export const ModelProviderContext: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [providers, setProviders] = useState<ModelProvider[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_PROVIDERS);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {
-        console.error('Failed to parse saved providers', e);
-      }
-    }
-    return [];
-  });
+  const [config, setConfig] = useState<FullModelConfig>(EMPTY_CONFIG);
+  const current = useRef(config);
+  const loaded = useRef(false);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
 
-  const [activeProviderId, setActiveProviderId] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY_ACTIVE_PROVIDER) || '';
-  });
+  const apply = (next: FullModelConfig) => {
+    current.current = next;
+    setConfig(next);
+    localStorage.setItem('butvan_agent_providers_v2', JSON.stringify(next.providers));
+    localStorage.setItem('butvan_agent_active_provider', next.activeVendor);
+    localStorage.setItem('butvan_agent_active_model', next.activeModel);
+  };
 
-  const [activeModelId, setActiveModelId] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY_ACTIVE_MODEL) || '';
-  });
-
-  const [temperature, setTemperature] = useState<number>(0.7);
-  const [maxTokens, setMaxTokens] = useState<number>(4096);
-  // 标记是否已完成后端配置同步；同步完成前禁止向后端写回，避免用空 localStorage 覆盖 config.json
-  const hasSyncedFromBackend = useRef(false);
-
-  // 挂载时严格同步 backend config.json 真实数据
   useEffect(() => {
-    const syncFromBackend = async () => {
-      try {
-        const fullConfig = await fetchFullModelConfig();
-        if (fullConfig) {
-          const actVendor = fullConfig.activeVendor || fullConfig.vendor || '';
-          const actModel = fullConfig.activeModel || fullConfig.name || '';
-          setActiveProviderId(actVendor);
-          setActiveModelId(actModel);
-
-          if (Array.isArray(fullConfig.providers)) {
-            const loadedProviders: ModelProvider[] = fullConfig.providers.map((p: any) => ({
-              id: p.id || p.type || p.vendor || 'custom',
-              name: p.name || p.vendor || 'Custom Vendor',
-              type: p.type || p.vendor || 'custom',
-              baseUrl: p.baseUrl || '',
-              apiKey: p.apiKey || '',
-              isEnabled: p.isEnabled !== undefined ? p.isEnabled : true,
-              models: Array.isArray(p.models)
-                ? p.models.map((m: any) => ({
-                    id: m.id || m.modelName,
-                    name: m.name || m.modelName,
-                    providerId: p.id || p.type || 'custom',
-                    description: m.description || '',
-                    supportsReasoning: !!m.supportsReasoning,
-                  }))
-                : [],
-            }));
-            setProviders(loadedProviders);
-          }
-        }
-      } finally {
-        // 无论同步成功与否，同步尝试结束后才允许后续持久化写回
-        hasSyncedFromBackend.current = true;
-      }
-    };
-    syncFromBackend();
+    let active = true;
+    void fetchFullModelConfig().then(data => {
+      if (!active || !data) return;
+      apply(modelDocument(data));
+      loaded.current = true;
+    });
+    return () => { active = false; };
   }, []);
 
-  // 变动时进行本地与后端持久化同步
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_PROVIDERS, JSON.stringify(providers));
-    localStorage.setItem(STORAGE_KEY_ACTIVE_PROVIDER, activeProviderId);
-    localStorage.setItem(STORAGE_KEY_ACTIVE_MODEL, activeModelId);
-
-    // 挂载阶段先等待后端同步完成，避免用空/失步的 localStorage 覆盖本地 config.json
-    if (!hasSyncedFromBackend.current) return;
-
-    const activeProvider = providers.find((p) => p.id === activeProviderId || p.type === activeProviderId);
-    const activeApiKey = activeProvider?.apiKey || '';
-
-    saveFullModelConfig({
-      activeVendor: activeProviderId,
-      activeModel: activeModelId,
-      vendor: activeProviderId,
-      name: activeModelId,
-      apiKey: activeApiKey,
-      temperature,
-      stream: true,
-      providers: providers.map((p) => ({
-        id: p.id,
-        name: p.name,
-        type: p.type,
-        apiKey: p.apiKey,
-        isEnabled: p.isEnabled,
-        models: p.models.map((m) => ({
-          id: m.id,
-          name: m.name,
-          modelName: m.id,
-          providerId: p.id,
-          description: m.description || '',
-          supportsReasoning: !!m.supportsReasoning,
-        })),
-      })),
+  const persist = (change: (previous: FullModelConfig) => FullModelConfig): Promise<void> => {
+    const operation = queue.current.then(async () => {
+      if (!loaded.current) {
+        const authoritative = await fetchFullModelConfig();
+        if (!authoritative) throw new Error('尚未读取模型配置，请检查后端连接后重试');
+        apply(modelDocument(authoritative));
+        loaded.current = true;
+      }
+      const next = change(current.current);
+      const provider = next.providers.find(p => p.id === next.activeVendor);
+      const payload: FullModelConfig = {
+        ...next, vendor: next.activeVendor, name: next.activeModel, apiKey: provider?.apiKey || '',
+        baseUrl: provider?.baseUrl || '', protocol: provider?.protocol,
+        providers: next.providers.map(p => ({ ...p, models: p.models.map(m => ({ ...m, modelName: m.id })) })),
+      };
+      const result = await saveFullModelConfig(payload);
+      if (!result.success) throw new Error(result.message);
+      apply(payload);
     });
-  }, [providers, activeProviderId, activeModelId, temperature]);
+    queue.current = operation.catch(() => undefined);
+    return operation;
+  };
 
   const selectActiveModel = async (providerId: string, modelId: string) => {
-    setActiveProviderId(providerId);
-    setActiveModelId(modelId);
-
-    const targetProvider = providers.find((p) => p.id === providerId || p.type === providerId);
-    if (targetProvider) {
-      await saveModelConfig({
-        vendor: providerId,
-        modelName: modelId,
-        apiKey: targetProvider.apiKey || '',
-      });
-    }
+    await persist(previous => {
+      if (!previous.providers.some(p => p.id === providerId && p.models.some(m => m.id === modelId))) {
+        throw new Error('找不到指定模型，请重新选择');
+      }
+      return { ...previous, activeVendor: providerId, activeModel: modelId };
+    });
   };
 
-  const updateProvider = (providerId: string, updates: Partial<ModelProvider>) => {
-    setProviders((prev) =>
-      prev.map((p) => (p.id === providerId ? { ...p, ...updates } : p))
-    );
-  };
-
-  const addModelItem = (params: {
-    vendor: string;
-    baseUrl: string;
-    apiKey: string;
-    modelId: string;
-    name: string;
-    description?: string;
-    supportsReasoning?: boolean;
-  }) => {
-    const { vendor, baseUrl, apiKey, modelId, name, description, supportsReasoning } = params;
-
-    setProviders((prev) => {
-      const existingProviderIndex = prev.findIndex((p) => p.id === vendor || p.type === vendor);
-      const newModel: ModelItem = {
-        id: modelId,
-        name: name || modelId,
-        providerId: vendor,
-        description: description || '',
-        supportsReasoning: !!supportsReasoning,
+  const saveItem = async (params: ModelInput, old?: { providerId: string; modelId: string }) => {
+    let savedId = '';
+    await persist(previous => {
+      // 每个自定义连接独立标识，允许同一模型 ID 对应不同网关与密钥。
+      const oldProvider = previous.providers.find(p => p.id === old?.providerId);
+      savedId = params.vendor === 'custom'
+        ? (oldProvider?.type === 'custom' ? oldProvider.id : `custom-${crypto.randomUUID()}`)
+        : params.vendor;
+      const item: ModelItem = { id: params.modelId, name: params.name, providerId: savedId };
+      let providers = previous.providers.map(p => ({ ...p,
+        models: p.models.filter(m => !(p.id === old?.providerId && m.id === old.modelId)),
+      }));
+      const target = providers.find(p => p.id === savedId);
+      const provider: ModelProvider = {
+        ...(target || { id: savedId, name: params.vendor === 'custom' ? params.name : params.vendor.toUpperCase(), isEnabled: true }),
+        type: params.vendor as ProviderType, baseUrl: params.baseUrl, protocol: params.protocol, apiKey: params.apiKey,
+        models: [...(target?.models.filter(m => m.id !== item.id) || []), item],
       };
-
-      if (existingProviderIndex >= 0) {
-        return prev.map((p, idx) => {
-          if (idx === existingProviderIndex) {
-            const existsModel = p.models.some((m) => m.id === modelId);
-            const updatedModels = existsModel
-              ? p.models.map((m) => (m.id === modelId ? newModel : m))
-              : [...p.models, newModel];
-
-            return {
-              ...p,
-              baseUrl: baseUrl || p.baseUrl,
-              apiKey: apiKey !== undefined ? apiKey : p.apiKey,
-              models: updatedModels,
-            };
-          }
-          return p;
-        });
-      } else {
-        const newProvider: ModelProvider = {
-          id: vendor,
-          name: vendor.toUpperCase(),
-          type: vendor as any,
-          baseUrl: baseUrl || '',
-          apiKey: apiKey || '',
-          isEnabled: true,
-          models: [newModel],
-        };
-        return [...prev, newProvider];
-      }
+      providers = [...providers.filter(p => p.id !== savedId && p.models.length > 0), provider];
+      const wasActive = old && previous.activeVendor === old.providerId && previous.activeModel === old.modelId;
+      const activate = params.makeDefault || wasActive || !previous.activeVendor;
+      return { ...previous, providers, activeVendor: activate ? savedId : previous.activeVendor,
+        activeModel: activate ? item.id : previous.activeModel };
     });
-
-    // 如果当前没有任何激活模型，自动将新增的模型设为激活模型
-    if (!activeProviderId || !activeModelId) {
-      setActiveProviderId(vendor);
-      setActiveModelId(modelId);
-    }
+    return savedId;
   };
 
-  const updateModelItem = (
-    oldTarget: { providerId: string; modelId: string },
-    params: {
-      vendor: string;
-      baseUrl?: string;
-      apiKey?: string;
-      modelId: string;
-      name: string;
-      description?: string;
-      supportsReasoning?: boolean;
-    }
-  ) => {
-    const { providerId: oldProviderId, modelId: oldModelId } = oldTarget;
-    const { vendor: newVendor, baseUrl, apiKey, modelId: newModelId, name, description, supportsReasoning } = params;
-
-    setProviders((prev) => {
-      // 1. 如果供应商没有变化
-      if (oldProviderId === newVendor) {
-        return prev.map((p) => {
-          if (p.id === oldProviderId || p.type === oldProviderId) {
-            const updatedModels = p.models.map((m) => {
-              if (m.id === oldModelId) {
-                return {
-                  ...m,
-                  id: newModelId,
-                  name: name || newModelId,
-                  description: description !== undefined ? description : m.description,
-                  supportsReasoning: supportsReasoning !== undefined ? supportsReasoning : m.supportsReasoning,
-                };
-              }
-              return m;
-            });
-            return {
-              ...p,
-              baseUrl: baseUrl !== undefined ? baseUrl : p.baseUrl,
-              apiKey: apiKey !== undefined ? apiKey : p.apiKey,
-              models: updatedModels,
-            };
-          }
-          return p;
-        });
-      }
-
-      // 2. 如果供应商变化：从旧 provider 中移除，添加到新 provider 中
-      const modelToMove: ModelItem = {
-        id: newModelId,
-        name: name || newModelId,
-        providerId: newVendor,
-        description: description || '',
-        supportsReasoning: !!supportsReasoning,
-      };
-
-      const cleanedProviders = prev
-        .map((p) => {
-          if (p.id === oldProviderId || p.type === oldProviderId) {
-            return {
-              ...p,
-              models: p.models.filter((m) => m.id !== oldModelId),
-            };
-          }
-          return p;
-        })
-        .filter((p) => p.models.length > 0);
-
-      const targetProviderIndex = cleanedProviders.findIndex((p) => p.id === newVendor || p.type === newVendor);
-      if (targetProviderIndex >= 0) {
-        return cleanedProviders.map((p, idx) => {
-          if (idx === targetProviderIndex) {
-            const exists = p.models.some((m) => m.id === newModelId);
-            const models = exists
-              ? p.models.map((m) => (m.id === newModelId ? modelToMove : m))
-              : [...p.models, modelToMove];
-            return {
-              ...p,
-              baseUrl: baseUrl !== undefined ? baseUrl : p.baseUrl,
-              apiKey: apiKey !== undefined ? apiKey : p.apiKey,
-              models,
-            };
-          }
-          return p;
-        });
-      } else {
-        const newProvider: ModelProvider = {
-          id: newVendor,
-          name: newVendor.toUpperCase(),
-          type: newVendor as any,
-          baseUrl: baseUrl || '',
-          apiKey: apiKey || '',
-          isEnabled: true,
-          models: [modelToMove],
-        };
-        return [...cleanedProviders, newProvider];
-      }
+  const deleteModelItem = async (providerId: string, modelId: string) => {
+    await persist(previous => {
+      const providers = previous.providers.map(p => ({ ...p,
+        models: p.id === providerId ? p.models.filter(m => m.id !== modelId) : p.models,
+      })).filter(p => p.models.length > 0);
+      const wasActive = previous.activeVendor === providerId && previous.activeModel === modelId;
+      return { ...previous, providers, activeVendor: wasActive ? providers[0]?.id || '' : previous.activeVendor,
+        activeModel: wasActive ? providers[0]?.models[0]?.id || '' : previous.activeModel };
     });
-
-    if (activeProviderId === oldProviderId && activeModelId === oldModelId) {
-      setActiveProviderId(newVendor);
-      setActiveModelId(newModelId);
-    }
   };
 
-  const deleteModelItem = (providerId: string, modelId: string) => {
-    setProviders((prev) => {
-      const updated = prev.map((p) => {
-        if (p.id === providerId || p.type === providerId) {
-          return {
-            ...p,
-            models: p.models.filter((m) => m.id !== modelId),
-          };
-        }
-        return p;
-      }).filter((p) => p.models.length > 0); // 移除没有模型的空 provider
+  const getActiveProvider = () => config.providers.find(p => p.id === config.activeVendor);
+  const getAllModels = (): ListedModel[] => config.providers.flatMap(p => p.models.map(m => ({
+    ...m, providerId: p.id, providerName: p.name, providerType: p.type,
+    baseUrl: p.baseUrl || '', apiKey: p.apiKey, protocol: p.protocol,
+  })));
 
-      return updated;
-    });
-
-    if (activeProviderId === providerId && activeModelId === modelId) {
-      const allLeft = getAllModels().filter((m) => !(m.providerId === providerId && m.id === modelId));
-      if (allLeft.length > 0) {
-        setActiveProviderId(allLeft[0].providerId);
-        setActiveModelId(allLeft[0].id);
-      } else {
-        setActiveProviderId('');
-        setActiveModelId('');
-      }
-    }
-  };
-
-  const testConnectionByUrl = async (baseUrl: string, apiKey: string, type: string): Promise<{ success: boolean; message: string }> => {
-    if (!apiKey && type !== 'ollama') {
-      return { success: false, message: '请先填写 API Key' };
-    }
-
-    try {
-      const res = await fetch(`${baseUrl.replace(/\/$/, '')}/models`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-        },
-      });
-
-      if (res.ok || res.status === 404) {
-        return { success: true, message: '连接成功！Endpoint 可达' };
-      } else {
-        return { success: false, message: `连接失败: HTTP Status ${res.status}` };
-      }
-    } catch (err: any) {
-      return { success: false, message: `网络连接异常: ${err.message || '未知错误'}` };
-    }
-  };
-
-  const getAllModels = () => {
-    const list: (ModelItem & { providerName: string; providerType: string; baseUrl: string; apiKey: string })[] = [];
-    providers.forEach((p) => {
-      p.models.forEach((m) => {
-        list.push({
-          ...m,
-          providerName: p.name || p.id,
-          providerType: p.type || p.id,
-          baseUrl: p.baseUrl || '',
-          apiKey: p.apiKey || '',
-        });
-      });
-    });
-    return list;
-  };
-
-  const getActiveProvider = () => providers.find((p) => p.id === activeProviderId || p.type === activeProviderId);
-
-  const getActiveModel = () => {
-    const provider = getActiveProvider();
-    return provider?.models.find((m) => m.id === activeModelId);
-  };
-
-  return (
-    <ModelContext.Provider
-      value={{
-        providers,
-        activeProviderId,
-        activeModelId,
-        temperature,
-        maxTokens,
-        setActiveProviderId,
-        setActiveModelId,
-        selectActiveModel,
-        setTemperature,
-        setMaxTokens,
-        updateProvider,
-        addModelItem,
-        updateModelItem,
-        deleteModelItem,
-        testConnectionByUrl,
-        getActiveModel,
-        getActiveProvider,
-        getAllModels,
-      }}
-    >
-      {children}
-    </ModelContext.Provider>
-  );
+  return <ModelContext.Provider value={{
+    providers: config.providers, activeProviderId: config.activeVendor, activeModelId: config.activeModel,
+    temperature: config.temperature ?? 0.7, maxTokens: 4096,
+    selectActiveModel, addModelItem: params => saveItem(params), updateModelItem: (old, params) => saveItem(params, old),
+    deleteModelItem, getActiveProvider, getActiveModel: () => getActiveProvider()?.models.find(m => m.id === config.activeModel),
+    getAllModels, testConnectionByUrl: (baseUrl, apiKey, vendor, modelName, protocol) =>
+      testModelConnection({ baseUrl, apiKey, vendor, modelName, protocol }),
+  }}>{children}</ModelContext.Provider>;
 };
 
 export const useModel = () => {
   const context = useContext(ModelContext);
-  if (!context) {
-    throw new Error('useModel must be used within a ModelProviderContext');
-  }
+  if (!context) throw new Error('useModel must be used within a ModelProviderContext');
   return context;
 };

@@ -12,7 +12,7 @@ import { createDateRange, groupVendors, percentage, type UsageRange } from './to
 import styles from './TokenUsageSettingsPage.module.css';
 
 const RANGES: { value: UsageRange; label: string }[] = [{ value: '7d', label: '近 7 天' }, { value: '30d', label: '近 30 天' }, { value: '90d', label: '近 90 天' }, { value: 'all', label: '全部时间' }];
-const PURPOSE_LABELS: Record<string, string> = { CHAT: '聊天对话', SESSION_TITLE: '会话标题', PROFILE_MAINTENANCE: '画像维护', CONTEXT_COMPACTION: '上下文压缩', BACKGROUND_AGENT: '后台 Agent' };
+const PURPOSE_LABELS: Record<string, string> = { CHAT: '聊天对话', SESSION_TITLE: '会话标题', MODEL_CONNECTION_TEST: '模型连接测试', PROFILE_MAINTENANCE: '画像维护', CONTEXT_COMPACTION: '上下文压缩', BACKGROUND_AGENT: '后台 Agent' };
 
 /** 本地用量分析入口；范围切换与刷新均只采纳最后一次请求的结果。 */
 export function TokenUsageSettingsPage() {

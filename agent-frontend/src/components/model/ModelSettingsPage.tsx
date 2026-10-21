@@ -10,6 +10,8 @@ import { Badge } from '../common/Badge';
 import { Toggle } from '../common/Toggle';
 import { useMessage } from '../common/Message';
 import { VendorIcon } from './VendorIcon';
+import { ModelEndpointFields } from './ModelEndpointFields';
+import type { ModelProtocol } from '../../types/model';
 import { FeatureSettingsPage, type FeatureSettingsTab } from '../settings/FeatureSettingsPage';
 import { TokenUsageSettingsPage } from '../settings/TokenUsageSettingsPage';
 import { PersonalContextSettingsPage } from '../settings/PersonalContextSettingsPage';
@@ -73,6 +75,7 @@ const VENDOR_DEFAULT_URLS: Record<string, string> = {
 };
 
 const VENDOR_NAMES: Record<string, string> = {
+  custom: '自定义 API',
   dashscope: 'DashScope',
   qwen: 'DashScope',
   deepseek: 'DeepSeek',
@@ -154,6 +157,8 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
   const [editModelId, setEditModelId] = useState('');
   const [editApiKey, setEditApiKey] = useState('');
   const [editBaseUrl, setEditBaseUrl] = useState('');
+  const [editProtocol, setEditProtocol] = useState<ModelProtocol>('openai');
+  const [saving, setSaving] = useState(false);
   const [editIsDefault, setEditIsDefault] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
 
@@ -262,8 +267,9 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
       setEditModelId(selectedModel.id);
       setEditApiKey(selectedModel.apiKey || '');
       setEditBaseUrl(selectedModel.baseUrl || VENDOR_DEFAULT_URLS[selectedModel.providerType] || '');
+      setEditProtocol(selectedModel.protocol || 'openai');
       const isAct =
-        (selectedModel.providerId === activeProviderId || selectedModel.providerType === activeProviderId) &&
+        selectedModel.providerId === activeProviderId &&
         selectedModel.id === activeModelId;
       setEditIsDefault(isAct);
       setShowApiKey(false);
@@ -286,6 +292,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
     loadedModelKeyRef.current = '';
     const defaultVendor = supportedVendors[0] || 'dashscope';
     setEditVendor(defaultVendor);
+    setEditProtocol('openai');
     setEditName('');
     setEditModelId('');
     setEditApiKey('');
@@ -298,6 +305,21 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
   // 取消编辑/新建（收起面板）
   const handleCancel = () => {
     handleClosePane();
+  };
+
+  const changeVendor = (vendor: string) => {
+    setEditVendor(vendor);
+    setEditBaseUrl(VENDOR_DEFAULT_URLS[vendor] || '');
+  };
+
+  const setDefaultModel = async (providerId: string, modelId: string, name: string) => {
+    try {
+      await selectActiveModel(providerId, modelId);
+      setEditIsDefault(true);
+      showMessage('success', `已将 ${name} 设为默认模型`);
+    } catch (error) {
+      showMessage('error', error instanceof Error ? error.message : '切换模型失败');
+    }
   };
 
   // 保存更改或创建模型
@@ -313,44 +335,26 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
       return;
     }
 
-    if (isCreating) {
-      addModelItem({
-        vendor: editVendor,
-        baseUrl: editBaseUrl.trim() || VENDOR_DEFAULT_URLS[editVendor] || '',
-        apiKey: editApiKey.trim(),
-        modelId: trimmedModelId,
-        name: trimmedName,
-      });
-
-      if (editIsDefault) {
-        await selectActiveModel(editVendor, trimmedModelId);
-      }
-
-      showMessage('success', '模型配置已添加');
+    if (editVendor === 'custom' && !editBaseUrl.trim()) {
+      showMessage('error', '请填写自定义 API 基础地址');
+      return;
+    }
+    setSaving(true);
+    try {
+      const params = { vendor: editVendor, baseUrl: editBaseUrl.trim(),
+        protocol: editVendor === 'custom' ? editProtocol : undefined,
+        apiKey: editApiKey.trim(), modelId: trimmedModelId, name: trimmedName, makeDefault: editIsDefault };
+      const providerId = isCreating ? await addModelItem(params)
+        : selectedModel ? await updateModelItem({ providerId: selectedModel.providerId, modelId: selectedModel.id }, params) : '';
+      showMessage('success', isCreating ? '模型配置已添加' : '模型配置已更新');
       loadedModelKeyRef.current = '';
       setShowApiKey(false);
       setIsCreating(false);
-      setSelectedKey(`${editVendor}-${trimmedModelId}`);
-    } else if (selectedModel) {
-      updateModelItem(
-        { providerId: selectedModel.providerId, modelId: selectedModel.id },
-        {
-          vendor: editVendor,
-          baseUrl: editBaseUrl.trim() || VENDOR_DEFAULT_URLS[editVendor] || '',
-          apiKey: editApiKey.trim(),
-          modelId: trimmedModelId,
-          name: trimmedName,
-        }
-      );
-
-      if (editIsDefault) {
-        await selectActiveModel(editVendor, trimmedModelId);
-      }
-
-      showMessage('success', '模型配置已更新');
-      loadedModelKeyRef.current = '';
-      setShowApiKey(false);
-      setSelectedKey(`${editVendor}-${trimmedModelId}`);
+      setSelectedKey(`${providerId}-${trimmedModelId}`);
+    } catch (error) {
+      showMessage('error', error instanceof Error ? error.message : '模型配置保存失败');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -361,6 +365,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
     id: string;
     baseUrl?: string;
     apiKey?: string;
+    protocol?: ModelProtocol;
   }) => {
     const key = `${target.providerId}-${target.id}`;
     setTestingKey(key);
@@ -368,7 +373,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
     const baseUrl = target.baseUrl || VENDOR_DEFAULT_URLS[target.providerType] || '';
     const apiKey = target.apiKey || '';
 
-    const res = await testConnectionByUrl(baseUrl, apiKey, target.providerType);
+    const res = await testConnectionByUrl(baseUrl, apiKey, target.providerType, target.id, target.protocol);
 
     const newRecord: TestRecord = {
       lastTestedAt: Date.now(),
@@ -387,13 +392,17 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
   };
 
   // 确认删除模型
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!selectedModel) return;
     const { providerId, id, name } = selectedModel;
-    deleteModelItem(providerId, id);
-    setShowDeleteModal(false);
-    handleClosePane();
-    showMessage('success', `模型 ${name} 已删除`);
+    try {
+      await deleteModelItem(providerId, id);
+      setShowDeleteModal(false);
+      handleClosePane();
+      showMessage('success', `模型 ${name} 已删除`);
+    } catch (error) {
+      showMessage('error', error instanceof Error ? error.message : '删除失败');
+    }
   };
 
   // 切换表头排序
@@ -425,7 +434,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
   const isFeatureTab = (tab: string): tab is FeatureSettingsTab =>
     tab === 'calendar' || tab === 'finance' || tab === 'library' || tab === 'record';
 
-  const vendorOptions = supportedVendors.map((v) => ({
+  const vendorOptions = [...new Set([...supportedVendors, 'custom'])].map((v) => ({
     label: VENDOR_NAMES[v] || v,
     value: v,
   }));
@@ -559,7 +568,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                       const key = `${item.providerId}-${item.id}`;
                       const isSelected = isPaneOpen && !isCreating && selectedKey === key;
                       const isDefaultModel =
-                        (item.providerId === activeProviderId || item.providerType === activeProviderId) &&
+                        item.providerId === activeProviderId &&
                         item.id === activeModelId;
                       const vendorKey = (item.providerType || item.providerId || '').toLowerCase();
                       const vendorDisplayName = VENDOR_NAMES[vendorKey] || item.providerName || (vendorKey === 'dashscope' ? 'DashScope' : vendorKey);
@@ -568,7 +577,6 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
 
                       // 状态判断
                       const hasTested = !!record;
-                      const isConnected = hasTested ? record.success : true; // 默认展示连接状态
 
                       return (
                         <div
@@ -604,10 +612,11 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                           {/* 状态列 */}
                           <div className={styles.statusCell}>
                             <span
-                              className={`${styles.statusDot} ${isConnected ? styles.statusDotConnected : styles.statusDotFailed
-                                }`}
+                              className={`${styles.statusDot} ${hasTested
+                                ? (record.success ? styles.statusDotConnected : styles.statusDotFailed)
+                                : styles.statusDotUntested}`}
                             />
-                            <span>{isConnected ? '已连接' : '连接失败'}</span>
+                            <span>{hasTested ? (record.success ? '已连接' : '连接失败') : '未测试'}</span>
                           </div>
 
                           {/* 最后测试列 */}
@@ -645,8 +654,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                                       type="button"
                                       className={styles.menuItem}
                                       onClick={() => {
-                                        selectActiveModel(item.providerId, item.id);
-                                        showMessage('success', `已将 ${item.name || item.id} 设为默认模型`);
+                                        void setDefaultModel(item.providerId, item.id, item.name);
                                       }}
                                     >
                                       <Check size={14} /> 设为默认模型
@@ -738,16 +746,15 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                           id="create-model-vendor"
                           options={vendorOptions}
                           value={editVendor}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setEditVendor(v);
-                            if (VENDOR_DEFAULT_URLS[v]) setEditBaseUrl(VENDOR_DEFAULT_URLS[v]);
-                          }}
+                          onChange={(e) => changeVendor(e.target.value)}
                           icon={<VendorIcon vendor={editVendor} size={16} />}
                           fieldSize="md"
                           fullWidth
                         />
                       </FormField>
+
+                      <ModelEndpointFields idPrefix="create-model" vendor={editVendor} baseUrl={editBaseUrl}
+                        protocol={editProtocol} onBaseUrlChange={setEditBaseUrl} onProtocolChange={setEditProtocol} />
 
                       <FormField label="Model ID" htmlFor="create-model-id" required>
                         <TextInput
@@ -795,12 +802,16 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
 
                     {/* 底部按钮栏 */}
                     <div className={styles.detailFooter}>
-                      <div />
+                      <Button variant="outline" disabled={testingKey !== null || !editModelId.trim()} onClick={() =>
+                        handleTestConnection({ providerId: 'draft', providerType: editVendor, id: editModelId,
+                          baseUrl: editBaseUrl, apiKey: editApiKey, protocol: editProtocol })}>
+                        {testingKey ? '测试中...' : '测试连接'}
+                      </Button>
                       <div className={styles.footerActionsRight}>
                         <Button variant="outline" onClick={handleCancel}>
                           取消
                         </Button>
-                        <Button variant="primary" onClick={handleSave}>
+                        <Button variant="primary" onClick={handleSave} disabled={saving}>
                           保存并创建
                         </Button>
                       </div>
@@ -841,10 +852,8 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                                       type="button"
                                       className={styles.menuItem}
                                       onClick={() => {
-                                        selectActiveModel(selectedModel.providerId, selectedModel.id);
-                                        setEditIsDefault(true);
+                                        void setDefaultModel(selectedModel.providerId, selectedModel.id, selectedModel.name);
                                         setOpenHeaderMenu(false);
-                                        showMessage('success', `已将 ${selectedModel.name} 设为默认模型`);
                                       }}
                                     >
                                       <Check size={14} /> 设为默认模型
@@ -890,10 +899,11 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                           <span>{VENDOR_NAMES[editVendor] || editVendor}</span>
                           <span>·</span>
                           <span
-                            className={`${styles.statusDot} ${currentTestRecord ? (currentTestRecord.success ? styles.statusDotConnected : styles.statusDotFailed) : styles.statusDotConnected
-                              }`}
+                            className={`${styles.statusDot} ${currentTestRecord
+                              ? (currentTestRecord.success ? styles.statusDotConnected : styles.statusDotFailed)
+                              : styles.statusDotUntested}`}
                           />
-                          <span>{currentTestRecord ? (currentTestRecord.success ? '已连接' : '连接失败') : '已连接'}</span>
+                          <span>{currentTestRecord ? (currentTestRecord.success ? '已连接' : '连接失败') : '未测试'}</span>
                         </div>
                       </div>
                     </div>
@@ -914,16 +924,15 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                           id="detail-model-vendor"
                           options={vendorOptions}
                           value={editVendor}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setEditVendor(v);
-                            if (VENDOR_DEFAULT_URLS[v]) setEditBaseUrl(VENDOR_DEFAULT_URLS[v]);
-                          }}
+                          onChange={(e) => changeVendor(e.target.value)}
                           icon={<VendorIcon vendor={editVendor} size={16} />}
                           fieldSize="md"
                           fullWidth
                         />
                       </FormField>
+
+                      <ModelEndpointFields idPrefix="detail-model" vendor={editVendor} baseUrl={editBaseUrl}
+                        protocol={editProtocol} onBaseUrlChange={setEditBaseUrl} onProtocolChange={setEditProtocol} />
 
                       <FormField label="Model ID" htmlFor="detail-model-id" required>
                         <TextInput
@@ -966,10 +975,11 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                           <div className={styles.statusInfoBlock}>
                             <div className={styles.statusIndicatorText}>
                               <span
-                                className={`${styles.statusDot} ${currentTestRecord ? (currentTestRecord.success ? styles.statusDotConnected : styles.statusDotFailed) : styles.statusDotConnected
-                                  }`}
+                                className={`${styles.statusDot} ${currentTestRecord
+                                  ? (currentTestRecord.success ? styles.statusDotConnected : styles.statusDotFailed)
+                                  : styles.statusDotUntested}`}
                               />
-                              <span>{currentTestRecord ? (currentTestRecord.success ? '已连接' : '连接失败') : '已连接'}</span>
+                              <span>{currentTestRecord ? (currentTestRecord.success ? '已连接' : '连接失败') : '未测试'}</span>
                             </div>
                             <span className={styles.statusSubText}>
                               最后测试: {formatAbsoluteTime(currentTestRecord?.lastTestedAt)}
@@ -987,6 +997,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                                 id: editModelId,
                                 baseUrl: editBaseUrl,
                                 apiKey: editApiKey,
+                                protocol: editProtocol,
                               })
                             }
                             disabled={isCurrentTesting}
@@ -1022,7 +1033,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                         <Button type="button" variant="outline" onClick={handleCancel}>
                           取消
                         </Button>
-                        <Button type="button" variant="primary" onClick={handleSave}>
+                        <Button type="button" variant="primary" onClick={handleSave} disabled={saving}>
                           保存更改
                         </Button>
                       </div>

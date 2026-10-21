@@ -7,7 +7,7 @@ export type MessageRole = 'USER' | 'ASSISTANT';
 export type MessageStatus = 'COMPLETED' | 'FAILED' | 'CANCELLED';
 export type SessionPermissionMode = 'ASK' | 'AUTO_EDIT' | 'FULL_ACCESS';
 export type UsageStatus = 'COMPLETE' | 'PARTIAL' | 'UNAVAILABLE';
-export type UsagePurpose = 'CHAT' | 'SESSION_TITLE' | 'PROFILE_MAINTENANCE' | 'CONTEXT_COMPACTION' | 'BACKGROUND_AGENT';
+export type UsagePurpose = 'CHAT' | 'SESSION_TITLE' | 'MODEL_CONNECTION_TEST' | 'PROFILE_MAINTENANCE' | 'CONTEXT_COMPACTION' | 'BACKGROUND_AGENT';
 
 export interface InputTokenBreakdown {
   systemPromptTokens: number;
