@@ -89,6 +89,7 @@ interface SidebarProps {
   onNewGeneralChat: () => void;
   onNewProjectChat: (projectId: string) => void;
   onImportProject: (name: string, path: string) => Promise<{ success: boolean; message?: string }>;
+  onRemoveProject: (projectId: string) => Promise<{ success: boolean; message?: string }>;
   onDeleteSession: (id: string) => Promise<{ success: boolean; message?: string }>;
   onUpdateSessionTitle?: (id: string, newTitle: string) => void;
   onOpenSettings: () => void;
@@ -106,6 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNewGeneralChat,
   onNewProjectChat,
   onImportProject,
+  onRemoveProject,
   onDeleteSession,
   onUpdateSessionTitle,
   onOpenSettings,
@@ -135,6 +137,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const [deleteSession, setDeleteSession] = useState<ChatSession | null>(null);
   const [isDeletingSession, setIsDeletingSession] = useState(false);
+
+  // 项目操作菜单与移除确认
+  const [menuProject, setMenuProject] = useState<{
+    project: Project;
+    x: number;
+    y: number;
+  } | null>(null);
+  const projectMenuRef = useRef<HTMLDivElement>(null);
+  const [deleteProject, setDeleteProject] = useState<Project | null>(null);
+  const [isRemovingProject, setIsRemovingProject] = useState(false);
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importPath, setImportPath] = useState('');
@@ -199,6 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (e.key === 'Escape') {
         setIsImportModalOpen(false);
         setMenuSession(null);
+        setMenuProject(null);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -216,6 +229,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [menuSession]);
+
+  // 点击项目菜单外部时关闭
+  useEffect(() => {
+    if (!menuProject) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (projectMenuRef.current && !projectMenuRef.current.contains(e.target as Node)) {
+        setMenuProject(null);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [menuProject]);
 
   useEffect(() => {
     fetchAccountStatus().then((status) => {
@@ -255,7 +280,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const rect = e.currentTarget.getBoundingClientRect();
     const menuWidth = 176;
     const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8);
+    setMenuProject(null);
     setMenuSession({ session, x: left, y: rect.bottom + 4 });
+  };
+
+  const openProjectMenu = (e: React.MouseEvent<HTMLButtonElement>, project: Project) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 176;
+    const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8);
+    setMenuSession(null);
+    setMenuProject({ project, x: left, y: rect.bottom + 4 });
+  };
+
+  const requestRemoveProject = (project: Project) => {
+    setMenuProject(null);
+    setDeleteProject(project);
+  };
+
+  const closeRemoveProject = () => {
+    if (isRemovingProject) return;
+    setDeleteProject(null);
+  };
+
+  const confirmRemoveProject = async () => {
+    if (!deleteProject || isRemovingProject) return;
+    setIsRemovingProject(true);
+    try {
+      const result = await onRemoveProject(deleteProject.id);
+      if (result.success) {
+        setDeleteProject(null);
+        return;
+      }
+      showMessage('error', result.message || '移除项目失败，请稍后重试。');
+    } catch (error) {
+      showMessage('error', error instanceof Error ? error.message : '移除项目失败，请稍后重试。');
+    } finally {
+      setIsRemovingProject(false);
+    }
   };
 
   const startRename = (session: ChatSession) => {
@@ -578,21 +640,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     <ChevronRight size={13} className={styles.arrowIcon} />
                                   )}
                                   <Folder size={14} className={styles.folderIcon} />
-                                  <span className={`${styles.projectName} ${project.availability !== 'AVAILABLE' ? styles.projectUnavailable : ''}`} title={project.path}>
+                                  <span className={`${styles.projectName} ${project.availability !== 'AVAILABLE' ? styles.projectUnavailable : ''}`} title={project.availability === 'AVAILABLE' ? project.path : `${project.path}\n项目目录已移动或不可访问，可移除后重新导入`}>
                                     {project.name}
                                   </span>
                                   {project.availability !== 'AVAILABLE' && (
-                                    <AlertTriangle size={12} className={styles.projectWarning} aria-label="项目目录不可访问" />
+                                    <AlertTriangle
+                                      size={12}
+                                      className={styles.projectWarning}
+                                      aria-label="项目目录已移动或不可访问"
+                                    />
                                   )}
                                 </button>
                                 <button
                                   className={styles.iconBtnSmall}
-                                  title="在此项目下新建会话"
-                                  aria-label="在此项目下新建会话"
+                                  title={project.availability === 'AVAILABLE' ? '在此项目下新建会话' : '项目目录不可访问，无法新建会话'}
+                                  aria-label={project.availability === 'AVAILABLE' ? '在此项目下新建会话' : '项目目录不可访问，无法新建会话'}
                                   onClick={() => onNewProjectChat(project.id)}
                                   disabled={project.availability !== 'AVAILABLE'}
                                 >
                                   <Plus size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.iconBtnSmall}
+                                  title="项目操作"
+                                  aria-label={`${project.name} 项目操作`}
+                                  aria-expanded={menuProject?.project.id === project.id}
+                                  onClick={(e) => openProjectMenu(e, project)}
+                                >
+                                  <MoreHorizontal size={14} />
                                 </button>
                               </div>
 
@@ -698,6 +774,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
           document.body
         )}
 
+      {/* 项目操作菜单（Portal 渲染，避免被滚动区裁剪） */}
+      {menuProject &&
+        createPortal(
+          <div
+            ref={projectMenuRef}
+            className={styles.sessionMenu}
+            role="menu"
+            style={{ left: menuProject.x, top: menuProject.y }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className={`${styles.menuItem} ${styles.menuItemDanger}`}
+              onClick={() => requestRemoveProject(menuProject.project)}
+            >
+              <Trash2 size={13} />
+              <span>移除项目</span>
+            </button>
+          </div>,
+          document.body
+        )}
+
       {/* 导入项目 UI 弹窗 */}
       <Modal
         open={isImportModalOpen}
@@ -776,6 +874,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
               disabled={isDeletingSession}
             >
               {isDeletingSession ? '正在删除…' : '删除会话'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={deleteProject !== null}
+        title="移除项目？"
+        onClose={closeRemoveProject}
+        width={420}
+        centered
+      >
+        <div className={styles.deleteModalBody}>
+          <p className={styles.deleteDescription}>
+            “{deleteProject?.name || '项目'}”
+            {deleteProject?.availability !== 'AVAILABLE'
+              ? '当前目录已移动或不可访问。'
+              : '将从应用的项目列表中移除。'}
+            此操作只解除项目登记，不会删除磁盘文件；关联会话会保留为普通会话。
+          </p>
+          <div className={styles.modalActions}>
+            <button
+              type="button"
+              className={styles.cancelBtn}
+              onClick={closeRemoveProject}
+              disabled={isRemovingProject}
+              autoFocus
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className={styles.deleteConfirmBtn}
+              onClick={() => void confirmRemoveProject()}
+              disabled={isRemovingProject}
+            >
+              {isRemovingProject ? '正在移除…' : '移除项目'}
             </button>
           </div>
         </div>

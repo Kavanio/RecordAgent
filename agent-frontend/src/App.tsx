@@ -50,7 +50,7 @@ import {
   fetchSubagentTasks,
   subscribeSubagentTaskEvents,
 } from './services/taskApi';
-import { fetchProjects, importProject } from './services/projectApi';
+import { fetchProjects, importProject, removeProject as removeProjectApi } from './services/projectApi';
 
 function mapTranscriptToChatMessage(dto: TranscriptMessageDto): ChatMessage {
   const isUser = dto.role?.toUpperCase() === 'USER';
@@ -537,7 +537,23 @@ export const MainLayout: React.FC<{
     }
   };
 
-  // 6. 删除会话
+  // 6. 移除项目登记；项目文件保持不变，关联会话转为普通会话
+  const handleRemoveProject = async (projectId: string): Promise<{ success: boolean; message?: string }> => {
+    const projectName = projects.find((project) => project.id === projectId)?.name || '项目';
+    try {
+      await removeProjectApi(projectId);
+      setProjects((previous) => previous.filter((project) => project.id !== projectId));
+      setSessions((previous) => previous.map((session) => session.projectId === projectId
+        ? { ...session, kind: 'GENERAL', projectId: undefined }
+        : session));
+      showMessage('success', `已移除项目“${projectName}”，关联会话已保留`);
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : '移除项目失败' };
+    }
+  };
+
+  // 7. 删除会话
   const handleDeleteSession = async (id: string): Promise<{ success: boolean; message?: string }> => {
     if (streamingSessionIds.has(id) || pendingPermissions[id]) {
       return { success: false, message: '当前会话仍在运行或等待权限确认，请结束后再删除。' };
@@ -1076,6 +1092,7 @@ export const MainLayout: React.FC<{
             onNewGeneralChat={handleNewGeneralChat}
             onNewProjectChat={handleNewProjectChat}
             onImportProject={handleImportProject}
+            onRemoveProject={handleRemoveProject}
             onDeleteSession={handleDeleteSession}
             onUpdateSessionTitle={handleUpdateSessionTitle}
             onOpenSettings={() => { setSettingsTab('config'); setIsSettingsOpen(true); }}

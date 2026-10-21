@@ -119,7 +119,7 @@
 
 | 组件名称 | 源码路径 | 样式文件 / 核心依赖 | 职责与设计契约 | 核心 Props / 接口定义 | 变体 / 尺寸 / 交互状态 | 典型应用场景 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Sidebar** | [`Sidebar.tsx`](file:///Users/butvan/Butvan_Projets/my_code/ButvanAgent/agent-frontend/src/components/layout/Sidebar.tsx) | `Sidebar.module.css`<br/>`lucide-react` | 统一全局主侧边栏：Codex 经典冰蓝灰配色、模块路由切换、会话列表树、折叠/展开、快捷设置入口与用户气泡 | `activeModule: string`<br/>`onSelectModule: (mod) => void`<br/>`collapsed: boolean`<br/>`onToggleCollapse: () => void` | **状态**：完整展开（包含会话列表） / 紧凑折叠（仅图标） | 桌面端应用主界面全局左侧导航底座 |
+| **Sidebar** | [`Sidebar.tsx`](file:///Users/butvan/Butvan_Projets/my_code/ButvanAgent/agent-frontend/src/components/layout/Sidebar.tsx) | `Sidebar.module.css`<br/>`lucide-react` | 统一全局主侧边栏：Codex 经典冰蓝灰配色、模块路由切换、会话列表树、折叠/展开、快捷设置入口与用户气泡；项目分组支持导入、目录移动/失效提示、项目操作菜单移除登记，移除只解除引用并保留关联会话 | `activeModule: string`<br/>`onSelectModule: (mod) => void`<br/>`collapsed: boolean`<br/>`onToggleCollapse: () => void` | **状态**：完整展开（包含会话列表） / 紧凑折叠（仅图标）；项目可用/目录不可访问、项目操作菜单、移除确认与失败反馈 | 桌面端应用主界面全局左侧导航底座 |
 
 
 ## 财务组件（`agent-frontend/src/components/finance/`）
