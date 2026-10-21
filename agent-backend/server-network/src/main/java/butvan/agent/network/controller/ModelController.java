@@ -4,6 +4,7 @@ import butvan.agent.agents.model.ModelSelector;
 import butvan.agent.network.annotation.ApiLog;
 import butvan.agent.network.common.Result;
 import butvan.agent.network.dto.SetModel;
+import butvan.agent.network.dto.ModelConnectionResult;
 import butvan.agent.network.service.ModelService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,13 @@ public class ModelController {
     public Result<String> updateModelConfig(@RequestBody SetModel model) {
         modelService.updateModelConfig(model);
         return Result.success("更新模型配置成功！");
+    }
+
+    /** 测试用户提供的模型连接；沿用模型配置接口的 API Token 鉴权边界。 */
+    @ApiLog("测试模型 API 请求")
+    @PostMapping("/test-connection")
+    public Result<ModelConnectionResult> testConnection(@RequestBody SetModel request) {
+        return Result.success(modelService.testConnection(request));
     }
 
     /**

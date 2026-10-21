@@ -3,6 +3,7 @@ package butvan.agent.network.service;
 import butvan.agent.agents.config.LocalConfigService;
 import butvan.agent.agents.model.ModelSelector;
 import butvan.agent.network.dto.SetModel;
+import butvan.agent.network.dto.ModelConnectionResult;
 
 import java.util.List;
 
@@ -17,6 +18,9 @@ public interface ModelService {
      * @param model 模型设置对象
      */
     void updateModelConfig(SetModel model);
+
+    /** 使用与聊天一致的模型适配器发起最小请求，不保存配置。 */
+    ModelConnectionResult testConnection(SetModel model);
 
     /**
      * 获取当前加载的模型配置选择器

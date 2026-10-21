@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -13,6 +15,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ModelConfigRoundTripTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+
+    @Test
+    void legacyConfigurationAndNewSelectorFieldsRoundTrip() throws Exception {
+        var legacy = objectMapper.readValue("""
+                {"vendor":"openai","name":"old-model","apiKey":"test-key","temperature":0.4,"stream":true}
+                """, LocalConfigService.ModelConfigData.class);
+        assertEquals("openai", legacy.toSelector().vendor());
+        assertEquals("old-model", legacy.toSelector().name());
+        assertEquals("", legacy.toSelector().baseUrl());
+        var selector = new butvan.agent.agents.model.ModelSelector("custom", "model", "test-key", 0.7, true,
+                "https://gateway.example/v1", "anthropic");
+        var data = LocalConfigService.ModelConfigData.fromSelector(selector);
+        assertEquals(selector, objectMapper.readValue(objectMapper.writeValueAsString(data),
+                LocalConfigService.ModelConfigData.class).toSelector());
+        assertNull(butvan.agent.agents.model.ModelSelector.of("openai", "model", "test-key").baseUrl());
+    }
 
     @Test
     void preservesUnknownTopLevelSection() throws Exception {

@@ -1,4 +1,6 @@
-export type ProviderType = 'gemini' | 'deepseek' | 'openai' | 'anthropic' | 'ollama' | 'qwen' | 'zhipu' | 'custom';
+export type ModelProtocol = 'openai' | 'anthropic';
+
+export type ProviderType = 'dashscope' | 'gemini' | 'deepseek' | 'openai' | 'anthropic' | 'ollama' | 'qwen' | 'zhipu' | 'custom';
 
 export interface ModelItem {
   id: string;
@@ -15,10 +17,24 @@ export interface ModelProvider {
   name: string;
   type: ProviderType;
   baseUrl?: string;
+  protocol?: ModelProtocol;
   apiKey: string;
   isEnabled: boolean;
   isOfficial?: boolean;
   models: ModelItem[];
+}
+
+export interface FullModelConfig {
+  activeVendor: string;
+  activeModel: string;
+  vendor: string;
+  name: string;
+  apiKey: string;
+  baseUrl?: string;
+  protocol?: ModelProtocol;
+  temperature?: number;
+  stream?: boolean;
+  providers: ModelProvider[];
 }
 
 export interface ModelConfigState {

@@ -6,12 +6,15 @@ import type {
   SessionPermissionMode,
 } from '../types/chat';
 import type { SubagentProgressDto } from '../types/team';
+import type { FullModelConfig, ModelProtocol } from '../types/model';
 import { invoke } from '@tauri-apps/api/core';
 
 export interface ModelConfig {
   vendor: string;
   name: string;
   apiKey: string;
+  baseUrl?: string;
+  protocol?: ModelProtocol;
   temperature?: number;
   stream?: boolean;
 }
@@ -194,12 +197,12 @@ export async function fetchModelConfig(): Promise<ModelConfig | null> {
 /**
  * 获取全量多厂商模型配置
  */
-export async function fetchFullModelConfig(): Promise<any | null> {
+export async function fetchFullModelConfig(): Promise<FullModelConfig | null> {
   try {
     const res = await apiFetch(`${apiBaseUrl}/agent/model/full-config`);
     if (!res.ok) return null;
-    const json: ApiResponse<any> = await res.json();
-    return json.data;
+    const json: ApiResponse<FullModelConfig> = await res.json();
+    return json.code === 200 ? json.data : null;
   } catch (err) {
     console.error('获取全量模型配置失败:', err);
     return null;
@@ -209,7 +212,7 @@ export async function fetchFullModelConfig(): Promise<any | null> {
 /**
  * 保存全量多厂商模型配置
  */
-export async function saveFullModelConfig(fullConfig: any): Promise<{ success: boolean; message: string }> {
+export async function saveFullModelConfig(fullConfig: FullModelConfig): Promise<{ success: boolean; message: string }> {
   try {
     const res = await apiFetch(`${apiBaseUrl}/agent/model/full-config`, {
       method: 'POST',
@@ -234,12 +237,12 @@ export async function saveFullModelConfig(fullConfig: any): Promise<{ success: b
 export async function fetchSupportedVendors(): Promise<string[]> {
   try {
     const res = await apiFetch(`${apiBaseUrl}/agent/model/vendors`, { signal: AbortSignal.timeout(5_000) });
-    if (!res.ok) return ['gemini', 'openai', 'dashscope', 'deepseek', 'anthropic', 'ollama'];
+    if (!res.ok) return ['gemini', 'openai', 'dashscope', 'deepseek', 'anthropic', 'custom'];
     const json: ApiResponse<string[]> = await res.json();
     return json.data || [];
   } catch (err) {
     console.error('获取供应商列表失败:', err);
-    return ['gemini', 'openai', 'dashscope', 'deepseek', 'anthropic', 'ollama'];
+    return ['gemini', 'openai', 'dashscope', 'deepseek', 'anthropic', 'custom'];
   }
 }
 
@@ -250,6 +253,8 @@ export async function saveModelConfig(params: {
   vendor: string;
   modelName: string;
   apiKey: string;
+  baseUrl?: string;
+  protocol?: ModelProtocol;
 }): Promise<{ success: boolean; message: string }> {
   try {
     const res = await apiFetch(`${apiBaseUrl}/agent/model`, {
@@ -269,6 +274,25 @@ export async function saveModelConfig(params: {
       ? '后端网络请求被拒绝：请确认后端服务已启动且支持跨域访问'
       : (err.message || '无法连接至后端服务');
     return { success: false, message: errMsg };
+  }
+}
+
+/** 由后端使用实际模型适配器测试连接，避免浏览器 CORS 与错误鉴权造成误判。 */
+export async function testModelConnection(params: {
+  vendor: string; modelName: string; apiKey: string; baseUrl?: string; protocol?: ModelProtocol;
+}): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await apiFetch(`${apiBaseUrl}/agent/model/test-connection`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+      signal: AbortSignal.timeout(25_000),
+    });
+    const json: ApiResponse<{ success: boolean; message: string }> = await response.json();
+    return response.ok && json.code === 200 ? json.data
+      : { success: false, message: json.message || '连接测试失败' };
+  } catch {
+    return { success: false, message: '连接测试超时或后端不可用，请稍后重试' };
   }
 }
 

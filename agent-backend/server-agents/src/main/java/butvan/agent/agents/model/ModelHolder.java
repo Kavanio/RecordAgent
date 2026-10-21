@@ -35,11 +35,11 @@ public class ModelHolder {
         if (selector == null) {
             throw new IllegalArgumentException("模型选择器参数 ModelSelector 不能为 null");
         }
-        this.currentSelector = selector;
-
         // 如果 vendor 或 name 为空，说明用户尚未完成初次配置，暂不触发模型实例化
         if (selector.vendor() == null || selector.vendor().isBlank() ||
             selector.name() == null || selector.name().isBlank()) {
+            this.currentSelector = selector;
+            this.currentModel.set(null);
             log.info("本地模型配置尚未完成初始化（包含空字段），等待用户在前端进行界面配置...");
             return;
         }
@@ -47,6 +47,7 @@ public class ModelHolder {
         // 使用工厂方法重新实例化 Model
         Model newModel = ModelFactory.create(selector);
         this.currentModel.set(newModel);
+        this.currentSelector = selector;
         log.info("ModelHolder 成功更新激活模型: Vendor=[{}], Name=[{}]", selector.vendor(), selector.name());
     }
 

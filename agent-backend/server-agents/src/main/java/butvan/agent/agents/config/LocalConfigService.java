@@ -78,6 +78,9 @@ public class LocalConfigService {
         private String id = "";
         private String name = "";
         private String type = "";
+        /** 用户填写的模型基础地址与自定义请求协议。 */
+        private String baseUrl = "";
+        private String protocol = "";
         private String apiKey = "";
         private Boolean isEnabled = true;
         private java.util.List<ModelItemData> models = new java.util.ArrayList<>();
@@ -125,6 +128,10 @@ public class LocalConfigService {
          * 模型 API Key（兼容单字段配置）
          */
         private String apiKey = "";
+
+        /** 兼容单模型配置的地址和协议，多供应商时以选中 Provider 为准。 */
+        private String baseUrl = "";
+        private String protocol = "";
 
         /**
          * 温度系数（默认 0.7）
@@ -193,23 +200,22 @@ public class LocalConfigService {
          * @return ModelSelector
          */
         public ModelSelector toSelector() {
-            String targetVendor = (vendor != null && !vendor.isBlank()) ? vendor : activeVendor;
-            String targetName = (name != null && !name.isBlank()) ? name : activeModel;
+            String targetVendor = (activeVendor != null && !activeVendor.isBlank()) ? activeVendor : vendor;
+            String targetName = (activeModel != null && !activeModel.isBlank()) ? activeModel : name;
             String targetApiKey = apiKey != null ? apiKey : "";
 
-            // 若在 providers 中找到了匹配的 vendor，且当前 apiKey 为空，提取 provider 级别的 apiKey
-            if ((targetApiKey == null || targetApiKey.isBlank()) && providers != null && targetVendor != null) {
-                for (ProviderConfigData p : providers) {
-                    if (targetVendor.equalsIgnoreCase(p.getId()) || targetVendor.equalsIgnoreCase(p.getType())) {
-                        if (p.getApiKey() != null && !p.getApiKey().isBlank()) {
-                            targetApiKey = p.getApiKey();
-                            break;
-                        }
-                    }
-                }
+            // Provider ID 是连接身份，type 才是供应商类型；必须优先精确匹配 ID。
+            ProviderConfigData selected = null;
+            if (providers != null && targetVendor != null) {
+                selected = providers.stream().filter(p -> targetVendor.equals(p.getId())).findFirst()
+                        .orElseGet(() -> providers.stream()
+                                .filter(p -> targetVendor.equalsIgnoreCase(p.getType())).findFirst().orElse(null));
             }
-
-            return new ModelSelector(targetVendor, targetName, targetApiKey, temperature, stream);
+            if (selected != null) {
+                return new ModelSelector(selected.getType(), targetName, selected.getApiKey(), temperature, stream,
+                        selected.getBaseUrl(), selected.getProtocol());
+            }
+            return new ModelSelector(targetVendor, targetName, targetApiKey, temperature, stream, baseUrl, protocol);
         }
 
         /**
@@ -219,13 +225,16 @@ public class LocalConfigService {
          * @return ModelConfigData
          */
         public static ModelConfigData fromSelector(ModelSelector selector) {
-            return new ModelConfigData(
+            ModelConfigData data = new ModelConfigData(
                     selector != null ? selector.vendor() : "",
                     selector != null ? selector.name() : "",
                     selector != null ? selector.apiKey() : "",
                     selector != null && selector.temperature() != null ? selector.temperature() : 0.7,
                     selector != null && selector.stream() != null ? selector.stream() : true
             );
+            data.setBaseUrl(selector != null ? selector.baseUrl() : "");
+            data.setProtocol(selector != null ? selector.protocol() : "");
+            return data;
         }
     }
 
@@ -270,6 +279,11 @@ public class LocalConfigService {
      * @param fullData 全量模型配置数据
      */
     public synchronized void saveFullConfigData(ModelConfigData fullData) {
+        saveFullConfigData(fullData, true);
+    }
+
+    /** 显式模型编辑允许清空最后一个模型；其他模块的合并写入仍保护已有模型配置。 */
+    public synchronized void saveFullConfigData(ModelConfigData fullData, boolean preserveEmptyModels) {
         try {
             File configFile = configPath.toFile();
             File parentDir = configFile.getParentFile();
@@ -287,19 +301,19 @@ public class LocalConfigService {
                 }
 
                 if (existing != null) {
-                    if (isBlank(fullData.getVendor())) {
+                    if (preserveEmptyModels && isBlank(fullData.getVendor())) {
                         fullData.setVendor(existing.getVendor());
                     }
-                    if (isBlank(fullData.getName())) {
+                    if (preserveEmptyModels && isBlank(fullData.getName())) {
                         fullData.setName(existing.getName());
                     }
-                    if (isBlank(fullData.getApiKey())) {
+                    if (preserveEmptyModels && isBlank(fullData.getApiKey())) {
                         fullData.setApiKey(existing.getApiKey());
                     }
-                    if (isBlank(fullData.getActiveVendor())) {
+                    if (preserveEmptyModels && isBlank(fullData.getActiveVendor())) {
                         fullData.setActiveVendor(existing.getActiveVendor());
                     }
-                    if (isBlank(fullData.getActiveModel())) {
+                    if (preserveEmptyModels && isBlank(fullData.getActiveModel())) {
                         fullData.setActiveModel(existing.getActiveModel());
                     }
                     if (fullData.getTemperature() == null) {
@@ -308,7 +322,7 @@ public class LocalConfigService {
                     if (fullData.getStream() == null) {
                         fullData.setStream(existing.getStream());
                     }
-                    if ((fullData.getProviders() == null || fullData.getProviders().isEmpty())
+                    if (preserveEmptyModels && (fullData.getProviders() == null || fullData.getProviders().isEmpty())
                             && existing.getProviders() != null && !existing.getProviders().isEmpty()) {
                         log.warn("收到空 providers 写回，保留本地已有 {} 个模型配置，防止配置被清空",
                                 existing.getProviders().size());
@@ -327,7 +341,8 @@ public class LocalConfigService {
             objectMapper.writeValue(configFile, fullData);
             log.info("成功保存全量多厂商模型配置至本地文件: {}", configPath);
         } catch (IOException e) {
-            log.error("保存全量模型配置到本地文件失败: {}", configPath, e);
+            log.error("保存全量模型配置到本地文件失败: {}", configPath);
+            throw new IllegalStateException("模型配置保存失败，请检查配置目录权限", e);
         }
     }
 
@@ -350,6 +365,8 @@ public class LocalConfigService {
             fullData.setVendor(selector.vendor());
             fullData.setName(selector.name());
             fullData.setApiKey(selector.apiKey());
+            fullData.setBaseUrl(selector.baseUrl());
+            fullData.setProtocol(selector.protocol());
             fullData.setActiveVendor(selector.vendor());
             fullData.setActiveModel(selector.name());
 
@@ -389,6 +406,9 @@ public class LocalConfigService {
                     matchingProvider.setApiKey(selector.apiKey());
                 }
             }
+
+            matchingProvider.setBaseUrl(selector.baseUrl());
+            matchingProvider.setProtocol(selector.protocol());
 
             // 检查 provider 的 models 列表中是否已包含该模型
             boolean hasModel = false;

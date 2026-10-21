@@ -58,6 +58,7 @@ public sealed interface ModelFactory {
             OpenAIChatModel model = OpenAIChatModel.builder()
                     .modelName(modelSelector.name())
                     .apiKey(modelSelector.apiKey())
+                    .baseUrl(ModelEndpoint.normalize(modelSelector.baseUrl()))
                     .generateOptions(options)
                     .build();
             return model;
@@ -103,7 +104,8 @@ public sealed interface ModelFactory {
             OpenAIChatModel model = OpenAIChatModel.builder()
                     .modelName(modelSelector.name())
                     .apiKey(modelSelector.apiKey())
-                    .baseUrl("https://api.deepseek.com")
+                    .baseUrl(modelSelector.baseUrl() == null || modelSelector.baseUrl().isBlank()
+                            ? "https://api.deepseek.com" : ModelEndpoint.normalize(modelSelector.baseUrl()))
                     .formatter(new DeepSeekFormatter())
                     .generateOptions(options)
                     .build();
@@ -128,9 +130,25 @@ public sealed interface ModelFactory {
             AnthropicChatModel model = AnthropicChatModel.builder()
                     .modelName(modelSelector.name())
                     .apiKey(modelSelector.apiKey())
+                    .baseUrl(ModelEndpoint.anthropicBaseUrl(modelSelector.baseUrl()))
+                    .stream(modelSelector.stream() == null || modelSelector.stream())
                     .defaultOptions(options)
                     .build();
             return model;
+        }
+    }
+
+    /** 自定义供应商复用官方适配器，保留流式输出、工具调用与供应商用量解析。 */
+    record Custom() implements ModelFactory {
+        @Override
+        public String vendor() { return "custom"; }
+
+        @Override
+        public Model createModel(ModelSelector selector) {
+            if (ModelEndpoint.normalize(selector.baseUrl()) == null) {
+                throw new IllegalArgumentException("自定义模型必须填写 API 基础地址");
+            }
+            return fromVendor(ModelEndpoint.protocol(selector.protocol())).createModel(selector);
         }
     }
 
@@ -145,6 +163,7 @@ public sealed interface ModelFactory {
             case "dashscope" -> new DashScope();
             case "deepseek" -> new DeepSeek();
             case "anthropic" -> new Anthropic();
+            case "custom" -> new Custom();
             default -> throw new IllegalArgumentException("Unsupported model vendor: " + vendor);
         };
     }
@@ -154,10 +173,10 @@ public sealed interface ModelFactory {
             throw new IllegalArgumentException("ModelSelector cannot be null");
         }
 
+        Model model = fromVendor(modelSelector.vendor()).createModel(modelSelector);
         log.info("ChatModel successfully instantiated -> Vendor: [{}], Model: [{}]",
                 modelSelector.vendor(), modelSelector.name());
-
-        return fromVendor(modelSelector.vendor()).createModel(modelSelector);
+        return model;
     }
 
 }

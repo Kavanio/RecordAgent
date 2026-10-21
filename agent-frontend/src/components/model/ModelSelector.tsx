@@ -4,6 +4,7 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { Check, Settings, Sparkles, Info } from 'lucide-react';
 import { useModel } from '../../context/ModelContext';
 import { VendorIcon } from './VendorIcon';
+import { useMessage } from '../common/Message';
 import styles from './ModelSelector.module.css';
 
 interface ModelSelectorProps {
@@ -40,6 +41,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onOpenSettings, cl
     maxTokens,
   } = useModel();
 
+  const { showMessage } = useMessage();
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredModelId, setHoveredModelId] = useState<string | null>(null);
   const [pinnedDetailId, setPinnedDetailId] = useState<string | null>(null);
@@ -129,11 +131,15 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onOpenSettings, cl
     };
   }, [isOpen]);
 
-  const handleSelectModel = (providerId: string, modelId: string) => {
-    selectActiveModel(providerId, modelId);
-    setIsOpen(false);
-    setPinnedDetailId(null);
-    setHoveredModelId(null);
+  const handleSelectModel = async (providerId: string, modelId: string) => {
+    try {
+      await selectActiveModel(providerId, modelId);
+      setIsOpen(false);
+      setPinnedDetailId(null);
+      setHoveredModelId(null);
+    } catch (error) {
+      showMessage('error', error instanceof Error ? error.message : '切换模型失败');
+    }
   };
 
   // Determine current active preview/detail model for the side panel
