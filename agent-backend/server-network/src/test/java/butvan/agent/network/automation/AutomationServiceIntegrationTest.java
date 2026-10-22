@@ -196,7 +196,7 @@ class AutomationServiceIntegrationTest {
         var task = service.save("owner-retry-day", null, new SaveRequest(spec, true, 0));
         assertEquals("DIGEST", service.snapshot("owner-retry-day").tasks().getFirst().spec().mailTemplate().style());
         var preview = service.preview("owner-retry-day", spec);
-        assertTrue(preview.html().contains("日报 · 生活摘要"));
+        assertTrue(preview.html().contains("A day, recorded."));
         assertTrue(service.history("owner-retry-day", task.id()).isEmpty());
         // 其他用例可能留下已明确重试的队列，先完成它们，避免共享时钟影响本例。
         butvan.agent.network.automation.model.TaskRun pending;
@@ -216,7 +216,7 @@ class AutomationServiceIntegrationTest {
         assertEquals(run.id(), retry.id());
         assertEquals(first.content(), retry.content());
         assertEquals(first.emailHtml(), retry.emailHtml());
-        assertTrue(retry.emailHtml().contains("日报 · 生活摘要"));
+        assertTrue(retry.emailHtml().contains("A day, recorded."));
         assertFalse(retry.emailHtml().contains("新邮件标题"));
         assertEquals(TIME.get(), retry.emailQueuedAt());
         service.mailResult(retry, new TaskMailService.Outcome("SUBMITTED", ""));

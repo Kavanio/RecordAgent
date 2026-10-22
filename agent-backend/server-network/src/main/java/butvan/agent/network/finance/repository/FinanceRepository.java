@@ -211,6 +211,37 @@ public class FinanceRepository {
                 rs.getString("source"), Instant.parse(rs.getString("created_at"))), ownerId);
     }
 
+    /** 按稳定账户 ID 回溯日末余额；使用现有账本，包含转账与余额校准。 */
+    public Map<String, BigDecimal> findBalancesAt(String ownerId, LocalDate date) {
+        return jdbcTemplate.query("""
+                SELECT a.id, a.balance_minor - COALESCE(SUM(CASE
+                    WHEN t.transaction_type IN ('expense', 'transfer_out', 'adjustment_decrease') THEN -t.amount_minor
+                    ELSE t.amount_minor END), 0) AS historical_minor
+                FROM finance_account a LEFT JOIN finance_transaction t
+                    ON t.account_id = a.id AND t.owner_id = a.owner_id AND t.transaction_date > ?
+                WHERE a.owner_id = ? GROUP BY a.id, a.balance_minor
+                """, rs -> {
+            Map<String, BigDecimal> result = new LinkedHashMap<>();
+            while (rs.next()) result.put(rs.getString("id"), BigDecimal.valueOf(rs.getLong("historical_minor"), 2));
+            return result;
+        }, date.toString(), ownerId);
+    }
+
+    /** 读取闭区间内的账户流水，不加载区间以外的历史。 */
+    public List<FinanceTransaction> findRangeTransactions(String ownerId, LocalDate from, LocalDate to) {
+        return jdbcTemplate.query("""
+                SELECT t.*, a.name AS account_name FROM finance_transaction t
+                JOIN finance_account a ON a.id = t.account_id AND a.owner_id = t.owner_id
+                WHERE t.owner_id = ? AND t.transaction_date BETWEEN ? AND ?
+                ORDER BY t.transaction_date, t.transaction_time, t.id
+                """, (rs, rowNum) -> new FinanceTransaction(
+                rs.getString("id"), rs.getString("account_id"), rs.getString("account_name"),
+                LocalDate.parse(rs.getString("transaction_date")), LocalTime.parse(rs.getString("transaction_time")),
+                rs.getString("transaction_type"), rs.getString("category"), rs.getString("note"),
+                BigDecimal.valueOf(rs.getLong("amount_minor"), 2), rs.getString("currency"),
+                rs.getString("source"), Instant.parse(rs.getString("created_at"))), ownerId, from.toString(), to.toString());
+    }
+
     /** 查询指定日期实际发生变动的资产流水。 */
     public List<FinanceTransaction> findDayTransactions(String ownerId, LocalDate date) {
         return jdbcTemplate.query("""

@@ -176,6 +176,31 @@ public class FinanceService {
         return new DailyAssetData(repository.findAccounts(ownerId), repository.findDayTransactions(ownerId, date));
     }
 
+    /** 当前账本可回溯的账户余额，账户名称使用当前名称，避免同名账户合并。 */
+    public record ReportAsset(String id, String name, String currency, BigDecimal balance) {}
+
+    /** 只读回溯日末余额；不补计收益、不写快照，不把当前余额冒充历史余额。 */
+    @Transactional(readOnly = true)
+    public List<ReportAsset> getReportAssets(String ownerId, LocalDate date, java.time.ZoneId zone) {
+        requireOwner(ownerId);
+        if (date == null || zone == null) throw new IllegalArgumentException("日期与时区不能为空");
+        Map<String, BigDecimal> balances = repository.findBalancesAt(ownerId, date);
+        return repository.findAccounts(ownerId).stream()
+                .filter(account -> !account.createdAt().atZone(zone).toLocalDate().isAfter(date))
+                .map(account -> new ReportAsset(account.id(), account.name(), account.currency(), balances.get(account.id())))
+                .toList();
+    }
+
+    /** 周期报告仅取指定区间的账户流水；旧日历支出由支出投影提供，不重复合并。 */
+    @Transactional(readOnly = true)
+    public List<FinanceTransaction> getReportTransactions(String ownerId, LocalDate from, LocalDate to) {
+        requireOwner(ownerId);
+        if (from == null || to == null || from.isAfter(to)
+                || java.time.temporal.ChronoUnit.DAYS.between(from, to) > 366)
+            throw new IllegalArgumentException("报告日期范围不合法");
+        return repository.findRangeTransactions(ownerId, from, to);
+    }
+
     /** 查询最多一年内的轻量收支汇总，与财务图表复用统计来源。 */
     @Transactional(readOnly = true)
     public CashflowSummary getCashflowSummary(

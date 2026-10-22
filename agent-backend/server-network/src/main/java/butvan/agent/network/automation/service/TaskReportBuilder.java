@@ -69,22 +69,31 @@ public class TaskReportBuilder {
         List<AccountSummary> accounts = new ArrayList<>();
         List<TimelineItem> timeline = new ArrayList<>();
         StringBuilder text = new StringBuilder(spec.reportLabel() + " · " + period.currentLabel() + "\n对比上期：" + period.previousLabel() + "\n生成于 " + generated + "\n");
+        Map<String, Snapshot> currentSources = new HashMap<>(), previousSources = new HashMap<>();
         int available = 0;
         boolean partial = false;
-        for (String key : List.of("expense", "todo", "study")) {
-            if (!(switch (key) { case "expense" -> spec.expense(); case "todo" -> spec.todo(); default -> spec.study(); })) continue;
+        for (String key : List.of("expense", "income", "todo", "study")) {
+            if (!(switch (key) { case "expense", "income" -> spec.expense(); case "todo" -> spec.todo(); default -> spec.study(); })) continue;
             Snapshot current = read(key, () -> snapshot(owner, key, period.from(), period.to(), zone));
             Snapshot previous = read(key, () -> snapshot(owner, key, period.previousFrom(), period.previousTo(), zone));
+            currentSources.put(key, current);
+            previousSources.put(key, previous);
             if (current != null) available++;
             partial |= current == null || previous == null;
             String title = switch (key) {
                 case "expense" -> "DAILY_REPORT".equals(spec.kind()) ? "资产与收支" : "支出概览";
+                case "income" -> "收入概览";
                 case "todo" -> "待办进度";
                 default -> "学习时光";
             };
             if ("todo".equals(key) && "DAILY_REPORT".equals(spec.kind()) && current != null)
                 timeline.addAll(current.timeline());
-            List<Metric> metrics = compare(key, current, previous);
+            List<Metric> metrics = new ArrayList<>(compare(key, current, previous));
+            if ("MONTHLY_REPORT".equals(spec.kind()) && Set.of("expense", "income", "study").contains(key)) {
+                metrics.addAll(compare(key, averageSnapshot(current, period.from(), period.to()),
+                        averageSnapshot(previous, period.previousFrom(), period.previousTo())).stream()
+                        .filter(metric -> metric.label().endsWith(" · 日均")).toList());
+            }
             String currentDetail = current == null ? "本期数据暂不可用。\n" : current.detail();
             if ("expense".equals(key) && "DAILY_REPORT".equals(spec.kind()) && current != null) {
                 FinanceService.DailyAssetData assetData = readDailyAssetData(owner, period.from());
@@ -114,10 +123,47 @@ public class TaskReportBuilder {
                     ? "本期数据暂不可用。" : currentDetail + (previous == null ? "上期数据暂不可用，无法比较。" : "")));
             text.append("\n").append(title).append("\n").append(body);
         }
+        if (spec.expense()) {
+            Snapshot currentNet = netSnapshot(currentSources.get("income"), currentSources.get("expense"));
+            Snapshot previousNet = netSnapshot(previousSources.get("income"), previousSources.get("expense"));
+            List<Metric> metrics = compare("income", currentNet, previousNet);
+            String detail = "收支结余 = 已记录收入（含已入账收益）− 已记录支出；不含划账、初始资金与余额校准，不代表资产增减。\n"
+                    + (currentNet == null ? "本期收支结余暂不可用。\n" : "")
+                    + (previousNet == null ? "上期收支结余暂不可用。\n" : "");
+            StringBuilder summary = new StringBuilder(detail);
+            metrics.forEach(metric -> summary.append(metric.label()).append("：本期 ").append(metric.current())
+                    .append(" · 上期 ").append(metric.previous()).append(" · ").append(metric.change()).append('\n'));
+            sections.add(new Section("net", "收支结余", summary.toString(), metrics, detail));
+            text.append('\n').append("收支结余\n").append(summary);
+        }
+        if (spec.expense() && !"DAILY_REPORT".equals(spec.kind())) {
+            Section assets = FinancialReportSections.assets(finance, owner, period.to(), period.previousTo(), zone);
+            sections.add(assets);
+            partial |= assets.detail().contains("暂不可用");
+            text.append('\n').append(assets.title()).append('\n').append(assets.text());
+        }
         if (available == 0) throw new IllegalStateException("报告所有本期栏目读取失败，请稍后重试");
         timeline.sort(Comparator.comparing(item -> item.time() == null || item.time().isBlank() ? "99:99" : item.time()));
         return new Report(text.toString(), partial, List.copyOf(sections), period.currentLabel() + " · 对比 " + period.previousLabel(), generated,
                 accounts, timeline);
+    }
+
+    /** 月报同时提供日均指标，消除自然月天数不同造成的总量误读。 */
+    private Snapshot averageSnapshot(Snapshot source, LocalDate from, LocalDate to) {
+        if (source == null) return null;
+        BigDecimal days = BigDecimal.valueOf(java.time.temporal.ChronoUnit.DAYS.between(from, to) + 1);
+        Map<String, BigDecimal> values = new TreeMap<>();
+        source.values().forEach((name, amount) -> values.put(name + " · 日均",
+                amount.divide(days, 2, RoundingMode.HALF_UP)));
+        return new Snapshot(values, "");
+    }
+
+    /** 任何一侧不可用都不计算结余，避免缺失收入被当成零。 */
+    private Snapshot netSnapshot(Snapshot income, Snapshot expense) {
+        if (income == null || expense == null) return null;
+        Map<String, BigDecimal> values = new TreeMap<>(income.values());
+        expense.values().forEach((currency, amount) -> values.merge(currency, amount.negate(), BigDecimal::add));
+        return new Snapshot(values, "");
     }
 
     /** 将账户余额和当日现金流转为邮件账户表格所需的安全展示值。 */
@@ -207,7 +253,15 @@ public class TaskReportBuilder {
         if ("expense".equals(key)) {
             var entries = expenses.reportExpenses(owner, from, to);
             for (var entry : entries) values.merge(entry.currency(), entry.amount(), BigDecimal::add);
-            return new Snapshot(values, values.isEmpty() ? "支出：无记录\n" : "按币种分别统计，不折算合计。\n", entries);
+            return new Snapshot(values, (values.isEmpty() ? "支出：无记录\n" : "按币种分别统计，不折算合计。\n")
+                    + FinancialReportSections.expenseDetails(entries, from.equals(to) ? 3 : 5), entries);
+        }
+        if ("income".equals(key)) {
+            var transactions = finance.getReportTransactions(owner, from, to).stream()
+                    .filter(item -> Set.of("income", "yield").contains(item.transactionType())).toList();
+            for (var item : transactions) values.merge(item.currency(), item.amount(), BigDecimal::add);
+            return new Snapshot(values, transactions.isEmpty() ? "收入：无记录\n"
+                    : FinancialReportSections.incomeDetails(transactions, from.equals(to) ? 3 : 5));
         }
         if ("study".equals(key)) {
             var stat = studies.getStatistics(owner, from, to, zone);
@@ -216,6 +270,7 @@ public class TaskReportBuilder {
             return new Snapshot(values, "按任务时区统计周期内的学习记录。\n");
         }
         Set<String> occurrences = new HashSet<>();
+        int detailLimit = from.equals(to) ? TODO_DETAIL_LIMIT : 3;
         List<String> completed = new ArrayList<>();
         List<String> pending = new ArrayList<>();
         List<TimelineItem> completedTimeline = new ArrayList<>();
@@ -235,12 +290,12 @@ public class TaskReportBuilder {
                     done++;
                     String completedTime = todo.completedAt() == null ? "" : todo.completedAt().atZone(zone)
                             .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
-                    if (completed.size() < TODO_DETAIL_LIMIT) completed.add("• " + date
+                    if (completed.size() < detailLimit) completed.add("• " + date
                             + (completedTime.isBlank() ? "" : " " + completedTime) + " · " + event.title());
                     if (from.equals(to) && !completedTime.isBlank()) {
                         completedTimeline.add(new TimelineItem(completedTime, "todo", event.title(), "待办已勾选完成", ""));
                     }
-                } else if (pending.size() < TODO_DETAIL_LIMIT) {
+                } else if (pending.size() < detailLimit) {
                     pending.add("• " + date + " · " + event.title());
                 }
             }
@@ -254,8 +309,8 @@ public class TaskReportBuilder {
         } else {
             if (!completed.isEmpty()) detail.append("已完成\n").append(String.join("\n", completed)).append('\n');
             if (!pending.isEmpty()) detail.append("尚未完成\n").append(String.join("\n", pending)).append('\n');
-            if (done > completed.size()) detail.append("已完成事项较多，仅列出前 ").append(TODO_DETAIL_LIMIT).append(" 项。\n");
-            if (total - done > pending.size()) detail.append("未完成事项较多，仅列出前 ").append(TODO_DETAIL_LIMIT).append(" 项。\n");
+            if (done > completed.size()) detail.append("已完成事项较多，仅列出前 ").append(detailLimit).append(" 项（按日期顺序），其余请在日历查看。\n");
+            if (total - done > pending.size()) detail.append("未完成事项较多，仅列出前 ").append(detailLimit).append(" 项（按日期顺序），其余请在日历查看。\n");
         }
         return new Snapshot(values, detail.toString(), List.of(), completedTimeline);
     }
@@ -345,7 +400,7 @@ public class TaskReportBuilder {
         Set<String> names = new TreeSet<>();
         if (current != null) names.addAll(current.values().keySet());
         if (previous != null) names.addAll(previous.values().keySet());
-        if ("expense".equals(key) && names.isEmpty()) names.add("无支出");
+        if (("expense".equals(key) || "income".equals(key)) && names.isEmpty()) names.add("无记录");
         List<Metric> metrics = new ArrayList<>();
         for (String name : names) {
             boolean rate = "完成率".equals(name);
@@ -354,7 +409,7 @@ public class TaskReportBuilder {
             String change = "无法比较";
             if (a != null && b != null) {
                 BigDecimal delta = a.subtract(b);
-                change = delta.signum() == 0 ? "持平" : (delta.signum() > 0 ? "+" : "") + format(delta, "expense".equals(key)) + (rate ? " 个百分点" : "");
+                change = delta.signum() == 0 ? "持平" : (delta.signum() > 0 ? "+" : "") + format(delta, "expense".equals(key) || "income".equals(key)) + (rate ? " 个百分点" : "");
                 if (!rate && delta.signum() != 0) change += b.signum() == 0 ? "（上期为 0）" : "（" + (delta.signum() > 0 ? "+" : "")
                         + delta.multiply(BigDecimal.valueOf(100)).divide(b.abs(), 1, RoundingMode.HALF_UP).toPlainString() + "%）";
             }
@@ -364,7 +419,7 @@ public class TaskReportBuilder {
     }
     private String display(BigDecimal value, Snapshot snapshot, boolean rate, String key) {
         if (value == null) return rate && snapshot != null ? "不适用" : "不可用";
-        return format(value, "expense".equals(key)) + (rate ? "%" : "");
+        return format(value, "expense".equals(key) || "income".equals(key)) + (rate ? "%" : "");
     }
     private String format(BigDecimal value, boolean money) {
         return money ? value.setScale(2, RoundingMode.HALF_UP).toPlainString() : value.stripTrailingZeros().toPlainString();
