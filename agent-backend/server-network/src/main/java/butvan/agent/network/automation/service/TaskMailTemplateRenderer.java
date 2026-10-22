@@ -44,7 +44,16 @@ public final class TaskMailTemplateRenderer {
         if (periodReview) {
             body.append(periodReview(spec, report));
         } else {
-            if (expense != null) body.append(cashflowSection(expense, number++, dailyAssets));
+            if (expense != null) {
+                body.append(cashflowSection(expense, number++, dailyAssets));
+                body.append(detail(expense.detail().split("\n资产余额（", 2)[0].lines().filter(line -> line.startsWith("大额") || line.startsWith("分类") || line.startsWith("• ") || line.startsWith("其余")).collect(java.util.stream.Collectors.joining("\n"))));
+            }
+            TaskReportBuilder.Section income = find(report, "income");
+            if (income != null) body.append(sectionHeading(number++, "收入与大额进账", "INCOME"))
+                    .append(comparisonTable(income, "本期与上期对比")).append(detail(income.detail()));
+            TaskReportBuilder.Section net = find(report, "net");
+            if (net != null) body.append(sectionHeading(number++, "收支结余", "NET CASH FLOW"))
+                    .append(comparisonTable(net, "本期与上期对比")).append(detail(net.detail()));
             if ("DAILY_REPORT".equals(spec.kind()) && !report.timeline().isEmpty())
                 body.append(timelineSection(report.timeline(), number++));
             if (todo != null || study != null) body.append(progressSection(todo, study, report.timeline(), number));
@@ -96,42 +105,42 @@ public final class TaskMailTemplateRenderer {
     private static String periodReview(TaskSpec spec, TaskReportBuilder.Report report) {
         boolean monthly = "MONTHLY_REPORT".equals(spec.kind());
         StringBuilder html = new StringBuilder();
-        html.append("<div style='padding:20px;background:#f3f6f8;border-left:3px solid ").append(BALANCE).append("'>")
+        html.append("<div style='padding:20px;background:").append(monthly ? "#edf1f7" : "#f0f6f2").append(";border-left:3px solid ").append(monthly ? BALANCE : GREEN).append("'>")
                 .append(paragraph(monthly ? "月度复盘 · 留出 20 分钟，先看事实，再做取舍。" : "每周复盘 · 留出 10 分钟，先肯定进展，再安排下一步。", INK))
                 .append(paragraph("统计范围：" + report.date(), MUTED))
                 .append(paragraph("仅展示已启用栏目的已记录数据；未记录不等于没有发生。", MUTED)).append("</div>");
         int number = 1;
-        for (String key : List.of("todo", "study", "expense")) {
+        html.append(paragraph(monthly ? "资产体检 → 收支结构 → 成长盘点 → 下月取舍" : "执行回顾 → 学习节奏 → 大额收支 → 资产检查", monthly ? BALANCE : GREEN));
+        if (monthly) html.append(paragraph("自然月天数不同，总量变化不等于日均投入或效率变化。", MUTED));
+        for (String key : monthly ? List.of("assets", "net", "income", "expense", "study", "todo")
+                : List.of("todo", "study", "expense", "income", "net", "assets")) {
             TaskReportBuilder.Section section = find(report, key);
             if (section == null) continue;
             String title = switch (key) {
                 case "todo" -> "执行 · 从计划到成果";
-                case "study" -> "成长 · 时间投向了哪里";
+                case "study" -> monthly ? "成长盘点 · 投入是否形成积累" : "成长 · 时间投向了哪里";
+                case "income" -> monthly ? "收入结构 · 这个月的资金来源" : "进账 · 本周的大额收入";
+                case "net" -> "收支结余 · 流入与流出之后";
+                case "assets" -> monthly ? "资产体检 · 各账户月末变化" : "资产检查 · 各账户周末变化";
                 default -> "支出 · 钱是否花在值得的地方";
             };
             html.append(sectionHeading(number++, title, "REVIEW"));
-            if (!section.metrics().isEmpty()) {
-                html.append("<table width='100%' cellspacing='0' cellpadding='0' style='margin-top:16px;font-size:11px;border-collapse:collapse;table-layout:fixed'><caption style='text-align:left;padding-bottom:10px;color:#777'>本期与上期对比</caption><thead><tr>");
-                for (String label : List.of("指标", "本期", "上期", "变化"))
-                    html.append("<th scope='col' style='text-align:left;padding:10px 4px;border-bottom:1px solid #ddd'>").append(label).append("</th>");
-                html.append("</tr></thead><tbody>");
-                for (var metric : section.metrics()) {
-                    html.append("<tr>");
-                    for (String cell : List.of(metric.label(), metric.current(), metric.previous(), metric.change()))
-                        html.append("<td style='vertical-align:top;padding:12px 4px;border-bottom:1px solid #eee;overflow-wrap:anywhere;line-height:1.8'>").append(escape(cell)).append("</td>");
-                    html.append("</tr>");
-                }
-                html.append("</tbody></table>");
-            }
-            html.append("todo".equals(key) ? todoDetails(section.detail()) : detail(section.detail()));
+            html.append(comparisonTable(section, monthly ? "本期与上期对比 · 上月 / 上上月" : "本期与上期对比 · 上周 / 上上周"));
+            if ("todo".equals(key)) {
+                html.append(monthly ? paragraph("月报仅展示汇总，不逐项罗列待办；完整事项请在日历查看。", MUTED) : todoDetails(section.detail()));
+                if (monthly && section.detail().contains("本期数据暂不可用")) html.append(paragraph("本期数据暂不可用。", MUTED));
+            } else html.append(detail(section.detail()));
             String prompt = switch (key) {
                 case "todo" -> monthly ? "哪些完成项真正推动了月度目标？哪些反复搁置的事项应当拆分、委托或放弃？" : "挑一件最有价值的完成项：什么方法值得重复？再挑一件未完成项：下一步能否缩小到 15 分钟内开始？";
+                case "income" -> monthly ? "收入来源是否过于集中？一次性进账与持续收入应分开考虑，不把偶发收入当作下月承诺。" : "哪些是稳定进账，哪些只是一次性收入？下周有哪些需要确认的款项？";
+                case "net" -> "结余是否覆盖了预期储蓄？负结余可能来自一次性投入，请结合具体流水判断。";
+                case "assets" -> "余额变化可能包含新增资金、转账和校准；先核对账本，再判断真实积累。";
                 case "study" -> monthly ? "这些学习投入产出了什么作品、能力或解决方案？下月保留一个主攻方向，并安排一次可检验的输出。" : "本周学到的内容，有哪一条能立即用起来？为下周安排一个具体学习时段和一个小输出。";
                 default -> monthly ? "哪些支出持续改善生活，哪些只是惯性消费？检查订阅和一次性大额支出，再决定下月的一个调整。" : "支出变化来自必要投入、一次性购买还是习惯变化？选一笔最值得和一笔可避免的支出，说明原因。";
             };
             html.append(paragraph("复盘问题 · " + prompt, BALANCE));
             if ("expense".equals(key)) html.append(paragraph("不同币种分别统计；支出增减不等于好坏，也不代表收入或结余变化。", MUTED));
-            if (monthly) html.append(paragraph("自然月天数不同，总量变化不等于日均投入或效率变化。", MUTED));
+
         }
         html.append(sectionHeading(number, monthly ? "下月 · 做更少，但更重要的事" : "下周 · 把复盘变成行动", "NEXT STEP"));
         html.append(paragraph("以下是填写提示，不是系统生成的目标；请在资料或待办中记录你的答案。", MUTED));
@@ -142,6 +151,23 @@ public final class TaskMailTemplateRenderer {
                     .append(paragraph(question, INK)).append("</div>");
         }
         return html.toString();
+    }
+
+    /** 所有报告复用安全对比表，未知值按原语义展示，不转为零。 */
+    private static String comparisonTable(TaskReportBuilder.Section section, String caption) {
+        if (section.metrics().isEmpty()) return "";
+        StringBuilder html = new StringBuilder("<table width='100%' cellspacing='0' cellpadding='0' style='margin-top:16px;font-size:11px;border-collapse:collapse;table-layout:fixed'><caption style='text-align:left;padding-bottom:10px;color:#777'>")
+                .append(escape(caption)).append("</caption><thead><tr>");
+        for (String label : List.of("指标", "本期", "上期", "变化"))
+            html.append("<th scope='col' style='text-align:left;padding:10px 4px;border-bottom:1px solid #ddd'>").append(label).append("</th>");
+        html.append("</tr></thead><tbody>");
+        for (var metric : section.metrics()) {
+            html.append("<tr>");
+            for (String cell : List.of(metric.label(), metric.current(), metric.previous(), metric.change()))
+                html.append("<td style='vertical-align:top;padding:12px 4px;border-bottom:1px solid #eee;overflow-wrap:anywhere;line-height:1.8'>").append(escape(cell)).append("</td>");
+            html.append("</tr>");
+        }
+        return html.append("</tbody></table>").toString();
     }
 
     private static String assetOverview(TaskReportBuilder.Report report, TaskReportBuilder.Section expense) {

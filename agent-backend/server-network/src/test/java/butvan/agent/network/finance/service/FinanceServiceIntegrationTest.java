@@ -49,6 +49,29 @@ class FinanceServiceIntegrationTest {
     }
 
     @Test
+    void reportBalancesReverseLaterLedgerChangesAndKeepOwnerAndCreationBoundaries() {
+        String owner = "report-history-user";
+        LocalDate today = LocalDate.now();
+        var zone = java.time.ZoneId.systemDefault();
+        var a = financeService.createAccount(owner, "账户A", "bank", "CNY", new BigDecimal("1000"), false, BigDecimal.ZERO);
+        var b = financeService.createAccount(owner, "账户B", "bank", "CNY", new BigDecimal("500"), false, BigDecimal.ZERO);
+        financeService.createAccount("another-report-user", "其他用户", "bank", "CNY", new BigDecimal("9000"), false, BigDecimal.ZERO);
+        financeService.adjustAccountBalance(owner, a.id(), "increase", new BigDecimal("50"), "校准不算收入");
+        financeService.createTransaction(owner, a.id(), "income", "工资", "未来入账", new BigDecimal("200"), today.plusDays(1), LocalTime.NOON);
+        financeService.createTransaction(owner, a.id(), "expense", "餐饮", "未来支出", new BigDecimal("30"), today.plusDays(2), LocalTime.NOON);
+        financeService.transfer(owner, a.id(), b.id(), new BigDecimal("100"), "未来划账", today.plusDays(1), LocalTime.NOON);
+        var current = financeService.getReportAssets(owner, today, zone);
+        assertEquals(2, current.size());
+        assertEquals(new BigDecimal("1050.00"), current.stream().filter(item -> item.id().equals(a.id())).findFirst().orElseThrow().balance());
+        assertEquals(new BigDecimal("500.00"), current.stream().filter(item -> item.id().equals(b.id())).findFirst().orElseThrow().balance());
+        assertEquals(0, financeService.getReportAssets(owner, today.minusDays(1), zone).size());
+        var range = financeService.getReportTransactions(owner, today.plusDays(1), today.plusDays(1));
+        assertEquals(3, range.size());
+        assertEquals(0, financeService.getReportTransactions("unknown-report-user", today, today.plusDays(1)).size());
+        assertThrows(IllegalArgumentException.class, () -> financeService.getReportTransactions(owner, today, today.minusDays(1)));
+    }
+
+    @Test
     void incomeAndExpenseUpdateSelectedAccountAndMonthlyTotals() {
         FinanceAccount account = financeService.createAccount(
                 "finance-ledger-user", "微信零钱通", "wechat", "CNY", new BigDecimal("1000.00"),

@@ -43,6 +43,27 @@ class TaskMailTemplateRendererTest {
         }
     }
 
+    @Test void monthStartsWithAssetsAndSuppressesTodoListsWhileWeekKeepsExecutionFirst() {
+        var data = new TaskReportBuilder.Report("报告", false, List.of(
+                new TaskReportBuilder.Section("todo", "待办", "", List.of(), "已完成\n• 2026-09-01 · 唯一待办名称"),
+                new TaskReportBuilder.Section("assets", "资产变化", "", List.of(
+                        new TaskReportBuilder.Metric("银行卡 CNY", "200", "100", "+100")), "回溯余额"),
+                new TaskReportBuilder.Section("income", "收入", "", List.of(), "大额收入 TOP 5")), "2026-09", "生成时间");
+        for (String kind : List.of("WEEKLY_REPORT", "MONTHLY_REPORT")) {
+            var task = new TaskSpec("复盘", "", kind, "DAILY", "Asia/Shanghai", "20:30", null,
+                    127, 45, 5, "00:00", "00:00", true, true, false, false, true, true, true, MailTemplate.defaults());
+            String html = TaskMailTemplateRenderer.render(task, data);
+            if (kind.equals("MONTHLY_REPORT")) {
+                assertTrue(html.indexOf(htmlEscape("资产体检 · 各账户月末变化")) < html.indexOf(htmlEscape("执行 · 从计划到成果")));
+                assertFalse(html.contains("唯一待办名称"));
+            } else {
+                assertTrue(html.indexOf(htmlEscape("执行 · 从计划到成果")) < html.indexOf(htmlEscape("资产检查 · 各账户周末变化")));
+                assertTrue(html.contains("唯一待办名称"));
+            }
+            assertTrue(html.contains("大额收入 TOP 5"));
+        }
+    }
+
     @Test void digestRestoresPaperLayoutWithFewRulesAndEscapesContent() {
         var html = TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), report);
         assertTrue(html.contains("background:#ebebe9"));
