@@ -64,6 +64,25 @@ class TaskMailTemplateRendererTest {
         }
     }
 
+    @Test void allReportKindsUseGreenForIncomeAndRedForExpenseDetails() {
+        var data = new TaskReportBuilder.Report("报告", false, List.of(
+                new TaskReportBuilder.Section("income", "收入", "", List.of(
+                        new TaskReportBuilder.Metric("CNY", "500.00", "不可用", "无法比较")), "大额收入 TOP 3\n• 工资 500.00 CNY\n其余 1 笔合计 20.00 CNY"),
+                new TaskReportBuilder.Section("expense", "支出", "", List.of(
+                        new TaskReportBuilder.Metric("CNY", "90.00", "80.00", "+10.00")), "大额支出 TOP 3\n• 餐饮 90.00 CNY")), "2026-09-23", "生成时间");
+        for (String kind : List.of("DAILY_REPORT", "WEEKLY_REPORT", "MONTHLY_REPORT")) {
+            var task = new TaskSpec("报告", "", kind, "DAILY", "Asia/Shanghai", "20:30", null,
+                    127, 45, 5, "00:00", "00:00", true, true, false, false, true, true, true, MailTemplate.defaults());
+            String html = TaskMailTemplateRenderer.render(task, data);
+            assertTrue(html.contains("color:#467460'>" + htmlEscape("• 工资 500.00 CNY")));
+            assertTrue(html.contains("color:#ac685c'>" + htmlEscape("• 餐饮 90.00 CNY")));
+            assertTrue(html.contains("color:#467460'>其余 1 笔合计 20.00 CNY"));
+            assertTrue(html.contains("color:#467460'>500.00</td>"));
+            assertTrue(html.contains("color:#999995'>不可用</td>"));
+            if (!kind.equals("DAILY_REPORT")) assertTrue(html.contains("color:#ac685c'>90.00</td>"));
+        }
+    }
+
     @Test void digestRestoresPaperLayoutWithFewRulesAndEscapesContent() {
         var html = TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), report);
         assertTrue(html.contains("background:#ebebe9"));

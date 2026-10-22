@@ -46,11 +46,11 @@ public final class TaskMailTemplateRenderer {
         } else {
             if (expense != null) {
                 body.append(cashflowSection(expense, number++, dailyAssets));
-                body.append(detail(expense.detail().split("\n资产余额（", 2)[0].lines().filter(line -> line.startsWith("大额") || line.startsWith("分类") || line.startsWith("• ") || line.startsWith("其余")).collect(java.util.stream.Collectors.joining("\n"))));
+                body.append(detail(expense.detail().split("\n资产余额（", 2)[0].lines().filter(line -> line.startsWith("大额") || line.startsWith("分类") || line.startsWith("• ") || line.startsWith("其余")).collect(java.util.stream.Collectors.joining("\n")), RED));
             }
             TaskReportBuilder.Section income = find(report, "income");
             if (income != null) body.append(sectionHeading(number++, "收入与大额进账", "INCOME"))
-                    .append(comparisonTable(income, "本期与上期对比")).append(detail(income.detail()));
+                    .append(comparisonTable(income, "本期与上期对比")).append(detail(income.detail(), GREEN));
             TaskReportBuilder.Section net = find(report, "net");
             if (net != null) body.append(sectionHeading(number++, "收支结余", "NET CASH FLOW"))
                     .append(comparisonTable(net, "本期与上期对比")).append(detail(net.detail()));
@@ -129,7 +129,7 @@ public final class TaskMailTemplateRenderer {
             if ("todo".equals(key)) {
                 html.append(monthly ? paragraph("月报仅展示汇总，不逐项罗列待办；完整事项请在日历查看。", MUTED) : todoDetails(section.detail()));
                 if (monthly && section.detail().contains("本期数据暂不可用")) html.append(paragraph("本期数据暂不可用。", MUTED));
-            } else html.append(detail(section.detail()));
+            } else html.append(detail(section.detail(), financialColor(key)));
             String prompt = switch (key) {
                 case "todo" -> monthly ? "哪些完成项真正推动了月度目标？哪些反复搁置的事项应当拆分、委托或放弃？" : "挑一件最有价值的完成项：什么方法值得重复？再挑一件未完成项：下一步能否缩小到 15 分钟内开始？";
                 case "income" -> monthly ? "收入来源是否过于集中？一次性进账与持续收入应分开考虑，不把偶发收入当作下月承诺。" : "哪些是稳定进账，哪些只是一次性收入？下周有哪些需要确认的款项？";
@@ -163,8 +163,14 @@ public final class TaskMailTemplateRenderer {
         html.append("</tr></thead><tbody>");
         for (var metric : section.metrics()) {
             html.append("<tr>");
-            for (String cell : List.of(metric.label(), metric.current(), metric.previous(), metric.change()))
-                html.append("<td style='vertical-align:top;padding:12px 4px;border-bottom:1px solid #eee;overflow-wrap:anywhere;line-height:1.8'>").append(escape(cell)).append("</td>");
+            List<String> cells = List.of(metric.label(), metric.current(), metric.previous(), metric.change());
+            for (int index = 0; index < cells.size(); index++) {
+                String cell = cells.get(index);
+                String color = index == 0 ? INK : cell.contains("不可用") || cell.contains("无法比较") || cell.contains("未出现")
+                        ? MUTED : financialColor(section.key());
+                html.append("<td style='vertical-align:top;padding:12px 4px;border-bottom:1px solid #eee;overflow-wrap:anywhere;line-height:1.8;color:")
+                        .append(color).append("'>").append(escape(cell)).append("</td>");
+            }
             html.append("</tr>");
         }
         return html.append("</tbody></table>").toString();
@@ -221,7 +227,7 @@ public final class TaskMailTemplateRenderer {
                     .append(escape(metric.label())).append("</div>")
                     .append("<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='margin-top:7px'><tr>")
                     .append(stat("本期支出", metric.current(), metric.current().equals("不可用") ? MUTED : RED))
-                    .append(stat("上期支出", metric.previous(), INK))
+                    .append(stat("上期支出", metric.previous(), metric.previous().equals("不可用") ? MUTED : RED))
                     .append(stat("支出变化", percentChange(metric.change()), metric.change().startsWith("+") ? RED : metric.change().startsWith("-") ? GREEN : INK))
                     .append("</tr></table>");
             if (!metric.change().equals("持平") && !metric.change().equals("无法比较")) {
@@ -248,7 +254,7 @@ public final class TaskMailTemplateRenderer {
         html.append("<table class='timeline-table' role='presentation' width='100%' cellspacing='0' cellpadding='0' style='margin-top:20px;table-layout:fixed;border-collapse:collapse'>");
         for (int index = 0; index < items.size(); index++) {
             var item = items.get(index);
-            String color = switch (item.type()) { case "expense" -> RED; case "income" -> "#407a65"; case "study" -> "#303430"; case "todo" -> GREEN; default -> "#8b8d88"; };
+            String color = switch (item.type()) { case "expense" -> RED; case "income" -> GREEN; case "study" -> "#303430"; case "todo" -> GREEN; default -> "#8b8d88"; };
             String typeLabel = switch (item.type()) {
                 case "expense" -> "支出";
                 case "income" -> "收入";
@@ -384,11 +390,21 @@ public final class TaskMailTemplateRenderer {
                 .append("</td><td align='right' style='font-size:10px;color:#a6a6a6;letter-spacing:.6px'>").append(label).append("</td></tr></table></div>");
     }
 
+    /** 收入与支出使用固定语义色，余额、结余及其他栏目保持中性，避免混淆。 */
+    private static String financialColor(String key) {
+        return switch (key) { case "income" -> GREEN; case "expense" -> RED; default -> INK; };
+    }
+
     private static String detail(String content) {
+        return detail(content, INK);
+    }
+
+    private static String detail(String content, String dataColor) {
         StringBuilder html = new StringBuilder("<div style='margin-top:12px'>");
         for (String line : content.split("\\R")) {
             if (line.isBlank()) continue;
-            html.append(paragraph(line, line.startsWith("•") ? INK : MUTED));
+            boolean financialData = line.startsWith("•") || line.startsWith("其余") || line.startsWith("大额") || line.startsWith("分类");
+            html.append(paragraph(line, financialData ? dataColor : MUTED));
         }
         return html.append("</div>").toString();
     }
