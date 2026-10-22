@@ -56,6 +56,7 @@ class ReviewFoundationIntegrationTest {
     @Import({LocalDatabaseConfiguration.class, ReviewRepository.class, ReviewAuthorizationService.class,
             ReviewFactCollector.class, ReviewFactService.class, ReviewGoalService.class, ReviewDataService.class,
             ReviewCoachRepository.class, ReviewMemoryRepository.class, ReviewCoachService.class,
+            ReviewMemoryReaderAdapter.class,
             ReviewMemoryService.class, ReviewController.class, ApiExceptionHandler.class})
     static class Application {
         @Bean Clock automationClock() {

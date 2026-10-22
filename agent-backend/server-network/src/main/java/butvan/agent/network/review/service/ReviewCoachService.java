@@ -36,6 +36,7 @@ public class ReviewCoachService {
     private final ReviewFactService facts;
     private final ReviewGoalService goalService;
     private final ReviewGenerator generator;
+    private final ReviewMemoryReader memoryReader;
     private final PlatformTransactionManager transactions;
     private final Clock automationClock;
     private final com.fasterxml.jackson.databind.ObjectMapper mapper;
@@ -168,10 +169,22 @@ public class ReviewCoachService {
         Instant now = automationClock.instant();
         String json = json(draft);
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            // 外部生成期间可能撤销或清除；提交前在同一事务内复核，禁止迟到结果恢复记忆。
+            var current = authorization.requireEnabled(job.owner());
+            if (!current.grant().id().equals(job.grantId())
+                    || current.grant().revision() != job.grantRevision()
+                    || current.settings().revision() != job.settingsRevision()
+                    || !current.settings().fingerprint().equals(job.fingerprint())
+                    || !now.isBefore(job.deadline())) {
+                repository.skip(job.id(), "授权、配置或期限已变化，已丢弃生成结果");
+                return;
+            }
             if (!repository.finish(job.id(), "SUCCEEDED", json, "", now)) return;
             for (Evidence value : evidence.values()) {
-                try { repository.evidence(job.id(), value); } catch (RuntimeException ignored) { /* 去重证据不重复写入 */ }
+                repository.evidence(job.id(), value);
             }
+            // 临时预览保留可查看结果与依据，但不得成为后续召回的长期建议或观察。
+            if (job.preview()) return;
             for (ReviewDraft.Action item : draft.actions()) {
                 String id = UUID.randomUUID().toString();
                 LocalDate check = now.atZone(ZoneId.of(job.timezone())).toLocalDate().plusDays(item.checkAfterDays());
@@ -194,19 +207,13 @@ public class ReviewCoachService {
 
     private ReviewGenerationRequest request(Job job, ReviewAuthorizationService.Authorization allowed,
                                             EvidenceSet evidence, Limits limits) {
-        var history = repository.recallActions(job.owner(), automationClock.instant()).stream()
-                .map(item -> new ReviewGenerationRequest.HistoryAction(item.id(), item.topicKey(), item.title(),
-                        item.state(), item.checkOn() == null ? "" : item.checkOn().toString(), item.feedback())).toList();
-        var observations = repository.recallObservations(job.owner(), automationClock.instant()).stream()
-                .map(item -> new ReviewGenerationRequest.Observation(item.id(), item.topicKey(), item.content(), item.uncertainty())).toList();
-        var goals = goals(job.owner()).stream().map(goal -> new ReviewGenerationRequest.Goal(goal.id(), goal.title(),
-                goal.constraintText(), goal.successCriterion())).toList();
+        var memory = memoryReader.readForAuthorizedReview(job.owner());
         var methods = ReviewMethodCards.select(job.period(), evidence.values().stream().map(Evidence::domain).toList());
         return new ReviewGenerationRequest(job.period(), job.period() + " " + job.from() + "~" + job.to(),
                 evidence.coverage(), evidence.values().stream().map(value -> new ReviewGenerationRequest.Evidence(
                 value.id(), value.domain(), value.metricKey(), display(value), value.unit(), value.currency(),
                 job.from() + "~" + job.to(), evidence.coverage(), job.createdAt().toString())).toList(),
-                goals, history, observations, methods, limits.inputTokens(), limits.outputTokens(),
+                memory.goals(), memory.actions(), memory.observations(), methods, limits.inputTokens(), limits.outputTokens(),
                 limits.requestSeconds() * 1_000L, allowed.settings().providerId(), allowed.settings().modelName());
     }
 

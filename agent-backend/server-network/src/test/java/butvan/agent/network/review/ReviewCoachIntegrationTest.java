@@ -50,6 +50,7 @@ class ReviewCoachIntegrationTest {
             ReviewMemoryRepository.class, ReviewAuthorizationService.class, ReviewFactCollector.class,
             ReviewFactService.class, ReviewGoalService.class, ReviewDataService.class,
             ReviewCoachService.class, ReviewMemoryService.class, ReviewDeliveryService.class,
+            ReviewMemoryReaderAdapter.class,
             ReviewController.class, ApiExceptionHandler.class})
     static class Application {
         @Bean Clock automationClock() {
@@ -73,6 +74,7 @@ class ReviewCoachIntegrationTest {
     @jakarta.annotation.Resource ReviewAuthorizationService authorization;
     @jakarta.annotation.Resource ReviewCoachService coach;
     @jakarta.annotation.Resource ReviewMemoryService memory;
+    @jakarta.annotation.Resource ReviewMemoryReader memoryReader;
     @jakarta.annotation.Resource ReviewDeliveryService deliveries;
     @jakarta.annotation.Resource JdbcTemplate jdbc;
     private String owner;
@@ -107,6 +109,21 @@ class ReviewCoachIntegrationTest {
         assertEquals(1, view.observations().size());
         assertTrue(view.coverageNote().contains("已结束自然日"));
         verify(generator, times(1)).generate(any());
+        assertTrue(memory.list(owner).actions().isEmpty(), "预览不创建长期建议");
+        assertTrue(memory.list(owner).observations().isEmpty(), "预览不创建长期观察");
+    }
+
+    @Test void revokedDuringGenerationCannotPublishMemory() {
+        var grant = permit(owner, Set.of("STUDY"));
+        doAnswer(call -> {
+            authorization.revoke(owner, grant.id(), new RevokeRequest(grant.revision()));
+            var request = (ReviewGenerationRequest) call.getArgument(0);
+            return draft(request);
+        }).when(generator).generate(any());
+        String id = generateAutomatic();
+        assertNotEquals("SUCCEEDED", coach.get(owner, id).state());
+        assertTrue(memory.list(owner).actions().isEmpty());
+        assertTrue(memory.list(owner).observations().isEmpty());
     }
 
     @Test void repeatedPreviewReusesSameJobAndBudgetBlocksSecondScheduledReview() {
@@ -126,7 +143,7 @@ class ReviewCoachIntegrationTest {
 
     @Test void feedbackIsIdempotentAndCannotReportResultBeforeAdoption() {
         permit(owner, Set.of("STUDY"));
-        var view = coach.preview(owner, new PreviewRequest("req-c", "DAILY_REPORT", DAY, DAY, "UTC", true));
+        var view = coach.get(owner, generateAutomatic());
         var action = memory.list(owner).actions().getFirst();
         assertThrows(IllegalArgumentException.class, () -> memory.feedback(owner, action.id(),
                 new FeedbackRequest("req-result", action.revision(), "COMPLETED", null, null, DAY, "")));
@@ -146,7 +163,7 @@ class ReviewCoachIntegrationTest {
 
     @Test void observationsCanBeRejectedAndExpire() {
         permit(owner, Set.of("STUDY"));
-        coach.preview(owner, new PreviewRequest("req-d", "DAILY_REPORT", DAY, DAY, "UTC", true));
+        generateAutomatic();
         var observation = memory.list(owner).observations().getFirst();
         assertThrows(IllegalArgumentException.class, () -> memory.correct(owner, observation.id(),
                 new CorrectionRequest("req-correction", observation.revision(), "CORRECTED", " ")));
@@ -154,6 +171,23 @@ class ReviewCoachIntegrationTest {
                 "req-reject", observation.revision(), "REJECTED", "不符合我的情况"));
         assertEquals("REJECTED", rejected.state());
         assertTrue(memory.list(owner).observations().stream().anyMatch(item -> item.id().equals(observation.id()) && "REJECTED".equals(item.state())));
+    }
+
+    @Test void authoritativeMemoryHonorsCorrectionOwnerExpiryAndRevocation() {
+        var grant = permit(owner, Set.of("STUDY"));
+        generateAutomatic();
+        var initial = memoryReader.readForAuthorizedReview(owner);
+        assertEquals(1, initial.actions().size());
+        assertEquals(1, initial.observations().size());
+        var observation = memory.list(owner).observations().getFirst();
+        memory.correct(owner, observation.id(), new CorrectionRequest("correct-shared", observation.revision(),
+                "CORRECTED", "这次情况不能代表长期习惯"));
+        assertTrue(memoryReader.readForAuthorizedReview(owner).observations().isEmpty());
+        String other = "coach-" + UUID.randomUUID();
+        permit(other, Set.of("STUDY"));
+        assertTrue(memoryReader.readForAuthorizedReview(other).actions().isEmpty());
+        authorization.revoke(owner, grant.id(), new RevokeRequest(grant.revision()));
+        assertThrows(IllegalArgumentException.class, () -> memoryReader.readForAuthorizedReview(owner));
     }
 
     @Test void waitingDeliveryFreezesBaseReportAfterDeadlineAndRevokeDisablesIt() {
@@ -181,6 +215,20 @@ class ReviewCoachIntegrationTest {
         assertEquals("DISABLED", jdbc.queryForObject("SELECT state FROM automation_review_delivery WHERE run_id='run-2'", String.class));
         deliveries.freezeReady();
         assertEquals("WAITING", jdbc.queryForObject("SELECT email_status FROM automation_run WHERE id='run-2'", String.class));
+    }
+
+    private String generateAutomatic() {
+        String id = coach.schedule(owner, "DAILY_REPORT", DAY, DAY, "UTC").orElseThrow();
+        coach.tick();
+        return id;
+    }
+
+    private ReviewDraft draft(ReviewGenerationRequest request) {
+        String evidence = request.evidence().getFirst().id();
+        return new ReviewDraft(1, "仅覆盖已结束自然日", List.of(new ReviewDraft.Observation(
+                "study.start", "FACT_OBSERVATION", "本期存在学习记录", List.of(evidence), List.of(), "还无法判断持续性")),
+                List.of(), List.of(new ReviewDraft.Action("study.start", null, "small-start-v1", "先做五分钟",
+                "降低启动成本", List.of(evidence), 7, "是否完成一次")));
     }
 
     private GrantView permit(String owner, Set<String> domains) {
