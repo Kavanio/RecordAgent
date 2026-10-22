@@ -94,3 +94,84 @@ export interface ReviewEraseResult {
   deletedGoals: number;
   settingsRevision: number;
 }
+
+export type ReviewState = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'DEGRADED' | 'SKIPPED' | 'UNKNOWN';
+
+export interface ReviewItem {
+  id: string;
+  topicKey: string;
+  kind: 'ACTION' | 'OBSERVATION' | 'FOLLOW_UP';
+  text: string;
+  rationale: string;
+  criterion: string;
+  methodId: string;
+  state: string;
+  uncertainty: string;
+  evidenceIds: string[];
+}
+
+export interface ReviewSummary {
+  id: string;
+  period: ReviewPeriod;
+  from: string;
+  to: string;
+  state: ReviewState;
+  preview: boolean;
+  message: string;
+  createdAt: string;
+  finishedAt: string | null;
+}
+
+export interface ReviewDetail extends ReviewSummary {
+  timezone: string;
+  coverageNote: string;
+  observations: ReviewItem[];
+  actions: ReviewItem[];
+  followUps: ReviewItem[];
+  evidence: { id: string; domain: string; metricKey: string; value: string; unit: string; currency: string; period: string; snapshotId: string }[];
+}
+
+export interface ReviewAction {
+  id: string;
+  reviewId: string | null;
+  topicKey: string;
+  goalId: string | null;
+  title: string;
+  rationale: string;
+  criterion: string;
+  methodId: string;
+  state: string;
+  revision: number;
+  checkOn: string | null;
+  feedback: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewObservation {
+  id: string;
+  reviewId: string | null;
+  topicKey: string;
+  content: string;
+  uncertainty: string;
+  state: 'CANDIDATE' | 'CORRECTED' | 'REJECTED';
+  revision: number;
+  correction: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface ReviewMemory {
+  actions: ReviewAction[];
+  observations: ReviewObservation[];
+}
+
+export interface SaveReviewFeedback {
+  requestId: string;
+  expectedRevision: number;
+  decision: 'ACCEPTED' | 'DECLINED' | 'DEFERRED' | 'COMPLETED' | 'PARTIAL' | 'NOT_DONE' | 'UNKNOWN' | 'ARCHIVED';
+  title?: string;
+  criterion?: string;
+  checkOn?: string | null;
+  feedback?: string;
+}

@@ -21,6 +21,7 @@ import { SlashCommandSettingsPage } from '../settings/SlashCommandSettingsPage';
 import { DailyContextSettingsPage } from '../settings/DailyContextSettingsPage';
 import { BackendConnectionSettings } from '../settings/BackendConnectionSettings';
 import { TaskSettings } from '../task/TaskSettings';
+import { ReviewSettings } from '../review/ReviewSettings';
 import {
   getFeaturePreferences,
   setCalendarPreference,
@@ -45,6 +46,7 @@ import {
   BrainCircuit,
   CloudSun,
   Bell,
+  Sparkles,
   ChevronsUpDown,
   MoreHorizontal,
   MoreVertical,
@@ -496,6 +498,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
           {[
             { id: 'calendar', label: '日历', icon: CalendarDays },
             { id: 'task', label: '任务', icon: Bell },
+            { id: 'review', label: '长期复盘', icon: Sparkles },
             { id: 'finance', label: '财务', icon: WalletCards },
             { id: 'library', label: '资料', icon: Library },
             { id: 'record', label: '记录', icon: NotebookPen },
@@ -1070,6 +1073,8 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
         {activeTab === 'usage' && <TokenUsageSettingsPage />}
 
         {activeTab === 'task' && <TaskSettings />}
+
+        {activeTab === 'review' && <ReviewSettings />}
 
         {activeTab === 'backend' && <BackendConnectionSettings />}
 

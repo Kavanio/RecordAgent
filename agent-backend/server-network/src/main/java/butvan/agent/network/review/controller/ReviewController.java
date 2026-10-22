@@ -3,6 +3,8 @@ package butvan.agent.network.review.controller;
 import butvan.agent.agents.identity.CurrentUserProvider;
 import butvan.agent.network.annotation.ApiLog;
 import butvan.agent.network.common.Result;
+import butvan.agent.network.review.dto.ReviewCoachDtos.*;
+import butvan.agent.network.review.dto.ReviewMemoryDtos.*;
 import butvan.agent.network.review.dto.ReviewDtos.*;
 import butvan.agent.network.review.service.*;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,8 @@ public class ReviewController {
     private final ReviewFactService facts;
     private final ReviewGoalService goals;
     private final ReviewDataService data;
+    private final ReviewCoachService coach;
+    private final ReviewMemoryService memory;
 
     @ApiLog("查询长期复盘设置") @GetMapping("/settings")
     public Result<SettingsView> settings() { return Result.success(authorization.settings(user.currentUserId())); }
@@ -54,6 +58,34 @@ public class ReviewController {
     @ApiLog("清除复盘摘要和目标并撤销授权") @PostMapping("/erase")
     public Result<EraseResult> erase(@RequestBody EraseRequest input) {
         return Result.success(data.erase(user.currentUserId(), input));
+    }
+
+    @ApiLog("明确确认后生成一次 AI 复盘预览") @PostMapping("/preview")
+    public Result<ReviewView> preview(@RequestBody PreviewRequest input) {
+        return Result.success(coach.preview(user.currentUserId(), input));
+    }
+
+    @ApiLog("查询长期复盘历史") @GetMapping
+    public Result<List<ReviewSummary>> history(@RequestParam(defaultValue = "20") int limit) {
+        return Result.success(coach.history(user.currentUserId(), limit));
+    }
+
+    @ApiLog("读取长期复盘结果与依据") @GetMapping("/{id}")
+    public Result<ReviewView> review(@PathVariable String id) {
+        return Result.success(coach.get(user.currentUserId(), id));
+    }
+
+    @ApiLog("查询复盘建议与候选观察") @GetMapping("/memory")
+    public Result<MemoryView> memory() { return Result.success(memory.list(user.currentUserId())); }
+
+    @ApiLog("提交复盘建议反馈") @PostMapping("/actions/{id}/feedback")
+    public Result<ActionView> feedback(@PathVariable String id, @RequestBody FeedbackRequest input) {
+        return Result.success(memory.feedback(user.currentUserId(), id, input));
+    }
+
+    @ApiLog("纠正或否定复盘观察") @PostMapping("/observations/{id}/correction")
+    public Result<ObservationView> correction(@PathVariable String id, @RequestBody CorrectionRequest input) {
+        return Result.success(memory.correct(user.currentUserId(), id, input));
     }
 
     @ApiLog("查询用户明确复盘目标") @GetMapping("/goals")

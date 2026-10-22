@@ -2,6 +2,7 @@ package butvan.agent.network.review.service;
 
 import butvan.agent.network.review.dto.ReviewDtos.*;
 import butvan.agent.network.review.model.ReviewModels.*;
+import butvan.agent.network.review.repository.ReviewCoachRepository;
 import butvan.agent.network.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +17,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ReviewAuthorizationService {
     private final ReviewRepository repository;
+    private final ReviewCoachRepository coachRepository;
     private final ReviewModelCatalog models;
     private final Clock automationClock;
 
@@ -75,6 +77,8 @@ public class ReviewAuthorizationService {
         ReviewPolicy.requireOwner(owner);
         if (input == null || input.expectedRevision() < 1) throw new IllegalArgumentException("授权版本无效");
         repository.revoke(owner, id, input.expectedRevision(), automationClock.instant());
+        // 撤销后未冻结的 AI 邮件不得再发送，也不能改写已冻结副本。
+        coachRepository.disableUnfrozenDeliveries(owner);
         return GrantView.from(repository.grant(owner, id).orElseThrow(() -> new IllegalArgumentException("授权不存在")));
     }
 

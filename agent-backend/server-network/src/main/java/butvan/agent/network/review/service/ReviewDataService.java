@@ -3,6 +3,7 @@ package butvan.agent.network.review.service;
 import butvan.agent.network.review.dto.ReviewDtos.*;
 import butvan.agent.network.review.model.ReviewModels.Settings;
 import butvan.agent.network.review.repository.ReviewRepository;
+import butvan.agent.network.review.repository.ReviewCoachRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,7 @@ import java.time.Clock;
 @RequiredArgsConstructor
 public class ReviewDataService {
     private final ReviewRepository repository;
+    private final ReviewCoachRepository coachRepository;
     private final Clock automationClock;
 
     @Transactional
@@ -28,6 +30,7 @@ public class ReviewDataService {
         Settings paused = new Settings(owner, false, old.periods(), old.domains(), old.historyDays(), old.dailyLimit(),
                 old.providerId(), old.modelName(), old.fingerprint(), old.revision() + 1, now);
         repository.saveSettings(paused, old.revision());
+        coachRepository.disableUnfrozenDeliveries(owner);
         int[] deleted = repository.eraseData(owner);
         return new EraseResult(deleted[0], deleted[1], paused.revision());
     }

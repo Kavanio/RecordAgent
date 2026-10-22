@@ -34,7 +34,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 | `scripts/backend-launcher/` | Windows 后端 sidecar 原生启动器源码（Rust）；由打包脚本在 Windows 上编译生成 exe。 |
 | `.github/workflows/` | GitHub Actions 自动化；SemVer tag 创建桌面端 Release，另允许 `develop` 后端相关变更构建并推送 ACR 私有镜像；不构建桌面安装包、不自动部署服务器、不运行 CI 测试。 |
 | `agent-backend/server-network/` | Spring Boot 启动、Controller、DTO、API 通用能力、AOP、网络适配层、自动任务、业务 Agent Tool Adapter、通用文件资产与存储 Adapter，以及单机业务数据的 SQLite 持久化；业务表必须按领域归属，禁止形成通用数据大杂烩。 |
-| `agent-backend/server-network/src/main/java/butvan/agent/network/review/` | 长期复盘的授权、固定模型身份、结构化事实摘要与用户目标；使用现有 SQLite，默认关闭，现阶段仅建设基础能力，不自动调用模型。 |
+| `agent-backend/server-network/src/main/java/butvan/agent/network/review/` | 长期复盘：独立授权、固定模型身份、结构化事实摘要、用户目标、建议与反馈、有界后台生成与两段式邮件冻结；使用现有 SQLite，默认关闭，未授权时不调用模型。 |
 | `agent-backend/server-agents/` | AgentScope、模型工厂、智能体编排、Tool 注册 seam、工作区与配置领域逻辑；不得反向依赖 `server-network` 的业务实现。 |
 | `agent-backend/server-feishu/` | 飞书等即时通讯渠道集成：长连接事件接收、消息收发与渠道适配；仅依赖 `server-agents`，不承载 Agent 编排逻辑。 |
 | `agent-backend/*/src/main/resources/` | 仅保存不含密钥的默认配置和资源；真实用户配置不得硬编码于 yml。 |
@@ -136,6 +136,8 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 - 不修复与当前任务无关的问题；发现阻断性问题时，应单独说明，不得隐式扩大改动范围。
 - 提交结果必须说明：修改了什么、为何修改、验证结果、遗留风险以及需要用户决策的事项。
 - 每次代码修改完成并通过必要验证后，必须将本次修改提交到当前分支；提交前应确认范围并保留用户已有改动。不得自行创建分支、推送、发布或写入外部系统，除非用户明确要求。
+
+- 长期复盘默认关闭且保存配置不等于授权；只有用户显式确认范围、周期、回看窗口和固定模型连接后才可生成。模型选择固定为该连接，不跟随聊天默认模型；撤销授权立即生效并禁用未冻结的 AI 邮件副本，已经发送的邮件无法撤回。复盘生成在独立线程与短事务中运行，不阻塞原任务调度，失败、超时或超预算一律降级为基础报告且不自动重试；同一周期数据补录默认复用既有结果。复盘反馈只由用户提交，未反馈不得判为失败。
 
 ## 六、子级 DOX 索引
 

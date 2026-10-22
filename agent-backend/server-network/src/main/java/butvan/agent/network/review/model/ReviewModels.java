@@ -46,4 +46,28 @@ public final class ReviewModels {
     /** 仅由用户维护的目标，不能由模型推测替代。 */
     public record Goal(String id, String owner, String title, String constraintText, String successCriterion,
                        String state, int revision, Instant createdAt, Instant updatedAt) {}
+
+    /** 一次复盘工作项；状态由短事务 CAS 推进，迟到结果不得覆盖终态。 */
+    public record Job(String id, String owner, String period, LocalDate from, LocalDate to, String timezone,
+                      String grantId, int grantRevision, int settingsRevision, String fingerprint,
+                      String goalsFingerprint, String state, boolean preview, Instant createdAt, Instant deadline,
+                      Instant finishedAt, String resultJson, String message, int revision) {}
+
+    /** 为用户保存的建议；采纳和结果只能由用户反馈驱动。 */
+    public record Action(String id, String owner, String jobId, String topicKey, String goalId, String title,
+                         String rationale, String criterion, String methodId, String state, int revision,
+                         LocalDate checkOn, String feedback, Instant createdAt, Instant updatedAt) {}
+
+    /** 带证据的候选观察；可被纠正或否定，不自动升级为用户事实。 */
+    public record Observation(String id, String owner, String jobId, String topicKey, String content,
+                              String uncertainty, String state, int revision, String correction,
+                              Instant createdAt, Instant expiresAt) {}
+
+    /** 一条结构化证据，与快照列绑定以保证可追溯。 */
+    public record Evidence(String id, String snapshotId, String domain, String metricKey, String subjectId,
+                           String currency, String unit, long value) {}
+
+    /** 邮件冻结副本；等待期间不得提前发送基础报告。 */
+    public record Delivery(String runId, String owner, String reviewId, String state, String baseText,
+                           String baseHtml, String finalText, String finalHtml, Instant deadline, Instant frozenAt) {}
 }

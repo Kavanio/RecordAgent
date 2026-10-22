@@ -11,6 +11,8 @@ import butvan.agent.network.review.controller.ReviewController;
 import butvan.agent.network.review.dto.ReviewDtos.*;
 import butvan.agent.network.review.model.ReviewModels.ModelIdentity;
 import butvan.agent.network.review.repository.ReviewRepository;
+import butvan.agent.network.review.repository.ReviewCoachRepository;
+import butvan.agent.network.review.repository.ReviewMemoryRepository;
 import butvan.agent.network.review.service.*;
 import butvan.agent.network.study.model.StudyModels.StudyStatistics;
 import butvan.agent.network.study.service.StudyService;
@@ -53,7 +55,8 @@ class ReviewFoundationIntegrationTest {
     @SpringBootConfiguration @EnableAutoConfiguration
     @Import({LocalDatabaseConfiguration.class, ReviewRepository.class, ReviewAuthorizationService.class,
             ReviewFactCollector.class, ReviewFactService.class, ReviewGoalService.class, ReviewDataService.class,
-            ReviewController.class, ApiExceptionHandler.class})
+            ReviewCoachRepository.class, ReviewMemoryRepository.class, ReviewCoachService.class,
+            ReviewMemoryService.class, ReviewController.class, ApiExceptionHandler.class})
     static class Application {
         @Bean Clock automationClock() {
             return new Clock() {
@@ -67,6 +70,7 @@ class ReviewFoundationIntegrationTest {
         registry.add("butvan.database.path", DATABASE::toString);
     }
     @MockitoBean ReviewModelCatalog models;
+    @MockitoBean butvan.agent.agents.review.ReviewGenerator generator;
     @MockitoBean FinanceService finance;
     @MockitoBean ExpenseAnalyticsService expenses;
     @MockitoBean DailyEventService daily;
