@@ -68,6 +68,32 @@ class DailyEventServiceIntegrationTest {
     }
 
     @Test
+    void minimalTodoOccurrencesMatchCalendarRulesAcrossCyclesAndOwners() {
+        String owner = "minimal-todo-owner";
+        LocalDate start = LocalDate.of(2026, 9, 7);
+        dailyEventService.create(owner, new TodoCommand(start, "一次性", null, "medium"));
+        dailyEventService.create(owner, new TodoCommand(start, "每日", null, "medium", "daily"));
+        dailyEventService.create(owner, new TodoCommand(start, "每周一", null, "medium", "weekly", 1, null));
+        dailyEventService.create(owner, new TodoCommand(start, "月末", null, "medium", "monthly", null, 31));
+        var legacyWeek = dailyEventService.create(owner, new TodoCommand(start, "旧周规则", null, "medium", "weekly"));
+        var legacyMonth = dailyEventService.create(owner, new TodoCommand(start, "旧月规则", null, "medium", "monthly"));
+        dailyEventService.setTodoCompleted(owner, legacyWeek.id(), true, legacyWeek.version(), start.plusDays(1));
+        dailyEventService.setTodoCompleted(owner, legacyMonth.id(), true, legacyMonth.version(), start.plusDays(2));
+        dailyEventService.create(owner, new JournalCommand(start, "私密手记", "不应被统计读取的正文", "平静"));
+        dailyEventService.create("other-minimal-owner", new TodoCommand(start, "其他用户", null, "medium", "daily"));
+        for (LocalDate day = start; !day.isAfter(start.plusDays(28)); day = day.plusDays(1)) {
+            var expected = dailyEventService.getDay(owner, day).events().stream()
+                    .filter(event -> event.details() instanceof TodoDetails)
+                    .map(event -> new butvan.agent.network.daily.model.DailyEventModels.TodoOccurrence(
+                            event.id(), ((TodoDetails) event.details()).recurrence(), ((TodoDetails) event.details()).completed())).toList();
+            assertEquals(expected, dailyEventService.getTodoOccurrences(owner, day), "发生规则和完成状态必须一致：" + day);
+        }
+        assertTrue(dailyEventService.getTodoOccurrences("no-such-owner", start).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> dailyEventService.getTodoOccurrences("", start));
+        assertThrows(IllegalArgumentException.class, () -> dailyEventService.getTodoOccurrences(owner, null));
+    }
+
+    @Test
     void userCanCreateAndRetrieveTodoForOneDay() {
         LocalDate date = LocalDate.of(2026, 9, 3);
 

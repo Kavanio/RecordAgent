@@ -1,6 +1,5 @@
 package butvan.agent.network.review.service;
 
-import butvan.agent.network.daily.model.DailyEventModels.TodoDetails;
 import butvan.agent.network.daily.service.DailyEventService;
 import butvan.agent.network.daily.service.ExpenseAnalyticsService;
 import butvan.agent.network.finance.service.FinanceService;
@@ -82,15 +81,14 @@ public class ReviewFactCollector {
         Set<String> occurrences = new HashSet<>();
         long total = 0, completed = 0;
         for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
-            for (var event : daily.getDay(owner, date).events()) {
-                if (!(event.details() instanceof TodoDetails todo)) continue;
+            for (var todo : daily.getTodoOccurrences(owner, date)) {
                 String cycle = switch (todo.recurrence() == null ? "" : todo.recurrence().toLowerCase(Locale.ROOT)) {
                     case "daily" -> date.toString();
                     case "weekly" -> date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toString();
                     case "monthly" -> date.withDayOfMonth(1).toString();
                     default -> "once";
                 };
-                if (!occurrences.add(event.id() + ":" + cycle)) continue;
+                if (!occurrences.add(todo.id() + ":" + cycle)) continue;
                 total++;
                 if (todo.completed()) completed++;
             }

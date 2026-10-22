@@ -2,6 +2,8 @@ package butvan.agent.network.daily.service;
 
 import butvan.agent.network.daily.model.DailyEventModels.CalendarItem;
 import butvan.agent.network.daily.model.DailyEventModels.DailyDay;
+import butvan.agent.network.daily.model.DailyEventModels.TodoDetails;
+import butvan.agent.network.daily.model.DailyEventModels.TodoOccurrence;
 import butvan.agent.network.daily.model.DailyEventModels.DailyDaySummary;
 import butvan.agent.network.daily.model.DailyEventModels.DailyEventCommand;
 import butvan.agent.network.daily.model.DailyEventModels.DailyEvent;
@@ -124,6 +126,20 @@ public class DailyEventService {
                 throw new IllegalStateException("手记同步时已被其他操作修改，请重试");
             }
         });
+    }
+
+    /** 只读待办统计入口；SQL 先限定 owner 和类型，不加载手记／资料正文或财务投影。 */
+    @Transactional(readOnly = true)
+    public List<TodoOccurrence> getTodoOccurrences(String ownerId, LocalDate date) {
+        if (ownerId == null || ownerId.isBlank() || date == null)
+            throw new IllegalArgumentException("用户与日期不能为空");
+        List<String> ids = repository.findTodoIdsForDay(ownerId, date);
+        var details = todoTypeHandler.loadDetailsForOccurrence(ids, date);
+        return ids.stream().map(id -> {
+            if (!(details.get(id) instanceof TodoDetails todo))
+                throw new IllegalStateException("待办详情缺失，无法生成完整统计");
+            return new TodoOccurrence(id, todo.recurrence(), todo.completed());
+        }).toList();
     }
 
     /** 查询某一天的全部日记录。 */

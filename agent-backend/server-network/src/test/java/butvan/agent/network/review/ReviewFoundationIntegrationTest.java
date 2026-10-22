@@ -83,7 +83,7 @@ class ReviewFoundationIntegrationTest {
         when(user.currentUserId()).thenReturn("review-http-user");
         when(models.resolve(anyString(), anyString())).thenAnswer(call -> new ModelIdentity(
                 call.getArgument(0), call.getArgument(1), "openai", "connection-v1"));
-        when(daily.getDay(anyString(), any())).thenAnswer(call -> new butvan.agent.network.daily.model.DailyEventModels.DailyDay(call.getArgument(1), List.of()));
+        when(daily.getTodoOccurrences(anyString(), any())).thenReturn(List.of());
         when(study.getStatistics(anyString(), any(), any(), any())).thenReturn(stat(1200));
     }
 
@@ -205,7 +205,7 @@ class ReviewFoundationIntegrationTest {
         assertTrue(snapshot.sources().stream().anyMatch(s -> s.domain().equals("FINANCE") && s.state().equals("UNAVAILABLE")));
         assertTrue(snapshot.sources().stream().anyMatch(s -> s.domain().equals("TODO") && s.state().equals("EMPTY")));
         assertTrue(snapshot.facts().stream().noneMatch(f -> f.domain().equals("FINANCE")));
-        when(daily.getDay(eq(owner), any())).thenThrow(new IllegalStateException("unavailable"));
+        when(daily.getTodoOccurrences(eq(owner), any())).thenThrow(new IllegalStateException("unavailable"));
         when(study.getStatistics(eq(owner), any(), any(), any())).thenThrow(new IllegalStateException("unavailable"));
         assertThrows(IllegalStateException.class, () -> facts.capture(owner, capture()));
         assertEquals(1, facts.list(owner, 20).size());
