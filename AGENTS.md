@@ -34,6 +34,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 | `scripts/backend-launcher/` | Windows 后端 sidecar 原生启动器源码（Rust）；由打包脚本在 Windows 上编译生成 exe。 |
 | `.github/workflows/` | GitHub Actions 自动化；SemVer tag 创建桌面端 Release，另允许 `develop` 后端相关变更构建并推送 ACR 私有镜像；不构建桌面安装包、不自动部署服务器、不运行 CI 测试。 |
 | `agent-backend/server-network/` | Spring Boot 启动、Controller、DTO、API 通用能力、AOP、网络适配层、自动任务、业务 Agent Tool Adapter、通用文件资产与存储 Adapter，以及单机业务数据的 SQLite 持久化；业务表必须按领域归属，禁止形成通用数据大杂烩。 |
+| `agent-backend/server-network/src/main/java/butvan/agent/network/review/` | 长期复盘的授权、固定模型身份、结构化事实摘要与用户目标；使用现有 SQLite，默认关闭，现阶段仅建设基础能力，不自动调用模型。 |
 | `agent-backend/server-agents/` | AgentScope、模型工厂、智能体编排、Tool 注册 seam、工作区与配置领域逻辑；不得反向依赖 `server-network` 的业务实现。 |
 | `agent-backend/server-feishu/` | 飞书等即时通讯渠道集成：长连接事件接收、消息收发与渠道适配；仅依赖 `server-agents`，不承载 Agent 编排逻辑。 |
 | `agent-backend/*/src/main/resources/` | 仅保存不含密钥的默认配置和资源；真实用户配置不得硬编码于 yml。 |
@@ -142,6 +143,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 - 已建立子级 `AGENTS.md`：`agent-backend/server-network/`（HTTP 接口与本地 SQLite 持久化约束）。
 - 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/RecordAgent/`（原生 iOS 技术栈、API 数据边界与工程约束）。
 - 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/backend/`（独立多用户业务后端、PostgreSQL 与 API 约束）。
+- 已建立子级 `AGENTS.md`：`agent-backend/server-network/src/main/java/butvan/agent/network/review/`（长期复盘授权、事实与记忆持久化契约）。
 - 自动任务的细节约束见 `agent-backend/server-network/AGENTS.md` 的“自动任务”节；产品行为见 `docs/任务模块产品需求与操作说明.md`。
 - 根目录负责项目级工程规范、目录边界、架构契约与根文档。
 - 当 `agent-frontend/` 或 `agent-backend/` 出现独立且稳定的局部规则时，应分别建立中文 `AGENTS.md`，并在本节登记其职责范围。
