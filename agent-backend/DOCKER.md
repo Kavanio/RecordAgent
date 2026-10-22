@@ -88,7 +88,11 @@ crpi-46o5657v3drrpfcl.cn-hangzhou.personal.cr.aliyuncs.com/butvan/record-agent-b
 
 ### 日常更新
 
-GitHub Actions 发布成功后，在原部署目录重复上面的校验、`pull`、停机备份及 `up` 步骤即可；不再需要本地构建 JAR / 镜像、`docker save`、手动传输或 `docker load`。两次使用的 `-f` 文件列表必须相同。
+Windows 可将 `agent-backend/scripts/update-backend.bat` 单独复制到现有部署目录（与主 Compose 文件、`compose.acr.yaml`、`.env`、`user-data` 同级）并双击运行。需要 Docker Compose 支持 `pull --policy` 与 `up --wait`。脚本强制跟随远端最新 `develop`（本次覆盖已有标签环境变量），拉取成功后停机备份 `user-data`，使用已拉取镜像重建并等待最多 240 秒；失败保留数据与备份，不自动回滚。它不会修复历史模型配置，缺少自定义 API 地址时仍需单独修复；备份含敏感数据，应限制访问。
+
+复制 BAT 时请直接复制原文件，保留 UTF-8 无 BOM 和 CRLF 换行，不要从聊天或终端输出重新拼接内容。若看到中文注释被当成命令执行，先替换脚本；这与容器 `unhealthy` 是不同问题。`unhealthy` 表示服务未通过健康检查，需要按脚本提示查看最新容器日志；若日志仍为“自定义模型必须填写 API 基础地址”，说明启动时读取的模型配置缺少地址，不能靠重新拉镜像修复，也不应关闭健康检查。主 Compose 的 `pull_policy: never` 会被覆盖文件及更新命令的拉取策略处理，不要因此删除安全配置或数据挂载。
+
+GitHub Actions 发布成功后，也可在原部署目录重复上面的校验、`pull`（更新时显式添加 `--policy always`）、停机备份及 `up` 步骤即可；不再需要本地构建 JAR / 镜像、`docker save`、手动传输或 `docker load`。两次使用的 `-f` 文件列表必须相同。
 
 不要运行 `docker compose down -v`、删除 `user-data` 或覆盖 `.env`。也不要执行 `docker compose build` 或仅 `restart`：服务器只需使用已构建镜像重新创建容器。现有反向代理 / TLS 和业务 Token 不变。
 
