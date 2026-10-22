@@ -2,14 +2,17 @@
 .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--color-border, #e2e2e2); border-radius: 999px; font-size: 12px; cursor: pointer; }
 .chip input { margin: 0; }
-.number, .selects select, .stack input, textarea {
+.textarea {
   border: 1px solid var(--color-border, #e2e2e2); border-radius: 8px; padding: 6px 10px;
   font: inherit; font-size: 13px; background: var(--color-surface, #fff); color: inherit;
 }
 .number { width: 96px; }
-.selects { display: flex; flex-wrap: wrap; gap: 8px; }
-.selects select { min-width: 200px; }
-textarea { width: 100%; resize: vertical; box-sizing: border-box; }
+.selects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; width: 100%; max-width: 560px; }
+.selects > * { min-width: 0; }
+.textarea { width: 100%; resize: vertical; box-sizing: border-box; }
+@media (max-width: 640px) {
+  .selects { grid-template-columns: minmax(0, 1fr); }
+}
 .error { color: #b42318; font-size: 13px; margin: 0 0 12px; }
 .ok { color: #067647; font-size: 13px; }
 .warn { color: #b54708; font-size: 13px; }

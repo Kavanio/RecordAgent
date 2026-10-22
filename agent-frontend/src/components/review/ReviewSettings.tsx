@@ -14,6 +14,8 @@ import type { FullModelConfig } from '../../types/model';
 import { SettingsPageLayout } from '../settings/SettingsPageLayout';
 import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
 import { Button } from '../common/Button';
+import { Select } from '../common/Select';
+import { TextInput } from '../common/TextInput';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { Modal } from '../common/Modal';
 import { useMessage } from '../common/Message';
@@ -249,24 +251,26 @@ export function ReviewSettings() {
                     onChange={() => patch({ domains: toggle(settings.domains, item.id) })} />{item.label}
                 </label>))}</div>} />
             <SettingsRow label="最多回看" description="事实摘要只采集已结束自然日，最大 180 天。"
-              control={<input className={styles.number} type="number" min={1} max={180} value={settings.historyDays}
+              control={<TextInput className={styles.number} aria-label="最多回看天数" type="number" min={1} max={180} value={settings.historyDays}
                 disabled={busy} onChange={event => patch({ historyDays: Number(event.target.value) })} />} />
             <SettingsRow label="每天自动生成上限" description="用于限制付费调用；失败不会自动重试。"
-              control={<input className={styles.number} type="number" min={1} max={3} value={settings.dailyLimit}
+              control={<TextInput className={styles.number} aria-label="每天自动生成上限" type="number" min={1} max={3} value={settings.dailyLimit}
                 disabled={busy} onChange={event => patch({ dailyLimit: Number(event.target.value) })} />} />
             <SettingsRow label="复盘模型" layout="stacked" description="固定使用所选模型，不跟随聊天默认模型切换。"
               control={<div className={styles.selects}>
-                <select aria-label="模型连接" value={settings.providerId} disabled={busy}
-                  onChange={event => patch({ providerId: event.target.value, modelName: '' })}>
-                  <option value="">请选择模型连接</option>
-                  {providers.filter(provider => provider.isEnabled).map(provider => (
-                    <option key={provider.id} value={provider.id}>{provider.name || provider.id}</option>))}
-                </select>
-                <select aria-label="模型" value={settings.modelName} disabled={busy || !activeProvider}
-                  onChange={event => patch({ modelName: event.target.value })}>
-                  <option value="">请选择模型</option>
-                  {models.map(model => <option key={model.id} value={model.name || model.id}>{model.name || model.id}</option>)}
-                </select>
+                <Select label="模型连接" placeholder="请选择模型连接" fieldSize="md" fullWidth
+                  value={settings.providerId} disabled={busy}
+                  description="选择已配置的服务连接。"
+                  options={providers.filter(provider => provider.isEnabled).map(provider => ({
+                    value: provider.id, label: provider.name || provider.id,
+                  }))}
+                  onChange={event => patch({ providerId: event.target.value, modelName: '' })} />
+                <Select label="具体模型" placeholder="请选择具体模型" fieldSize="md" fullWidth
+                  value={settings.modelName} disabled={busy || !activeProvider || models.length === 0}
+                  description={!activeProvider ? '请先选择左侧模型连接。'
+                    : models.length === 0 ? '此连接暂无可选模型，请先到模型配置中添加。' : '选择该连接用于复盘的模型。'}
+                  options={models.map(model => ({ value: model.name || model.id, label: model.name || model.id }))}
+                  onChange={event => patch({ modelName: event.target.value })} />
               </div>} />
             <SettingsRow label="" control={<Button variant="primary" size="sm" disabled={busy} onClick={save}>保存设置</Button>} />
           </SettingsGroup>
@@ -299,11 +303,11 @@ export function ReviewSettings() {
             ))}
             <SettingsRow label="新增目标" layout="stacked"
               control={<div className={styles.stack}>
-                <input value={goalTitle} maxLength={200} placeholder="例如：每周完成三次学习" disabled={busy}
+                <TextInput aria-label="目标名称" value={goalTitle} maxLength={200} placeholder="例如：每周完成三次学习" disabled={busy}
                   onChange={event => setGoalTitle(event.target.value)} />
-                <input value={goalConstraint} maxLength={500} placeholder="约束，例如：不牺牲睡眠" disabled={busy}
+                <TextInput aria-label="目标约束" value={goalConstraint} maxLength={500} placeholder="约束，例如：不牺牲睡眠" disabled={busy}
                   onChange={event => setGoalConstraint(event.target.value)} />
-                <input value={goalCriterion} maxLength={300} placeholder="怎样算有进展" disabled={busy}
+                <TextInput aria-label="目标衡量方式" value={goalCriterion} maxLength={300} placeholder="怎样算有进展" disabled={busy}
                   onChange={event => setGoalCriterion(event.target.value)} />
                 <Button variant="outline" size="sm" icon={<Plus size={14} />} disabled={busy || !goalTitle.trim()} onClick={addGoal}>添加目标</Button>
               </div>} />
@@ -386,7 +390,7 @@ export function ReviewSettings() {
 
       <Modal open={Boolean(feedbackTarget)} title="提交反馈" onClose={() => setFeedbackTarget(null)} width={460}>
         <p className={styles.muted}>决策：{STATE_TEXT[feedbackTarget?.decision ?? ''] ?? ''}</p>
-        <textarea value={feedbackText} maxLength={500} rows={3} placeholder="可选：补充原因或调整后的做法，不要填写敏感信息。"
+        <textarea className={styles.textarea} aria-label="反馈说明" value={feedbackText} maxLength={500} rows={3} placeholder="可选：补充原因或调整后的做法，不要填写敏感信息。"
           onChange={event => setFeedbackText(event.target.value)} />
         <div className={styles.modalActions}>
           <Button variant="ghost" size="sm" onClick={() => setFeedbackTarget(null)}>取消</Button>
@@ -396,7 +400,7 @@ export function ReviewSettings() {
 
       <Modal open={Boolean(correctionTarget)} title="纠正或否定观察" onClose={() => setCorrectionTarget(null)} width={460}>
         <p className={styles.muted}>填写说明即为纠正；留空提交则否定了这条观察。被纠正或否定的观察不再作为召回证据。</p>
-        <textarea value={correctionText} maxLength={500} rows={3} placeholder="例如：那段时间在出差，不能说明习惯变化。"
+        <textarea className={styles.textarea} aria-label="观察纠正说明" value={correctionText} maxLength={500} rows={3} placeholder="例如：那段时间在出差，不能说明习惯变化。"
           onChange={event => setCorrectionText(event.target.value)} />
         <div className={styles.modalActions}>
           <Button variant="ghost" size="sm" onClick={() => setCorrectionTarget(null)}>取消</Button>
