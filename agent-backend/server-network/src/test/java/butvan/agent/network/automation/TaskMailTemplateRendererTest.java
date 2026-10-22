@@ -18,6 +18,31 @@ class TaskMailTemplateRendererTest {
                     new TaskReportBuilder.Section("todo", "待办进度", "<img src=x onerror=alert(1)> {{study}}")),
             "2026-09-23", "2026-09-23 18:00（Asia/Shanghai）");
 
+    @Test void periodReviewsShowComparisonsAndDistinctActionPromptsWithoutDailyAssets() {
+        for (String kind : List.of("WEEKLY_REPORT", "MONTHLY_REPORT")) {
+            var task = new TaskSpec("复盘", "", kind, "DAILY", "Asia/Shanghai", "20:30", null,
+                    127, 45, 5, "00:00", "00:00", true, true, false, false, true, true, true, MailTemplate.defaults());
+            var data = new TaskReportBuilder.Report("报告", true, List.of(
+                    new TaskReportBuilder.Section("todo", "待办", "", List.of(
+                            new TaskReportBuilder.Metric("完成率", "不可用", "50%", "无法比较")), "本期数据暂不可用。"),
+                    new TaskReportBuilder.Section("study", "学习", "", List.of(
+                            new TaskReportBuilder.Metric("学习时长（分钟）", "120", "60", "+60（+100%）")), "<script>bad</script>")),
+                    "2026-09-01 ~ 2026-09-30 · 对比 2026-08-01 ~ 2026-08-31", "生成时间");
+            String html = TaskMailTemplateRenderer.render(task, data);
+            assertTrue(html.contains("本期与上期对比"));
+            assertTrue(html.contains("+60（+100%）"));
+            assertTrue(html.contains("本期数据暂不可用"));
+            assertTrue(html.contains("无法比较"));
+            assertTrue(html.contains("&lt;script&gt;"));
+            assertFalse(html.contains("<script>"));
+            assertFalse(html.contains("资产余额"));
+            assertFalse(html.contains("Until tomorrow"));
+            assertFalse(html.contains("支出 · 钱"));
+            assertTrue(html.contains(htmlEscape("MONTHLY_REPORT".equals(kind) ? "下月 · 做更少" : "下周 · 把复盘")));
+            assertTrue(html.contains("MONTHLY_REPORT".equals(kind) ? "自然月天数不同" : "最多三件重要事项"));
+        }
+    }
+
     @Test void digestRestoresPaperLayoutWithFewRulesAndEscapesContent() {
         var html = TaskMailTemplateRenderer.render(spec(MailTemplate.defaults()), report);
         assertTrue(html.contains("background:#ebebe9"));

@@ -40,24 +40,29 @@ public final class TaskMailTemplateRenderer {
             body.append(assetOverview(report, expense));
             body.append(accountSection(report.accounts(), expense, number++));
         }
-        if (expense != null) body.append(cashflowSection(expense, number++, dailyAssets));
-        if ("DAILY_REPORT".equals(spec.kind()) && !report.timeline().isEmpty())
-            body.append(timelineSection(report.timeline(), number++));
-        if (todo != null || study != null) body.append(progressSection(todo, study, report.timeline(), number));
+        boolean periodReview = "WEEKLY_REPORT".equals(spec.kind()) || "MONTHLY_REPORT".equals(spec.kind());
+        if (periodReview) {
+            body.append(periodReview(spec, report));
+        } else {
+            if (expense != null) body.append(cashflowSection(expense, number++, dailyAssets));
+            if ("DAILY_REPORT".equals(spec.kind()) && !report.timeline().isEmpty())
+                body.append(timelineSection(report.timeline(), number++));
+            if (todo != null || study != null) body.append(progressSection(todo, study, report.timeline(), number));
+        }
         if (!isReport) body.append(paragraph(report.text(), INK));
 
         String currentDate = isReport ? currentPeriod(report.date()) : "任务提醒";
         String dateLabel = formattedDate(currentDate);
         String heading = !isReport ? spec.title() : switch (spec.kind()) {
             case "DAILY_REPORT" -> "A day, recorded.";
-            case "WEEKLY_REPORT" -> "A week, recorded.";
-            case "MONTHLY_REPORT" -> "A month, recorded.";
+            case "WEEKLY_REPORT" -> "A week, reflected.";
+            case "MONTHLY_REPORT" -> "A month, reimagined.";
             default -> "A day, recorded.";
         };
         String subtitle = !isReport ? "" : switch (spec.kind()) {
             case "DAILY_REPORT" -> "把今天，留在这里。";
-            case "WEEKLY_REPORT" -> "把这一周，留在这里。";
-            case "MONTHLY_REPORT" -> "把这个月，留在这里。";
+            case "WEEKLY_REPORT" -> "看见进展，理解阻碍，让下周更有重点。";
+            case "MONTHLY_REPORT" -> "回望投入与收获，为下个月做一次清醒的取舍。";
             default -> "把今天，留在这里。";
         };
         String reportKind = !isReport ? "TASK REMINDER" : "DAILY_REPORT".equals(spec.kind()) ? "PRIVATE DAILY REPORT" : "PRIVATE PERIOD REPORT";
@@ -80,11 +85,63 @@ public final class TaskMailTemplateRenderer {
                 + (subtitle.isBlank() ? "" : "<div style='margin-top:19px;font-size:13px;color:#666'>" + escape(subtitle) + "</div>")
                 + generatedLine
                 + "<div style='margin-top:38px'>" + body + partial + "</div>"
-                + "<div style='margin-top:52px;padding-top:25px;border-top:1px solid #222'><div style='font-family:Georgia,\"Songti SC\",serif;font-size:24px;letter-spacing:-.7px'>Until tomorrow.</div>"
-                + "<p style='font-size:11px;color:#888;line-height:2;max-width:440px;margin:14px 0 0'>记录不只是关于数字，也关于那些认真度过的时刻。今天已经写下，明天继续。</p></div>"
+                + "<div style='margin-top:52px;padding-top:25px;border-top:1px solid #222'><div style='font-family:Georgia,\"Songti SC\",serif;font-size:24px;letter-spacing:-.7px'>" + (periodReview ? "Make room for what matters." : "Until tomorrow.") + "</div>"
+                + "<p style='font-size:11px;color:#888;line-height:2;max-width:440px;margin:14px 0 0'>" + (periodReview ? "复盘不是给自己打分，而是找到下一步更值得投入的事。邮件中的问题供你思考，不代表系统对原因的判断。" : "记录不只是关于数字，也关于那些认真度过的时刻。今天已经写下，明天继续。") + "</p></div>"
                 + "<table role='presentation' width='100%' cellspacing='0' cellpadding='0' style='margin-top:20px'><tr><td style='font-size:10px;color:" + MUTED + "'>butvan. / PERSONAL ARCHIVE</td>"
                 + "<td align='right' style='font-size:10px;color:" + MUTED + "'>" + escape(footerDate(currentDate)) + "</td></tr></table>"
                 + "</td></tr></table></td></tr></table></body></html>";
+    }
+
+    /** 周月报共享事实表，分别提供执行复盘与方向复盘；不凭汇总数值推断原因。 */
+    private static String periodReview(TaskSpec spec, TaskReportBuilder.Report report) {
+        boolean monthly = "MONTHLY_REPORT".equals(spec.kind());
+        StringBuilder html = new StringBuilder();
+        html.append("<div style='padding:20px;background:#f3f6f8;border-left:3px solid ").append(BALANCE).append("'>")
+                .append(paragraph(monthly ? "月度复盘 · 留出 20 分钟，先看事实，再做取舍。" : "每周复盘 · 留出 10 分钟，先肯定进展，再安排下一步。", INK))
+                .append(paragraph("统计范围：" + report.date(), MUTED))
+                .append(paragraph("仅展示已启用栏目的已记录数据；未记录不等于没有发生。", MUTED)).append("</div>");
+        int number = 1;
+        for (String key : List.of("todo", "study", "expense")) {
+            TaskReportBuilder.Section section = find(report, key);
+            if (section == null) continue;
+            String title = switch (key) {
+                case "todo" -> "执行 · 从计划到成果";
+                case "study" -> "成长 · 时间投向了哪里";
+                default -> "支出 · 钱是否花在值得的地方";
+            };
+            html.append(sectionHeading(number++, title, "REVIEW"));
+            if (!section.metrics().isEmpty()) {
+                html.append("<table width='100%' cellspacing='0' cellpadding='0' style='margin-top:16px;font-size:11px;border-collapse:collapse;table-layout:fixed'><caption style='text-align:left;padding-bottom:10px;color:#777'>本期与上期对比</caption><thead><tr>");
+                for (String label : List.of("指标", "本期", "上期", "变化"))
+                    html.append("<th scope='col' style='text-align:left;padding:10px 4px;border-bottom:1px solid #ddd'>").append(label).append("</th>");
+                html.append("</tr></thead><tbody>");
+                for (var metric : section.metrics()) {
+                    html.append("<tr>");
+                    for (String cell : List.of(metric.label(), metric.current(), metric.previous(), metric.change()))
+                        html.append("<td style='vertical-align:top;padding:12px 4px;border-bottom:1px solid #eee;overflow-wrap:anywhere;line-height:1.8'>").append(escape(cell)).append("</td>");
+                    html.append("</tr>");
+                }
+                html.append("</tbody></table>");
+            }
+            html.append("todo".equals(key) ? todoDetails(section.detail()) : detail(section.detail()));
+            String prompt = switch (key) {
+                case "todo" -> monthly ? "哪些完成项真正推动了月度目标？哪些反复搁置的事项应当拆分、委托或放弃？" : "挑一件最有价值的完成项：什么方法值得重复？再挑一件未完成项：下一步能否缩小到 15 分钟内开始？";
+                case "study" -> monthly ? "这些学习投入产出了什么作品、能力或解决方案？下月保留一个主攻方向，并安排一次可检验的输出。" : "本周学到的内容，有哪一条能立即用起来？为下周安排一个具体学习时段和一个小输出。";
+                default -> monthly ? "哪些支出持续改善生活，哪些只是惯性消费？检查订阅和一次性大额支出，再决定下月的一个调整。" : "支出变化来自必要投入、一次性购买还是习惯变化？选一笔最值得和一笔可避免的支出，说明原因。";
+            };
+            html.append(paragraph("复盘问题 · " + prompt, BALANCE));
+            if ("expense".equals(key)) html.append(paragraph("不同币种分别统计；支出增减不等于好坏，也不代表收入或结余变化。", MUTED));
+            if (monthly) html.append(paragraph("自然月天数不同，总量变化不等于日均投入或效率变化。", MUTED));
+        }
+        html.append(sectionHeading(number, monthly ? "下月 · 做更少，但更重要的事" : "下周 · 把复盘变成行动", "NEXT STEP"));
+        html.append(paragraph("以下是填写提示，不是系统生成的目标；请在资料或待办中记录你的答案。", MUTED));
+        for (String question : monthly
+                ? List.of("继续：一个已验证有效的方法，以及支持它的事实。", "停止：一项低价值投入，把释放的时间留给什么？", "开始：下月最重要的一个结果，写清验收标准与检查日期。", "第一步：未来 48 小时能完成的动作，以及预留的时间。")
+                : List.of("保留：本周最有效的一个做法。", "调整：一个阻碍，以及下次遇到时的应对方式。", "聚焦：下周最多三件重要事项，分别写下第一步与完成标准。", "留白：给意外和休息预留空间，不把未完成事项全部照搬。")) {
+            html.append("<div style='margin-top:14px;padding:14px 16px;border:1px solid #e5e9ed;border-radius:8px'>")
+                    .append(paragraph(question, INK)).append("</div>");
+        }
+        return html.toString();
     }
 
     private static String assetOverview(TaskReportBuilder.Report report, TaskReportBuilder.Section expense) {
