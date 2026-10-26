@@ -3,6 +3,8 @@ package butvan.agent.agents.session;
 import butvan.agent.agents.agent.event.AgentStreamEvent;
 
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
@@ -18,6 +20,9 @@ public final class AgentStreamSession {
     private static final Logger log = LoggerFactory.getLogger(AgentStreamSession.class);
 
     private final String runId;
+
+    /** 生产线程 finally 完成后发布；审批暂停或未落盘时结果为 null。 */
+    private final CompletableFuture<AgentTurnResult> completion = new CompletableFuture<>();
 
     /**
      * 队列是生产者和消费者之间的缓冲区
@@ -55,6 +60,16 @@ public final class AgentStreamSession {
     /** 获取这次 Agent 运行的稳定标识。 */
     public String runId() {
         return runId;
+    }
+
+    /** 不受有界事件队列溢出影响的收尾结果；调用方仍须消费事件以支持审批。 */
+    public CompletionStage<AgentTurnResult> completion() {
+        return completion.minimalCompletionStage();
+    }
+
+    /** 仅由生产者在解注册之后调用；结果是已持久化正文而不是调用方拼接的 delta。 */
+    public void settle(AgentTurnResult result) {
+        completion.complete(result);
     }
 
     /**

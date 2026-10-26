@@ -8,10 +8,16 @@ public record AgentUserCall(
         String content,
         String context,
         List<String> ragContexts,
-        String runId) {
+        String runId,
+        String turnId) {
+
+    /** 保留桌面端既有构造契约；只有持久化渠道需要预先指定轮次 ID。 */
+    public AgentUserCall(String sessionId, String content, String context, List<String> ragContexts, String runId) {
+        this(sessionId, content, context, ragContexts, runId, null);
+    }
 
     public AgentUserCall(String sessionId, String context) {
-        this(sessionId, context, context, List.of(), null);
+        this(sessionId, context, context, List.of(), null, null);
     }
 
     public AgentUserCall {
