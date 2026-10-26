@@ -1,0 +1,105 @@
+package butvan.agent.agents.agent;
+
+import butvan.agent.agents.agent.event.AgentStreamEvent;
+import butvan.agent.agents.agent.permission.*;
+import butvan.agent.agents.agent.run.*;
+import butvan.agent.agents.context.*;
+import butvan.agent.agents.identity.CurrentUserProvider;
+import butvan.agent.agents.model.ModelHolder;
+import butvan.agent.agents.routing.*;
+import butvan.agent.agents.security.AgentSecurity;
+import butvan.agent.agents.session.*;
+import butvan.agent.agents.session.dto.SessionPermissionMode;
+import butvan.agent.agents.session.dto.TranscriptMessageDto.MessageStatus;
+import butvan.agent.agents.tool.ToolCapabilityCatalog;
+import io.agentscope.core.event.*;
+import io.agentscope.core.message.Msg;
+import io.agentscope.core.message.MsgRole;
+import io.agentscope.harness.agent.HarnessAgent;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+/** 使用真实 AgentService／终态收尾与运行注册表，验证非 HTTP 渠道取得结果时已完成持久化和解注册。 */
+class AgentServiceChannelResultTest {
+    final ModelHolder model = mock(ModelHolder.class, RETURNS_DEEP_STUBS);
+    final CurrentUserProvider owner = new CurrentUserProvider();
+    final SessionCatalogService sessions = mock(SessionCatalogService.class);
+    final TranscriptService transcript = mock(TranscriptService.class);
+    final PendingApprovalStore pending = new PendingApprovalStore();
+    final AgentFactory factory = mock(AgentFactory.class);
+    final HarnessAgent agent = mock(HarnessAgent.class, RETURNS_DEEP_STUBS);
+    final AgentRunCheckpointService checkpoints = mock(AgentRunCheckpointService.class);
+    final ConversationContextAssembler context = mock(ConversationContextAssembler.class);
+    final ToolCapabilityRouter router = mock(ToolCapabilityRouter.class);
+    final ActiveAgentRunRegistry registry = new ActiveAgentRunRegistry();
+    final String turn = UUID.randomUUID().toString();
+    AgentService service;
+
+    @BeforeEach void prepare() {
+        when(model.isInitialized()).thenReturn(true); when(model.getModel().getModelName()).thenReturn("test");
+        when(factory.currentAgent("session")).thenReturn(agent);
+        when(sessions.getPermissionMode("session")).thenReturn(SessionPermissionMode.ASK);
+        when(transcript.appendUserMessageWithTurnId("session", "input", turn)).thenReturn(turn);
+        when(context.assemble(any())).thenReturn(ContextEnvelope.empty());
+        when(router.route(any())).thenReturn(mock(ToolRoutingDecision.class));
+        service = new AgentService(model, owner, sessions, transcript, pending, new AgentEventManager(), factory,
+                mock(AgentSecurity.class), new AgentRunCompleter(transcript, sessions, checkpoints), checkpoints, context,
+                mock(ProfileMaintenanceScheduler.class), registry, mock(OrphanedToolCallRecovery.class), router,
+                mock(ToolCapabilityCatalog.class), mock(ToolRoutingStateSynchronizer.class));
+    }
+
+    AgentUserCall request() { return new AgentUserCall("session", "input", "input", List.of(), "run", turn); }
+
+    void drainTerminal(AgentStreamSession stream) throws Exception {
+        for (int i = 0; i < 10; i++) {
+            AgentStreamEvent event = stream.queue().poll(2, TimeUnit.SECONDS);
+            assertNotNull(event);
+            if (event.isTerminal()) return;
+        }
+        fail("没有收到终态");
+    }
+
+    @Test void resultIsCompletePersistedAndRunUnregisteredBeforePublishing() throws Exception {
+        when(agent.streamEvents(anyList(), any())).thenReturn(Flux.just(
+                new TextBlockDeltaEvent("reply", "block", "不完整的增量"),
+                new AgentResultEvent(Msg.builder().role(MsgRole.ASSISTANT).textContent("完整最终回答🙂\n").build()),
+                new AgentEndEvent("reply")));
+        AgentStreamSession stream = service.streamAgent(request());
+        drainTerminal(stream);
+        AgentTurnResult result = stream.completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals("完整最终回答🙂\n", result.content()); assertEquals(turn, result.turnId());
+        assertEquals(MessageStatus.COMPLETED, result.status());
+        verify(transcript).appendAssistantMessage(eq("session"), eq(turn), eq(result.content()), anyString(),
+                eq(MessageStatus.COMPLETED), anyLong(), anyList(), any());
+        assertEquals("NOT_FOUND", registry.cancel("local-default", "session", "run").status());
+    }
+
+    @Test void persistenceFailureNeverPublishesASuccessfulResult() throws Exception {
+        when(agent.streamEvents(anyList(), any())).thenReturn(Flux.just(
+                new AgentResultEvent(Msg.builder().role(MsgRole.ASSISTANT).textContent("answer").build()), new AgentEndEvent("reply")));
+        doThrow(new IllegalStateException("模拟磁盘写入失败")).when(transcript)
+                .appendAssistantMessage(anyString(), anyString(), anyString(), anyString(), any(), anyLong(), anyList(), any());
+        AgentStreamSession stream = service.streamAgent(request()); drainTerminal(stream);
+        assertNull(stream.completion().toCompletableFuture().get(2, TimeUnit.SECONDS));
+        assertEquals("NOT_FOUND", registry.cancel("local-default", "session", "run").status());
+    }
+
+    @Test void cancellationPreservesPartialReplyAndReleasesRunOnlyAfterSettlement() throws Exception {
+        when(agent.streamEvents(anyList(), any())).thenReturn(Flux.concat(
+                Flux.just(new TextBlockDeltaEvent("reply", "block", "已生成的部分")), Flux.never()));
+        AgentStreamSession stream = service.streamAgent(request());
+        assertInstanceOf(AgentStreamEvent.RunStarted.class, stream.queue().poll(2, TimeUnit.SECONDS));
+        assertInstanceOf(AgentStreamEvent.TextDelta.class, stream.queue().poll(2, TimeUnit.SECONDS));
+        assertTrue(stream.requestCancellation());
+        AgentTurnResult result = stream.completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(MessageStatus.CANCELLED, result.status()); assertEquals("已生成的部分", result.content());
+        assertEquals("NOT_FOUND", registry.cancel("local-default", "session", "run").status());
+    }
+}

@@ -75,7 +75,7 @@ public class AgentRunCompleter {
                     run.finalizeTools(status),
                     run.tokenUsage()
             );
-            run.commitCompletion();
+            run.commitCompletion(status);
         } catch (RuntimeException exception) {
             run.abortCompletion();
             throw exception;

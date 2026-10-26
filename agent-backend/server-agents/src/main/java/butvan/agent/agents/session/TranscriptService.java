@@ -68,7 +68,15 @@ public class TranscriptService {
      * @return
      */
     public synchronized String appendUserMessage(String sessionId, String content) {
-        String turnId = UUID.randomUUID().toString();
+        return appendUserMessageWithTurnId(sessionId, content, UUID.randomUUID().toString());
+    }
+
+    /** 渠道在受理落盘时即确定轮次 ID，重启可精确关联结果；已有轮次禁止重复执行。 */
+    public synchronized String appendUserMessageWithTurnId(String sessionId, String content, String turnId) {
+        if (turnId == null || !UUID.fromString(turnId).toString().equals(turnId)
+                || list(sessionId).stream().anyMatch(message -> turnId.equals(message.turnId()))) {
+            throw new IllegalArgumentException("轮次 ID 无效或已被使用");
+        }
         append(sessionId, new TranscriptMessageDto(
                 UUID.randomUUID().toString(),
                 turnId,
