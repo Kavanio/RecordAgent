@@ -125,6 +125,19 @@ class PendingApprovalStoreTest {
     }
 
     @Test
+    void cancellationChecksRunAndAtomicallyReleasesUnapprovedBatch() {
+        AgentRun run = new AgentRun("session", "owner", "turn", null);
+        PendingApproval approval = new PendingApproval(run,
+                List.of(new ToolUseBlock("tool", "custom_bash", Map.of("command", "test"))), "run");
+        PendingApprovalStore store = new PendingApprovalStore(); store.save(approval);
+        assertThrows(IllegalArgumentException.class, () -> store.claimForCancellation(approval.approvalId(), "owner", "session", "wrong"));
+        assertTrue(store.hasPending("owner", "session"));
+        var cancelled = store.claimForCancellation(approval.approvalId(), "owner", "session", "run");
+        assertFalse(cancelled.allDecided()); assertFalse(store.hasPending("owner", "session"));
+        assertThrows(IllegalArgumentException.class, () -> store.claimForResume(approval.approvalId(), "owner", "session", "run"));
+    }
+
+    @Test
     void claimingResumeReleasesSessionSlotForNextApprovalBatch() {
         AgentRun run = new AgentRun("session-1", "local-default", "turn-1",
                 RuntimeContext.builder().userId("local-default").sessionId("session-1").build());

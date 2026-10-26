@@ -81,6 +81,15 @@ public class PendingApprovalStore {
         return approval;
     }
 
+    /** 原子领取取消权，不需要先批准工具，也不允许与恢复同时领取。 */
+    public synchronized PendingApproval claimForCancellation(
+            String approvalId, String userId, String sessionId, String runId) {
+        PendingApproval approval = require(approvalId, userId, sessionId);
+        if (!approval.runId().equals(runId)) throw new IllegalArgumentException("运行 ID 与审批不匹配");
+        remove(approvalId);
+        return approval;
+    }
+
     /** 恢复线程启动失败时，把已领取批次放回等待态，允许客户端重试。 */
     public synchronized void restoreAfterFailedResume(PendingApproval approval) {
         approval.releaseResumeClaim();

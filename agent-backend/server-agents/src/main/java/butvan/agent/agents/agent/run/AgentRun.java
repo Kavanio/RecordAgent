@@ -2,6 +2,8 @@ package butvan.agent.agents.agent.run;
 
 import butvan.agent.agents.agent.event.AgentStreamEvent;
 import butvan.agent.agents.session.dto.TranscriptMessageDto;
+import butvan.agent.agents.session.AgentTurnResult;
+import io.agentscope.core.event.AgentResultEvent;
 import butvan.agent.agents.usage.ModelIdentity;
 import butvan.agent.agents.usage.TokenUsageRoundContext;
 import butvan.agent.agents.usage.TurnTokenUsage;
@@ -31,6 +33,8 @@ public class AgentRun {
     private final Instant startedAt;
     private final StringBuilder content = new StringBuilder();
     private final StringBuilder thinking = new StringBuilder();
+    /** 仅在 transcript 写入成功后设置，权限暂停不产生最终结果。 */
+    private volatile TranscriptMessageDto.MessageStatus persistedStatus;
     private final TurnUsageAccumulator usageAccumulator = new TurnUsageAccumulator();
     private final AtomicReference<CompletionState> completionState =
             new AtomicReference<>(CompletionState.READY);
@@ -85,6 +89,12 @@ public class AgentRun {
     /** 记录一次 AgentScope 原始模型事件，避免 UI 事件映射丢失 usage。 */
     public void recordModelEvent(AgentEvent event, ModelIdentity modelIdentity) {
         usageAccumulator.record(event, modelIdentity, UsagePurpose.CHAT);
+        // AgentResultEvent 携带完整回复，不依赖消费队列是否曾丢弃增量，也不混入工具前说明。
+        if (event.getSource() == null && event instanceof AgentResultEvent result
+                && result.getResult() != null && result.getResult().getRole() == io.agentscope.core.message.MsgRole.ASSISTANT) {
+            content.setLength(0);
+            content.append(result.getResult().getTextContent());
+        }
     }
 
     /** 返回当前轮次全部模型调用的不可变用量快照。 */
@@ -112,8 +122,15 @@ public class AgentRun {
     }
 
     /** transcript 已成功写入，此后其他终态路径不得重复追加。 */
-    public void commitCompletion() {
+    public void commitCompletion(TranscriptMessageDto.MessageStatus status) {
+        persistedStatus = status;
         completionState.compareAndSet(CompletionState.WRITING, CompletionState.COMPLETED);
+    }
+
+    /** 返回已经落盘的结果；暂停或持久化失败时返回 null，不伪造成功。 */
+    public AgentTurnResult persistedResult(String runId) {
+        return persistedStatus == null ? null
+                : new AgentTurnResult(runId, sessionId, turnId, persistedStatus, contentAsString());
     }
 
     /** transcript 写入失败，恢复为可重试状态。 */

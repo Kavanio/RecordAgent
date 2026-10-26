@@ -17,6 +17,7 @@ import butvan.agent.agents.routing.ToolRoutingDecision;
 import butvan.agent.agents.routing.ToolRoutingRequest;
 import butvan.agent.agents.routing.ToolRoutingStateSynchronizer;
 import butvan.agent.agents.session.AgentStreamSession;
+import butvan.agent.agents.session.AgentTurnResult;
 import butvan.agent.agents.session.SessionCatalogService;
 import butvan.agent.agents.session.TranscriptService;
 import butvan.agent.agents.session.dto.TranscriptMessageDto;
@@ -122,7 +123,9 @@ public class AgentService {
                     ? input : request.content().strip();
 
             // 2. 用户消息只在初始化请求时保存一次，回复确认时不再重复保存
-            String turnId = transcriptService.appendUserMessage(request.sessionId(), displayContent);
+            String turnId = request.turnId() == null
+                    ? transcriptService.appendUserMessage(request.sessionId(), displayContent)
+                    : transcriptService.appendUserMessageWithTurnId(request.sessionId(), displayContent, request.turnId());
             ContextEnvelope contextEnvelope = contextAssembler.assemble(
                     new ContextRequest(userId, displayContent));
             RuntimeContext context = createRuntimeContext(userId, request.sessionId());
@@ -188,6 +191,7 @@ public class AgentService {
             if (request != null) {
                 activeRunRegistry.unregister(userId, request.sessionId(), streamSession);
             }
+            streamSession.settle(run == null ? null : run.persistedResult(streamSession.runId()));
         }
     }
 
@@ -433,6 +437,18 @@ public class AgentService {
         return resumeAgent(sessionId, approvalId, approval.runId());
     }
 
+    /** 取消已暂停的精确轮次，不恢复模型或执行任何已请求工具。 */
+    public AgentTurnResult cancelPendingApproval(String sessionId, String approvalId, String runId) {
+        String userId = currentUserProvider.currentUserId();
+        sessionCatalogService.requireActive(sessionId);
+        PendingApproval approval = pendingApprovalStore.claimForCancellation(approvalId, userId, sessionId, runId);
+        if (!agentRunCompleter.tryComplete(approval.run(), TranscriptMessageDto.MessageStatus.CANCELLED)) {
+            pendingApprovalStore.restoreAfterFailedResume(approval);
+            throw new IllegalStateException("取消后的聊天记录保存失败");
+        }
+        return approval.run().persistedResult(runId);
+    }
+
     /**
      * 构建携带 ConfirmResult 的恢复消息，不是用户新提问
      * @param results
@@ -482,6 +498,7 @@ public class AgentService {
                 }
             } finally {
                 activeRunRegistry.unregister(userId, sessionId, streamSession);
+                streamSession.settle(approval.run().persistedResult(streamSession.runId()));
             }
         });
         try {
