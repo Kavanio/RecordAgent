@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '../common/Button';
-import { fetchBackendConnection, getApiBaseUrl, restartApplication } from '../../services/api';
+import { MessageProvider } from '../common/Message';
+import { BackendConnectionSettings } from '../settings/BackendConnectionSettings';
+import { fetchBackendConnection, getApiBaseUrl, isTauri, restartApplication } from '../../services/api';
 import { fetchAgentReset, resetBlocked, retryAgentReset, subscribeAgentReset } from '../../services/agentResetService';
 import type { AgentResetStatus } from '../../types/agentReset';
 import styles from './AgentResetBoundary.module.css';
@@ -11,6 +13,7 @@ export function AgentResetBoundary({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [receipt, setReceipt] = useState(false);
   const [canRestart, setCanRestart] = useState(false);
+  const [connectionSettingsOpen, setConnectionSettingsOpen] = useState(false);
   const seenBlocked = useRef(false);
   useEffect(() => {
     let mounted = true;
@@ -41,6 +44,19 @@ export function AgentResetBoundary({ children }: { children: ReactNode }) {
     try { await restartApplication(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : '重启失败，请正常退出后重新启动'); }
   }
+  async function checkAgain() {
+    try { await fetchAgentReset(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : '无法确认重置状态'); }
+  }
+  // 只挂载原生连接设置，不放行聊天或业务树；轮询恢复也不能打断正在编辑的连接草稿。
+  if (connectionSettingsOpen) return <MessageProvider>
+    <main className={styles.page} aria-label="后端连接恢复">
+      <section className={`${styles.card} ${styles.recovery}`}>
+        <Button variant="outline" onClick={() => setConnectionSettingsOpen(false)}>返回重置状态</Button>
+        <BackendConnectionSettings />
+      </section>
+    </main>
+  </MessageProvider>;
   if (status && !resetBlocked(status) && !receipt) return <Fragment key={status.generation}>{children}</Fragment>;
   return <main className={styles.page} aria-label="Agent 恢复出厂进度">
     <section className={styles.card}>
@@ -51,8 +67,15 @@ export function AgentResetBoundary({ children }: { children: ReactNode }) {
       {status?.status === 'WAITING_RESTART' && <p>{canRestart
         ? '请正常重启应用。启动后将自动续做当前任务。'
         : '请正常重启上述地址对应的后端进程；刷新页面或重启桌面前端不能重启远程／开发后端。'}</p>}
-      {error && <p role="alert">{error}</p>}
+      {error && <>
+        <p role="alert">{error}</p>
+        <p>{isTauri()
+          ? '暂不能确认重置状态，可先检查后端连接地址与 API Token；保存连接配置后需正常重启应用。'
+          : '浏览器开发环境请检查当前地址对应的开发后端是否运行；后端版本需支持重置状态接口。'}</p>
+      </>}
       <div className={styles.actions}>
+        {error && <Button variant="outline" onClick={() => void checkAgain()}>重新检查状态</Button>}
+        {error && isTauri() && <Button variant="outline" onClick={() => setConnectionSettingsOpen(true)}>后端连接设置</Button>}
         {status?.retryable && <Button variant="outline" onClick={() => void retry()}>继续原重置任务</Button>}
         {status?.status === 'WAITING_RESTART' && canRestart && <Button onClick={() => void restart()}>正常重启应用</Button>}
         {receipt && <Button variant="primary" onClick={() => { seenBlocked.current = false; setReceipt(false); }}>开始新对话</Button>}

@@ -6,6 +6,8 @@ import butvan.agent.agents.context.PersonalContextService;
 import butvan.agent.agents.identity.CurrentUserProvider;
 import butvan.agent.agents.reset.*;
 import butvan.agent.agents.storage.AgentStorageProperties;
+import butvan.agent.agents.subagent.AgentDefinitionLoader;
+import butvan.agent.agents.subagent.SubagentCatalog;
 import butvan.agent.agents.usage.ApproximateTokenCounter;
 import butvan.agent.network.controller.ApiExceptionHandler;
 import butvan.agent.network.reset.controller.AgentResetController;
@@ -42,7 +44,8 @@ class ResetHttpIntegrationTest {
         factory.addAspect(new ResetOperationAspect(barrier));
         PersonalContextService profiles = factory.getProxy();
         var service = new AgentResetService(barrier, new AgentResetFiles(storage), new CurrentUserProvider(),
-                new PendingApprovalStore(), new ActiveAgentRunRegistry(), List.of(), Clock.systemUTC());
+                new PendingApprovalStore(), new ActiveAgentRunRegistry(),
+                new SubagentCatalog(new AgentDefinitionLoader(), storage), List.of(), Clock.systemUTC());
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new AgentResetController(service), new ProfileEndpoint(profiles))
                 .setControllerAdvice(new ApiExceptionHandler()).build();
         try {

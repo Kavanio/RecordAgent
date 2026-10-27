@@ -3,3 +3,4 @@
 .card h1 { font-size: 22px; margin: 0 0 16px; }
 .card [role='alert'] { color: #a82929; }
 .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.recovery { box-sizing: border-box; width: 100%; max-width: 840px; }

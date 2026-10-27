@@ -4,6 +4,7 @@ import butvan.agent.agents.reset.*;
 import butvan.agent.agents.agent.permission.PendingApprovalStore;
 import butvan.agent.agents.agent.run.ActiveAgentRunRegistry;
 import butvan.agent.agents.identity.CurrentUserProvider;
+import butvan.agent.agents.subagent.SubagentCatalog;
 import butvan.agent.network.reset.dto.ResetDtos.*;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ public class AgentResetService {
     private final CurrentUserProvider user;
     private final PendingApprovalStore approvals;
     private final ActiveAgentRunRegistry runs;
+    private final SubagentCatalog subagents;
     private final List<ResetParticipant> participants;
     private final Clock clock;
     private final Map<String, Ticket> tickets = new HashMap<>();
@@ -34,10 +36,11 @@ public class AgentResetService {
     private boolean closing;
 
     public AgentResetService(ResetBarrier barrier, AgentResetFiles files, CurrentUserProvider user,
-                             PendingApprovalStore approvals, ActiveAgentRunRegistry runs,
+                             PendingApprovalStore approvals, ActiveAgentRunRegistry runs, SubagentCatalog subagents,
                              List<ResetParticipant> participants, Clock automationClock) {
         this.barrier = barrier; this.files = files; this.user = user; this.approvals = approvals;
         this.runs = runs; this.participants = participants.stream().sorted(Comparator.comparing(ResetParticipant::id)).toList();
+        this.subagents = subagents;
         this.clock = automationClock;
     }
     /** 只发短期凭证和静态范围，不停止任务、不接触外部服务。 */
@@ -141,6 +144,8 @@ public class AgentResetService {
                 files.clean(owner); barrier.stepDone("personal-files");
             }
             approvals.clearUser(owner);
+            // 每次续做都清内存：启动时目录可能先于重置恢复，已完成步骤不能跳过本进程缓存失效。
+            subagents.resetToBuiltins();
             barrier.stepDone("memory-caches");
             barrier.complete();
             for (var participant : participants) {
