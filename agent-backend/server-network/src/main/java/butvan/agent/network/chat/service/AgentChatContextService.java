@@ -1,5 +1,7 @@
 package butvan.agent.network.chat.service;
 
+import butvan.agent.agents.agent.AgentImageAttachment;
+import butvan.agent.agents.agent.AgentImages;
 import butvan.agent.agents.agent.AgentUserCall;
 import butvan.agent.network.chat.dto.AgentChatRequest;
 import butvan.agent.network.record.model.RecordModels.RecordEntry;
@@ -8,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -17,16 +20,18 @@ import java.util.List;
 public class AgentChatContextService {
     private static final int MAX_REFERENCE_COUNT = 4;
     private static final int MAX_REFERENCE_CHARACTERS = 50_000;
+    private static final int MAX_IMAGE_COUNT = 4;
 
     private final RecordService recordService;
 
     /** 校验资料所有权与状态，在服务端读取正文并构建内部 Agent 请求。 */
     public AgentUserCall prepare(String ownerId, AgentChatRequest request) {
         if (request == null) throw new IllegalArgumentException("聊天请求不能为空");
+        List<AgentImageAttachment> images = images(request.images());
         List<String> referenceIds = normalizedReferenceIds(request.recordReferenceIds());
         if (referenceIds.isEmpty()) {
-            return new AgentUserCall(
-                    request.sessionId(), request.content(), request.context(), List.of(), request.runId());
+            return new AgentUserCall(request.sessionId(), request.content(), request.context(), List.of(),
+                    request.runId(), null, images);
         }
 
         String question = request.context() == null || request.context().isBlank()
@@ -61,8 +66,34 @@ public class AgentChatContextService {
             expanded.append("\n--- 资料正文结束 ---\n\n");
         }
         expanded.append("用户问题：").append(question);
-        return new AgentUserCall(
-                request.sessionId(), request.content(), expanded.toString(), ragContexts, request.runId());
+        return new AgentUserCall(request.sessionId(), request.content(), expanded.toString(), ragContexts,
+                request.runId(), null, images);
+    }
+
+    /**
+     * 将请求中的 Base64 图片解码并校验；格式与大小以文件头为准，不信任前端声明的类型。
+     *
+     * <p>图片只在内存中随本轮传递，不落盘也不进 transcript。</p>
+     */
+    private List<AgentImageAttachment> images(List<AgentChatRequest.AgentChatImage> values) {
+        if (values == null || values.isEmpty()) return List.of();
+        if (values.size() > MAX_IMAGE_COUNT) {
+            throw new IllegalArgumentException("单次最多发送 " + MAX_IMAGE_COUNT + " 张图片");
+        }
+        List<AgentImageAttachment> images = new ArrayList<>();
+        for (AgentChatRequest.AgentChatImage value : values) {
+            if (value == null || value.dataBase64() == null || value.dataBase64().isBlank()) {
+                throw new IllegalArgumentException("图片内容不能为空");
+            }
+            byte[] data;
+            try {
+                data = Base64.getDecoder().decode(value.dataBase64());
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException("图片内容不是合法的 Base64 编码");
+            }
+            images.add(AgentImages.parse(data));
+        }
+        return images;
     }
 
     private List<String> normalizedReferenceIds(List<String> values) {

@@ -1,22 +1,25 @@
-package butvan.agent.feishu.service;
+package butvan.agent.agents.agent;
 
-import butvan.agent.agents.agent.AgentImageAttachment;
-
-/** 按文件头判定图片格式，不信任平台返回的文件名或扩展名。 */
-public final class FeishuImages {
+/**
+ * 图片内容的统一校验入口：只认文件头，不信任扩展名或调用方声明的媒体类型。
+ *
+ * <p>桌面端上传、飞书下载等所有外部来源都必须经过这里，避免各处自建一套格式判断。</p>
+ */
+public final class AgentImages {
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
     private static final byte[] JPEG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
     private static final byte[] GIF = {'G', 'I', 'F', '8'};
     private static final byte[] RIFF = {'R', 'I', 'F', 'F'};
     private static final byte[] WEBP = {'W', 'E', 'B', 'P'};
 
-    private FeishuImages() { }
+    private AgentImages() { }
 
     /**
-     * 校验并包装成模型可用的图片附件；大小与格式不符合要求时抛出中文异常。
+     * 校验并包装成模型可用的图片附件。
      *
      * @param data 图片原始字节
      * @return 图片附件
+     * @throws IllegalArgumentException 格式不受支持、内容为空或超过大小上限
      */
     public static AgentImageAttachment parse(byte[] data) {
         String mediaType = mediaType(data);

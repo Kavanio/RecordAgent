@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Plus, ArrowUp, Mic, Square } from 'lucide-react';
+import { Plus, ArrowUp, Mic, Square, X } from 'lucide-react';
 import { ModelSelector } from '../model/ModelSelector';
 import { PermissionModeSelector } from './PermissionModeSelector';
-import type { SessionPermissionMode } from '../../types/chat';
+import type { ChatImageAttachment, SessionPermissionMode } from '../../types/chat';
 import { useMessage } from '../common/Message';
 import {
   createSpeechRecognition,
@@ -11,6 +11,11 @@ import {
   type SpeechRecognitionController,
 } from '../../services/speechRecognition';
 import styles from './PromptInput.module.css';
+
+/** 与服务端 AgentImages 保持一致：格式、大小和单次数量两端各校验一次。 */
+const MAX_IMAGE_COUNT = 4;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const SUPPORTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 
 interface PromptInputProps {
   value: string;
@@ -35,6 +40,9 @@ interface PromptInputProps {
   isJevDisabled?: boolean;
   isJevSaving?: boolean;
   jevTitle?: string;
+  /** 已附加的图片；由父组件持有，发送后清空。 */
+  images?: ChatImageAttachment[];
+  onImagesChange?: (images: ChatImageAttachment[]) => void;
 }
 
 /**
@@ -64,8 +72,11 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   isJevDisabled = false,
   isJevSaving = false,
   jevTitle,
+  images = [],
+  onImagesChange,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionController | null>(null);
   const dictationBasePromptRef = useRef('');
   const finalDictationRef = useRef('');
@@ -147,10 +158,86 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   };
 
   const hasValue = value.trim().length > 0;
-  const isSendEnabled = canSend ?? hasValue;
+  const isSendEnabled = canSend ?? (hasValue || images.length > 0);
+
+  const readImage = (file: File): Promise<ChatImageAttachment> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('图片读取失败，请重试。'));
+    reader.onload = () => resolve({
+      mediaType: file.type,
+      dataUrl: typeof reader.result === 'string' ? reader.result : '',
+      name: file.name,
+    });
+    reader.readAsDataURL(file);
+  });
+
+  /** 前端先给出即时反馈，服务端仍按文件头重新校验格式与大小。 */
+  const addImages = async (files: File[]) => {
+    if (!onImagesChange) return;
+    const remaining = MAX_IMAGE_COUNT - images.length;
+    if (remaining <= 0) {
+      showMessage('error', `单次最多发送 ${MAX_IMAGE_COUNT} 张图片。`);
+      return;
+    }
+    const accepted: ChatImageAttachment[] = [];
+    for (const file of files.slice(0, remaining)) {
+      if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
+        showMessage('error', '仅支持 PNG、JPEG、WebP 与 GIF 图片。');
+        continue;
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        showMessage('error', '单张图片不能超过 10 MiB。');
+        continue;
+      }
+      try {
+        accepted.push(await readImage(file));
+      } catch (error) {
+        showMessage('error', error instanceof Error ? error.message : '图片读取失败，请重试。');
+      }
+    }
+    if (accepted.length > 0) onImagesChange([...images, ...accepted]);
+    if (files.length > remaining) showMessage('error', `单次最多发送 ${MAX_IMAGE_COUNT} 张图片。`);
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    void addImages(files);
+  };
+
+  /** 支持直接粘贴截图；有图片时阻止默认粘贴，避免 Base64 文本污染输入框。 */
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.clipboardData?.files ?? []);
+    if (files.length === 0) return;
+    event.preventDefault();
+    void addImages(files);
+  };
+
+  const removeImage = (index: number) => {
+    onImagesChange?.(images.filter((_, current) => current !== index));
+  };
 
   return (
     <div className={`${styles.container} ${className || ''}`}>
+      {images.length > 0 && (
+        <div className={styles.attachments} aria-label="已附加图片">
+          {images.map((image, index) => (
+            <div key={`${image.name || 'image'}-${index}`} className={styles.attachmentItem}>
+              <img className={styles.attachmentImage} src={image.dataUrl} alt={image.name || '待发送图片'} />
+              <button
+                type="button"
+                className={styles.attachmentRemove}
+                onClick={() => removeImage(index)}
+                aria-label={`移除第 ${index + 1} 张图片`}
+                title="移除"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className={styles.editor}>
         {leadingContent && <div className={styles.leadingContent}>{leadingContent}</div>}
         <textarea
@@ -161,6 +248,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           value={value}
           onChange={(e) => onValueChange(e.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           aria-expanded={Boolean(suggestionListId)}
           aria-controls={suggestionListId}
         />
@@ -168,12 +256,21 @@ export const PromptInput: React.FC<PromptInputProps> = ({
 
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={SUPPORTED_IMAGE_TYPES.join(',')}
+            multiple
+            hidden
+            onChange={handleFileSelect}
+          />
           <button
             type="button"
             className={styles.iconBtn}
-            title="添加附件（即将推出）"
-            aria-label="添加附件（即将推出）"
-            disabled
+            title="添加图片（也可直接粘贴）"
+            aria-label="添加图片"
+            disabled={!onImagesChange || images.length >= MAX_IMAGE_COUNT}
+            onClick={() => fileInputRef.current?.click()}
           >
             <Plus size={18} />
           </button>

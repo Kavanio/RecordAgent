@@ -306,7 +306,7 @@ public class FeishuChatService implements AutoCloseable {
             if (imageKey != null) {
                 try {
                     byte[] data = imageFetcher.fetch(task.replyTo(), imageKey);
-                    images = List.of(FeishuImages.parse(data));
+                    images = List.of(butvan.agent.agents.agent.AgentImages.parse(data));
                     log.info("飞书图片已读取：taskId={}, mediaType={}, bytes={}", task.id(), images.getFirst().mediaType(), data.length);
                 } catch (RuntimeException exception) {
                     // 不重试下载：平台图片键有时效，反复重试只会拖延用户反馈。

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentAnalysisContextRequest, ChatMessage, SessionPermissionMode, TokenUsageSummary } from '../../types/chat';
+import type { AgentAnalysisContextRequest, ChatImageAttachment, ChatMessage, SessionPermissionMode, TokenUsageSummary } from '../../types/chat';
 import type { TaskDto } from '../../types/team';
 import { LoadingTree } from '../common/LoadingTree';
 import { Button } from '../common/Button';
@@ -94,6 +94,7 @@ interface ChatWorkspaceProps {
     modelContext?: string,
     recordReferenceIds?: string[],
     analysisContext?: AgentAnalysisContextRequest,
+    images?: ChatImageAttachment[],
   ) => void;
   onOpenSettings: () => void;
   onRenameSession: (title: string) => Promise<{ success: boolean; message?: string }>;
@@ -237,6 +238,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   const { showMessage } = useMessage();
   const { getActiveModel, getActiveProvider } = useModel();
   const [inputPrompt, setInputPrompt] = useState('');
+  const [chatImages, setChatImages] = useState<ChatImageAttachment[]>([]);
   const [jevStatus, setJevStatus] = useState<JevStatus | null>(null);
   const [isJevSaving, setIsJevSaving] = useState(false);
   const [jevLoadFailed, setJevLoadFailed] = useState(false);
@@ -549,10 +551,13 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     setCommandSelectedIndex(0);
   };
 
-  const executeSlashCommand = async (rawInput: string) => {
+  const executeSlashCommand = async (rawInput: string, images: ChatImageAttachment[] = []) => {
     const parsed = parseSlashCommand(rawInput);
     if (!parsed) {
-      onSendMessage(rawInput.startsWith('//') ? rawInput.slice(1) : rawInput);
+      // 纯图片消息没有正文，给模型和聊天记录一个可读说明。
+      const text = rawInput.startsWith('//') ? rawInput.slice(1) : rawInput;
+      onSendMessage(text || (images.length > 0 ? IMAGE_ONLY_PROMPT : ''), undefined, undefined, undefined, images);
+      if (images.length > 0) setChatImages([]);
       return;
     }
     if (!parsed.name) {
@@ -820,7 +825,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   };
 
   const handleSend = () => {
-    if (!selectedCommand && !inputPrompt.trim()) return;
+    const images = chatImages;
+    if (!selectedCommand && !inputPrompt.trim() && images.length === 0) return;
     if (selectedCommand && !selectedCommandCanSend) return;
     if (!selectedCommand && recordReferenceSelection.mode === 'direct'
         && selectedRecordReferences.length === 1) {
@@ -830,14 +836,14 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       setInputPrompt('');
       setRecordReferenceSelection({ mode: null, items: [] });
       setCommandMenuDismissed(false);
-      onSendMessage(displayPrompt, question, [reference.id]);
+      onSendMessage(displayPrompt, question, [reference.id], undefined, images);
       return;
     }
     const prompt = selectedCommand ? composedInputPrompt : inputPrompt.trim();
     setInputPrompt('');
     setSelectedCommand(null);
     setCommandMenuDismissed(false);
-    void executeSlashCommand(prompt);
+    void executeSlashCommand(prompt, images);
   };
 
   // 点击左侧任务步骤时间轨：滚动定位到对应消息行
@@ -940,6 +946,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         value={inputPrompt}
         onValueChange={handleInputValueChange}
         onSend={handleSend}
+        images={chatImages}
+        onImagesChange={setChatImages}
         onStop={onStopSession}
         isStreaming={isSessionStreaming}
         isStopping={isSessionStopping}
@@ -1048,7 +1056,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                     {messages.map((msg) => (
                       <div key={msg.id} data-msg-id={msg.id} className={styles.messageRow}>
                         {msg.role === 'user' ? (
-                          <UserMessageContent content={msg.content} />
+                          <UserMessageContent content={msg.content} images={msg.images} />
                         ) : (
                           <AssistantMessageItem
                             msg={msg}
@@ -1150,7 +1158,24 @@ function commandPromptPlaceholder(command: SlashCommandDefinition): string {
   return '可直接发送';
 }
 
-function UserMessageContent({ content }: { content: string }) {
+const IMAGE_ONLY_PROMPT = '用户发送了一张图片，请识别并回应图片内容。';
+
+function UserMessageImages({ images }: { images: ChatImageAttachment[] }) {
+  return (
+    <div className={styles.userMessageImages}>
+      {images.map((image, index) => (
+        <img
+          key={`${image.name || 'image'}-${index}`}
+          className={styles.userMessageImage}
+          src={image.dataUrl}
+          alt={image.name || `图片 ${index + 1}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function UserMessageContent({ content, images }: { content: string; images?: ChatImageAttachment[] }) {
   const parsed = parseSlashCommand(content);
   const command = parsed ? findSlashCommand(parsed.name) : undefined;
   if (!parsed || !command || command.presentation.selection !== 'COMPOSE') {
@@ -1165,7 +1190,12 @@ function UserMessageContent({ content }: { content: string }) {
         </div>
       );
     }
-    return <div className={styles.userMessage}>{content}</div>;
+    return (
+      <div className={styles.userMessage}>
+        {images && images.length > 0 && <UserMessageImages images={images} />}
+        {content}
+      </div>
+    );
   }
   const display = parseSlashCommandDisplayArguments(parsed.args);
   return (

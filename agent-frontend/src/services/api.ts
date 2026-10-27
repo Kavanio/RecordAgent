@@ -456,6 +456,8 @@ export async function streamAgentChat(
     context?: string;
     recordReferenceIds?: string[];
     analysisContext?: AgentAnalysisContextRequest;
+    /** 随本轮一次性提交的图片（Base64，不含 data URL 前缀）。 */
+    images?: { mediaType: string; dataBase64: string }[];
     approvalId?: string;
     signal?: AbortSignal;
   },
@@ -491,6 +493,7 @@ export async function streamAgentChat(
               content: payloadContent,
               recordReferenceIds: params.recordReferenceIds ?? [],
               analysisContext: params.analysisContext,
+              images: params.images ?? [],
             }),
       }
     );

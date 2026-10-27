@@ -421,3 +421,18 @@
 .acceptanceReport li {
   margin-bottom: 6px;
 }
+
+.userMessageImages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.userMessageImage {
+  display: block;
+  max-width: 220px;
+  max-height: 220px;
+  border-radius: 8px;
+  object-fit: cover;
+}

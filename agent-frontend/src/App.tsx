@@ -37,6 +37,7 @@ import {
 import type { PermissionDecisionInput, PermissionToolPayload } from './services/api';
 import type {
   AgentAnalysisContextRequest,
+  ChatImageAttachment,
   ChatSession,
   ChatMessage,
   Project,
@@ -633,6 +634,7 @@ export const MainLayout: React.FC<{
     modelContext = prompt,
     recordReferenceIds: string[] = [],
     analysisContext?: AgentAnalysisContextRequest,
+    images: ChatImageAttachment[] = [],
   ) => {
     let currentSessionId = activeSessionId;
     let targetSession = sessions.find((s) => s.id === currentSessionId);
@@ -666,6 +668,7 @@ export const MainLayout: React.FC<{
       role: 'user',
       content: prompt,
       createdAt: Date.now(),
+      images: images.length > 0 ? images : undefined,
     };
 
     const startTime = Date.now();
@@ -704,6 +707,11 @@ export const MainLayout: React.FC<{
         context: modelContext,
         recordReferenceIds,
         analysisContext,
+        // 只提交 Base64 正文；图片不入历史，刷新后只剩文字占位。
+        images: images.map((image) => ({
+          mediaType: image.mediaType,
+          dataBase64: image.dataUrl.split(',')[1] ?? '',
+        })),
         signal: controller.signal,
       },
       (chunkText) => {
