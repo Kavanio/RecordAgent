@@ -45,7 +45,7 @@ public class FeishuChatService implements AutoCloseable {
     private volatile boolean faulted;
 
     /** 生命周期先取得独占账本，再允许连接收件；持久化路径不接收用户消息中的任意路径。 */
-    public synchronized void open(FeishuConfigData config, FeishuTextSender sender) throws IOException {
+    public synchronized void open(FeishuConfigData config, FeishuMessageSender sender) throws IOException {
         requireClosed();
         String namespace = stableId(config.appId() + ":" + currentUser.currentUserId());
         open(config, sender, new FeishuTaskStore(Path.of(System.getProperty("user.home"),
@@ -53,7 +53,7 @@ public class FeishuChatService implements AutoCloseable {
     }
 
     /** 内部时钟和存储 seam 用于确定性的断网、重启与心跳测试。 */
-    synchronized void open(FeishuConfigData config, FeishuTextSender sender, FeishuTaskStore store,
+    synchronized void open(FeishuConfigData config, FeishuMessageSender sender, FeishuTaskStore store,
                            Clock clock, LongSupplier nanoTime, boolean automaticTicks) {
         requireClosed();
         this.config = config; this.store = store; this.clock = clock; this.nanoTime = nanoTime;

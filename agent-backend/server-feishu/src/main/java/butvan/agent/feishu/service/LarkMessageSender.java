@@ -5,29 +5,32 @@ import com.lark.oapi.core.response.BaseResponse;
 import com.lark.oapi.core.utils.Jsons;
 import com.lark.oapi.service.im.v1.model.*;
 
+import java.util.List;
 import java.util.Map;
 
 /** 直接使用 SDK 的单次 HTTP 接口；避免渠道便捷接口在重试时生成新的 uuid。 */
-public final class LarkTextSender implements FeishuTextSender {
+public final class LarkMessageSender implements FeishuMessageSender {
     private final Client client;
 
-    public LarkTextSender(Client client) { this.client = client; }
+    public LarkMessageSender(Client client) { this.client = client; }
 
     @Override
-    public Attempt send(String chatId, String replyTo, String deliveryId, String text) {
+    public Attempt send(String chatId, String replyTo, String deliveryId, String body, Format format) {
         try {
-            String content = Jsons.DEFAULT.toJson(Map.of("text", text));
+            boolean markdown = format == Format.MARKDOWN;
+            String msgType = markdown ? "interactive" : "text";
+            String content = Jsons.DEFAULT.toJson(markdown ? markdownCard(body) : Map.of("text", body));
             if (replyTo != null && !replyTo.isBlank()) {
                 ReplyMessageResp response = client.im().message().reply(ReplyMessageReq.newBuilder()
                         .messageId(replyTo)
-                        .replyMessageReqBody(ReplyMessageReqBody.newBuilder().msgType("text")
+                        .replyMessageReqBody(ReplyMessageReqBody.newBuilder().msgType(msgType)
                                 .content(content).uuid(deliveryId).build()).build());
                 return classify(response, response != null && response.getData() != null
                         ? response.getData().getMessageId() : null);
             }
             CreateMessageResp response = client.im().message().create(CreateMessageReq.newBuilder()
                     .receiveIdType("chat_id")
-                    .createMessageReqBody(CreateMessageReqBody.newBuilder().receiveId(chatId).msgType("text")
+                    .createMessageReqBody(CreateMessageReqBody.newBuilder().receiveId(chatId).msgType(msgType)
                             .content(content).uuid(deliveryId).build()).build());
             return classify(response, response != null && response.getData() != null
                     ? response.getData().getMessageId() : null);
@@ -35,6 +38,16 @@ public final class LarkTextSender implements FeishuTextSender {
             // 网络异常无法证明平台未受理；不记录可能包含密钥、正文和 URL 的异常文本。
             return Attempt.failed(Status.UNKNOWN, exception.getClass().getSimpleName());
         }
+    }
+
+    /**
+     * 卡片 JSON 2.0 的富文本组件才支持完整 Markdown（标题、引用、行内代码、表格与代码块）；
+     * 1.0 只支持子集，正文会被当成普通文本渲染。卡片不使用头部，避免每条回复多出一个标题。
+     */
+    static Map<String, Object> markdownCard(String markdown) {
+        return Map.of("schema", "2.0",
+                "config", Map.of("update_multi", true),
+                "body", Map.of("elements", List.of(Map.of("tag", "markdown", "content", markdown))));
     }
 
     private Attempt classify(BaseResponse<?> response, String messageId) {

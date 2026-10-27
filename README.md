@@ -224,7 +224,7 @@ pnpm --dir agent-frontend dev
 
 ### 飞书渠道
 
-`server-feishu` 通过长连接接收本人私聊，复用 `server-agents`：受理后立即发送普通文本回执，长任务默认每 60 秒提醒，完成后发送完整文本（长文分段），不再使用流式卡片。配置须包含 `feishu.enabled=true`、`appId`、`appSecret` 以及唯一的本人 `allowedSenderIds`；旧配置缺少白名单时安全禁用，群聊不开放。
+`server-feishu` 通过长连接接收本人私聊，复用 `server-agents`：受理后立即发送普通文本回执，长任务默认每 60 秒提醒，完成后发送完整回答（长文分段），不再使用流式卡片。回复以卡片富文本渲染 Markdown（标题、列表、行内代码、代码块、表格），回执与状态提醒仍是普通文本，卡片富文本需飞书客户端 7.20 及以上。配置须包含 `feishu.enabled=true`、`appId`、`appSecret` 以及唯一的本人 `allowedSenderIds`；旧配置缺少白名单时安全禁用，群聊不开放。
 
 任务受理、会话绑定和回复投递保存在后端数据目录；支持排队、停止、重启核对和人工补发，发送失败不会重新执行工具。配置迁移、命令、限额与故障处理见 [`agent-backend/server-feishu/README.md`](agent-backend/server-feishu/README.md)。
 

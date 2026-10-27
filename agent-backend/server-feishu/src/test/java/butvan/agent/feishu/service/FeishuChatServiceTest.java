@@ -52,8 +52,8 @@ class FeishuChatServiceTest {
         });
     }
 
-    void open() { chat.open(config(), (target, parent, id, text) -> {
-        sent.add(text); return FeishuTextSender.Attempt.sent(id);
+    void open() { chat.open(config(), (target, parent, id, text, format) -> {
+        sent.add(text); return FeishuMessageSender.Attempt.sent(id);
     }, store, clock, clock, false); }
 
     @AfterEach void close() throws Exception { release.countDown(); chat.close(); store.close(); }

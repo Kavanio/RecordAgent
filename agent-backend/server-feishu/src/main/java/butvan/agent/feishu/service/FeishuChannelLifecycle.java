@@ -57,7 +57,7 @@ public class FeishuChannelLifecycle implements SmartLifecycle {
     private void connectLoop(FeishuConfigData config, long currentGeneration) {
         try {
             if (!active(currentGeneration)) return;
-            chat.open(config, new LarkTextSender(Client.newBuilder(config.appId(), config.appSecret())
+            chat.open(config, new LarkMessageSender(Client.newBuilder(config.appId(), config.appSecret())
                     .requestTimeout(15, TimeUnit.SECONDS).logReqAtDebug(false).build()));
             long delayMillis = 1000;
             while (active(currentGeneration)) {
