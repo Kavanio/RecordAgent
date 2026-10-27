@@ -6,6 +6,12 @@ package butvan.agent.agents.agent;
  * <p>桌面端上传、飞书下载等所有外部来源都必须经过这里，避免各处自建一套格式判断。</p>
  */
 public final class AgentImages {
+    /** 两端统一的轮次数量、原始字节总量与纯图片消息说明。 */
+    public static final int MAX_COUNT = 4;
+    public static final int MAX_TOTAL_BYTES = 12 * 1024 * 1024;
+    public static final int MAX_BASE64_CHARS = ((AgentImageAttachment.MAX_BYTES + 2) / 3) * 4;
+    public static final String IMAGE_ONLY_PROMPT = "用户发送了一张图片，请识别并回应图片内容。";
+
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
     private static final byte[] JPEG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
     private static final byte[] GIF = {'G', 'I', 'F', '8'};
@@ -22,6 +28,9 @@ public final class AgentImages {
      * @throws IllegalArgumentException 格式不受支持、内容为空或超过大小上限
      */
     public static AgentImageAttachment parse(byte[] data) {
+        if (data != null && data.length > AgentImageAttachment.MAX_BYTES) {
+            throw new IllegalArgumentException("单张图片不能超过 10 MiB");
+        }
         String mediaType = mediaType(data);
         if (mediaType == null) {
             throw new IllegalArgumentException("不支持的图片格式，仅支持 PNG、JPEG、WebP 与 GIF");

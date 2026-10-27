@@ -36,6 +36,7 @@ class FeishuChatServiceTest {
     /** 测试用的图片下载 seam：默认返回一张合法 PNG，可在单个用例里改成失败或非法格式。 */
     volatile byte[] imageBytes = FeishuTestSupport.png();
     String imageFetchError;
+    final java.util.concurrent.atomic.AtomicInteger downloads = new java.util.concurrent.atomic.AtomicInteger();
 
     @BeforeEach void prepare() throws Exception {
         runner = mock(FeishuAgentRunner.class); sessions = mock(SessionCatalogService.class);
@@ -60,6 +61,7 @@ class FeishuChatServiceTest {
     void open() { chat.open(config(), (target, parent, id, text, format) -> {
         sent.add(text); return FeishuMessageSender.Attempt.sent(id);
     }, (messageId, fileKey) -> {
+        downloads.incrementAndGet();
         if (imageFetchError != null) throw new IllegalStateException(imageFetchError);
         return imageBytes;
     }, store, clock, clock, false); }
@@ -146,6 +148,39 @@ class FeishuChatServiceTest {
         open(); chat.handle(imageMessage("pic", "file-key"));
         pumpUntil(() -> sent.stream().anyMatch(text -> text.contains("图片读取失败")));
         assertTrue(inputs.isEmpty());
+    }
+
+    @Test void rejectsMixedPostWithoutDroppingTextOrDownloadingJustTheFirstImage() throws Exception {
+        when(model.supportsVision()).thenReturn(true);
+        var source = imageMessage("mixed", "file-key");
+        var post = new com.lark.oapi.channel.model.NormalizedMessage("mixed", "chat", "p2p", "owner", "test",
+                "请比较这两张图，不要只看第一张", "post", source.getResources(), List.of(),
+                false, false, null, null, null, 0L, null);
+        open(); chat.handle(post);
+        pumpUntil(() -> sent.stream().anyMatch(text -> text.contains("暂不支持图文混排")));
+        assertEquals(0, downloads.get());
+        verifyNoInteractions(runner);
+    }
+
+    @Test void missingImageKeyIsReportedInsteadOfStartingAnEmptyTurn() throws Exception {
+        var missing = new com.lark.oapi.channel.model.NormalizedMessage("missing", "chat", "p2p", "owner", "test",
+                "", "image", List.of(), List.of(), false, false, null, null, null, 0L, null);
+        open(); chat.handle(missing);
+        pumpUntil(() -> sent.stream().anyMatch(text -> text.contains("未取得图片资源")));
+        assertEquals(0, downloads.get());
+        verifyNoInteractions(runner);
+    }
+
+    @Test void queuedImageRechecksCapabilityBeforeDownloading() throws Exception {
+        when(model.supportsVision()).thenReturn(true);
+        open(); chat.handle(message("first", "first"));
+        await(() -> inputs.size() == 1);
+        chat.handle(imageMessage("queued-image", "file-key"));
+        when(model.supportsVision()).thenReturn(false);
+        release.countDown();
+        pumpUntil(() -> sent.stream().anyMatch(text -> text.contains("切换到视觉模型后重发")));
+        assertEquals(0, downloads.get());
+        assertEquals(List.of("first"), inputs);
     }
 
     @Test void repeatedMessageExecutesOnceAndFollowupWaitsInFifoOrder() throws Exception {

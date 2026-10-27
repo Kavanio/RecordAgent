@@ -41,6 +41,9 @@ public record AgentImageAttachment(String mediaType, byte[] data) {
         return data.clone();
     }
 
+    /** 只读大小摘要，校验预算不必复制整张图片。 */
+    public int sizeBytes() { return data.length; }
+
     /** 供模型适配器使用的 Base64 内容，只在内存中生成。 */
     public String base64() {
         return Base64.getEncoder().encodeToString(data);

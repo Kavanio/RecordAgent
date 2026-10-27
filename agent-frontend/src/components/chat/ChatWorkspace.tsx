@@ -22,7 +22,8 @@ import { RightSidePanel, type RightPanelTab } from './RightSidePanel';
 import { ChatTopBarInformation } from './topbar/ChatTopBarInformation';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { SlashCommandChip } from './SlashCommandChip';
-import { RecordReferenceTag } from './RecordReferenceTag';
+import { UserMessageContent } from './UserMessageContent';
+import { useChatImages } from './useChatImages';
 import { SlashCommandResult, type SlashCommandResultData } from './SlashCommandResult';
 import { RecordReferencePicker } from './RecordReferencePicker';
 import { RecordReferenceChip } from './RecordReferenceChip';
@@ -60,7 +61,6 @@ import {
   prepareAnalysisCommand,
   type PreparedAnalysisCommand,
 } from '../../features/slash-command/analysisCommands';
-import { parseSlashCommandDisplayArguments } from '../../features/slash-command/slashCommandDisplay';
 import { buildSlashStatusData } from '../../features/slash-command/slashCommandStatus';
 import { parseDirectRecordReferenceQuery } from '../../features/record/recordReferenceInput';
 import {
@@ -238,7 +238,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   const { showMessage } = useMessage();
   const { getActiveModel, getActiveProvider } = useModel();
   const [inputPrompt, setInputPrompt] = useState('');
-  const [chatImages, setChatImages] = useState<ChatImageAttachment[]>([]);
+  const { images: chatImages, reading: imagesLoading, addFiles, remove: removeImage, clear: clearImages } = useChatImages(sessionId);
   const [jevStatus, setJevStatus] = useState<JevStatus | null>(null);
   const [isJevSaving, setIsJevSaving] = useState(false);
   const [jevLoadFailed, setJevLoadFailed] = useState(false);
@@ -556,8 +556,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     if (!parsed) {
       // 纯图片消息没有正文，给模型和聊天记录一个可读说明。
       const text = rawInput.startsWith('//') ? rawInput.slice(1) : rawInput;
-      onSendMessage(text || (images.length > 0 ? IMAGE_ONLY_PROMPT : ''), undefined, undefined, undefined, images);
-      if (images.length > 0) setChatImages([]);
+      onSendMessage(text || (images.length > 0 ? '[图片]' : ''), undefined, undefined, undefined, images);
+      if (images.length > 0) clearImages();
       return;
     }
     if (!parsed.name) {
@@ -826,6 +826,15 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
 
   const handleSend = () => {
     const images = chatImages;
+    if (isSessionStreaming || imagesLoading) return;
+    if (images.length > 0 && !getActiveModel()?.supportsVision) {
+      showMessage('error', '当前模型未标注图片识别能力，请在模型配置中开启或切换到视觉模型');
+      return;
+    }
+    if (images.length > 0 && (selectedCommand || parseSlashCommand(inputPrompt))) {
+      showMessage('error', '图片暂不能与斜杠命令一起发送，请先移除命令或图片');
+      return;
+    }
     if (!selectedCommand && !inputPrompt.trim() && images.length === 0) return;
     if (selectedCommand && !selectedCommandCanSend) return;
     if (!selectedCommand && recordReferenceSelection.mode === 'direct'
@@ -837,6 +846,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       setRecordReferenceSelection({ mode: null, items: [] });
       setCommandMenuDismissed(false);
       onSendMessage(displayPrompt, question, [reference.id], undefined, images);
+      clearImages();
       return;
     }
     const prompt = selectedCommand ? composedInputPrompt : inputPrompt.trim();
@@ -947,7 +957,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         onValueChange={handleInputValueChange}
         onSend={handleSend}
         images={chatImages}
-        onImagesChange={setChatImages}
+        onAddImages={addFiles}
+        onRemoveImage={removeImage}
+        imagesLoading={imagesLoading}
         onStop={onStopSession}
         isStreaming={isSessionStreaming}
         isStopping={isSessionStopping}
@@ -969,7 +981,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         leadingContent={selectedCommand ? (
           <SlashCommandChip command={selectedCommand} onRemove={removeSelectedCommand} />
         ) : undefined}
-        canSend={selectedCommand ? selectedCommandCanSend : inputPrompt.trim().length > 0}
+        canSend={!imagesLoading && (selectedCommand ? selectedCommandCanSend : inputPrompt.trim().length > 0 || chatImages.length > 0)}
         placeholder={selectedCommand ? commandPromptPlaceholder(selectedCommand) : undefined}
         suggestionListId={commandSuggestions.length > 0
           ? 'slash-command-menu'
@@ -1156,57 +1168,6 @@ function commandPromptPlaceholder(command: SlashCommandDefinition): string {
     return '输入时间范围（可选）';
   }
   return '可直接发送';
-}
-
-const IMAGE_ONLY_PROMPT = '用户发送了一张图片，请识别并回应图片内容。';
-
-function UserMessageImages({ images }: { images: ChatImageAttachment[] }) {
-  return (
-    <div className={styles.userMessageImages}>
-      {images.map((image, index) => (
-        <img
-          key={`${image.name || 'image'}-${index}`}
-          className={styles.userMessageImage}
-          src={image.dataUrl}
-          alt={image.name || `图片 ${index + 1}`}
-        />
-      ))}
-    </div>
-  );
-}
-
-function UserMessageContent({ content, images }: { content: string; images?: ChatImageAttachment[] }) {
-  const parsed = parseSlashCommand(content);
-  const command = parsed ? findSlashCommand(parsed.name) : undefined;
-  if (!parsed || !command || command.presentation.selection !== 'COMPOSE') {
-    const directDisplay = parseSlashCommandDisplayArguments(content);
-    if (directDisplay.referenceTitles.length > 0) {
-      return (
-        <div className={`${styles.userMessage} ${styles.slashUserMessage}`}>
-          {directDisplay.referenceTitles.map((title, index) => (
-            <RecordReferenceTag key={`${title}-${index}`} title={title} />
-          ))}
-          {directDisplay.prompt && <span>{directDisplay.prompt}</span>}
-        </div>
-      );
-    }
-    return (
-      <div className={styles.userMessage}>
-        {images && images.length > 0 && <UserMessageImages images={images} />}
-        {content}
-      </div>
-    );
-  }
-  const display = parseSlashCommandDisplayArguments(parsed.args);
-  return (
-    <div className={`${styles.userMessage} ${styles.slashUserMessage}`}>
-      <SlashCommandChip command={command} />
-      {display.referenceTitles.map((title, index) => (
-        <RecordReferenceTag key={`${title}-${index}`} title={title} />
-      ))}
-      {display.prompt && <span>{display.prompt}</span>}
-    </div>
-  );
 }
 
 export default ChatWorkspace;

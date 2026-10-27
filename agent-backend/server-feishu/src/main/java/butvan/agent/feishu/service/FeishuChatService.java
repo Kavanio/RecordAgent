@@ -1,6 +1,7 @@
 package butvan.agent.feishu.service;
 
 import butvan.agent.agents.agent.AgentImageAttachment;
+import butvan.agent.agents.agent.AgentImages;
 import butvan.agent.agents.identity.CurrentUserProvider;
 import butvan.agent.agents.model.ModelHolder;
 import butvan.agent.agents.session.SessionCatalogService;
@@ -101,7 +102,7 @@ public class FeishuChatService implements AutoCloseable {
             String rejection = rejection(message, text, command, imageKey);
             if (imageKey != null) {
                 // 图片消息没有正文；给模型和 transcript 一个可读说明，图片本身在执行线程里按需下载。
-                task = task.toBuilder().input("用户发送了一张图片，请识别并回应图片内容。").build();
+                task = task.toBuilder().input(AgentImages.IMAGE_ONLY_PROMPT).build();
             }
             if (command || rejection != null) {
                 // 控制与校验反馈不占等待队列，但同样持久化去重。
@@ -153,6 +154,12 @@ public class FeishuChatService implements AutoCloseable {
      * 真正的字节校验放到执行线程，避免在长连接回调里做网络和解析。
      */
     private String rejection(NormalizedMessage message, String text, boolean command, String imageKey) {
+        if ("post".equalsIgnoreCase(message.getRawContentType())) {
+            return "暂不支持图文混排消息，请将文字和图片分开发送（本条未提交给模型）";
+        }
+        if ("image".equalsIgnoreCase(message.getRawContentType()) && imageKey == null) {
+            return "未取得图片资源，请重新发送图片";
+        }
         if (imageKey != null) {
             if (!modelHolder.isInitialized()) return "模型尚未配置，请先在桌面端完成模型初始化。";
             return modelHolder.supportsVision() ? null
@@ -166,11 +173,11 @@ public class FeishuChatService implements AutoCloseable {
 
     /** 取图片消息的资源键；不下载任何内容，非图片消息返回 null。 */
     private static String imageKey(NormalizedMessage message) {
-        if (message.getResources() == null || message.getResources().isEmpty()) return null;
-        boolean image = "image".equalsIgnoreCase(message.getRawContentType());
+        if (!"image".equalsIgnoreCase(message.getRawContentType())
+                || message.getResources() == null || message.getResources().isEmpty()) return null;
         return message.getResources().stream()
                 .filter(resource -> resource.getFileKey() != null && !resource.getFileKey().isBlank())
-                .filter(resource -> image || "image".equalsIgnoreCase(resource.getType()))
+                .filter(resource -> "image".equalsIgnoreCase(resource.getType()))
                 .map(ResourceDescriptor::getFileKey).findFirst().orElse(null);
     }
 
@@ -304,9 +311,13 @@ public class FeishuChatService implements AutoCloseable {
             List<AgentImageAttachment> images = List.of();
             String imageKey = pendingImages.remove(task.id());
             if (imageKey != null) {
+                if (!modelHolder.supportsVision()) {
+                    finish(task.id(), Execution.FAILED, "当前模型未标注图片识别能力，请切换到视觉模型后重发图片");
+                    return;
+                }
                 try {
                     byte[] data = imageFetcher.fetch(task.replyTo(), imageKey);
-                    images = List.of(butvan.agent.agents.agent.AgentImages.parse(data));
+                    images = List.of(AgentImages.parse(data));
                     log.info("飞书图片已读取：taskId={}, mediaType={}, bytes={}", task.id(), images.getFirst().mediaType(), data.length);
                 } catch (RuntimeException exception) {
                     // 不重试下载：平台图片键有时效，反复重试只会拖延用户反馈。

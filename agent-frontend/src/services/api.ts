@@ -8,6 +8,7 @@ import type {
 import type { SubagentProgressDto } from '../types/team';
 import type { FullModelConfig, ModelProtocol } from '../types/model';
 import { invoke } from '@tauri-apps/api/core';
+import { assertChatStreamResponse } from './chatStreamResponse';
 
 export interface ModelConfig {
   vendor: string;
@@ -498,9 +499,7 @@ export async function streamAgentChat(
       }
     );
 
-    if (!response.ok) {
-      throw new Error(`HTTP 响应异常: Status ${response.status}`);
-    }
+    await assertChatStreamResponse(response);
 
     if (!response.body) {
       throw new Error('ReadableStream 不可用');

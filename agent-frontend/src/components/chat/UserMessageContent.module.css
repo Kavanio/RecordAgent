@@ -1,0 +1,36 @@
+.userMessage {
+  align-self: flex-end;
+  max-width: 78%;
+  background-color: #f3f4f6;
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 10px 18px;
+  color: #18181b;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+  user-select: text;
+}
+
+.text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 7px;
+  white-space: pre-wrap;
+}
+
+.images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.image {
+  display: block;
+  max-width: 220px;
+  max-height: 220px;
+  border-radius: 8px;
+  object-fit: cover;
+}

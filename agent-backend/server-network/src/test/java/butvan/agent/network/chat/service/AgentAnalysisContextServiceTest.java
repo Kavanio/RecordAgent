@@ -31,6 +31,15 @@ class AgentAnalysisContextServiceTest {
     }
 
     @Test
+    void rejectsImagesInsteadOfSilentlyDroppingThemFromAnalysis() {
+        var analysis = new AgentAnalysisContextRequest("todo-review", "week", "Asia/Shanghai", false);
+        var error = assertThrows(IllegalArgumentException.class, () -> service.prepare("owner",
+                new AgentChatRequest("run", "session", "/todo-review", "", List.of(), analysis,
+                        List.of(new AgentChatRequest.AgentChatImage("image/png", "AA==")))));
+        org.junit.jupiter.api.Assertions.assertTrue(error.getMessage().contains("图片暂不能"));
+    }
+
+    @Test
     void rejectsUnknownAnalysisCommandBeforeReadingBusinessData() {
         AgentAnalysisContextRequest analysis = new AgentAnalysisContextRequest(
                 "unknown", "week", "Asia/Shanghai", true);

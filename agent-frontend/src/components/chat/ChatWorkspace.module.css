@@ -220,33 +220,6 @@
   min-width: 0;
 }
 
-.userMessage {
-  align-self: flex-end;
-  max-width: 78%;
-  background-color: #f3f4f6;
-  border: none;
-  border-radius: var(--radius-lg);
-  padding: 10px 18px;
-  color: #18181b;
-  font-size: 14px;
-  line-height: 1.5;
-  box-shadow: none;
-  word-break: break-word;
-  user-select: text;
-}
-
-.slashUserMessage {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 3px 7px;
-}
-
-.slashUserMessage > span:last-child {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
 .assistantMessage {
   align-self: flex-start;
   width: 100%;
@@ -420,19 +393,4 @@
 
 .acceptanceReport li {
   margin-bottom: 6px;
-}
-
-.userMessageImages {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.userMessageImage {
-  display: block;
-  max-width: 220px;
-  max-height: 220px;
-  border-radius: 8px;
-  object-fit: cover;
 }

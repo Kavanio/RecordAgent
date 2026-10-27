@@ -3,6 +3,7 @@ package butvan.agent.network.chat.service;
 import butvan.agent.agents.agent.AgentImageAttachment;
 import butvan.agent.agents.agent.AgentImages;
 import butvan.agent.agents.agent.AgentUserCall;
+import butvan.agent.agents.model.ModelHolder;
 import butvan.agent.network.chat.dto.AgentChatRequest;
 import butvan.agent.network.record.model.RecordModels.RecordEntry;
 import butvan.agent.network.record.service.RecordService;
@@ -20,17 +21,22 @@ import java.util.List;
 public class AgentChatContextService {
     private static final int MAX_REFERENCE_COUNT = 4;
     private static final int MAX_REFERENCE_CHARACTERS = 50_000;
-    private static final int MAX_IMAGE_COUNT = 4;
-
     private final RecordService recordService;
+    private final ModelHolder modelHolder;
 
     /** 校验资料所有权与状态，在服务端读取正文并构建内部 Agent 请求。 */
     public AgentUserCall prepare(String ownerId, AgentChatRequest request) {
         if (request == null) throw new IllegalArgumentException("聊天请求不能为空");
         List<AgentImageAttachment> images = images(request.images());
+        String content = request.content();
+        String context = request.context();
+        if (!images.isEmpty()) {
+            if (content == null || content.isBlank()) content = AgentImages.IMAGE_ONLY_PROMPT;
+            if (context == null || context.isBlank()) context = content;
+        }
         List<String> referenceIds = normalizedReferenceIds(request.recordReferenceIds());
         if (referenceIds.isEmpty()) {
-            return new AgentUserCall(request.sessionId(), request.content(), request.context(), List.of(),
+            return new AgentUserCall(request.sessionId(), content, context, List.of(),
                     request.runId(), null, images);
         }
 
@@ -77,19 +83,40 @@ public class AgentChatContextService {
      */
     private List<AgentImageAttachment> images(List<AgentChatRequest.AgentChatImage> values) {
         if (values == null || values.isEmpty()) return List.of();
-        if (values.size() > MAX_IMAGE_COUNT) {
-            throw new IllegalArgumentException("单次最多发送 " + MAX_IMAGE_COUNT + " 张图片");
+        if (!modelHolder.supportsVision()) {
+            throw new IllegalArgumentException("当前模型未标注图片识别能力，请在模型配置中开启或切换到视觉模型");
         }
-        List<AgentImageAttachment> images = new ArrayList<>();
+        if (values.size() > AgentImages.MAX_COUNT) {
+            throw new IllegalArgumentException("单次最多发送 " + AgentImages.MAX_COUNT + " 张图片");
+        }
+        // 先检查全部编码长度，再分配解码缓冲区；避免最后一张超限时前几张已经占满内存。
+        long totalBytes = 0;
         for (AgentChatRequest.AgentChatImage value : values) {
             if (value == null || value.dataBase64() == null || value.dataBase64().isBlank()) {
                 throw new IllegalArgumentException("图片内容不能为空");
             }
+            String encoded = value.dataBase64();
+            if (encoded.length() > AgentImages.MAX_BASE64_CHARS) {
+                throw new IllegalArgumentException("单张图片不能超过 10 MiB");
+            }
+            int padding = encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0;
+            totalBytes += (long) encoded.length() * 3 / 4 - padding;
+            if (totalBytes > AgentImages.MAX_TOTAL_BYTES) {
+                throw new IllegalArgumentException("每轮图片总大小不能超过 12 MiB");
+            }
+        }
+        List<AgentImageAttachment> images = new ArrayList<>();
+        long decodedBytes = 0;
+        for (AgentChatRequest.AgentChatImage value : values) {
             byte[] data;
             try {
                 data = Base64.getDecoder().decode(value.dataBase64());
             } catch (IllegalArgumentException exception) {
                 throw new IllegalArgumentException("图片内容不是合法的 Base64 编码");
+            }
+            decodedBytes += data.length;
+            if (decodedBytes > AgentImages.MAX_TOTAL_BYTES) {
+                throw new IllegalArgumentException("每轮图片总大小不能超过 12 MiB");
             }
             images.add(AgentImages.parse(data));
         }

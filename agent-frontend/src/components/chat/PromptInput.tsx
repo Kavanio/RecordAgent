@@ -10,12 +10,8 @@ import {
   requestMicrophoneAccess,
   type SpeechRecognitionController,
 } from '../../services/speechRecognition';
+import { CHAT_IMAGE_TYPES, MAX_CHAT_IMAGES } from '../../features/chat-images/chatImages';
 import styles from './PromptInput.module.css';
-
-/** 与服务端 AgentImages 保持一致：格式、大小和单次数量两端各校验一次。 */
-const MAX_IMAGE_COUNT = 4;
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const SUPPORTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 
 interface PromptInputProps {
   value: string;
@@ -42,12 +38,14 @@ interface PromptInputProps {
   jevTitle?: string;
   /** 已附加的图片；由父组件持有，发送后清空。 */
   images?: ChatImageAttachment[];
-  onImagesChange?: (images: ChatImageAttachment[]) => void;
+  onAddImages?: (files: File[]) => Promise<void>;
+  onRemoveImage?: (index: number) => void;
+  imagesLoading?: boolean;
 }
 
 /**
  * AI 对话输入框：可组合前置标签、自动增高文本域与底部工具条。
- * 工具条左侧保留附件占位、审批模式与 Jev 开关，右侧为 AI 模型选择、语音听写与发送按钮。
+ * 工具条左侧提供图片附件、审批模式与 Jev 开关，右侧为 AI 模型选择、语音听写与发送按钮。
  */
 export const PromptInput: React.FC<PromptInputProps> = ({
   value,
@@ -73,7 +71,9 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   isJevSaving = false,
   jevTitle,
   images = [],
-  onImagesChange,
+  onAddImages,
+  onRemoveImage,
+  imagesLoading = false,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -98,7 +98,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     if (onInputKeyDown?.(e)) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (isStreaming) return;
+      if (isStreaming || imagesLoading) return;
       onSend();
     }
   };
@@ -158,51 +158,12 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   };
 
   const hasValue = value.trim().length > 0;
-  const isSendEnabled = canSend ?? (hasValue || images.length > 0);
-
-  const readImage = (file: File): Promise<ChatImageAttachment> => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('图片读取失败，请重试。'));
-    reader.onload = () => resolve({
-      mediaType: file.type,
-      dataUrl: typeof reader.result === 'string' ? reader.result : '',
-      name: file.name,
-    });
-    reader.readAsDataURL(file);
-  });
-
-  /** 前端先给出即时反馈，服务端仍按文件头重新校验格式与大小。 */
-  const addImages = async (files: File[]) => {
-    if (!onImagesChange) return;
-    const remaining = MAX_IMAGE_COUNT - images.length;
-    if (remaining <= 0) {
-      showMessage('error', `单次最多发送 ${MAX_IMAGE_COUNT} 张图片。`);
-      return;
-    }
-    const accepted: ChatImageAttachment[] = [];
-    for (const file of files.slice(0, remaining)) {
-      if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
-        showMessage('error', '仅支持 PNG、JPEG、WebP 与 GIF 图片。');
-        continue;
-      }
-      if (file.size > MAX_IMAGE_BYTES) {
-        showMessage('error', '单张图片不能超过 10 MiB。');
-        continue;
-      }
-      try {
-        accepted.push(await readImage(file));
-      } catch (error) {
-        showMessage('error', error instanceof Error ? error.message : '图片读取失败，请重试。');
-      }
-    }
-    if (accepted.length > 0) onImagesChange([...images, ...accepted]);
-    if (files.length > remaining) showMessage('error', `单次最多发送 ${MAX_IMAGE_COUNT} 张图片。`);
-  };
+  const isSendEnabled = !imagesLoading && (canSend ?? (hasValue || images.length > 0));
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
-    void addImages(files);
+    void onAddImages?.(files);
   };
 
   /** 支持直接粘贴截图；有图片时阻止默认粘贴，避免 Base64 文本污染输入框。 */
@@ -210,11 +171,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     const files = Array.from(event.clipboardData?.files ?? []);
     if (files.length === 0) return;
     event.preventDefault();
-    void addImages(files);
-  };
-
-  const removeImage = (index: number) => {
-    onImagesChange?.(images.filter((_, current) => current !== index));
+    void onAddImages?.(files);
   };
 
   return (
@@ -227,7 +184,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
               <button
                 type="button"
                 className={styles.attachmentRemove}
-                onClick={() => removeImage(index)}
+                onClick={() => onRemoveImage?.(index)}
                 aria-label={`移除第 ${index + 1} 张图片`}
                 title="移除"
               >
@@ -259,7 +216,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           <input
             ref={fileInputRef}
             type="file"
-            accept={SUPPORTED_IMAGE_TYPES.join(',')}
+            accept={CHAT_IMAGE_TYPES.join(',')}
             multiple
             hidden
             onChange={handleFileSelect}
@@ -269,7 +226,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
             className={styles.iconBtn}
             title="添加图片（也可直接粘贴）"
             aria-label="添加图片"
-            disabled={!onImagesChange || images.length >= MAX_IMAGE_COUNT}
+            disabled={!onAddImages || images.length >= MAX_CHAT_IMAGES}
             onClick={() => fileInputRef.current?.click()}
           >
             <Plus size={18} />
