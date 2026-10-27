@@ -33,6 +33,48 @@ class ModelConfigRoundTripTest {
     }
 
     @Test
+    void visionCapabilityFollowsSelectedModelAndDefaultsOff() throws Exception {
+        String json = """
+                {
+                  "activeVendor": "custom-1",
+                  "activeModel": "vision-model",
+                  "providers": [{
+                    "id": "custom-1", "name": "自定义", "type": "custom",
+                    "baseUrl": "https://gateway.example/v1", "protocol": "openai", "apiKey": "test-key",
+                    "models": [
+                      {"id": "text-model", "name": "文本", "modelName": "text-model",
+                       "providerId": "custom-1", "supportsVision": false},
+                      {"id": "vision-model", "name": "视觉", "modelName": "vision-model",
+                       "providerId": "custom-1", "supportsVision": true}
+                    ]
+                  }]
+                }
+                """;
+        LocalConfigService.ModelConfigData data =
+                objectMapper.readValue(json, LocalConfigService.ModelConfigData.class);
+        assertTrue(data.toSelector().visionCapable());
+        assertTrue(objectMapper.writeValueAsString(data).contains("\"supportsVision\" : true"));
+        // 同一 Provider 下切到文本模型：能力必须跟着模型掉下来，而不是跟着连接。
+        data.setActiveModel("text-model");
+        assertFalse(data.toSelector().visionCapable());
+    }
+
+    @Test
+    void missingVisionFieldDefaultsToTextOnly() throws Exception {
+        String json = """
+                {
+                  "activeVendor": "dashscope", "activeModel": "qwen-plus",
+                  "providers": [{"id": "dashscope", "type": "dashscope", "apiKey": "test-key",
+                    "models": [{"id": "qwen-plus", "name": "qwen", "modelName": "qwen-plus"}]}]
+                }
+                """;
+        LocalConfigService.ModelConfigData data =
+                objectMapper.readValue(json, LocalConfigService.ModelConfigData.class);
+        // 旧配置没有标注能力时必须按纯文本模型处理，不能假定能看图。
+        assertFalse(data.toSelector().visionCapable());
+    }
+
+    @Test
     void preservesUnknownTopLevelSection() throws Exception {
         String json = """
                 {

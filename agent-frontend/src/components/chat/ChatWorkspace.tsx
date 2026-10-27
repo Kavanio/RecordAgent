@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentAnalysisContextRequest, ChatMessage, SessionPermissionMode, TokenUsageSummary } from '../../types/chat';
+import type { AgentAnalysisContextRequest, ChatImageAttachment, ChatMessage, SessionPermissionMode, TokenUsageSummary } from '../../types/chat';
 import type { TaskDto } from '../../types/team';
 import { LoadingTree } from '../common/LoadingTree';
 import { Button } from '../common/Button';
@@ -22,7 +22,8 @@ import { RightSidePanel, type RightPanelTab } from './RightSidePanel';
 import { ChatTopBarInformation } from './topbar/ChatTopBarInformation';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { SlashCommandChip } from './SlashCommandChip';
-import { RecordReferenceTag } from './RecordReferenceTag';
+import { UserMessageContent } from './UserMessageContent';
+import { useChatImages } from './useChatImages';
 import { SlashCommandResult, type SlashCommandResultData } from './SlashCommandResult';
 import { RecordReferencePicker } from './RecordReferencePicker';
 import { RecordReferenceChip } from './RecordReferenceChip';
@@ -60,7 +61,6 @@ import {
   prepareAnalysisCommand,
   type PreparedAnalysisCommand,
 } from '../../features/slash-command/analysisCommands';
-import { parseSlashCommandDisplayArguments } from '../../features/slash-command/slashCommandDisplay';
 import { buildSlashStatusData } from '../../features/slash-command/slashCommandStatus';
 import { parseDirectRecordReferenceQuery } from '../../features/record/recordReferenceInput';
 import {
@@ -94,6 +94,7 @@ interface ChatWorkspaceProps {
     modelContext?: string,
     recordReferenceIds?: string[],
     analysisContext?: AgentAnalysisContextRequest,
+    images?: ChatImageAttachment[],
   ) => void;
   onOpenSettings: () => void;
   onRenameSession: (title: string) => Promise<{ success: boolean; message?: string }>;
@@ -237,6 +238,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   const { showMessage } = useMessage();
   const { getActiveModel, getActiveProvider } = useModel();
   const [inputPrompt, setInputPrompt] = useState('');
+  const { images: chatImages, reading: imagesLoading, addFiles, remove: removeImage, clear: clearImages } = useChatImages(sessionId);
   const [jevStatus, setJevStatus] = useState<JevStatus | null>(null);
   const [isJevSaving, setIsJevSaving] = useState(false);
   const [jevLoadFailed, setJevLoadFailed] = useState(false);
@@ -549,10 +551,13 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     setCommandSelectedIndex(0);
   };
 
-  const executeSlashCommand = async (rawInput: string) => {
+  const executeSlashCommand = async (rawInput: string, images: ChatImageAttachment[] = []) => {
     const parsed = parseSlashCommand(rawInput);
     if (!parsed) {
-      onSendMessage(rawInput.startsWith('//') ? rawInput.slice(1) : rawInput);
+      // 纯图片消息没有正文，给模型和聊天记录一个可读说明。
+      const text = rawInput.startsWith('//') ? rawInput.slice(1) : rawInput;
+      onSendMessage(text || (images.length > 0 ? '[图片]' : ''), undefined, undefined, undefined, images);
+      if (images.length > 0) clearImages();
       return;
     }
     if (!parsed.name) {
@@ -820,7 +825,17 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   };
 
   const handleSend = () => {
-    if (!selectedCommand && !inputPrompt.trim()) return;
+    const images = chatImages;
+    if (isSessionStreaming || imagesLoading) return;
+    if (images.length > 0 && !getActiveModel()?.supportsVision) {
+      showMessage('error', '当前模型未标注图片识别能力，请在模型配置中开启或切换到视觉模型');
+      return;
+    }
+    if (images.length > 0 && (selectedCommand || parseSlashCommand(inputPrompt))) {
+      showMessage('error', '图片暂不能与斜杠命令一起发送，请先移除命令或图片');
+      return;
+    }
+    if (!selectedCommand && !inputPrompt.trim() && images.length === 0) return;
     if (selectedCommand && !selectedCommandCanSend) return;
     if (!selectedCommand && recordReferenceSelection.mode === 'direct'
         && selectedRecordReferences.length === 1) {
@@ -830,14 +845,15 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       setInputPrompt('');
       setRecordReferenceSelection({ mode: null, items: [] });
       setCommandMenuDismissed(false);
-      onSendMessage(displayPrompt, question, [reference.id]);
+      onSendMessage(displayPrompt, question, [reference.id], undefined, images);
+      clearImages();
       return;
     }
     const prompt = selectedCommand ? composedInputPrompt : inputPrompt.trim();
     setInputPrompt('');
     setSelectedCommand(null);
     setCommandMenuDismissed(false);
-    void executeSlashCommand(prompt);
+    void executeSlashCommand(prompt, images);
   };
 
   // 点击左侧任务步骤时间轨：滚动定位到对应消息行
@@ -940,6 +956,10 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         value={inputPrompt}
         onValueChange={handleInputValueChange}
         onSend={handleSend}
+        images={chatImages}
+        onAddImages={addFiles}
+        onRemoveImage={removeImage}
+        imagesLoading={imagesLoading}
         onStop={onStopSession}
         isStreaming={isSessionStreaming}
         isStopping={isSessionStopping}
@@ -961,7 +981,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         leadingContent={selectedCommand ? (
           <SlashCommandChip command={selectedCommand} onRemove={removeSelectedCommand} />
         ) : undefined}
-        canSend={selectedCommand ? selectedCommandCanSend : inputPrompt.trim().length > 0}
+        canSend={!imagesLoading && (selectedCommand ? selectedCommandCanSend : inputPrompt.trim().length > 0 || chatImages.length > 0)}
         placeholder={selectedCommand ? commandPromptPlaceholder(selectedCommand) : undefined}
         suggestionListId={commandSuggestions.length > 0
           ? 'slash-command-menu'
@@ -1048,7 +1068,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                     {messages.map((msg) => (
                       <div key={msg.id} data-msg-id={msg.id} className={styles.messageRow}>
                         {msg.role === 'user' ? (
-                          <UserMessageContent content={msg.content} />
+                          <UserMessageContent content={msg.content} images={msg.images} />
                         ) : (
                           <AssistantMessageItem
                             msg={msg}
@@ -1148,35 +1168,6 @@ function commandPromptPlaceholder(command: SlashCommandDefinition): string {
     return '输入时间范围（可选）';
   }
   return '可直接发送';
-}
-
-function UserMessageContent({ content }: { content: string }) {
-  const parsed = parseSlashCommand(content);
-  const command = parsed ? findSlashCommand(parsed.name) : undefined;
-  if (!parsed || !command || command.presentation.selection !== 'COMPOSE') {
-    const directDisplay = parseSlashCommandDisplayArguments(content);
-    if (directDisplay.referenceTitles.length > 0) {
-      return (
-        <div className={`${styles.userMessage} ${styles.slashUserMessage}`}>
-          {directDisplay.referenceTitles.map((title, index) => (
-            <RecordReferenceTag key={`${title}-${index}`} title={title} />
-          ))}
-          {directDisplay.prompt && <span>{directDisplay.prompt}</span>}
-        </div>
-      );
-    }
-    return <div className={styles.userMessage}>{content}</div>;
-  }
-  const display = parseSlashCommandDisplayArguments(parsed.args);
-  return (
-    <div className={`${styles.userMessage} ${styles.slashUserMessage}`}>
-      <SlashCommandChip command={command} />
-      {display.referenceTitles.map((title, index) => (
-        <RecordReferenceTag key={`${title}-${index}`} title={title} />
-      ))}
-      {display.prompt && <span>{display.prompt}</span>}
-    </div>
-  );
 }
 
 export default ChatWorkspace;

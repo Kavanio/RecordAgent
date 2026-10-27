@@ -15,9 +15,11 @@
 
 保存后可立即设为默认；已有 OpenAI、Anthropic、DeepSeek 也可以覆盖基础地址。多个自定义连接具有不同 ID，即使使用相同 Model ID，也不会相互覆盖网关、协议或密钥。
 
+添加或编辑模型时可以标注「支持图片识别」。这是用户自己声明模型具备视觉输入能力，系统不猜测模型能力：标注后渠道才允许把图片交给该模型，未标注时一律按纯文本模型处理，直接拒绝图片而不是等供应商返回错误。标注只是能力声明，不改变文本请求，也不会自动给模型添加图片。内置预置模型默认不标注，需要用户按实际使用的模型自行开启。
+
 ## 持久化与运行契约
 
-权威配置仍是 `~/.butvan-agent/config.json`。每个 Provider 保存 `id`、`type`、`baseUrl`、`protocol`、`apiKey` 与 `models`；自定义连接使用 `type=custom`，`protocol=openai|anthropic`。`activeVendor` 是 Provider ID，不是协议名。恢复时精确匹配 ID，再使用 Provider 的类型、地址、密钥构建模型，避免使用过期的顶层 API Key。
+权威配置仍是 `~/.butvan-agent/config.json`。每个 Provider 保存 `id`、`type`、`baseUrl`、`protocol`、`apiKey` 与 `models`；自定义连接使用 `type=custom`，`protocol=openai|anthropic`。`activeVendor` 是 Provider ID，不是协议名。恢复时精确匹配 ID，再使用 Provider 的类型、地址、密钥构建模型，避免使用过期的顶层 API Key。`models[]` 中的每个模型额外保存 `supportsVision`（图片识别能力标注）；能力属于模型而不是连接，切换模型时随之变化，旧配置缺少该字段时按不支持处理。
 
 配置写入前先校验；前端串行保存，后端成功后才更新列表和激活状态。初始化读取失败时不自动写回缓存。显式删除最后一个模型会清空模型列表及内存模型，其他模块的配置节点继续保留；其他模块调用默认合并保存时仍保护已有模型配置。
 
@@ -65,5 +67,5 @@
 
 - `ModelServiceTest` 用本地 HTTP 服务验证两种协议的路径、鉴权、请求体、工具、流式与用量、配置恢复、错误脱敏及删除；不调用真实模型、不访问用户数据。
 - `ModelConfigRoundTripTest` 验证其他模块节点保留与旧配置兼容。
-- 前端 `pnpm test:models` 覆盖新增、编辑、选择、保存失败、读取失败、连接测试、首次引导及设置表单；`pnpm build` 检查类型和构建。
+- 前端 `pnpm test` 覆盖新增、编辑、选择、保存失败、读取失败、连接测试、首次引导及设置表单；`pnpm build` 检查类型和构建。
 - 真实第三方网关需由用户填入凭据自行测试，不在自动化测试中使用真实密钥或产生外部请求。

@@ -17,6 +17,7 @@ import butvan.agent.network.finance.model.FinanceModels.FinanceTransaction;
 import butvan.agent.network.finance.service.FinanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -124,6 +125,14 @@ public class FinanceController {
         return Result.success(FinanceDtos.from(financeService.updateTransaction(
                 currentUserProvider.currentUserId(), transactionId, request.accountId(), request.transactionType(),
                 request.category(), request.note(), request.amount(), request.date(), request.time(), request.categoryColor())));
+    }
+
+    /** 删除单条流水并回滚余额；自动收益不可删除，划账成对删除。 */
+    @ApiLog("删除财务流水")
+    @DeleteMapping("/transactions/{transactionId}")
+    public Result<String> deleteTransaction(@PathVariable String transactionId) {
+        financeService.deleteTransaction(currentUserProvider.currentUserId(), transactionId);
+        return Result.success("流水已删除，账户余额已同步回滚");
     }
 
     @ApiLog("账户间资产划账")

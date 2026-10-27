@@ -1,5 +1,7 @@
 package butvan.agent.network.finance.service;
 
+import butvan.agent.network.daily.model.DailyEventModels.DailyEvent;
+import butvan.agent.network.daily.service.DailyEventService;
 import butvan.agent.network.daily.service.ExpenseAnalyticsService;
 import butvan.agent.network.finance.model.FinanceModels.ExpenseCategoryAmount;
 import butvan.agent.network.finance.model.FinanceModels.ExpenseChart;
@@ -49,6 +51,10 @@ public class FinanceService {
 
     private final FinanceRepository repository;
     private final ExpenseAnalyticsService expenseAnalyticsService;
+    private final DailyEventService dailyEventService;
+
+    /** 旧日历花销在财务流水中使用的前缀，用于区分真实财务流水 id。 */
+    private static final String CALENDAR_TRANSACTION_PREFIX = "calendar-";
 
     /** 查询财务总览；读取前先补齐所有生息账户截至今日的收益。 */
     @Transactional
@@ -282,7 +288,7 @@ public class FinanceService {
         String transactionType = "decrease".equals(direction) ? "adjustment_decrease" : "adjustment_increase";
         LocalDateTime occurredAt = LocalDateTime.now();
         repository.insertTransaction(id, ownerId, account.id(), occurredAt.toLocalDate(), occurredAt.toLocalTime(),
-                transactionType, "余额校准", normalizedNote, amountMinor, account.currency(), "adjustment", now);
+                transactionType, "余额校准", normalizedNote, amountMinor, account.currency(), "adjustment", null, now);
         return repository.findTransaction(ownerId, id)
                 .orElseThrow(() -> new IllegalStateException("资产调整流水创建后无法读取"));
     }
@@ -321,7 +327,7 @@ public class FinanceService {
         String id = UUID.randomUUID().toString();
         repository.rememberTransactionCategory(ownerId, transactionType, normalizedCategory, now, normalizedColor);
         repository.insertTransaction(id, ownerId, accountId, date, time, transactionType,
-                normalizedCategory, note.trim(), amountMinor, account.currency(), "manual", now);
+                normalizedCategory, note.trim(), amountMinor, account.currency(), "manual", null, now);
         return repository.findTransactions(ownerId, 100).stream()
                 .filter(transaction -> transaction.id().equals(id))
                 .findFirst()
@@ -395,6 +401,92 @@ public class FinanceService {
                 .orElseThrow(() -> new IllegalStateException("流水修改后无法读取"));
     }
 
+    /**
+     * 删除单条流水，并在同一事务内回滚它对账户余额的影响。
+     * 自动收益由系统按日计提且不可重算，禁止删除；划账成对删除；旧日历花销转交日历模块处理。
+     *
+     * @return 实际删除的流水 ID，供前端确认刷新目标
+     */
+    @Transactional
+    public String deleteTransaction(String ownerId, String transactionId) {
+        requireOwner(ownerId);
+        if (transactionId == null || transactionId.isBlank()) throw new IllegalArgumentException("流水不能为空");
+        String id = transactionId.trim();
+        if (id.startsWith(CALENDAR_TRANSACTION_PREFIX)) return deleteCalendarExpense(ownerId, id);
+
+        FinanceTransaction existing = repository.findTransaction(ownerId, id)
+                .orElseThrow(() -> new IllegalArgumentException("财务流水不存在"));
+        String transactionType = existing.transactionType();
+        if ("yield".equals(transactionType)) {
+            throw new IllegalArgumentException("自动收益由系统按日计提，不能删除；如需修正收益请调整账户年化率");
+        }
+        if (!TRANSACTION_TYPES.contains(transactionType)
+                && !Set.of("transfer_out", "transfer_in", "adjustment_increase", "adjustment_decrease")
+                .contains(transactionType)) {
+            throw new IllegalArgumentException("该流水不支持删除");
+        }
+
+        LocalDate today = LocalDate.now();
+        Instant now = Instant.now();
+        if ("transfer_out".equals(transactionType) || "transfer_in".equals(transactionType)) {
+            deleteTransferPair(ownerId, existing, today, now);
+            return id;
+        }
+
+        FinanceAccount account = repository.findAccount(ownerId, existing.accountId())
+                .orElseThrow(() -> new IllegalStateException("资产账户不存在"));
+        accrueYield(ownerId, account, today);
+        long amountMinor = toMinor(existing.amount());
+        long reversalDelta = "expense".equals(transactionType) || "adjustment_decrease".equals(transactionType)
+                ? amountMinor : -amountMinor;
+        if (!repository.adjustBalance(ownerId, account.id(), reversalDelta, now)) {
+            throw new IllegalArgumentException("撤销这笔流水会让「" + account.name() + "」余额变成负数，无法删除");
+        }
+        repository.deleteTransaction(ownerId, existing.id());
+        return id;
+    }
+
+    /** 成对删除划账流水，并把两侧账户余额按原方向同时回滚。 */
+    private void deleteTransferPair(String ownerId, FinanceTransaction existing, LocalDate today, Instant now) {
+        FinanceTransaction partner = repository.findTransferPartner(ownerId, existing)
+                .orElseThrow(() -> new IllegalArgumentException("这笔划账缺少配对的另一条流水，请先通过账户余额校准修正"));
+        FinanceAccount existingAccount = repository.findAccount(ownerId, existing.accountId())
+                .orElseThrow(() -> new IllegalStateException("资产账户不存在"));
+        FinanceAccount partnerAccount = repository.findAccount(ownerId, partner.accountId())
+                .orElseThrow(() -> new IllegalStateException("资产账户不存在"));
+        accrueYield(ownerId, existingAccount, today);
+        if (!existingAccount.id().equals(partnerAccount.id())) accrueYield(ownerId, partnerAccount, today);
+
+        long amountMinor = toMinor(existing.amount());
+        long existingReversal = "transfer_out".equals(existing.transactionType()) ? amountMinor : -amountMinor;
+        long partnerReversal = "transfer_out".equals(partner.transactionType()) ? amountMinor : -amountMinor;
+        if (!repository.adjustBalance(ownerId, existingAccount.id(), existingReversal, now)) {
+            throw new IllegalArgumentException("撤销这笔划账会让「" + existingAccount.name() + "」余额变成负数，无法删除");
+        }
+        if (!repository.adjustBalance(ownerId, partnerAccount.id(), partnerReversal, now)) {
+            throw new IllegalArgumentException("撤销这笔划账会让「" + partnerAccount.name() + "」余额变成负数，无法删除");
+        }
+        repository.deleteTransaction(ownerId, existing.id());
+        repository.deleteTransaction(ownerId, partner.id());
+    }
+
+    /** 旧日历花销不在财务表内，删除时转交日历领域服务，确保日历与财务同时消失。 */
+    private String deleteCalendarExpense(String ownerId, String transactionId) {
+        String eventId = transactionId.substring(CALENDAR_TRANSACTION_PREFIX.length());
+        if (eventId.isBlank()) throw new IllegalArgumentException("流水不能为空");
+        DailyEvent event;
+        try {
+            event = dailyEventService.getEventDefinition(ownerId, eventId);
+        } catch (IllegalArgumentException cause) {
+            throw new IllegalArgumentException("这条日历花销已不存在，请刷新列表后重试", cause);
+        }
+        if (!"expense".equals(event.eventType())) {
+            throw new IllegalArgumentException("这条记录不是日历花销，不能在这里删除");
+        }
+        dailyEventService.delete(ownerId, eventId, event.version());
+        return transactionId;
+    }
+
     /** 只接受六位十六进制颜色；null 表示调用方未修改分类颜色。 */
     private String normalizeCategoryColor(String color) {
         if (color == null) return null;
@@ -444,11 +536,12 @@ public class FinanceService {
 
         String fromTransactionId = UUID.randomUUID().toString();
         String toTransactionId = UUID.randomUUID().toString();
+        String pairId = UUID.randomUUID().toString();
 
         repository.insertTransaction(fromTransactionId, ownerId, fromAccount.id(), date, time,
-                "transfer_out", "划账", outNote, amountMinor, fromAccount.currency(), "manual", now);
+                "transfer_out", "划账", outNote, amountMinor, fromAccount.currency(), "manual", pairId, now);
         repository.insertTransaction(toTransactionId, ownerId, toAccount.id(), date, time,
-                "transfer_in", "划账", inNote, amountMinor, toAccount.currency(), "manual", now);
+                "transfer_in", "划账", inNote, amountMinor, toAccount.currency(), "manual", pairId, now);
 
         FinanceTransaction fromTx = new FinanceTransaction(fromTransactionId, fromAccount.id(), fromAccount.name(),
                 date, time, "transfer_out", "划账", outNote, normalizedAmount, fromAccount.currency(),
@@ -482,7 +575,7 @@ public class FinanceService {
                 long yieldMinor = toMinor(yield);
                 repository.insertTransaction(UUID.randomUUID().toString(), ownerId, account.id(), date,
                         LocalTime.of(0, 0), "yield", "理财收益", account.name() + " 每日收益",
-                        yieldMinor, account.currency(), "automatic", now);
+                        yieldMinor, account.currency(), "automatic", null, now);
                 runningBalance = runningBalance.add(yield);
             }
             date = date.plusDays(1);

@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import { CodeBlock } from './CodeBlock';
+import { CodeBlock } from '@/components/ui/code-block';
 import { MermaidBlock } from './MermaidBlock';
 import styles from './MarkdownContent.module.css';
 

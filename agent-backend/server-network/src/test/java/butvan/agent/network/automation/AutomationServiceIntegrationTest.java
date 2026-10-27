@@ -48,6 +48,8 @@ class AutomationServiceIntegrationTest {
     @Autowired ApplicationEvents applicationEvents;
     @MockitoBean TaskReportBuilder reports;
     @MockitoBean TaskMailService mail;
+    @MockitoBean butvan.agent.network.review.service.ReviewCoachService reviews;
+    @MockitoBean butvan.agent.network.review.service.ReviewDeliveryService reviewDeliveries;
 
     private Spec reminder(String trigger, boolean confirm) {
         return new Spec("喝水提醒", "起来喝水", "REMINDER", trigger, "Asia/Shanghai", "18:01", "2026-09-23T10:01:00Z",

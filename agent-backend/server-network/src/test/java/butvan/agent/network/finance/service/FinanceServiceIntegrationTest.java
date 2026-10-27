@@ -435,4 +435,134 @@ class FinanceServiceIntegrationTest {
         assertEquals(List.of("餐饮"), financeService.getTransactionCategories(owner).get("expense"));
         assertEquals("#F59E0B", financeService.getTransactionCategoryColors(owner).get("expense").get("餐饮"));
     }
+
+    @Test
+    void deletingExpenseAndIncomeRollsBackAccountBalance() {
+        String owner = "finance-delete-ledger-user";
+        LocalDate today = LocalDate.now();
+        var account = financeService.createAccount(owner, "微信余额", "wechat_balance", "CNY",
+                new BigDecimal("1000.00"), false, BigDecimal.ZERO);
+        var expense = financeService.createTransaction(owner, account.id(), "expense", "餐饮", "午餐",
+                new BigDecimal("28.50"), today, LocalTime.NOON);
+        var income = financeService.createTransaction(owner, account.id(), "income", "工资", "兼职",
+                new BigDecimal("100.00"), today, LocalTime.NOON);
+        assertEquals(new BigDecimal("1071.50"), financeService.getOverview(owner).totalAssets());
+
+        financeService.deleteTransaction(owner, expense.id());
+        assertEquals(new BigDecimal("1100.00"), financeService.getOverview(owner).totalAssets());
+        assertEquals(1, financeService.getTransactions(owner).size());
+        assertThrows(IllegalArgumentException.class, () -> financeService.deleteTransaction(owner, expense.id()));
+
+        financeService.deleteTransaction(owner, income.id());
+        assertEquals(new BigDecimal("1000.00"), financeService.getOverview(owner).totalAssets());
+        assertEquals(0, financeService.getTransactions(owner).size());
+    }
+
+    @Test
+    void deletingIncomeCannotOverdrawAccount() {
+        String owner = "finance-delete-overdraw-user";
+        LocalDate today = LocalDate.now();
+        var account = financeService.createAccount(owner, "招商银行", "bank", "CNY",
+                new BigDecimal("100.00"), false, BigDecimal.ZERO);
+        var income = financeService.createTransaction(owner, account.id(), "income", "工资", "收到款项",
+                new BigDecimal("500.00"), today, LocalTime.NOON);
+        financeService.createTransaction(owner, account.id(), "expense", "餐饮", "请客",
+                new BigDecimal("550.00"), today, LocalTime.NOON);
+
+        var error = assertThrows(IllegalArgumentException.class,
+                () -> financeService.deleteTransaction(owner, income.id()));
+        assertEquals("撤销这笔流水会让「招商银行」余额变成负数，无法删除", error.getMessage());
+        assertEquals(new BigDecimal("50.00"), financeService.getOverview(owner).totalAssets());
+        assertEquals(2, financeService.getTransactions(owner).size());
+    }
+
+    @Test
+    void deletingTransferRemovesPairAndRestoresBothBalances() {
+        String owner = "finance-delete-transfer-user";
+        LocalDate today = LocalDate.now();
+        var from = financeService.createAccount(owner, "招商银行", "bank", "CNY",
+                new BigDecimal("1000.00"), false, BigDecimal.ZERO);
+        var to = financeService.createAccount(owner, "微信余额", "wechat_balance", "CNY",
+                new BigDecimal("200.00"), false, BigDecimal.ZERO);
+        var pair = financeService.transfer(owner, from.id(), to.id(), new BigDecimal("300.00"), "划账",
+                today, LocalTime.of(14, 0));
+        assertEquals(2, financeService.getTransactions(owner).size());
+        assertEquals(new BigDecimal("700.00"), balanceOf(owner, from.id()));
+        assertEquals(new BigDecimal("500.00"), balanceOf(owner, to.id()));
+
+        // 删除任意一侧都必须把另一侧一起清掉，余额同时回到划账前。
+        financeService.deleteTransaction(owner, pair.get(1).id());
+        assertEquals(0, financeService.getTransactions(owner).size());
+        assertEquals(new BigDecimal("1000.00"), balanceOf(owner, from.id()));
+        assertEquals(new BigDecimal("200.00"), balanceOf(owner, to.id()));
+    }
+
+    @Test
+    void deletingAdjustmentReversesAuditOnlyLedger() {
+        String owner = "finance-delete-adjustment-user";
+        LocalDate today = LocalDate.now();
+        var account = financeService.createAccount(owner, "微信余额", "wechat_balance", "CNY",
+                new BigDecimal("100.00"), false, BigDecimal.ZERO);
+        var decrease = financeService.adjustAccountBalance(owner, account.id(), "decrease",
+                new BigDecimal("40.00"), "实际少了 40");
+        assertEquals(new BigDecimal("60.00"), balanceOf(owner, account.id()));
+
+        financeService.deleteTransaction(owner, decrease.id());
+        assertEquals(new BigDecimal("100.00"), balanceOf(owner, account.id()));
+        assertEquals(0, financeService.getOverview(owner).monthExpense().compareTo(BigDecimal.ZERO));
+        assertEquals(0, financeService.getOverview(owner).monthIncome().compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    void automaticYieldCannotBeDeleted() {
+        String owner = "finance-delete-yield-user";
+        var account = financeService.createAccount(owner, "零钱通", "wechat_yield", "CNY",
+                new BigDecimal("36500.00"), true, new BigDecimal("1.00"));
+        financeService.settleYieldThrough(owner, LocalDate.now().plusDays(1));
+        var yield = financeService.getTransactions(owner).stream()
+                .filter(item -> "yield".equals(item.transactionType())).findFirst().orElseThrow();
+
+        var error = assertThrows(IllegalArgumentException.class,
+                () -> financeService.deleteTransaction(owner, yield.id()));
+        assertEquals("自动收益由系统按日计提，不能删除；如需修正收益请调整账户年化率", error.getMessage());
+        assertEquals(1, financeService.getTransactions(owner).stream()
+                .filter(item -> "yield".equals(item.transactionType())).count());
+        assertEquals(new BigDecimal("36501.00"), balanceOf(owner, account.id()));
+    }
+
+    @Test
+    void deletingLegacyCalendarExpenseRemovesItFromCalendarProjection() {
+        String owner = "finance-delete-calendar-user";
+        LocalDate today = LocalDate.now();
+        var event = dailyEventService.create(owner,
+                new ExpenseCommand(today, "餐饮", "日历中的午餐", new BigDecimal("82.39"), "12:10", "CNY"));
+        var calendarTransaction = financeService.getTransactions(owner).stream()
+                .filter(item -> item.id().startsWith("calendar-")).findFirst().orElseThrow();
+
+        financeService.deleteTransaction(owner, calendarTransaction.id());
+
+        assertEquals(0, financeService.getTransactions(owner).size());
+        assertThrows(IllegalArgumentException.class,
+                () -> dailyEventService.getEventDefinition(owner, event.id()));
+        assertEquals(0, financeService.getOverview(owner).monthExpense().compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    void deleteIsScopedToOwnerAndUnknownTransaction() {
+        String owner = "finance-delete-owner-a";
+        var account = financeService.createAccount(owner, "微信余额", "wechat_balance", "CNY",
+                new BigDecimal("100.00"), false, BigDecimal.ZERO);
+        var expense = financeService.createTransaction(owner, account.id(), "expense", "餐饮", "午餐",
+                new BigDecimal("10.00"), LocalDate.now(), LocalTime.NOON);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> financeService.deleteTransaction("finance-delete-owner-b", expense.id()));
+        assertEquals(1, financeService.getTransactions(owner).size());
+        assertEquals(new BigDecimal("90.00"), balanceOf(owner, account.id()));
+    }
+
+    private BigDecimal balanceOf(String ownerId, String accountId) {
+        return financeService.getOverview(ownerId).accounts().stream()
+                .filter(account -> account.id().equals(accountId)).findFirst().orElseThrow().balance();
+    }
 }

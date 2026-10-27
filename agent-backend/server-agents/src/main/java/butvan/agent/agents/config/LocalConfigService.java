@@ -56,17 +56,25 @@ public class LocalConfigService {
         private String providerId = "";
         private String description = "";
         private Boolean supportsReasoning = false;
+        /** 用户标注的图片识别能力；仅作能力声明，决定渠道是否把图片交给该模型。 */
+        private Boolean supportsVision = false;
 
         public ModelItemData() {
         }
 
         public ModelItemData(String id, String name, String modelName, String providerId, String description, Boolean supportsReasoning) {
+            this(id, name, modelName, providerId, description, supportsReasoning, false);
+        }
+
+        public ModelItemData(String id, String name, String modelName, String providerId, String description,
+                            Boolean supportsReasoning, Boolean supportsVision) {
             this.id = id;
             this.name = name;
             this.modelName = modelName;
             this.providerId = providerId;
             this.description = description;
             this.supportsReasoning = supportsReasoning;
+            this.supportsVision = supportsVision != null && supportsVision;
         }
     }
 
@@ -213,9 +221,18 @@ public class LocalConfigService {
             }
             if (selected != null) {
                 return new ModelSelector(selected.getType(), targetName, selected.getApiKey(), temperature, stream,
-                        selected.getBaseUrl(), selected.getProtocol());
+                        selected.getBaseUrl(), selected.getProtocol(), visionCapable(selected, targetName));
             }
             return new ModelSelector(targetVendor, targetName, targetApiKey, temperature, stream, baseUrl, protocol);
+        }
+
+        /** 能力跟随所选模型，不跟随 Provider：同一连接下可以同时存在文本模型与视觉模型。 */
+        private static Boolean visionCapable(ProviderConfigData provider, String targetName) {
+            if (provider.getModels() == null || targetName == null) return false;
+            return provider.getModels().stream()
+                    .filter(model -> targetName.equals(model.getId()) || targetName.equals(model.getModelName()))
+                    .map(ModelItemData::getSupportsVision)
+                    .anyMatch(Boolean.TRUE::equals);
         }
 
         /**
@@ -430,9 +447,17 @@ public class LocalConfigService {
                         targetModelName,
                         targetVendor,
                         "",
-                        false
+                        false,
+                        selector.visionCapable()
                 );
                 matchingProvider.getModels().add(newItem);
+            } else {
+                // 旧单模型接口也要把能力固定住，否则重启后会退回未标注状态。
+                for (ModelItemData m : matchingProvider.getModels()) {
+                    if (targetModelName.equalsIgnoreCase(m.getId()) || targetModelName.equalsIgnoreCase(m.getModelName())) {
+                        m.setSupportsVision(selector.visionCapable());
+                    }
+                }
             }
         }
         saveFullConfigData(fullData);

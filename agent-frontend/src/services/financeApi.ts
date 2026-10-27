@@ -102,6 +102,14 @@ export function updateFinanceTransaction(
   return financeRequest<FinanceTransaction>(`/agent/finance/transactions/${encodeURIComponent(transactionId)}`, jsonInit(input, 'PUT'));
 }
 
+/** 删除一条流水，后端会在同一事务内把金额退回或扣回对应账户。 */
+export function deleteFinanceTransaction(transactionId: string): Promise<string> {
+  return financeRequest<string>(
+    `/agent/finance/transactions/${encodeURIComponent(transactionId)}`,
+    { method: 'DELETE' },
+  );
+}
+
 /** 在两个资产账户之间进行划账并同步调整双方余额。 */
 export function createFinanceTransfer(input: CreateFinanceTransferInput): Promise<FinanceTransferResponse> {
   return financeRequest<FinanceTransferResponse>('/agent/finance/transfers', jsonInit(input));

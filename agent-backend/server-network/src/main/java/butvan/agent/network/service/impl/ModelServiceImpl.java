@@ -71,7 +71,9 @@ public class ModelServiceImpl implements ModelService {
                 temperature,
                 stream,
                 model.baseUrl(),
-                model.protocol()
+                model.protocol(),
+                // 旧单模型接口不携带能力标记，继承当前值，避免静默捈掉用户的图片识别标注。
+                currentSelector != null && currentSelector.visionCapable()
         );
         validate(newSelector);
 

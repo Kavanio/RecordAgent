@@ -147,11 +147,24 @@ export interface ToolExecution {
   output?: string;
 }
 
+/**
+ * 随一条用户消息一起提交的图片。
+ *
+ * <p>dataUrl 只用于本地即时渲染，请求时剥离前缀转成 Base64 提交；图片不入历史，
+ * 刷新后只能看到文字占位说明。</p>
+ */
+export interface ChatImageAttachment {
+  mediaType: string;
+  dataUrl: string;
+  name?: string;
+}
+
 export interface ChatMessage {
   id: string;
   turnId?: string;
   role: 'user' | 'assistant';
   content: string;
+  images?: ChatImageAttachment[];
   reasoning?: string;
   modelName?: string;
   createdAt: number;

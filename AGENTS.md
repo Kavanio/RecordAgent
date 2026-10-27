@@ -34,6 +34,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 | `scripts/backend-launcher/` | Windows 后端 sidecar 原生启动器源码（Rust）；由打包脚本在 Windows 上编译生成 exe。 |
 | `.github/workflows/` | GitHub Actions 自动化；SemVer tag 创建桌面端 Release，另允许 `develop` 后端相关变更构建并推送 ACR 私有镜像；不构建桌面安装包、不自动部署服务器、不运行 CI 测试。 |
 | `agent-backend/server-network/` | Spring Boot 启动、Controller、DTO、API 通用能力、AOP、网络适配层、自动任务、业务 Agent Tool Adapter、通用文件资产与存储 Adapter，以及单机业务数据的 SQLite 持久化；业务表必须按领域归属，禁止形成通用数据大杂烩。 |
+| `agent-backend/server-network/src/main/java/butvan/agent/network/review/` | 长期复盘：独立授权、固定模型身份、结构化事实摘要、用户目标、建议与反馈、有界后台生成与两段式邮件冻结；使用现有 SQLite，默认关闭，未授权时不调用模型。 |
 | `agent-backend/server-agents/` | AgentScope、模型工厂、智能体编排、Tool 注册 seam、工作区与配置领域逻辑；不得反向依赖 `server-network` 的业务实现。 |
 | `agent-backend/server-feishu/` | 飞书等即时通讯渠道集成：长连接事件接收、消息收发与渠道适配；仅依赖 `server-agents`，不承载 Agent 编排逻辑。 |
 | `agent-backend/*/src/main/resources/` | 仅保存不含密钥的默认配置和资源；真实用户配置不得硬编码于 yml。 |
@@ -82,6 +83,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 - 主 Agent 保持禁用 AgentScope 默认 Workspace Context；常驻 System Core 必须通过测试限制在 1,200 个 `TokenCounter` 估算 Token 内。个人上下文统一由 `server-agents/context` 的 `ConversationContextAssembler` 组装，默认总预算 850（Profile 300、Memory 500、Top-K 4），并由 `ContextInjectionMiddleware` 仅在 Model Call 前临时注入，禁止写入 AgentState 或 transcript；个人画像和开关分别保存于用户工作区的 `profile/PROFILE.md` 与 `profile/settings.json`，显式空画像必须阻止 `MEMORY.md#User Profile` 回退，暂停只停止自动注入而不得删除数据。画像辅助维护默认关闭，只能在聊天完成后按记忆指纹和 24 小时间隔低频生成提案；提案、维护状态和确认历史分别保存于 `profile/proposals/pending.json`、`profile/maintenance.json` 与 `profile/history/`，必须携带来源与置信度，并通过画像 revision 校验后由用户显式确认才能写入，禁止后台静默改写。新增上下文来源必须接入该唯一 seam、设置硬预算并补充注入与归因测试。
 - Agent 工具 Schema 默认按 `ToolSchemaRoutingPolicy` 中的能力组延迟暴露，只常驻轻量元工具；新增或重命名工具时必须同步确认其分组，未知工具仅作为兼容兜底保持常驻，禁止无评估地恢复全量 Schema 注入。
 - Agent 聊天运行必须使用稳定 `runId` 贯穿请求、SSE、运行注册表和终态收尾关联；显式取消必须通过后端取消接口向 AgentScope、生产线程、模型适配器和工具传播。传输层断开与用户显式取消必须区分；取消后必须保留 partial assistant、工具状态和 usage，且只有一个终态路径可写入。真正可恢复的暂停只能在有明确 checkpoint、待恢复动作和工具幂等语义后开放，不得用 Java 线程 suspend/resume 冒充。
+- 聊天图片附件（桌面端上传、飞书下载）统一经 `AgentImages` 按文件头校验后包装成 `AgentImageAttachment`，仅接受 PNG／JPEG／WebP／GIF、单张 ≤ 10 MiB、每轮 ≤ 4 张且原始字节合计 ≤ 12 MiB；`mediaType` 与扩展名不可信。图片只在本轮内存中存在，不得写入 transcript、checkpoint、渠道账本或 Token 用量，请求记录里只能保存可读文字说明。发送图片前必须检查 `ModelHolder.supportsVision()`，未标注一律按纯文本模型拒绝。HTTP JSON 请求体另限 17 MiB，必须在反序列化前对实际读取字节执行限制；桌面草稿随会话隔离，迟到读图不得进入另一会话。修改图片接口、输入框或限额时阅读 `docs/聊天图片输入契约.md`。
 - Agent 正常终态正文使用主 Agent 的 `AgentResultEvent` 完整快照，增量只用于运行中展示；子 Agent 结果不得覆盖主回复。非 HTTP 渠道通过 `AgentStreamSession.completion()` 取得已持久化且运行解注册后的精确 `AgentTurnResult`，禁止仅凭队列增量拼接判定最终正文；持久化渠道在受理时固定 `turnId` 并通过 `AgentUserCall` 传递，已有轮次不可重复追加或重放。权限暂停时 completion 仅表示本段生产者收尾，结果可以为空，必须先等待其解注册再恢复原 runId。
 - 工具审批以“每用户、每会话最多一个待处理批次”为硬约束，审批必须绑定原始 `runId`，恢复前必须原子领取并立即释放旧批次槽位，禁止以新 `runId` 重放同一批工具。同一批次的全部未决工具必须在一张审批卡片内展示，允许逐项决定或批量选择，并通过单次原子请求提交完整决定，禁止前端逐项提交形成半完成状态。桌面端刷新后通过后端权威查询恢复审批卡片；正常 HITL 恢复必须优先消费完整 `ConfirmResult`，不得启用会在确认前补写失败结果的框架自动恢复。进程重启不承诺继续旧审批，只有新用户轮次开始且不存在应用审批句柄时，才允许把遗留 AgentScope 工具调用安全收尾为中断结果，避免会话永久停留在 `ASKING`。
 - 学习状态跨窗口同步统一使用后端 SSE：所有写入在事务成功提交后发布领域事件，连接建立及自动重连时必须先下发当前权威快照；主窗口内只允许一个共享订阅，禁止使用定时 HTTP 轮询或仅依赖前端本地事件推断状态。
@@ -92,7 +94,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 - 类名使用 PascalCase，方法与变量使用 camelCase，常量使用全大写蛇形命名；包名全小写并遵循业务域分层。
 - 禁止捕获异常后静默忽略；必须记录有上下文的日志，或转换为可识别的业务异常。
 - 禁止在日志、异常响应、配置文件和代码中输出 API Key、Token、密码或完整敏感请求体。
-- 用户模型配置统一持久化在 `~/.butvan-agent/config.json`，不得把用户密钥或个性化配置写入 `application.yml`、`application-vendor.yml` 或源码。自定义模型以独立 Provider ID 区分连接，`type=custom`、`protocol=openai|anthropic` 与 `baseUrl` 必须贯穿保存、选择及重启恢复；协议适配统一复用 `ModelFactory`，连接测试通过后端实际模型请求完成。实现或调整模型配置时须阅读 `docs/自定义模型API配置.md` 的地址、接口及验证契约。
+- 用户模型配置统一持久化在 `~/.butvan-agent/config.json`，不得把用户密钥或个性化配置写入 `application.yml`、`application-vendor.yml` 或源码。自定义模型以独立 Provider ID 区分连接，`type=custom`、`protocol=openai|anthropic` 与 `baseUrl` 必须贯穿保存、选择及重启恢复；协议适配统一复用 `ModelFactory`，连接测试通过后端实际模型请求完成。模型条目上的 `supportsVision` 是用户声明的图片识别能力，必须随模型（不是随连接）保存与恢复，未标注一律按纯文本模型处理，禁止猜测或默认开启。实现或调整模型配置时须阅读 `docs/自定义模型API配置.md` 的地址、接口及验证契约。
 - 桌面端长期偏好（顶栏模块开关、日历便签状态、侧边栏宽度、学习小窗位置、Slash Command 定制、记录摘要文案、后台运行、提醒音色与上传音频、远程后端地址）统一持久化在 `~/.butvan-agent/desktop/`：`preferences.json` 保存前端长期偏好键值，`task-desktop.json`、`task-reminder/`、`backend-connection.json` 保存桌面能力配置。该目录与后端业务数据同寿命，删除应用、重装或用第三方卸载工具清理 `~/Library` 都不得丢失；WebView localStorage 只能作为同步缓存与浏览器开发环境兜底，不得作为长期偏好的唯一来源。启动时由 `desktop_preferences` 模块执行幂等迁移，把旧版本写在 Tauri 应用配置目录与 localStorage 的值搬入新位置，且已存在的新值优先于旧值。
 - 通用文件资产由 `server-network/file` 的 `FileAssetService` 管理元数据、所有权、业务绑定和生命周期，业务模块只能持有稳定文件 ID，不得直接依赖磁盘路径或第三方存储 SDK；二进制内容通过 `BlobStore` seam 读写，本地文件默认位于数据库同级的 `files/objects/`，SQLite 仅保存元数据。第三方存储密钥不得写入文件资产表、接口响应或日志。
 - 聊天轮次 Token 用量随 assistant 消息写入 `~/.butvan-agent/transcripts/*.jsonl`；标题等非聊天模型调用写入 `~/.butvan-agent/usage/system-usage.jsonl`；未结束轮次仅暂存在 `~/.butvan-agent/runs/*.json`，终态落盘或重启恢复后必须清理。供应商 Usage 是实际总量，System、History、Current User、Tool Schema、Tool Result、Profile Context、Memory Recall、RAG 与 Other 是携带计数器版本的本地归因估算，两者不得混淆或互相补齐。SQLite 中的 Token 用量表仅作为可从上述文件重建的统计读模型，不得取代原始记录。
@@ -133,16 +135,21 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 
 - 修改前先检查工作区状态，保留并避免覆盖用户已有改动。
 - 修改后至少执行与改动最贴近的格式化、类型检查、单元测试、构建或静态检查；若因环境或权限无法执行，必须说明原因和未验证范围。
+- 前端测试只有 `pnpm --dir agent-frontend test` 一个入口（`node --test` 自动发现 `*.test.mjs`），禁止恢复或新增按模块拆分的具名测试脚本；测试统一经 `agent-frontend/src/testing/harness.mjs` 引导。具体约束见 `agent-frontend/AGENTS.md`。
 - 不修复与当前任务无关的问题；发现阻断性问题时，应单独说明，不得隐式扩大改动范围。
 - 提交结果必须说明：修改了什么、为何修改、验证结果、遗留风险以及需要用户决策的事项。
 - 每次代码修改完成并通过必要验证后，必须将本次修改提交到当前分支；提交前应确认范围并保留用户已有改动。不得自行创建分支、推送、发布或写入外部系统，除非用户明确要求。
+
+- 长期复盘默认关闭且保存配置不等于授权；只有用户显式确认范围、周期、回看窗口和固定模型连接后才可生成。模型选择固定为该连接，不跟随聊天默认模型；撤销授权立即生效并禁用未冻结的 AI 邮件副本，已经发送的邮件无法撤回。复盘生成在独立线程与短事务中运行，不阻塞原任务调度，失败、超时或超预算一律降级为基础报告且不自动重试；同一周期数据补录默认复用既有结果。复盘反馈只由用户提交，未反馈不得判为失败。
 
 ## 六、子级 DOX 索引
 
 - 已建立子级 `AGENTS.md`：`agent-backend/server-feishu/`（渠道集成模块职责与配置约束）。
 - 已建立子级 `AGENTS.md`：`agent-backend/server-network/`（HTTP 接口与本地 SQLite 持久化约束）。
+- 已建立子级 `AGENTS.md`：`agent-frontend/`（前端验证入口、测试引导、文件规模与样式组件契约）。
 - 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/RecordAgent/`（原生 iOS 技术栈、API 数据边界与工程约束）。
 - 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/backend/`（独立多用户业务后端、PostgreSQL 与 API 约束）。
+- 已建立子级 `AGENTS.md`：`agent-backend/server-network/src/main/java/butvan/agent/network/review/`（长期复盘授权、事实与记忆持久化契约）。
 - 自动任务的细节约束见 `agent-backend/server-network/AGENTS.md` 的“自动任务”节；产品行为见 `docs/任务模块产品需求与操作说明.md`。
 - 根目录负责项目级工程规范、目录边界、架构契约与根文档。
 - 当 `agent-frontend/` 或 `agent-backend/` 出现独立且稳定的局部规则时，应分别建立中文 `AGENTS.md`，并在本节登记其职责范围。

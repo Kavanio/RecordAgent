@@ -20,6 +20,7 @@
 .primaryActions { display: inline-flex; align-items: center; gap: 8px; }
 .editButton { width: 24px; height: 24px; display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; }
 .editButton:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.deleteButton:hover { background: var(--bg-surface-hover); color: #93443d; }
 .expenseAmount { color: #93443d; }
 .incomeAmount { color: #287052; }
 .transferOutAmount { color: #1d4ed8; }

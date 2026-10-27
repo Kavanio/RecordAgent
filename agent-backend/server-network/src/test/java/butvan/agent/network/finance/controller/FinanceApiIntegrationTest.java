@@ -5,7 +5,7 @@ import butvan.agent.network.config.database.LocalDatabaseConfiguration;
 import butvan.agent.network.controller.ApiExceptionHandler;
 import butvan.agent.network.finance.repository.FinanceRepository;
 import butvan.agent.network.finance.service.FinanceService;
-import butvan.agent.network.daily.service.ExpenseAnalyticsService;
+import butvan.agent.network.daily.DailyEventModuleConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -241,7 +241,7 @@ class FinanceApiIntegrationTest {
     @Import({
             LocalDatabaseConfiguration.class,
             FinanceRepository.class,
-            ExpenseAnalyticsService.class,
+            DailyEventModuleConfiguration.class,
             FinanceService.class,
             FinanceController.class,
             ApiExceptionHandler.class,

@@ -1,5 +1,6 @@
 package butvan.agent.feishu.service;
 
+import butvan.agent.agents.agent.AgentImageAttachment;
 import butvan.agent.agents.agent.AgentService;
 import butvan.agent.agents.agent.AgentUserCall;
 import butvan.agent.agents.agent.event.AgentStreamEvent;
@@ -31,14 +32,15 @@ public class FeishuAgentRunner {
     }
 
     /** 取消后继续消费直到生产者真正解注册，不能提前释放会话槽位或把部分正文当作成功。 */
-    public Reply run(String sessionId, String runId, String turnId, String input, Duration timeout, Control control) {
+    public Reply run(String sessionId, String runId, String turnId, String input, List<AgentImageAttachment> images,
+                     Duration timeout, Control control) {
         long deadline = nanoTime.getAsLong() + timeout.toNanos();
         AgentStreamSession session = null;
         String pendingApprovalId = null;
         boolean interrupted = false;
         try {
             if (control.stopping()) return new Reply(null, control.reason(), "任务在执行前已停止。");
-            session = agentService.streamAgent(new AgentUserCall(sessionId, input, input, List.of(), runId, turnId));
+            session = agentService.streamAgent(new AgentUserCall(sessionId, input, input, List.of(), runId, turnId, images));
             while (true) {
                 checkStop(session, deadline, control);
                 AgentStreamEvent event;

@@ -8,6 +8,8 @@ export interface ModelItem {
   providerId: string;
   description?: string;
   supportsReasoning?: boolean;
+  /** 用户标注的图片识别能力，决定渠道能否把图片交给该模型。 */
+  supportsVision?: boolean;
   contextWindow?: number;
   maxTokens?: number;
 }

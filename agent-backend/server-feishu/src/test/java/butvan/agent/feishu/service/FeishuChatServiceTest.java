@@ -31,7 +31,12 @@ class FeishuChatServiceTest {
     final TestClock clock = new TestClock();
     final List<String> sent = new CopyOnWriteArrayList<>();
     final List<String> inputs = new CopyOnWriteArrayList<>();
+    final List<List<butvan.agent.agents.agent.AgentImageAttachment>> received = new CopyOnWriteArrayList<>();
     final CountDownLatch release = new CountDownLatch(1);
+    /** 测试用的图片下载 seam：默认返回一张合法 PNG，可在单个用例里改成失败或非法格式。 */
+    volatile byte[] imageBytes = FeishuTestSupport.png();
+    String imageFetchError;
+    final java.util.concurrent.atomic.AtomicInteger downloads = new java.util.concurrent.atomic.AtomicInteger();
 
     @BeforeEach void prepare() throws Exception {
         runner = mock(FeishuAgentRunner.class); sessions = mock(SessionCatalogService.class);
@@ -44,16 +49,21 @@ class FeishuChatServiceTest {
         when(sessions.create(any())).thenReturn(summary);
         store = new FeishuTaskStore(directory);
         chat = new FeishuChatService(runner, sessions, transcripts, model, owner);
-        when(runner.run(anyString(), anyString(), anyString(), anyString(), any(), any())).thenAnswer(invocation -> {
+        when(runner.run(anyString(), anyString(), anyString(), anyString(), any(), any(), any())).thenAnswer(invocation -> {
             String input = invocation.getArgument(3); inputs.add(input);
+            received.add(invocation.getArgument(4));
             if (input.equals("first")) assertTrue(release.await(3, TimeUnit.SECONDS));
             return new FeishuAgentRunner.Reply(new AgentTurnResult(invocation.getArgument(1), invocation.getArgument(0),
                     invocation.getArgument(2), TranscriptMessageDto.MessageStatus.COMPLETED, "answer:" + input), null, "answer:" + input);
         });
     }
 
-    void open() { chat.open(config(), (target, parent, id, text) -> {
-        sent.add(text); return FeishuTextSender.Attempt.sent(id);
+    void open() { chat.open(config(), (target, parent, id, text, format) -> {
+        sent.add(text); return FeishuMessageSender.Attempt.sent(id);
+    }, (messageId, fileKey) -> {
+        downloads.incrementAndGet();
+        if (imageFetchError != null) throw new IllegalStateException(imageFetchError);
+        return imageBytes;
     }, store, clock, clock, false); }
 
     @AfterEach void close() throws Exception { release.countDown(); chat.close(); store.close(); }
@@ -80,7 +90,97 @@ class FeishuChatServiceTest {
         clock.advance(120); chat.tick();
         assertEquals(2, sent.stream().filter(s -> s.startsWith("任务仍在处理")).count());
         assertEquals(Execution.SUCCEEDED, byMessage("one").state());
-        verify(runner, times(1)).run(anyString(), anyString(), anyString(), anyString(), any(), any());
+        verify(runner, times(1)).run(anyString(), anyString(), anyString(), anyString(), any(), any(), any());
+    }
+
+    @Test void receiptTellsUserHowToUnblockAConversationPausedByUnknownDelivery() throws Exception {
+        String conversation = stableId("test-app:local-owner:chat::owner");
+        store.accept(task("stale", conversation, Execution.SUCCEEDED, clock.millis()).toBuilder().chatId("chat")
+                .parts(List.of(Part.builder().id("stale-0").text("旧回复").status(Delivery.UNKNOWN).build())).build(),
+                5, clock.millis());
+        open(); chat.handle(message("again", "hello again"));
+        // UNKNOWN 会按设计暂停该会话的后续回复；回执必须直接给出 /resend，而不是静默停摆。
+        await(() -> sent.stream().anyMatch(text -> text.startsWith("已收到") && text.contains("/resend stale")));
+    }
+
+    @Test void ackClearsUnknownDeliveryWithoutResendingAndUnblocksConversation() throws Exception {
+        String conversation = stableId("test-app:local-owner:chat::owner");
+        String staleId = "00000000-0000-0000-0000-0000000000aa";
+        store.accept(task(staleId, conversation, Execution.SUCCEEDED, clock.millis()).toBuilder().chatId("chat")
+                .parts(List.of(Part.builder().id("stale-0").text("旧回复").status(Delivery.UNKNOWN).build())).build(),
+                5, clock.millis());
+        open(); chat.handle(message("ack", "/ack " + staleId));
+        pumpUntil(() -> store.task(staleId).parts().getFirst().status() == Delivery.SENT);
+        assertFalse(sent.contains("旧回复"));
+        chat.handle(message("next", "hello"));
+        pumpUntil(() -> sent.contains("answer:hello"));
+    }
+
+    @Test void imageMessageWithVisionModelReachesAgentAsAttachment() throws Exception {
+        when(model.supportsVision()).thenReturn(true);
+        open(); chat.handle(imageMessage("pic", "file-key"));
+        await(() -> !received.isEmpty());
+        assertEquals(1, received.getFirst().size());
+        assertEquals("image/png", received.getFirst().getFirst().mediaType());
+        assertEquals("用户发送了一张图片，请识别并回应图片内容。", inputs.getFirst());
+        assertTrue(sent.stream().anyMatch(text -> text.startsWith("已收到")));
+    }
+
+    @Test void imageWithoutVisionCapabilityIsRejectedBeforeCallingTheModel() throws Exception {
+        when(model.supportsVision()).thenReturn(false);
+        open(); chat.handle(imageMessage("pic", "file-key"));
+        pumpUntil(() -> sent.stream().anyMatch(text -> text.contains("图片识别")));
+        assertTrue(inputs.isEmpty());
+        verifyNoInteractions(runner);
+    }
+
+    @Test void unsupportedImageFormatFailsWithActionableMessage() throws Exception {
+        when(model.supportsVision()).thenReturn(true);
+        imageBytes = "not-an-image-at-all".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        open(); chat.handle(imageMessage("pic", "file-key"));
+        pumpUntil(() -> sent.stream().anyMatch(text -> text.contains("图片读取失败")));
+        assertTrue(inputs.isEmpty());
+    }
+
+    @Test void imageDownloadFailureDoesNotRetryOrRunTheModel() throws Exception {
+        when(model.supportsVision()).thenReturn(true);
+        imageFetchError = "download failed";
+        open(); chat.handle(imageMessage("pic", "file-key"));
+        pumpUntil(() -> sent.stream().anyMatch(text -> text.contains("图片读取失败")));
+        assertTrue(inputs.isEmpty());
+    }
+
+    @Test void rejectsMixedPostWithoutDroppingTextOrDownloadingJustTheFirstImage() throws Exception {
+        when(model.supportsVision()).thenReturn(true);
+        var source = imageMessage("mixed", "file-key");
+        var post = new com.lark.oapi.channel.model.NormalizedMessage("mixed", "chat", "p2p", "owner", "test",
+                "请比较这两张图，不要只看第一张", "post", source.getResources(), List.of(),
+                false, false, null, null, null, 0L, null);
+        open(); chat.handle(post);
+        pumpUntil(() -> sent.stream().anyMatch(text -> text.contains("暂不支持图文混排")));
+        assertEquals(0, downloads.get());
+        verifyNoInteractions(runner);
+    }
+
+    @Test void missingImageKeyIsReportedInsteadOfStartingAnEmptyTurn() throws Exception {
+        var missing = new com.lark.oapi.channel.model.NormalizedMessage("missing", "chat", "p2p", "owner", "test",
+                "", "image", List.of(), List.of(), false, false, null, null, null, 0L, null);
+        open(); chat.handle(missing);
+        pumpUntil(() -> sent.stream().anyMatch(text -> text.contains("未取得图片资源")));
+        assertEquals(0, downloads.get());
+        verifyNoInteractions(runner);
+    }
+
+    @Test void queuedImageRechecksCapabilityBeforeDownloading() throws Exception {
+        when(model.supportsVision()).thenReturn(true);
+        open(); chat.handle(message("first", "first"));
+        await(() -> inputs.size() == 1);
+        chat.handle(imageMessage("queued-image", "file-key"));
+        when(model.supportsVision()).thenReturn(false);
+        release.countDown();
+        pumpUntil(() -> sent.stream().anyMatch(text -> text.contains("切换到视觉模型后重发")));
+        assertEquals(0, downloads.get());
+        assertEquals(List.of("first"), inputs);
     }
 
     @Test void repeatedMessageExecutesOnceAndFollowupWaitsInFifoOrder() throws Exception {
@@ -116,12 +216,12 @@ class FeishuChatServiceTest {
         CountDownLatch started = new CountDownLatch(1);
         doAnswer(invocation -> {
             inputs.add(invocation.getArgument(3)); started.countDown();
-            FeishuAgentRunner.Control control = invocation.getArgument(5);
+            FeishuAgentRunner.Control control = invocation.getArgument(6);
             long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
             while (!control.stopping() && release.getCount() > 0 && System.nanoTime() < end) Thread.sleep(5);
             return new FeishuAgentRunner.Reply(new AgentTurnResult(invocation.getArgument(1), "session", invocation.getArgument(2),
                     TranscriptMessageDto.MessageStatus.CANCELLED, "partial"), control.reason(), "任务已停止。");
-        }).when(runner).run(anyString(), anyString(), anyString(), anyString(), any(), any());
+        }).when(runner).run(anyString(), anyString(), anyString(), anyString(), any(), any(), any());
         open(); chat.handle(message("one", "long")); assertTrue(started.await(1, TimeUnit.SECONDS));
         for (int i = 0; i < 5; i++) chat.handle(message("queued-" + i, "next-" + i));
         chat.handle(message("overflow", "too-many")); assertNull(byMessage("overflow"));

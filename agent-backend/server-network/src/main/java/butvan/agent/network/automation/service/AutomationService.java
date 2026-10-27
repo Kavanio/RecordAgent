@@ -4,6 +4,8 @@ import butvan.agent.network.automation.model.*;
 import butvan.agent.network.automation.repository.AutomationRepository;
 import butvan.agent.network.automation.dto.AutomationDtos.*;
 import butvan.agent.network.automation.event.TasksChanged;
+import butvan.agent.network.review.service.ReviewCoachService;
+import butvan.agent.network.review.service.ReviewDeliveryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,8 @@ public class AutomationService {
     private final ApplicationEventPublisher events;
     private final PlatformTransactionManager transactions;
     private final Clock automationClock;
+    private final ReviewCoachService reviews;
+    private final ReviewDeliveryService reviewDeliveries;
     /** 仅保存最后一次原生采样时间，无法观察的间隙绝不推算为使用时长。 */
     private final Map<String, Instant> samples = new HashMap<>();
     /** 同步读取时分配序号，跨 REST/SSE 传输可比较；重启更换来源，不持久化运行态序号。 */
@@ -154,11 +158,27 @@ public class AutomationService {
         }
         String recipient = s.email() ? mail.recipient() : null;
         boolean failed = "FAILED".equals(status);
+        // 只有成功生成且启用邮件的报告才进入 AI 等待；失败、非报告或未授权时保持原流程。
+        String reviewId = null;
+        String reviewError = "";
+        if (!failed && s.isReport() && s.email()) {
+            try {
+                var period = ReportPeriod.completed(s.kind(), Instant.ofEpochMilli(planned), ZoneId.of(s.timezone()));
+                // 日报的事实必须是已结束自然日，因此复盘昨天；周报／月报使用已结束周期。
+                var reviewFrom = "DAILY_REPORT".equals(s.kind()) ? period.from().minusDays(1) : period.from();
+                reviewId = reviews.schedule(task.ownerId(), s.kind(), reviewFrom, period.to(), s.timezone()).orElse(null);
+            } catch (RuntimeException exception) {
+                reviewError = "AI 复盘未启用，已发送基础报告";
+            }
+        }
+        boolean waiting = reviewId != null;
         var run = new TaskRun(UUID.randomUUID().toString(), task.id(), task.ownerId(), s.title(), text,
                 planned, now.toEpochMilli(), source, status, s.desktop() && !failed ? "PENDING" : "SKIPPED",
-                s.email() && !failed && recipient != null ? "PENDING" : "SKIPPED", recipient,
-                s.confirm() && !failed ? "WAITING" : "NONE", s.sound(), error, html, now.toEpochMilli());
+                s.email() && !failed && recipient != null ? (waiting ? "WAITING" : "PENDING") : "SKIPPED", recipient,
+                s.confirm() && !failed ? "WAITING" : "NONE", s.sound(), reviewError, html, now.toEpochMilli());
         repository.insertRun(run);
+        if (waiting) reviewDeliveries.register(task.ownerId(), run.id(), reviewId, text, html,
+                "DAILY_REPORT".equals(s.kind()) ? 90 : "WEEKLY_REPORT".equals(s.kind()) ? 120 : 150);
         if ("ACTIVITY".equals(s.trigger())) repository.progress(task.id(), null, 0, task.status());
         return run;
     }

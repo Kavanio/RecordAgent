@@ -9,12 +9,12 @@ import java.util.function.BooleanSupplier;
 
 import static butvan.agent.feishu.service.FeishuTaskStore.*;
 
-/** 有界出站调度。相同聊天同时只发一条，发送前落盘 SENDING，未知送达绝不自动重发。 */
+/** 有界出站调度。相同聊天同时只发一条，发送前落盘 SENDING，未知送达绝不自动重发；账本只保存正文原文。 */
 @Slf4j
 public final class FeishuDeliveryService implements AutoCloseable {
     private static final int MAX_NOTICES = 128;
     private final FeishuTaskStore store;
-    private final FeishuTextSender sender;
+    private final FeishuMessageSender sender;
     private final Clock clock;
     private final ExecutorService io = Executors.newFixedThreadPool(2,
             Thread.ofVirtual().name("feishu-send-", 0).factory());
@@ -22,7 +22,7 @@ public final class FeishuDeliveryService implements AutoCloseable {
     private final Set<String> inFlightChats = new HashSet<>();
     private volatile boolean closed;
 
-    public FeishuDeliveryService(FeishuTaskStore store, FeishuTextSender sender, Clock clock) {
+    public FeishuDeliveryService(FeishuTaskStore store, FeishuMessageSender sender, Clock clock) {
         this.store = store; this.sender = sender; this.clock = clock;
     }
 
@@ -70,11 +70,13 @@ public final class FeishuDeliveryService implements AutoCloseable {
                 .sorted(Comparator.comparing(task -> !"控制反馈".equals(task.stage()))).toList();
         for (Task task : ordered) {
             if (task.parts().isEmpty()) continue;
-            if (blockedConversations.contains(task.conversation())) continue;
+            // 控制反馈是解除投递暂停的唯一入口：既不能被别的回复的 UNKNOWN 挡住，也不能被自己历史段挡住。
+            boolean control = "控制反馈".equals(task.stage());
+            if (!control && blockedConversations.contains(task.conversation())) continue;
             for (int i = 0; i < task.parts().size(); i++) {
                 Part part = task.parts().get(i);
                 if (part.status() == Delivery.SENT) continue;
-                blockedConversations.add(task.conversation());
+                if (!control) blockedConversations.add(task.conversation());
                 if (inFlightChats.contains(task.chatId()) || part.status() == Delivery.SENDING
                         || part.status() == Delivery.FAILED || part.status() == Delivery.UNKNOWN
                         || part.retryAt() > now) break;
@@ -111,13 +113,15 @@ public final class FeishuDeliveryService implements AutoCloseable {
             if (work.notice() != null && (work.notice().expiresAt() <= clock.millis()
                     || !work.notice().valid().getAsBoolean())) return;
             long started = System.nanoTime();
-            FeishuTextSender.Attempt attempt = sender.send(work.chatId(), work.replyTo(), work.id(), work.text());
+            // 提醒与控制反馈是普通文本；任务最终回复按其 Markdown 原样渲染。
+            FeishuMessageSender.Attempt attempt = sender.send(work.chatId(), work.replyTo(), work.id(), work.text(),
+                    work.notice() != null ? FeishuMessageSender.Format.TEXT : FeishuMessageSender.Format.MARKDOWN);
             long costMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
             if (work.taskId() == null) {
                 log.info("飞书状态投递：taskId={}, kind={}, status={}, queueMs={}, costMs={}",
                         work.notice().taskId(), work.notice().kind(), attempt.status(),
                         Math.max(0, clock.millis() - work.notice().queuedAt()), costMillis);
-                if (attempt.status() != FeishuTextSender.Status.SENT) {
+                if (attempt.status() != FeishuMessageSender.Status.SENT) {
                     log.warn("飞书短暂状态通知未送达：status={}, code={}", attempt.status(), attempt.code());
                 }
                 return;
@@ -174,6 +178,14 @@ public final class FeishuDeliveryService implements AutoCloseable {
             }).toList();
             return task.toBuilder().parts(parts).build();
         });
+    }
+
+    /** 用户确认已实际收到：不重发、不重执行，只把未定段收尾以解除该会话的投递暂停。 */
+    public void acknowledge(String taskId) {
+        log.info("飞书人工确认已送达：taskId={}", taskId);
+        store.update(taskId, task -> task.toBuilder().parts(task.parts().stream().map(part ->
+                part.status() == Delivery.UNKNOWN || part.status() == Delivery.FAILED
+                        ? part.toBuilder().status(Delivery.SENT).errorCode("user_acknowledged").build() : part).toList()).build());
     }
 
     @Override

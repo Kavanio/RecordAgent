@@ -3,7 +3,7 @@
 ## 桌面端加载反馈测试
 
 业务请求直接发送，不附加人为等待；加载动画和骨架屏由真实请求状态驱动。
-运行 `pnpm test:loading` 可验证慢请求、失败重试与过期响应处理，测试使用可控响应，不访问真实用户数据。
+运行 `pnpm test` 可验证慢请求、失败重试与过期响应处理，测试使用可控响应，不访问真实用户数据。
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 

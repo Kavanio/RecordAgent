@@ -138,7 +138,7 @@ class AutomationStreamTest {
     static class SnapshotSource extends AutomationService {
         volatile int reads;
         volatile Snapshot value = new Snapshot(List.of(), List.of());
-        SnapshotSource() { super(null, null, null, event -> { }, null, Clock.systemUTC()); }
+        SnapshotSource() { super(null, null, null, event -> { }, null, Clock.systemUTC(), null, null); }
         @Override public synchronized Snapshot snapshot(String owner) { reads++; return value; }
     }
 }

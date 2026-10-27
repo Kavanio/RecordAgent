@@ -8,6 +8,7 @@ import type {
 import type { SubagentProgressDto } from '../types/team';
 import type { FullModelConfig, ModelProtocol } from '../types/model';
 import { invoke } from '@tauri-apps/api/core';
+import { assertChatStreamResponse } from './chatStreamResponse';
 
 export interface ModelConfig {
   vendor: string;
@@ -456,6 +457,8 @@ export async function streamAgentChat(
     context?: string;
     recordReferenceIds?: string[];
     analysisContext?: AgentAnalysisContextRequest;
+    /** 随本轮一次性提交的图片（Base64，不含 data URL 前缀）。 */
+    images?: { mediaType: string; dataBase64: string }[];
     approvalId?: string;
     signal?: AbortSignal;
   },
@@ -491,13 +494,12 @@ export async function streamAgentChat(
               content: payloadContent,
               recordReferenceIds: params.recordReferenceIds ?? [],
               analysisContext: params.analysisContext,
+              images: params.images ?? [],
             }),
       }
     );
 
-    if (!response.ok) {
-      throw new Error(`HTTP 响应异常: Status ${response.status}`);
-    }
+    await assertChatStreamResponse(response);
 
     if (!response.body) {
       throw new Error('ReadableStream 不可用');

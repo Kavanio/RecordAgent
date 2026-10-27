@@ -66,6 +66,23 @@ class AgentServiceChannelResultTest {
         fail("没有收到终态");
     }
 
+    @Test void rejectsImagesBeforeRegisteringRunOrPersistingAnythingForTextModel() {
+        var image = new AgentImageAttachment("image/png", new byte[32]);
+        var error = assertThrows(IllegalArgumentException.class, () -> service.streamAgent(
+                new AgentUserCall("session", "input", "input", List.of(), "run", turn, List.of(image))));
+        assertTrue(error.getMessage().contains("图片识别能力"));
+        verifyNoInteractions(transcript, sessions, agent);
+        assertEquals("NOT_FOUND", registry.cancel("local-default", "session", "run").status());
+    }
+
+    @Test void enforcesSharedCountLimitEvenForNonHttpCallers() {
+        when(model.supportsVision()).thenReturn(true);
+        var images = java.util.Collections.nCopies(5, new AgentImageAttachment("image/png", new byte[32]));
+        assertThrows(IllegalArgumentException.class, () -> service.streamAgent(
+                new AgentUserCall("session", "input", "input", List.of(), "run", turn, images)));
+        verifyNoInteractions(transcript, sessions, agent);
+    }
+
     @Test void resultIsCompletePersistedAndRunUnregisteredBeforePublishing() throws Exception {
         when(agent.streamEvents(anyList(), any())).thenReturn(Flux.just(
                 new TextBlockDeltaEvent("reply", "block", "不完整的增量"),
