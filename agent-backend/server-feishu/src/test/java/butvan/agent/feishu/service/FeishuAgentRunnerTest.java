@@ -28,7 +28,7 @@ class FeishuAgentRunnerTest {
         session.offerTerminal(new AgentStreamEvent.Completed());
         session.settle(result(MessageStatus.COMPLETED));
         when(service.streamAgent(any())).thenReturn(session);
-        var reply = new FeishuAgentRunner(service).run("session", runId, turnId, "input", Duration.ofMinutes(10), control);
+        var reply = new FeishuAgentRunner(service).run("session", runId, turnId, "input", java.util.List.of(), Duration.ofMinutes(10), control);
         assertEquals("完整答案，尾字🙂\n", reply.text());
         verify(service).streamAgent(new AgentUserCall("session", "input", "input", List.of(), runId, turnId));
     }
@@ -39,7 +39,7 @@ class FeishuAgentRunnerTest {
         session.settle(result(MessageStatus.CANCELLED));
         when(service.streamAgent(any())).thenReturn(session);
         assertTimeoutPreemptively(Duration.ofSeconds(1), () -> {
-            var reply = new FeishuAgentRunner(service).run("session", runId, turnId, "input", Duration.ofMinutes(10), control);
+            var reply = new FeishuAgentRunner(service).run("session", runId, turnId, "input", java.util.List.of(), Duration.ofMinutes(10), control);
             assertEquals(MessageStatus.CANCELLED, reply.result().status());
         });
     }
@@ -56,7 +56,7 @@ class FeishuAgentRunnerTest {
         });
         when(service.streamAgent(any())).thenReturn(session);
         var reply = new FeishuAgentRunner(service, () -> nanos.getAndAdd(TimeUnit.SECONDS.toNanos(1)))
-                .run("session", runId, turnId, "input", Duration.ofSeconds(2), control);
+                .run("session", runId, turnId, "input", java.util.List.of(), Duration.ofSeconds(2), control);
         assertEquals("timeout", reply.stopReason()); assertEquals(1, cancellations.get());
     }
 
@@ -69,7 +69,7 @@ class FeishuAgentRunnerTest {
         when(service.autoApproveAndResume("session", "approval")).thenReturn(resumed);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             Future<FeishuAgentRunner.Reply> reply = executor.submit(() -> new FeishuAgentRunner(service)
-                    .run("session", runId, turnId, "input", Duration.ofMinutes(10), control));
+                    .run("session", runId, turnId, "input", java.util.List.of(), Duration.ofMinutes(10), control));
             verify(service, timeout(1000)).streamAgent(any());
             verify(service, never()).autoApproveAndResume(anyString(), anyString());
             paused.settle(null);
@@ -84,7 +84,7 @@ class FeishuAgentRunnerTest {
         paused.settle(null);
         when(service.streamAgent(any())).thenAnswer(call -> { control.stop("user"); return paused; });
         when(service.cancelPendingApproval("session", "approval", runId)).thenReturn(result(MessageStatus.CANCELLED));
-        var reply = new FeishuAgentRunner(service).run("session", runId, turnId, "input", Duration.ofMinutes(10), control);
+        var reply = new FeishuAgentRunner(service).run("session", runId, turnId, "input", java.util.List.of(), Duration.ofMinutes(10), control);
         assertEquals(MessageStatus.CANCELLED, reply.result().status());
         verify(service, never()).autoApproveAndResume(anyString(), anyString());
     }
@@ -96,7 +96,7 @@ class FeishuAgentRunnerTest {
         when(service.streamAgent(any())).thenReturn(paused);
         when(service.autoApproveAndResume("session", "approval")).thenThrow(new IllegalArgumentException("模拟恢复冲突"));
         when(service.cancelPendingApproval("session", "approval", runId)).thenReturn(result(MessageStatus.CANCELLED));
-        var reply = new FeishuAgentRunner(service).run("session", runId, turnId, "input", Duration.ofMinutes(10), control);
+        var reply = new FeishuAgentRunner(service).run("session", runId, turnId, "input", java.util.List.of(), Duration.ofMinutes(10), control);
         verify(service).cancelPendingApproval("session", "approval", runId);
         assertEquals(MessageStatus.CANCELLED, reply.result().status());
         assertEquals("failure", reply.stopReason());
@@ -106,7 +106,7 @@ class FeishuAgentRunnerTest {
         AgentStreamSession completed = new AgentStreamSession(runId);
         completed.offerTerminal(new AgentStreamEvent.Completed()); completed.settle(result(MessageStatus.COMPLETED));
         when(service.streamAgent(any())).thenAnswer(call -> { control.stop("user"); return completed; });
-        var reply = new FeishuAgentRunner(service).run("session", runId, turnId, "input", Duration.ofMinutes(10), control);
+        var reply = new FeishuAgentRunner(service).run("session", runId, turnId, "input", java.util.List.of(), Duration.ofMinutes(10), control);
         assertNull(reply.stopReason()); assertEquals(MessageStatus.COMPLETED, reply.result().status());
     }
 }

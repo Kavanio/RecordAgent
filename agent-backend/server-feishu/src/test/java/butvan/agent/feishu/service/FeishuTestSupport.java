@@ -25,6 +25,19 @@ final class FeishuTestSupport {
         return new NormalizedMessage(id, chat, type, sender, "test", text, "text", List.of(), List.of(),
                 false, false, null, null, null, 0L, null);
     }
+    /** 图片消息：飞书不提供正文，只给一个图片资源键。 */
+    static NormalizedMessage imageMessage(String id, String fileKey) {
+        return new NormalizedMessage(id, "chat", "p2p", "owner", "test", "", "image",
+                List.of(new com.lark.oapi.channel.model.ResourceDescriptor("image", fileKey, "image", null)),
+                List.of(), false, false, null, null, null, 0L, null);
+    }
+    /** 一张只带合法 PNG 文件头的小图，足以通过格式嗅探。 */
+    static byte[] png() {
+        byte[] header = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+        byte[] data = new byte[32];
+        System.arraycopy(header, 0, data, 0, header.length);
+        return data;
+    }
     static void await(BooleanSupplier condition) throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
         while (!condition.getAsBoolean() && System.nanoTime() < deadline) Thread.sleep(5);

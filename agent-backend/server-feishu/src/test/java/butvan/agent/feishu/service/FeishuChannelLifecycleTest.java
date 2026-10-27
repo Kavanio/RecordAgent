@@ -46,7 +46,7 @@ class FeishuChannelLifecycleTest {
     @Test void initializationFailureDoesNotLeaveLifecycleRunning() throws Exception {
         FeishuProperties properties = mock(FeishuProperties.class); when(properties.load()).thenReturn(config());
         FeishuChatService chat = mock(FeishuChatService.class);
-        doThrow(new java.io.IOException("test storage failure")).when(chat).open(any(), any());
+        doThrow(new java.io.IOException("test storage failure")).when(chat).open(any(), any(), any());
         FeishuChannelLifecycle lifecycle = new FeishuChannelLifecycle(properties, chat);
         lifecycle.start();
         verify(chat, timeout(1500)).close();

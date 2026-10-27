@@ -160,7 +160,7 @@ public class AgentService {
             // 3. 初始调用将用户消息交给 AgentScope；后续回复会传入确认消息
             runAgentStream(
                     run,
-                    List.of(run.currentUserMessage(input, request.ragContexts())),
+                    List.of(run.currentUserMessage(input, request.ragContexts(), request.images())),
                     streamSession
             );
         } catch (Exception e) {
