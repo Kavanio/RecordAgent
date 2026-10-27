@@ -70,11 +70,13 @@ public final class FeishuDeliveryService implements AutoCloseable {
                 .sorted(Comparator.comparing(task -> !"控制反馈".equals(task.stage()))).toList();
         for (Task task : ordered) {
             if (task.parts().isEmpty()) continue;
-            if (blockedConversations.contains(task.conversation())) continue;
+            // 控制反馈是解除投递暂停的唯一入口：既不能被别的回复的 UNKNOWN 挡住，也不能被自己历史段挡住。
+            boolean control = "控制反馈".equals(task.stage());
+            if (!control && blockedConversations.contains(task.conversation())) continue;
             for (int i = 0; i < task.parts().size(); i++) {
                 Part part = task.parts().get(i);
                 if (part.status() == Delivery.SENT) continue;
-                blockedConversations.add(task.conversation());
+                if (!control) blockedConversations.add(task.conversation());
                 if (inFlightChats.contains(task.chatId()) || part.status() == Delivery.SENDING
                         || part.status() == Delivery.FAILED || part.status() == Delivery.UNKNOWN
                         || part.retryAt() > now) break;
@@ -176,6 +178,14 @@ public final class FeishuDeliveryService implements AutoCloseable {
             }).toList();
             return task.toBuilder().parts(parts).build();
         });
+    }
+
+    /** 用户确认已实际收到：不重发、不重执行，只把未定段收尾以解除该会话的投递暂停。 */
+    public void acknowledge(String taskId) {
+        log.info("飞书人工确认已送达：taskId={}", taskId);
+        store.update(taskId, task -> task.toBuilder().parts(task.parts().stream().map(part ->
+                part.status() == Delivery.UNKNOWN || part.status() == Delivery.FAILED
+                        ? part.toBuilder().status(Delivery.SENT).errorCode("user_acknowledged").build() : part).toList()).build());
     }
 
     @Override

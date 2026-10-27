@@ -91,6 +91,24 @@ class FeishuDeliveryServiceTest {
         }
     }
 
+    @Test void unknownControlFeedbackDoesNotBlockLaterControlFeedback() throws Exception {
+        List<String> sent = new CopyOnWriteArrayList<>();
+        try (FeishuTaskStore store = new FeishuTaskStore(directory);
+             FeishuDeliveryService delivery = new FeishuDeliveryService(store, (chat, reply, uuid, text, format) -> {
+                 sent.add(text); return FeishuMessageSender.Attempt.sent(uuid);
+             }, clock)) {
+            store.accept(task("stuck", "chat", Execution.SUCCEEDED, clock.millis()).toBuilder().stage("控制反馈")
+                    .parts(List.of(Part.builder().id("stuck-0").text("旧反馈").status(Delivery.UNKNOWN).build())).build(),
+                    5, clock.millis());
+            store.accept(task("fresh", "chat", Execution.SUCCEEDED, clock.millis()).toBuilder().stage("控制反馈")
+                    .parts(List.of(Part.builder().id("fresh-0").text("新反馈").status(Delivery.PENDING).build())).build(),
+                    5, clock.millis());
+            // 控制反馈是解除投递暂停的唯一入口，自己的历史 UNKNOWN 不能把后续命令永久堵死。
+            await(() -> { delivery.pump(); return sent.contains("新反馈"); });
+            assertFalse(sent.contains("旧反馈"));
+        }
+    }
+
     @Test void controlFeedbackBypassesAnOlderUnknownReply() throws Exception {
         List<String> sent = new CopyOnWriteArrayList<>();
         try (FeishuTaskStore store = new FeishuTaskStore(directory);

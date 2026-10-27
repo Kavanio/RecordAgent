@@ -105,7 +105,8 @@ public class FeishuChatService implements AutoCloseable {
                 log.info("飞书消息已持久化受理：taskId={}, runId={}, ahead={}, inputLength={}",
                         task.id(), task.runId(), ahead, text.length());
                 if (ahead > 0) store.update(task.id(), t -> t.toBuilder().stage("等待执行").build());
-                String receipt = ahead == 0 ? "已收到，正在处理…" : "已收到，前面还有 " + ahead + " 条消息，请稍候。";
+                String receipt = (ahead == 0 ? "已收到，正在处理…" : "已收到，前面还有 " + ahead + " 条消息，请稍候。")
+                        + pendingDeliveryHint(task.conversation());
                 final String acceptedId = task.id();
                 delivery.notice(task, "receipt", receipt, true, () -> active(acceptedId));
             }
@@ -121,9 +122,25 @@ public class FeishuChatService implements AutoCloseable {
         }
     }
 
+    /**
+     * 同会话存在待核对的回复时，回执里直接给出可解除卡住的命令。
+     * UNKNOWN／FAILED 会按设计暂停该会话后续回复，只在日志里留线索会让用户以为渠道死掉。
+     */
+    private String pendingDeliveryHint(String conversation) {
+        return store.snapshot().tasks().stream()
+                .filter(task -> task.conversation().equals(conversation))
+                .filter(task -> task.parts().stream().anyMatch(part -> part.status() == Delivery.UNKNOWN
+                        || part.status() == Delivery.FAILED))
+                .max(Comparator.comparing(Task::acceptedAt))
+                .map(task -> task.parts().stream().anyMatch(part -> part.status() == Delivery.UNKNOWN)
+                        ? "\n（此前有回复发送状态不确定，确认已收到可发送 /ack " + task.id() + "，需要补发则发送 /resend " + task.id() + "）"
+                        : "\n（此前有回复发送失败；可发送 /retry " + task.id() + " 补发）")
+                .orElse("");
+    }
+
     private boolean isCommand(String text) {
         return Set.of("/stop", "/clear", "/new").contains(text)
-                || text.matches("/(retry|resend) [a-f0-9-]{36}");
+                || text.matches("/(retry|resend|ack) [a-f0-9-]{36}");
     }
 
     private String control(Task command, String text) {
@@ -155,6 +172,14 @@ public class FeishuChatService implements AutoCloseable {
         Task target = store.task(id);
         if (target == null || !target.conversation().equals(command.conversation())) return "未找到属于当前聊天的任务。";
         boolean unknown = target.parts().stream().anyMatch(p -> p.status() == Delivery.UNKNOWN);
+        if (text.startsWith("/ack")) {
+            if (!unknown && target.parts().stream().noneMatch(p -> p.status() == Delivery.FAILED)) {
+                return "该任务没有需要确认的待定投递。";
+            }
+            // 只在用户亲自确认已经看到内容时使用：不重发、不重执行，只解除该会话的投递暂停。
+            delivery.acknowledge(id);
+            return "已确认该回复无需补发，该会话已恢复自动发送。";
+        }
         if (unknown && text.startsWith("/retry")) return "该回复可能已经送达。补发可能重复；确认后请发送 /resend " + id;
         if (target.parts().stream().noneMatch(p -> p.status() == Delivery.FAILED || p.status() == Delivery.UNKNOWN)) return "该任务没有需要补发的失败回复。";
         delivery.retry(id, text.startsWith("/resend"));

@@ -83,6 +83,29 @@ class FeishuChatServiceTest {
         verify(runner, times(1)).run(anyString(), anyString(), anyString(), anyString(), any(), any());
     }
 
+    @Test void receiptTellsUserHowToUnblockAConversationPausedByUnknownDelivery() throws Exception {
+        String conversation = stableId("test-app:local-owner:chat::owner");
+        store.accept(task("stale", conversation, Execution.SUCCEEDED, clock.millis()).toBuilder().chatId("chat")
+                .parts(List.of(Part.builder().id("stale-0").text("旧回复").status(Delivery.UNKNOWN).build())).build(),
+                5, clock.millis());
+        open(); chat.handle(message("again", "hello again"));
+        // UNKNOWN 会按设计暂停该会话的后续回复；回执必须直接给出 /resend，而不是静默停摆。
+        await(() -> sent.stream().anyMatch(text -> text.startsWith("已收到") && text.contains("/resend stale")));
+    }
+
+    @Test void ackClearsUnknownDeliveryWithoutResendingAndUnblocksConversation() throws Exception {
+        String conversation = stableId("test-app:local-owner:chat::owner");
+        String staleId = "00000000-0000-0000-0000-0000000000aa";
+        store.accept(task(staleId, conversation, Execution.SUCCEEDED, clock.millis()).toBuilder().chatId("chat")
+                .parts(List.of(Part.builder().id("stale-0").text("旧回复").status(Delivery.UNKNOWN).build())).build(),
+                5, clock.millis());
+        open(); chat.handle(message("ack", "/ack " + staleId));
+        pumpUntil(() -> store.task(staleId).parts().getFirst().status() == Delivery.SENT);
+        assertFalse(sent.contains("旧回复"));
+        chat.handle(message("next", "hello"));
+        pumpUntil(() -> sent.contains("answer:hello"));
+    }
+
     @Test void repeatedMessageExecutesOnceAndFollowupWaitsInFifoOrder() throws Exception {
         open(); chat.handle(message("one", "first"));
         await(() -> inputs.size() == 1);
