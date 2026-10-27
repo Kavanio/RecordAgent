@@ -12,6 +12,16 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    /** 重置冲突、凭证过期及任务不存在保持稳定业务码。 */
+    @ExceptionHandler(butvan.agent.network.reset.service.ResetRequestException.class)
+    public Result<Void> handleResetRequest(butvan.agent.network.reset.service.ResetRequestException exception) {
+        return Result.error(exception.code(), exception.getMessage());
+    }
+    @ExceptionHandler(butvan.agent.agents.reset.ResetBlockedException.class)
+    public Result<Void> handleResetBarrier(butvan.agent.agents.reset.ResetBlockedException exception) {
+        return Result.error(423, exception.getMessage());
+    }
+
     /** multipart 请求超过全局安全上限时，不向客户端暴露底层容器异常。 */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public Result<Void> handleUploadTooLarge(MaxUploadSizeExceededException exception) {

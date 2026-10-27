@@ -28,6 +28,13 @@ public class TokenUsageRepository {
     private final JdbcTemplate jdbcTemplate;
     private final NamedParameterJdbcTemplate namedJdbcTemplate;
 
+    /** 出厂重置只删聊天投影；系统用量来源与统计继续保留。 */
+    public void resetChat(String owner) {
+        jdbcTemplate.update("DELETE FROM token_usage_tool WHERE invocation_row_id IN (SELECT id FROM token_usage_invocation WHERE owner_id=? AND usage_kind='CHAT')", owner);
+        jdbcTemplate.update("DELETE FROM token_usage_invocation WHERE owner_id=? AND usage_kind='CHAT'", owner);
+        jdbcTemplate.update("DELETE FROM token_usage_turn WHERE owner_id=?", owner);
+    }
+
     /** 用文件源中的完整快照替换当前用户读模型。 */
     public void replace(
             String ownerId,

@@ -24,10 +24,14 @@ public class ReviewRuntime {
         return thread;
     });
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private butvan.agent.agents.reset.ResetBarrier resetBarrier;
+
     /** 数据库迁移完成后再启动，避免启动早期扫描。 */
     @EventListener(ApplicationReadyEvent.class)
     public void start() {
         worker.scheduleWithFixedDelay(() -> {
+            if (resetBarrier.blocked()) return;
             try { reviews.tick(); } catch (RuntimeException exception) {
                 log.error("复盘工作项处理失败：{}", exception.getClass().getSimpleName());
             }

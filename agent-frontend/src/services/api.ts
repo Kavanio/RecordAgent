@@ -9,7 +9,7 @@ import type { SubagentProgressDto } from '../types/team';
 import type { FullModelConfig, ModelProtocol } from '../types/model';
 import { invoke } from '@tauri-apps/api/core';
 import { assertChatStreamResponse } from './chatStreamResponse';
-
+import { withAgentGeneration } from './agentGeneration';
 export interface ModelConfig {
   vendor: string;
   name: string;
@@ -163,7 +163,7 @@ export function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
       // 非 URL 请求交由浏览器 Fetch API 返回标准错误。
     }
   }
-  return fetch(input, { ...init, headers });
+  return fetch(input, { ...init, headers: withAgentGeneration(headers) });
 }
 
 /** EventSource 不支持自定义请求头，令牌仅用于受保护的 SSE 订阅。 */

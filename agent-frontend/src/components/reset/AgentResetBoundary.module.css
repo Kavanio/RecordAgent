@@ -1,0 +1,5 @@
+.page { min-height: 100vh; box-sizing: border-box; display: grid; place-items: center; padding: calc(32px + var(--window-titlebar-inset, 0px)) 24px 32px; background: #fafafa; color: #252525; }
+.card { max-width: 640px; padding: 28px; border: 1px solid #e5e5e5; border-radius: 18px; background: white; line-height: 1.7; overflow-wrap: anywhere; }
+.card h1 { font-size: 22px; margin: 0 0 16px; }
+.card [role='alert'] { color: #a82929; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }

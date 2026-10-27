@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { AgentResetBoundary } from './components/reset/AgentResetBoundary'
 import { initApiBaseUrl } from './services/api'
 import { initDesktopPreferences } from './services/desktopPreferences'
 
@@ -15,7 +16,7 @@ if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 Promise.all([initDesktopPreferences(), initApiBaseUrl()]).then(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App />
+      <AgentResetBoundary><App /></AgentResetBoundary>
     </StrictMode>,
   )
 })

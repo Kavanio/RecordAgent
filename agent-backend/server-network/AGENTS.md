@@ -147,3 +147,10 @@
 - 日历月视图只能读取轻量日期摘要；`GET /agent/daily-events/days` 的 `items` 附带每天最多四条 `{ id, type, title }`，标题最多 80 字符，按日程、待办、学习、手记优先排序，周期待办遵循现有日期规则且不投影到未来；完整手记和类型详情按日加载。悬浮详情按日组合待办、收支、资产流水、学习统计和资料，各来源独立降级。资产变动使用 `GET /agent/finance/transactions/day?date=YYYY-MM-DD`，按当前用户隔离并返回 `TransactionResponse` 列表（无记录返回空列表，缺失或非法日期按参数错误处理）；包含划账和校准，但这两类不得计入收入支出合计。
 - 日历周期便签通过 `GET /agent/daily-events/recurring-todos?date=YYYY-MM-DD` 读取所选日期所在自然周与自然月内已生效的每周、每月待办；响应必须包含真实发生日、当前周期完成状态和乐观锁版本，普通与每日待办不得进入该接口。
 - SQLite 集成测试必须通过公开 Service 或 HTTP 接口验证行为，不得把私有 SQL 实现作为测试契约。
+
+## Agent 恢复出厂设置
+
+- `reset/` 只负责当前单用户的重置协调、确认 DTO、HTTP 适配与个人操作准入；领域 SQL 留在对应 Repository，通过 `ResetParticipant` 参与。恢复任务和屏障存于 `AgentStorageProperties.resetStateFile`，不存正文或凭据。
+- 个人状态 HTTP 写入必须携带从 `GET /agent/reset/current` 读取的 `X-Agent-Generation`；缺失返回 428，旧代次／保护屏障返回 423。普通业务数据接口不受该代次约束。后台与渠道调用通过同一准入租约或运行时停稳规则约束。
+- 屏障先持久化，再取消并等候旧操作收尾；已使用的 SDK 或渠道运行时进入 `WAITING_RESTART`，正常重启后先恢复屏障再续做，禁止先恢复旧 checkpoint 或渠道投递。未知工作区、归属不明渠道、符号链接或清理失败均保持屏障，重试复用原 resetId。
+- 出厂重置清除聊天 Token 投影和复盘派生理解，保留系统用量、人工目标、普通任务与已冻结报告副本。未来 Hindsight Adapter 必须成为必需参与方；M1 的 `LOCAL_COMPLETE / NOT_INTEGRATED` 只表示本地完成。

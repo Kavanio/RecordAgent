@@ -1,0 +1,5 @@
+.scope { display: grid; gap: 10px; line-height: 1.6; overflow-wrap: anywhere; }
+.scope h3, .scope p, .scope ul { margin: 0; }
+.scope h3 { font-size: 14px; }
+.scope ul { padding-left: 22px; }
+.scope [role='alert'] { color: #a82929; }
