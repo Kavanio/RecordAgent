@@ -7,6 +7,8 @@ public enum UsagePurpose {
     /** 用户主动发起的模型 API 连接测试。 */
     MODEL_CONNECTION_TEST,
     PROFILE_MAINTENANCE,
+    /** 自动／手动复盘草案生成；独立于聊天轮次。 */
+    REPORT_REVIEW,
     CONTEXT_COMPACTION,
     BACKGROUND_AGENT
 }
