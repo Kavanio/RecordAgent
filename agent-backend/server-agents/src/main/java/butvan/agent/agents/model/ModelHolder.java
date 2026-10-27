@@ -61,6 +61,19 @@ public class ModelHolder {
     }
 
     /**
+     * 判断当前模型是否被标注为具备图片识别能力。
+     *
+     * <p>未初始化或未标注时一律视为不支持：渠道必须把图片当作暂不支持的能力处理，
+     * 不能先发给模型再等供应商报错。</p>
+     *
+     * @return 是否支持图片识别
+     */
+    public boolean supportsVision() {
+        ModelSelector selector = currentSelector;
+        return selector != null && currentModel.get() != null && selector.visionCapable();
+    }
+
+    /**
      * 获取当前激活的模型实例
      *
      * @return Model 实例

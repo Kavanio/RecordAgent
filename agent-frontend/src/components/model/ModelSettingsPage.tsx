@@ -162,6 +162,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
   const [editProtocol, setEditProtocol] = useState<ModelProtocol>('openai');
   const [saving, setSaving] = useState(false);
   const [editIsDefault, setEditIsDefault] = useState(false);
+  const [editSupportsVision, setEditSupportsVision] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
 
   // 测试状态管理
@@ -274,6 +275,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
         selectedModel.providerId === activeProviderId &&
         selectedModel.id === activeModelId;
       setEditIsDefault(isAct);
+      setEditSupportsVision(selectedModel.supportsVision === true);
       setShowApiKey(false);
     }
   }, [selectedKey, selectedModel, isCreating, activeProviderId, activeModelId]);
@@ -300,6 +302,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
     setEditApiKey('');
     setEditBaseUrl(VENDOR_DEFAULT_URLS[defaultVendor] || '');
     setEditIsDefault(allModels.length === 0);
+    setEditSupportsVision(false);
     setShowApiKey(false);
     setIsPaneOpen(true);
   };
@@ -345,7 +348,8 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
     try {
       const params = { vendor: editVendor, baseUrl: editBaseUrl.trim(),
         protocol: editVendor === 'custom' ? editProtocol : undefined,
-        apiKey: editApiKey.trim(), modelId: trimmedModelId, name: trimmedName, makeDefault: editIsDefault };
+        apiKey: editApiKey.trim(), modelId: trimmedModelId, name: trimmedName, makeDefault: editIsDefault,
+        supportsVision: editSupportsVision };
       const providerId = isCreating ? await addModelItem(params)
         : selectedModel ? await updateModelItem({ providerId: selectedModel.providerId, modelId: selectedModel.id }, params) : '';
       showMessage('success', isCreating ? '模型配置已添加' : '模型配置已更新');
@@ -796,6 +800,14 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
 
                       <div className={styles.defaultModelRow}>
                         <div className={styles.defaultModelLabels}>
+                          <span className={styles.defaultModelTitle}>支持图片识别</span>
+                          <span className={styles.defaultModelDesc}>仅在该模型真的能看图时开启，系统据此判断能否接收图片</span>
+                        </div>
+                        <Toggle checked={editSupportsVision} onChange={setEditSupportsVision} aria-label="支持图片识别" />
+                      </div>
+
+                      <div className={styles.defaultModelRow}>
+                        <div className={styles.defaultModelLabels}>
                           <span className={styles.defaultModelTitle}>设为默认模型</span>
                           <span className={styles.defaultModelDesc}>在新对话中默认使用此模型</span>
                         </div>
@@ -1009,6 +1021,15 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
                           </Button>
                         </div>
                       </FormField>
+
+                      {/* 图片识别能力标注行 */}
+                      <div className={styles.defaultModelRow}>
+                        <div className={styles.defaultModelLabels}>
+                          <span className={styles.defaultModelTitle}>支持图片识别</span>
+                          <span className={styles.defaultModelDesc}>仅在该模型真的能看图时开启，系统据此判断能否接收图片</span>
+                        </div>
+                        <Toggle checked={editSupportsVision} onChange={setEditSupportsVision} aria-label="支持图片识别" />
+                      </div>
 
                       {/* 设为默认模型行 */}
                       <div className={styles.defaultModelRow}>

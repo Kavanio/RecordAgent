@@ -13,6 +13,7 @@ export interface ModelCardItem {
   apiKey?: string;
   description?: string;
   supportsReasoning?: boolean;
+  supportsVision?: boolean;
   contextWindow?: number;
 }
 
@@ -75,6 +76,9 @@ export const ModelCard: React.FC<ModelCardProps> = ({
             <span className={styles.vendorName}>{vendorName}</span>
             {item.supportsReasoning && (
               <span className={styles.reasoningTag}>思考</span>
+            )}
+            {item.supportsVision && (
+              <span className={styles.visionTag}>图片识别</span>
             )}
             {contextLabel && (
               <span className={styles.contextTag}>{contextLabel} 上下文</span>
