@@ -1,9 +1,10 @@
 import { TopBarAction } from '../common/TopBarAction';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowClockwiseIcon, ArrowsLeftRightIcon, CaretRightIcon, PencilSimpleIcon, PlusIcon, SparkleIcon, WalletIcon } from '@phosphor-icons/react';
-import { createFinanceAccount, createFinanceBalanceAdjustment, createFinanceTransaction, createFinanceTransfer, fetchFinanceCategories, fetchFinanceExpenseChart, fetchFinanceExpenseInsights, fetchFinanceOverview, fetchFinanceTransactions, updateFinanceTransaction } from '../../services/financeApi';
+import { createFinanceAccount, createFinanceBalanceAdjustment, createFinanceTransaction, createFinanceTransfer, deleteFinanceTransaction, fetchFinanceCategories, fetchFinanceExpenseChart, fetchFinanceExpenseInsights, fetchFinanceOverview, fetchFinanceTransactions, updateFinanceTransaction } from '../../services/financeApi';
 import type { CreateFinanceAccountInput, CreateFinanceBalanceAdjustmentInput, CreateFinanceTransactionInput, CreateFinanceTransferInput, FinanceAccount, FinanceCategoryOptions, FinanceChartRange, FinanceExpenseChart, FinanceExpenseInsights, FinanceOverview, FinanceTransaction } from '../../types/finance';
 import { Button } from '../common/Button';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { Skeleton } from '../common/Skeleton';
 import { useMessage } from '../common/Message';
 import { TopBar } from '../common/TopBar';
@@ -44,6 +45,8 @@ export const FinancePage: React.FC = () => {
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<FinanceTransaction | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FinanceTransaction | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isTransactionDrawerOpen, setIsTransactionDrawerOpen] = useState(false);
   const [isAssetDetailModalOpen, setIsAssetDetailModalOpen] = useState(false);
@@ -163,6 +166,54 @@ export const FinancePage: React.FC = () => {
   const closeTransactionModal = () => {
     setIsTransactionModalOpen(false);
     setEditingTransaction(null);
+  };
+
+  /** 划账的两条流水共用日期、时间与金额，删除文案据此找到对方账户名称。 */
+  const findTransferPartner = (transaction: FinanceTransaction) => allTransactions.find((item) =>
+    item.id !== transaction.id
+    && (item.transactionType === 'transfer_out' || item.transactionType === 'transfer_in')
+    && item.transactionType !== transaction.transactionType
+    && item.date === transaction.date
+    && item.time === transaction.time
+    && item.amount === transaction.amount);
+
+  /** 删除确认文案逐类型说明余额会怎么回滚，避免用户误删成新的错账。 */
+  const deleteDescription = (transaction: FinanceTransaction): string => {
+    const amount = money(transaction.amount);
+    const partnerName = findTransferPartner(transaction)?.accountName;
+    switch (transaction.transactionType) {
+      case 'expense':
+        return transaction.source === 'calendar'
+          ? '这是从日历记录同步的旧花销，删除后会同时从日历和记录中移除，不影响资产账户余额。'
+          : `删除后 ${amount} 会退回「${transaction.accountName}」。`;
+      case 'income':
+        return `删除后 ${amount} 会从「${transaction.accountName}」扣回；余额不足时删除会被拒绝。`;
+      case 'transfer_out':
+        return `这会同时删除对应的转入记录，${amount} 会退回「${transaction.accountName}」${partnerName ? `，并从「${partnerName}」扣回。` : '。'}`;
+      case 'transfer_in':
+        return `这会同时删除对应的转出记录，${amount} 会从「${transaction.accountName}」扣回${partnerName ? `，并退回「${partnerName}」。` : '。'}`;
+      case 'adjustment_increase':
+        return `删除后余额校准的影响一并回滚，「${transaction.accountName}」余额将减少 ${amount}。`;
+      case 'adjustment_decrease':
+        return `删除后余额校准的影响一并回滚，「${transaction.accountName}」余额将增加 ${amount}。`;
+      default:
+        return '';
+    }
+  };
+
+  const confirmDeleteTransaction = async () => {
+    if (!deleteTarget || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await deleteFinanceTransaction(deleteTarget.id);
+      await Promise.all([load(), loadChart(chartRange), loadInsights(insightsRange), loadAllTransactions()]);
+      showMessage('success', '流水已删除，账户余额已同步回滚');
+    } catch (cause) {
+      showMessage('error', cause instanceof Error ? cause.message : '流水删除失败，请稍后重试。');
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
+    }
   };
 
   const submitAccount = async (input: CreateFinanceAccountInput) => {
@@ -318,6 +369,19 @@ export const FinancePage: React.FC = () => {
       onClose={() => setIsTransactionDrawerOpen(false)}
       onRetry={() => void loadAllTransactions()}
       onEdit={editTransaction}
+      onDelete={(transaction) => setDeleteTarget(transaction)}
+    />
+
+    <ConfirmDialog
+      open={deleteTarget !== null}
+      title="确认删除流水"
+      tone="danger"
+      confirmText="删除流水"
+      confirmVariant="danger"
+      busy={isDeleting}
+      description={deleteTarget ? deleteDescription(deleteTarget) : ''}
+      onClose={() => { if (!isDeleting) setDeleteTarget(null); }}
+      onConfirm={() => void confirmDeleteTransaction()}
     />
 
     <AssetDetailModal
