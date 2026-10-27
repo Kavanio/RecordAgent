@@ -279,12 +279,11 @@ mvn -f agent-backend/pom.xml test
 pnpm --dir agent-frontend lint
 pnpm --dir agent-frontend build
 
-# 前端领域测试（按需选择）
-pnpm --dir agent-frontend test:tasks
-pnpm --dir agent-frontend test:models
-pnpm --dir agent-frontend test:finance
-pnpm --dir agent-frontend test:sidebar
-pnpm --dir agent-frontend test:loading
+# 前端领域测试（全量，自动发现 src 下所有 *.test.mjs）
+pnpm --dir agent-frontend test
+
+# 需要只跑单个文件时显式指定
+pnpm --dir agent-frontend test src/components/chat/ChatWorkspace.test.mjs
 
 # Rust 壳层检查
 cargo check --manifest-path agent-frontend/src-tauri/Cargo.toml
