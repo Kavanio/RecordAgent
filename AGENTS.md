@@ -133,6 +133,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 
 - 修改前先检查工作区状态，保留并避免覆盖用户已有改动。
 - 修改后至少执行与改动最贴近的格式化、类型检查、单元测试、构建或静态检查；若因环境或权限无法执行，必须说明原因和未验证范围。
+- 前端测试只有 `pnpm --dir agent-frontend test` 一个入口（`node --test` 自动发现 `*.test.mjs`），禁止恢复或新增按模块拆分的具名测试脚本；测试统一经 `agent-frontend/src/testing/harness.mjs` 引导。具体约束见 `agent-frontend/AGENTS.md`。
 - 不修复与当前任务无关的问题；发现阻断性问题时，应单独说明，不得隐式扩大改动范围。
 - 提交结果必须说明：修改了什么、为何修改、验证结果、遗留风险以及需要用户决策的事项。
 - 每次代码修改完成并通过必要验证后，必须将本次修改提交到当前分支；提交前应确认范围并保留用户已有改动。不得自行创建分支、推送、发布或写入外部系统，除非用户明确要求。
@@ -141,6 +142,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 
 - 已建立子级 `AGENTS.md`：`agent-backend/server-feishu/`（渠道集成模块职责与配置约束）。
 - 已建立子级 `AGENTS.md`：`agent-backend/server-network/`（HTTP 接口与本地 SQLite 持久化约束）。
+- 已建立子级 `AGENTS.md`：`agent-frontend/`（前端验证入口、测试引导、文件规模与样式组件契约）。
 - 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/RecordAgent/`（原生 iOS 技术栈、API 数据边界与工程约束）。
 - 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/backend/`（独立多用户业务后端、PostgreSQL 与 API 约束）。
 - 自动任务的细节约束见 `agent-backend/server-network/AGENTS.md` 的“自动任务”节；产品行为见 `docs/任务模块产品需求与操作说明.md`。
