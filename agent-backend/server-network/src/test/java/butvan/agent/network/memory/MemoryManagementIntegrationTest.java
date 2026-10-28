@@ -140,7 +140,7 @@ class MemoryManagementIntegrationTest {
         assertEquals("UNKNOWN", service.retry(task.id()).state());
     }
 
-    @Test void resetClearsCorrectionsAndTasksThroughSourceCascadeAndGuardsLateCommands() {
+    @Test void resetClearsCorrectionsAndTasksThroughSourceCascadeAndGuardsLateCommands() throws Exception {
         var f = new MemorySyncFixture(directory); f.base.enabled();
         var service = manager(f); String id = source(f, false);
         service.correct(id, new Correct(0, "合成纠正内容", true, "correct"));

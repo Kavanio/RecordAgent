@@ -2,6 +2,7 @@ package butvan.agent.network.memory.reset;
 
 import butvan.agent.agents.reset.ResetBarrier;
 import butvan.agent.agents.reset.ResetParticipant;
+import butvan.agent.agents.reset.ResetScopeException;
 import butvan.agent.network.memory.client.MemoryRemoteGateway;
 import butvan.agent.network.memory.repository.MemoryResetRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +35,7 @@ public class MemoryResetParticipant implements ResetParticipant {
     @Override public String remoteStatus(String owner, String resetId) {
         return repository.statusForOwner(owner, environment, resetId);
     }
-    @Override public void stop(String owner) {
+    @Override public void stop(String owner) throws ResetScopeException {
         requireReset(owner);
         String resetId = barrier.state().resetId();
         Boolean authorized = transaction.execute(status -> {
@@ -45,9 +46,9 @@ public class MemoryResetParticipant implements ResetParticipant {
             }
             return true;
         });
-        if (!Boolean.TRUE.equals(authorized)) throw new IllegalStateException("旧重置未确认远端清理范围，保持保护");
+        if (!Boolean.TRUE.equals(authorized)) throw new ResetScopeException("旧重置未确认远端清理范围，请先核实范围；目标和保护屏障已保留。");
     }
-    @Override public void clean(String owner) {
+    @Override public void clean(String owner) throws ResetScopeException {
         requireReset(owner);
         String resetId = barrier.state().resetId();
         String space = transaction.execute(status -> repository.prepare(owner, environment, resetId, configured()));
@@ -57,7 +58,7 @@ public class MemoryResetParticipant implements ResetParticipant {
             for (var target : targets) {
                 if (!configured() || !target.recipientFingerprint().equals(remote.recipientFingerprint())) {
                     failed(space, resetId, target, "FAILED");
-                    throw new IllegalStateException("远端接收方不可用，目标已保留");
+                    throw new ResetScopeException("远端记忆接收方不可用或已变化，请恢复原连接后继续核对；目标和保护屏障已保留。");
                 }
                 repository.status(space, resetId, "PROCESSING");
                 MemoryRemoteGateway.DeletionResult result;
@@ -65,12 +66,15 @@ public class MemoryResetParticipant implements ResetParticipant {
                 catch (RuntimeException exception) {
                     log.warn("记忆远端清理结果未知：errorType={}", exception.getClass().getSimpleName());
                     failed(space, resetId, target, "UNKNOWN");
-                    throw new IllegalStateException("远端清理结果未知，目标已保留");
+                    throw new ResetScopeException("远端记忆清理调用未完成，删除证据仍未知；请核实服务状态，目标和保护屏障已保留。");
                 }
                 if (result != MemoryRemoteGateway.DeletionResult.VERIFIED) {
                     String state = result == MemoryRemoteGateway.DeletionResult.FAILED ? "FAILED" : "UNKNOWN";
                     failed(space, resetId, target, state);
-                    throw new IllegalStateException("远端清理未核对完成");
+                    // 使用既有可展示的范围异常，只输出固定提示，避免协调器误报为本地磁盘权限问题。
+                    throw new ResetScopeException(state.equals("UNKNOWN")
+                            ? "远端记忆删除缺少完整核对证据；重复重试或重启不能代替证据，请先核实记忆服务清理能力。目标和保护屏障已保留。"
+                            : "远端记忆删除核对失败，请核实服务状态后继续原任务；目标和保护屏障已保留。");
                 }
                 repository.targetState(target, "VERIFIED");
             }

@@ -20,7 +20,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** 有界远端召回 Adapter：独立查询授权、来源复核、取消期限与本轮有效性，不负责信封预算。 */
+/** 有界远端召回 Adapter：远端定位来源，本地核对后投影用户原文；授权、期限与有效性不旁路信封预算。 */
 @Slf4j
 @Component
 public class MemoryRecallAdapter implements MemoryRecallPort {
@@ -125,13 +125,19 @@ public class MemoryRecallAdapter implements MemoryRecallPort {
         if (!validScope(scope)) return Result.empty(Status.NOT_AUTHORIZED);
         if (candidates == null || candidates.size() > 16) return Result.empty(Status.INVALID_RESULT);
         var fragments = new ArrayList<Fragment>();
+        var seen = new HashSet<String>();
         for (var candidate : candidates) {
             if (fragments.size() >= Math.min(4, request.topK()) || control.isCancelled()) break;
+            // 整组来源均有效后才投影；远端抽取只用于定位，不能凭 document_id 把推测升级为用户事实。
             var evidence = evidence(candidate, scope);
-            if (evidence.isEmpty()) continue;
-            String source = "经历来源 " + evidence.stream().map(row -> row.id() + "@" + row.occurredAt()).reduce((x,y) -> x + "," + y).orElse("");
-            fragments.add(new Fragment(source, "经历抽取参考，未经用户逐条确认：\n" + candidate.text(),
-                    () -> validScope(scope) && evidence.stream().allMatch(row -> validEvidence(row, scope))));
+            for (var item : evidence) {
+                if (fragments.size() >= Math.min(4, request.topK()) || control.isCancelled()) break;
+                var row = item.source();
+                if (!seen.add(row.id())) continue;
+                fragments.add(new Fragment("经历来源 " + row.id() + "@" + row.occurredAt(),
+                        "历史用户原文（可能含转述、尝试或当时想法，不等于当前立场）：\n" + item.text(),
+                        () -> validScope(scope) && verifiedOriginal(row, scope) != null));
+            }
         }
         if (request.cancelled().getAsBoolean()) return Result.empty(Status.CANCELLED);
         if (System.nanoTime() >= deadline) return Result.empty(Status.TIMEOUT);
@@ -139,29 +145,33 @@ public class MemoryRecallAdapter implements MemoryRecallPort {
         return new Result(fragments.isEmpty() ? (candidates.isEmpty() ? Status.EMPTY : Status.INVALID_RESULT) : Status.SUCCESS, fragments);
     }
 
-    private List<SourceRow> evidence(MemoryRecallGateway.Candidate candidate, Scope scope) {
+    private List<Evidence> evidence(MemoryRecallGateway.Candidate candidate, Scope scope) {
         if (candidate == null || candidate.text() == null || candidate.text().isBlank() || candidate.text().length() > 4000
                 || !candidate.completeProvenance() || candidate.documentIds() == null || candidate.documentIds().isEmpty()
                 || candidate.documentIds().size() > 4) return List.of();
-        var rows = new ArrayList<SourceRow>();
+        var rows = new ArrayList<Evidence>();
         for (String document : new LinkedHashSet<>(candidate.documentIds())) {
             var id = repository.verifiedSource(scope.state.settings().spaceId(), document, scope.state.recipientFingerprint());
             if (id.isEmpty()) return List.of();
             var row = sources.source(id.get());
-            if (row.isEmpty() || !validEvidence(row.get(), scope)) return List.of();
-            rows.add(row.get());
+            if (row.isEmpty()) return List.of();
+            String original = verifiedOriginal(row.get(), scope);
+            if (original == null) return List.of();
+            rows.add(new Evidence(row.get(), original));
         }
         return List.copyOf(rows);
     }
-    private boolean validEvidence(SourceRow source, Scope scope) {
+    /** 同一次权威读取返回原文，避免先核对哈希、再从另一次读取拼出未核对正文。 */
+    private String verifiedOriginal(SourceRow source, Scope scope) {
         try {
             if (source.generation() != scope.generation || source.revision() != scope.state.grant().revision()
                     || source.occurredAt().plus(Duration.ofDays(scope.state.grant().retentionDays())).isBefore(clock.instant())
-                    || repository.verifiedSource(scope.state.settings().spaceId(), source.document(), scope.state.recipientFingerprint()).isEmpty()) return false;
+                    || repository.verifiedSource(scope.state.settings().spaceId(), source.document(), scope.state.recipientFingerprint()).isEmpty()) return null;
             var turn = verifier.read(source);
-            return turn != null && turn.assistant() != null && turn.assistant().status() == MessageStatus.COMPLETED;
+            return turn != null && turn.assistant() != null && turn.assistant().status() == MessageStatus.COMPLETED
+                    ? turn.user().content() : null;
         } catch (RuntimeException exception) {
-            log.warn("召回来源核对失败：errorType={}", exception.getClass().getSimpleName()); return false;
+            log.warn("召回来源核对失败：errorType={}", exception.getClass().getSimpleName()); return null;
         }
     }
     private boolean validScope(Scope scope) {
@@ -179,5 +189,9 @@ public class MemoryRecallAdapter implements MemoryRecallPort {
         }
     }
     @PreDestroy public void close() { closed.set(true); workers.forEach(Thread::interrupt); }
+    /** 原文只留在本轮内存，禁止默认 toString 暴露正文。 */
+    private record Evidence(SourceRow source, String text) {
+        @Override public String toString() { return "MemoryRecallEvidence{REDACTED}"; }
+    }
     private record Scope(String owner, State state, long generation) { }
 }

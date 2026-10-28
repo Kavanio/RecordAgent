@@ -215,7 +215,7 @@ class MemorySyncIntegrationTest {
         assertEquals(1, f.sync.operations().size());
     }
 
-    @Test void resetDuringSubmissionRetainsTargetAndRemovesTasksOnlyAfterRemoteVerification() {
+    @Test void resetDuringSubmissionRetainsTargetAndRemovesTasksOnlyAfterRemoteVerification() throws Exception {
         var f = new MemorySyncFixture(directory);
         f.base.enabled();
         f.finish(f.admit("重置中的异步任务。"), MessageStatus.COMPLETED, true);

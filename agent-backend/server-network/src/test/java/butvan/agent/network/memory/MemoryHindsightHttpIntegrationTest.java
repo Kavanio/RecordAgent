@@ -237,14 +237,15 @@ class MemoryHindsightHttpIntegrationTest {
         assertFalse(sync.base.barrier.blocked());
     }
 
-    @Test void resetCannotDiscardTheRemoteJournalWhileDerivedCleanupRemainsUnknown() {
+    @Test void resetCannotDiscardTheRemoteJournalWhileDerivedCleanupRemainsUnknown() throws Exception {
         var write = write(); client.submit(write, () -> false);
         String owner = fixture.user.currentUserId();
         fixture.barrier.begin("reset", "request", owner, "memory-m2-v3:" + client.recipientFingerprint());
         var participant = new butvan.agent.network.memory.reset.MemoryResetParticipant(
                 new MemoryResetRepository(fixture.jdbc, fixture.repository), fixture.barrier, client, fixture.transactions, "test");
         participant.stop(owner);
-        assertThrows(IllegalStateException.class, () -> participant.clean(owner));
+        var failure = assertThrows(butvan.agent.agents.reset.ResetScopeException.class, () -> participant.clean(owner));
+        assertTrue(failure.getMessage().contains("远端记忆删除缺少完整核对证据"));
         assertTrue(fixture.barrier.blocked());
         assertEquals("UNKNOWN", participant.remoteStatus(owner, "reset"));
         assertTrue(journal.operation(write.target()).isPresent());
