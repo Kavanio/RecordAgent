@@ -11,9 +11,13 @@ import { MemoryDocumentManager } from './MemoryDocumentManager';
 import { MemoryConnectionSettings } from './MemoryConnectionSettings';
 import styles from './ExperienceMemorySettings.module.css';
 
+/** 接收方指纹很长，页面上只展示可辨认的头尾，避免撑满整行。 */
+function shortFingerprint(value: string) {
+  return value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
+}
+
 /** 经历记忆独立设置：保存设置、用途授权和来源管理各自保持权威状态。 */
-export function ExperienceMemorySettings() {
-  const { showMessage } = useMessage();
+export function ExperienceMemorySettings() {  const { showMessage } = useMessage();
   const [settings, setSettings] = useState<MemorySettings | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -55,8 +59,10 @@ export function ExperienceMemorySettings() {
   return <div className={styles.content}>
     <MemoryConnectionSettings onChanged={load} />
     <SettingsGroup title="经历记忆" description="从获准的新普通聊天保存经历，并为当前问题召回少量相关片段。默认关闭。">
-      <SettingsRow label="远端接入" description={settings?.remoteAvailable ? '试用接收方已由后端配置；还须授权并开启对应开关，不代表完整远端删除已核实。' : '当前未接入远端记忆服务，不会上传聊天；请先配置上方 Hindsight 试用连接。'}
-        control={<span>{settings ? settings.remoteAvailable ? settings.recipientFingerprint : '未接入' : '正在读取…'}</span>} />
+      <SettingsRow label="远端接入" description={settings?.remoteAvailable
+        ? <>接收方 <code className={styles.fingerprint}>{shortFingerprint(settings.recipientFingerprint)}</code>；还须授权并开启对应开关，不代表完整远端删除已核实。</>
+        : '当前未接入远端记忆服务，不会上传聊天；请先配置上方 Hindsight 试用连接。'}
+        control={<span className={styles.badge}>{settings ? settings.remoteAvailable ? '已接入' : '未接入' : '读取中…'}</span>} />
       {error && <SettingsRow label="设置读取失败" description={<span role="alert">{error}</span>} control={<Button variant="outline" disabled={busy} onClick={() => void load()}>重试读取设置</Button>} />}
       {settings && <>
         <SettingsRow label="用途授权" description={settings.authorized

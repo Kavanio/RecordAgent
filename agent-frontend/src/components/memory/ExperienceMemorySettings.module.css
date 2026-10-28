@@ -1,2 +1,4 @@
 .content { display: flex; flex-direction: column; gap: 24px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+.fingerprint { padding: 1px 5px; border-radius: 4px; background: #f1f5f9; color: #475569; font: 500 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
