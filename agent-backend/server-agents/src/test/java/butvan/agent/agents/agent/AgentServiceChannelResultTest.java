@@ -140,4 +140,22 @@ class AgentServiceChannelResultTest {
         order.verify(lifecycle).completed("local-default", "session", turn, MessageStatus.COMPLETED);
         assertEquals("NOT_FOUND", registry.cancel("local-default", "session", "run").status());
     }
+
+    @Test void cancellationDuringRecallStillPersistsOneCancelledTurnWithoutStartingTheModel() throws Exception {
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        when(context.assemble(any())).thenAnswer(call -> {
+            ContextRequest request = call.getArgument(0);
+            verify(checkpoints).save(any(AgentRun.class));
+            entered.countDown();
+            while (!request.cancelled().getAsBoolean()) java.util.concurrent.locks.LockSupport.parkNanos(1_000_000);
+            return ContextEnvelope.empty();
+        });
+        var stream = service.streamAgent(request());
+        assertTrue(entered.await(2, TimeUnit.SECONDS));
+        stream.requestCancellation();
+        var result = stream.completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(MessageStatus.CANCELLED, result.status());
+        verify(agent, never()).streamEvents(anyList(), any());
+        verify(transcript).appendAssistantMessage(eq("session"), eq(turn), anyString(), anyString(), eq(MessageStatus.CANCELLED), anyLong(), anyList(), any());
+    }
 }

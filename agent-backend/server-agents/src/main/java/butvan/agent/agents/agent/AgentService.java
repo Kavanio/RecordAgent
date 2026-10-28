@@ -128,7 +128,7 @@ public class AgentService {
             }
 
             // 1. 防止客户端伪造或使用已删除的会话
-            sessionCatalogService.requireActive(request.sessionId());
+            var currentSession = sessionCatalogService.requireActive(request.sessionId());
             String requestedContext = request.context() == null || request.context().isBlank()
                     ? request.content() : request.context();
             String input = requireContent(requestedContext);
@@ -143,12 +143,16 @@ public class AgentService {
             catch (RuntimeException exception) {
                 log.warn("经历来源登记未完成，聊天继续：errorType={}", exception.getClass().getSimpleName());
             }
-            ContextEnvelope contextEnvelope = contextAssembler.assemble(
-                    new ContextRequest(userId, displayContent));
             RuntimeContext context = createRuntimeContext(userId, request.sessionId());
-            context.put(ContextEnvelope.class, contextEnvelope);
             run = new AgentRun(request.sessionId(), userId, turnId, context);
             checkpointService.save(run);
+            boolean remoteEligible = currentSession != null
+                    && currentSession.kind() == butvan.agent.agents.session.dto.SessionKind.GENERAL
+                    && (currentSession.projectId() == null || currentSession.projectId().isBlank())
+                    && butvan.agent.agents.memory.MemorySourcePolicy.eligible(request);
+            ContextEnvelope contextEnvelope = contextAssembler.assemble(new ContextRequest(userId, displayContent,
+                    remoteEligible ? request.memoryChannel() : null, streamSession::isCancelled));
+            context.put(ContextEnvelope.class, contextEnvelope);
 
             // 仅新用户轮次修复进程重启遗留调用；HITL 恢复必须让 AgentScope 原样消费 ConfirmResult。
             recoverOrphanedToolCalls(userId, request.sessionId());

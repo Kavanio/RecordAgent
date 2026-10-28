@@ -11,4 +11,6 @@ public class MemoryRemoteConfiguration {
     MemoryRemoteGateway memoryRemoteGateway() { return MemoryRemoteGateway.disabled(); }
     @Bean @ConditionalOnMissingBean(MemoryWriteGateway.class)
     MemoryWriteGateway memoryWriteGateway() { return MemoryWriteGateway.disabled(); }
+    @Bean @ConditionalOnMissingBean(MemoryRecallGateway.class)
+    MemoryRecallGateway memoryRecallGateway() { return MemoryRecallGateway.disabled(); }
 }

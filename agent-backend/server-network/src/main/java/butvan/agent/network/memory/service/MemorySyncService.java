@@ -1,10 +1,8 @@
 package butvan.agent.network.memory.service;
 
 import butvan.agent.agents.identity.CurrentUserProvider;
-import butvan.agent.agents.memory.MemorySourcePolicy;
 import butvan.agent.agents.reset.*;
 import butvan.agent.agents.session.*;
-import butvan.agent.agents.session.dto.SessionKind;
 import butvan.agent.agents.session.dto.TranscriptMessageDto.MessageStatus;
 import butvan.agent.network.memory.client.*;
 import butvan.agent.network.memory.repository.MemorySyncRepository;
@@ -24,8 +22,7 @@ import java.util.function.Supplier;
 public class MemorySyncService {
     private final MemoryService memory;
     private final MemorySyncRepository repository;
-    private final TranscriptService transcript;
-    private final SessionCatalogService sessions;
+    private final MemorySourceVerifier verifier;
     private final CurrentUserProvider user;
     private final ResetBarrier barrier;
     private final MemoryWriteGateway writer;
@@ -37,7 +34,7 @@ public class MemorySyncService {
                              SessionCatalogService sessions, CurrentUserProvider user, ResetBarrier barrier,
                              MemoryWriteGateway writer, PlatformTransactionManager manager, Clock automationClock,
                              @Value("${butvan.memory.environment:desktop}") String environment) {
-        this.memory = memory; this.repository = repository; this.transcript = transcript; this.sessions = sessions;
+        this.memory = memory; this.repository = repository; this.verifier = new MemorySourceVerifier(transcript, sessions);
         this.user = user; this.barrier = barrier; this.writer = writer; this.transaction = new TransactionTemplate(manager);
         this.clock = automationClock; this.environment = environment;
     }
@@ -86,7 +83,7 @@ public class MemorySyncService {
 
     private void reconcileSource(SourceRow source) {
         if (!current(source)) { invalidate(source); return; }
-        var turn = read(source);
+        var turn = verifier.read(source);
         if (turn == null) { invalidate(source); return; }
         if (turn.assistant() == null) return;
         if (turn.assistant().status() != MessageStatus.COMPLETED) { invalidate(source); return; }
@@ -100,7 +97,7 @@ public class MemorySyncService {
         if (candidate.isEmpty()) return;
         SourceRow source = candidate.get();
         if (!current(source)) { invalidate(source); return; }
-        var turn = read(source);
+        var turn = verifier.read(source);
         if (turn == null || turn.assistant() == null || turn.assistant().status() != MessageStatus.COMPLETED) {
             invalidate(source); return;
         }
@@ -126,7 +123,7 @@ public class MemorySyncService {
                 repository.finish(operation.id(), token.get(), "CANCELLED", Long.MAX_VALUE, "AUTHORIZATION_CHANGED");
                 return;
             }
-            var latest = read(source);
+            var latest = verifier.read(source);
             if (latest == null || latest.assistant() == null || latest.assistant().status() != MessageStatus.COMPLETED) {
                 invalidate(source); return;
             }
@@ -156,21 +153,6 @@ public class MemorySyncService {
         repository.finish(operation.id(), token.get(), state, next, state.equals("UNKNOWN") ? "REMOTE_UNKNOWN" : "");
     }
 
-    private TranscriptService.TurnSnapshot read(SourceRow source) {
-        try {
-            var session = sessions.requireActive(source.session());
-            if (session.kind() != SessionKind.GENERAL || session.projectId() != null) return null;
-            var turn = transcript.readMemoryTurn(source.session(), source.turn());
-            var original = turn.user();
-            if (original == null || original.status() != MessageStatus.COMPLETED || !source.message().equals(original.id())
-                    || !source.occurredAt().equals(original.createdAt()) || !MemorySourcePolicy.eligibleText(original.content())
-                    || !source.hash().equals(MemorySourcePolicy.hash(original.content()))) return null;
-            return turn;
-        } catch (RuntimeException exception) {
-            log.warn("经历来源不可核对，停止该来源：errorType={}", exception.getClass().getSimpleName());
-            return null;
-        }
-    }
     private boolean current(SourceRow source) {
         try { return memory.isCurrent(source.receipt()); }
         catch (ResetBlockedException exception) { return false; }
