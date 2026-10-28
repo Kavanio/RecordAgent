@@ -152,13 +152,17 @@ class AgentFactoryTest {
                 Files.createDirectories(temporaryDirectory.resolve("projects/second")).toString()).id();
         String firstSession = sessions.create(new CreateSessionRequest(SessionKind.PROJECT, "first", firstProject)).id();
         String secondSession = sessions.create(new CreateSessionRequest(SessionKind.PROJECT, "second", secondProject)).id();
+        String siblingSession = sessions.create(new CreateSessionRequest(SessionKind.PROJECT, "sibling", firstProject)).id();
 
         HarnessAgent first = factory.currentAgent(firstSession);
         HarnessAgent firstAgain = factory.currentAgent(firstSession);
         HarnessAgent second = factory.currentAgent(secondSession);
+        HarnessAgent sibling = factory.currentAgent(siblingSession);
 
         assertSame(first, firstAgain);
         assertNotSame(first, second);
+        assertNotSame(first, sibling, "同项目的不同会话也必须独享可变 Toolkit");
+        assertNotSame(first.getToolkit(), sibling.getToolkit());
         String projectPrompt = first.getDelegate().getSysPrompt();
         assertTrue(projectPrompt.contains("# 任务执行规范"));
         assertTrue(projectPrompt.contains("acceptance_report"));
@@ -169,6 +173,7 @@ class AgentFactoryTest {
         assertTrue(first.getDelegate().getSysPrompt().contains("PermissionContext"));
         first.close();
         second.close();
+        sibling.close();
     }
 
     private int schemaTokens(List<ToolSchema> schemas) throws Exception {

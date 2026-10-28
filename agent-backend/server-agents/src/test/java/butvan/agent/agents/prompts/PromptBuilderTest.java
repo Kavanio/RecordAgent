@@ -81,6 +81,11 @@ class PromptBuilderTest {
         assertTrue(prompt.contains("没核对就不加引号"));
         assertTrue(prompt.contains("method_search"));
         assertTrue(prompt.contains("用户拒绝练习或信息紧急时"));
+        assertTrue(prompt.contains("默认一到三句"));
+        assertTrue(prompt.contains("不为续聊硬问"));
+        assertTrue(prompt.contains("翻译默认一句推荐表达"));
+        assertTrue(prompt.contains("旧经历不代表当前安排"));
+        assertTrue(prompt.contains("不替用户决定停止练习"));
         assertFalse(prompt.contains("Spacing Effects in Learning"), "卡片正文不进入常驻提示词");
     }
 

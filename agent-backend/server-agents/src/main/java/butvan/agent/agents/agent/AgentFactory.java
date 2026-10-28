@@ -50,8 +50,11 @@ public class AgentFactory {
     private final SessionCatalogService sessionCatalogService;
     private final ProjectRegistry projectRegistry;
 
-    /** 同一模型下按项目根隔离 Agent，避免不同会话共享文件系统能力根。 */
-    private final Map<String, HarnessAgent> cachedAgents = new HashMap<>();
+    /** 按会话与项目根隔离 Agent，避免会话之间互相修改 Toolkit 的可变激活分组。 */
+    private final Map<AgentCacheKey, HarnessAgent> cachedAgents = new HashMap<>();
+
+    /** 项目根变化时重建文件系统能力；无绑定会话的兼容入口独占一个缓存项。 */
+    private record AgentCacheKey(String sessionId, Path projectRoot) {}
 
     /**
      * 用对象引用识别 ModelHolder 是否已经切换了模型实例。
@@ -63,7 +66,7 @@ public class AgentFactory {
         return currentAgent(null);
     }
 
-    /** 按会话解析项目根并返回隔离后的 Agent。 */
+    /** 按会话身份与解析后的项目根返回独享 Toolkit 的 Agent。 */
     public synchronized HarnessAgent currentAgent(String sessionId) {
         Model currentModel = modelHolder.getModel();
         if (cachedModel != currentModel) {
@@ -73,7 +76,8 @@ public class AgentFactory {
         }
 
         Path projectRoot = resolveProjectRoot(sessionId);
-        String cacheKey = projectRoot == null ? "__general__" : projectRoot.toString();
+        AgentCacheKey cacheKey = new AgentCacheKey(
+                sessionId == null || sessionId.isBlank() ? null : sessionId, projectRoot);
         return cachedAgents.computeIfAbsent(cacheKey, ignored -> createHarnessAgent(currentModel, projectRoot));
     }
 
