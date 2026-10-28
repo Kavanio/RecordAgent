@@ -44,3 +44,10 @@ pnpm build   # tsc -b && vite build，类型检查与生产构建
 
 - 长期偏好统一走 `services/desktopPreferences.ts`，权威来源是 `~/.butvan-agent/desktop/`，WebView `localStorage` 只是同步缓存与浏览器开发兜底。禁止绕过该入口直接读写 `localStorage` 作为持久化。
 - 后端地址一律经 `services/api.ts` 获取，禁止在组件内硬编码地址或端口。
+
+## 六、Agent 重置交互
+
+- `components/reset/AgentResetBoundary` 在应用树挂载前读取后端屏障，处理中卸载旧树，代次变化后重新挂载，丢弃旧会话、审批与图片草稿；长期桌面偏好仍归原持久化模块。
+- 状态查询失败时继续保护应用树，但保留手动重查及独立的原生后端连接设置入口；复用 `BackendConnectionSettings` 的保存与确认重启流程，不热切换当前后端。查询恢复不得中断正在编辑的连接草稿；浏览器环境提供开发后端排查指引。
+- 重置请求集中在 `services/agentResetService.ts`；确认绑定预览时的实际后端，重复提交复用 requestId。状态带单调 revision，忽略迟到旧状态；个人 HTTP 写入通过统一 apiFetch 携带已确认的 Agent 代次。
+- 设置页使用独立危险操作分组和确认文字；失败、等待旧写入者或正常重启时展示后端权威状态，不显示成功。仅本机 sidecar 提供原生正常重启按钮；开发或远程后端展示对应的手工正常重启说明。

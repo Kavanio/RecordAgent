@@ -49,14 +49,17 @@ public class FeishuChatService implements AutoCloseable {
     private ScheduledExecutorService scheduler;
     private volatile boolean closed = true;
     private volatile boolean faulted;
+    @org.springframework.beans.factory.annotation.Autowired
+    private butvan.agent.agents.reset.ResetBarrier resetBarrier;
+    @org.springframework.beans.factory.annotation.Autowired
+    private butvan.agent.agents.storage.AgentStorageProperties storageProperties;
 
     /** 生命周期先取得独占账本，再允许连接收件；持久化路径不接收用户消息中的任意路径。 */
     public synchronized void open(FeishuConfigData config, FeishuMessageSender sender,
                                   FeishuImageFetcher imageFetcher) throws IOException {
         requireClosed();
         String namespace = stableId(config.appId() + ":" + currentUser.currentUserId());
-        open(config, sender, imageFetcher, new FeishuTaskStore(Path.of(System.getProperty("user.home"),
-                ".butvan-agent", "channels", "feishu", namespace)), Clock.systemUTC(), System::nanoTime, true);
+        open(config, sender, imageFetcher, new FeishuTaskStore(storageProperties.getFeishuDirectory().resolve(namespace)), Clock.systemUTC(), System::nanoTime, true);
     }
 
     /** 内部时钟和存储 seam 用于确定性的断网、重启与心跳测试。 */
@@ -83,10 +86,11 @@ public class FeishuChatService implements AutoCloseable {
 
     /** 长连接回调只进行受理落盘和有界调度，不等待模型或平台发送。 */
     public synchronized void handle(NormalizedMessage message) {
-        if (closed || faulted || message == null) return;
+        if (closed || faulted || message == null || (resetBarrier != null && resetBarrier.blocked())) return;
         // 首版只允许一个本人 open_id 的私聊，群聊即使 SDK 放行也不会触发任何回执或工具。
         if (!"p2p".equals(message.getChatType()) || !config.allowedSenderIds().contains(message.getSenderId())) return;
         if (message.getMessageId() == null || message.getChatId() == null) return;
+        if (!store.acceptsMessageTime(message.getCreateTime())) return;
         String conversation = stableId(config.appId() + ":" + currentUser.currentUserId() + ":"
                 + message.getChatId() + ":" + Objects.toString(message.getThreadId(), "") + ":" + message.getSenderId());
         String taskId = stableId(config.appId() + ":" + currentUser.currentUserId() + ":" + message.getMessageId());
@@ -238,7 +242,7 @@ public class FeishuChatService implements AutoCloseable {
     }
 
     synchronized void tick() {
-        if (closed || faulted) return;
+        if (closed || faulted || (resetBarrier != null && resetBarrier.blocked())) return;
         long now = nanoTime.getAsLong();
         for (Map.Entry<String, Running> entry : running.entrySet()) {
             Task task = store.task(entry.getKey());
@@ -267,7 +271,7 @@ public class FeishuChatService implements AutoCloseable {
     }
 
     private void dispatch() {
-        if (closed || faulted) return;
+        if (closed || faulted || (resetBarrier != null && resetBarrier.blocked())) return;
         Set<String> occupied = new HashSet<>();
         for (String id : running.keySet()) occupied.add(store.task(id).conversation());
         for (Task task : store.snapshot().tasks()) {
@@ -346,7 +350,7 @@ public class FeishuChatService implements AutoCloseable {
         } finally {
             synchronized (this) {
                 running.remove(task.id());
-                if (!closed && !faulted) { dispatch(); delivery.pump(); }
+                if (!closed && !faulted && (resetBarrier == null || !resetBarrier.blocked())) { dispatch(); delivery.pump(); }
             }
         }
     }

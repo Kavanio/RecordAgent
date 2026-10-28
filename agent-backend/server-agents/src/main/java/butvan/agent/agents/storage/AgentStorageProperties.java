@@ -42,6 +42,12 @@ public class AgentStorageProperties {
     /** AgentScope Workspace 的根目录。 */
     private final Path workspaceDirectory;
 
+    /** 不含正文的持久化重置屏障与步骤日志。 */
+    private final Path resetStateFile;
+
+    /** 飞书渠道账本根目录，凭据仍归 config.json。 */
+    private final Path feishuDirectory;
+
     /** 天气与节假日持久化缓存目录。 */
     private final Path dailyContextDirectory;
 
@@ -64,6 +70,8 @@ public class AgentStorageProperties {
         runCheckpointDirectory = this.rootDirectory.resolve("runs");
         agentStateDirectory = this.rootDirectory.resolve("agentscope").resolve("state");
         workspaceDirectory = this.rootDirectory.resolve("agentscope").resolve("workspace");
+        resetStateFile = this.rootDirectory.resolve("reset/state.json");
+        feishuDirectory = this.rootDirectory.resolve("channels/feishu");
         dailyContextDirectory = this.rootDirectory.resolve("daily-context");
 
         // 应用启动的时候创建本项目明确拥有的目录

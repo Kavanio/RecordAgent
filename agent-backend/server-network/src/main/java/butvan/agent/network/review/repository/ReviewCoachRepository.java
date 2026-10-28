@@ -123,6 +123,19 @@ public class ReviewCoachRepository {
     public int disableUnfrozenDeliveries(String owner) {
         return jdbc.update("UPDATE automation_review_delivery SET state='DISABLED',privacy_disabled=1 WHERE owner_id=? AND state='WAITING'",owner);
     }
+    /** 出厂重置专用：保护人工目标及已冻结邮件副本，只清理个人化派生正文。 */
+    public void resetPersonalization(String owner) {
+        disableUnfrozenDeliveries(owner);
+        jdbc.update("UPDATE automation_review_delivery SET final_text=NULL,final_html=NULL WHERE owner_id=? AND state<>'FROZEN'", owner);
+        jdbc.update("DELETE FROM review_feedback_request WHERE owner_id=?", owner);
+        jdbc.update("DELETE FROM review_action WHERE owner_id=?", owner);
+        jdbc.update("DELETE FROM review_observation WHERE owner_id=?", owner);
+        jdbc.update("DELETE FROM review_job WHERE owner_id=?", owner);
+        jdbc.update("DELETE FROM review_snapshot WHERE owner_id=?", owner);
+        jdbc.update("UPDATE review_task_preference SET enabled=0,revision=revision+1 WHERE owner_id=? AND enabled<>0", owner);
+        // 当天额度属于无正文防重复审计，保留以免重置被用于绕过调用上限。
+    }
+
     public void registerDelivery(Delivery value) {
         jdbc.update("""
                 INSERT INTO automation_review_delivery(run_id,owner_id,review_id,state,base_text,base_html,deadline)

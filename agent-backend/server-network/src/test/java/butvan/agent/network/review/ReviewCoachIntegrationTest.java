@@ -48,7 +48,7 @@ class ReviewCoachIntegrationTest {
     @SpringBootConfiguration @EnableAutoConfiguration
     @Import({LocalDatabaseConfiguration.class, ReviewRepository.class, ReviewCoachRepository.class,
             ReviewMemoryRepository.class, ReviewAuthorizationService.class, ReviewFactCollector.class,
-            ReviewFactService.class, ReviewGoalService.class, ReviewDataService.class,
+            ReviewFactService.class, ReviewGoalService.class, ReviewDataService.class, ReviewResetParticipant.class,
             ReviewCoachService.class, ReviewMemoryService.class, ReviewDeliveryService.class,
             ReviewMemoryReaderAdapter.class,
             ReviewController.class, ApiExceptionHandler.class})
@@ -77,6 +77,8 @@ class ReviewCoachIntegrationTest {
     @jakarta.annotation.Resource ReviewMemoryReader memoryReader;
     @jakarta.annotation.Resource ReviewDeliveryService deliveries;
     @jakarta.annotation.Resource JdbcTemplate jdbc;
+    @jakarta.annotation.Resource ReviewResetParticipant reset;
+    @jakarta.annotation.Resource ReviewGoalService goals;
     private String owner;
 
     @BeforeEach void setup() {
@@ -215,6 +217,36 @@ class ReviewCoachIntegrationTest {
         assertEquals("DISABLED", jdbc.queryForObject("SELECT state FROM automation_review_delivery WHERE run_id='run-2'", String.class));
         deliveries.freezeReady();
         assertEquals("WAITING", jdbc.queryForObject("SELECT email_status FROM automation_run WHERE id='run-2'", String.class));
+    }
+
+    @Test void factoryResetErasesDerivedMemoryButPreservesManualGoalsAndFrozenBusinessReports() {
+        permit(owner, Set.of("STUDY"));
+        var goal = goals.save(owner, null, new SaveGoal(0, "持续学习", "保护人工目标", "每周一次", "ACTIVE"));
+        String reviewId = generateAutomatic();
+        var action = memory.list(owner).actions().getFirst();
+        memory.feedback(owner, action.id(), new FeedbackRequest("reset-feedback", action.revision(),
+                "ACCEPTED", null, null, DAY.plusDays(7), "个人反馈"));
+        String other = "other-" + owner;
+        goals.save(other, null, new SaveGoal(0, "另一用户目标", "", "", "ACTIVE"));
+        taskRow();
+        runRow("run-reset-frozen", "基础业务报告", "<html><body>基础业务报告</body></html>", 5);
+        deliveries.register(owner, "run-reset-frozen", reviewId, "基础业务报告", "<html><body>基础业务报告</body></html>", 90);
+        deliveries.freezeReady();
+        String frozen = jdbc.queryForObject("SELECT content FROM automation_run WHERE id='run-reset-frozen'", String.class);
+        assertTrue(frozen.contains("AI 长期复盘"));
+        reset.clean(owner); reset.clean(owner);
+        assertFalse(authorization.settings(owner).enabled());
+        assertFalse(authorization.settings(owner).authorized());
+        assertEquals(goal, goals.list(owner).getFirst());
+        assertEquals(1, goals.list(other).size());
+        assertTrue(memory.list(owner).actions().isEmpty());
+        assertTrue(memory.list(owner).observations().isEmpty());
+        assertTrue(coach.history(owner, 20).isEmpty());
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM review_snapshot WHERE owner_id=?", Integer.class, owner));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM review_feedback_request WHERE owner_id=?", Integer.class, owner));
+        assertEquals(frozen, jdbc.queryForObject("SELECT content FROM automation_run WHERE id='run-reset-frozen'", String.class));
+        assertEquals("FROZEN", jdbc.queryForObject("SELECT state FROM automation_review_delivery WHERE run_id='run-reset-frozen'", String.class));
+        assertEquals("ENABLED", jdbc.queryForObject("SELECT status FROM automation_task WHERE id=?", String.class, taskId()));
     }
 
     private String generateAutomatic() {

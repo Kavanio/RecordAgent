@@ -26,6 +26,27 @@ class FeishuTaskStoreTest {
         }
     }
 
+    @Test void resetRemovesBodiesAndBindingsButOldMessagesStayRejectedAfterRestart() throws Exception {
+        Task old = task("old", "chat", Execution.QUEUED, 100).toBuilder().input("private input")
+                .parts(List.of(Part.builder().id("reply").text("private reply").status(Delivery.UNKNOWN).build())).build();
+        try (var store = new FeishuTaskStore(directory)) {
+            store.accept(old, 5, 100); store.bind("chat", "session");
+            store.resetPersonalState(); store.resetPersonalState();
+            assertTrue(store.snapshot().tasks().isEmpty());
+            assertTrue(store.snapshot().bindings().isEmpty());
+            assertEquals(-1, store.accept(old, 5, 1000));
+        }
+        try (var store = new FeishuTaskStore(directory)) {
+            assertNull(store.task("old"));
+            assertFalse(store.acceptsMessageTime(100));
+            assertFalse(store.acceptsMessageTime(0));
+            assertTrue(store.acceptsMessageTime(Long.MAX_VALUE));
+            assertEquals(-1, store.accept(old, 5, 10000000000L));
+        }
+        String json = Files.readString(directory.resolve("state.json"));
+        assertFalse(json.contains("private input")); assertFalse(json.contains("private reply"));
+    }
+
     @Test void sameStateDirectoryHasOnlyOneWriter() throws Exception {
         try (FeishuTaskStore first = new FeishuTaskStore(directory)) {
             assertThrows(IOException.class, () -> new FeishuTaskStore(directory));

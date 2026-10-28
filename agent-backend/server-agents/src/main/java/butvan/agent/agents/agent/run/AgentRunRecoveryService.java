@@ -21,9 +21,13 @@ public class AgentRunRecoveryService {
     private final TranscriptService transcriptService;
     private final SessionCatalogService sessionCatalogService;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private butvan.agent.agents.reset.ResetBarrier resetBarrier;
+
     /** 启动完成后执行恢复，避免构造阶段依赖尚未初始化的目录册。 */
     @EventListener(ApplicationReadyEvent.class)
     public void recoverInterruptedRuns() {
+        if (resetBarrier != null && resetBarrier.blocked()) return;
         for (AgentRunCheckpoint checkpoint : checkpointService.list()) {
             recover(checkpoint);
         }

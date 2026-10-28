@@ -4,6 +4,8 @@
 
 ---
 
+桌面主窗口启动时先经 AgentResetBoundary 确认后端重置屏障；保护期间显示独立进度页，正常状态按后端代次挂载应用树。
+
 桌面主窗口启动契约：由 `agent-frontend/src-tauri/tauri.conf.json` 配置默认 1200×800 逻辑像素、居中显示并启用工作区防溢出；小屏幕按可用工作区约束尺寸，保留用户手动调整大小，不影响提醒等辅助窗口。
 
 ## 一、全局基础通用组件（`agent-frontend/src/components/common/`）
@@ -60,8 +62,10 @@
 | **ModelSettingsPage** | `agent-frontend/src/components/model/ModelSettingsPage.tsx` | `ModelSettingsPage.module.css`、SettingsMainRegion、各设置子页 | 设置导航与页面切换；侧栏在 SettingsMainRegion 外，账户状态独立读取并传给个人资料页；模型主从布局复用 ModelEndpointFields 配置自定义协议与地址，保存成功后才更新列表；连接测试由后端实际调用模型 | `onBack()`、`initialTab?: string` | 配置、个人资料、Token 用量及功能设置；等待时可切换侧栏，旧账户响应在卸载后忽略 | 桌面设置入口 |
 | **ProfileSettingsPage** | `agent-frontend/src/components/settings/ProfileSettingsPage.tsx` | `ProfileSettingsPage.module.css`、SettingsPageLayout、Button、Message、tokenUsageService | 账户身份、头像、Token 汇总与年度活动；账户/用量读取、刷新和头像上传统一使用右侧主区域毛玻璃；忽略迟到的统计响应，刷新保留已有节点 | `accountStatus: AccountStatus \| null`、`accountLoading?: boolean`、`onAccountStatusChange?(status)` | 首次加载、刷新、头像上传、失败重试、旧数据提示；左侧导航始终可用 | 设置 → 个人资料 |
 | **TokenUsageSettingsPage** | `agent-frontend/src/components/settings/TokenUsageSettingsPage.tsx` | `TokenUsageSettingsPage.module.css`、SettingsPageLayout、Button、Select、UsageTrend、UsageRanking、tokenUsageService | Token 用量统计与时间范围编排；用途区分聊天、会话标题、模型连接测试等系统调用；仅采纳最后一次请求；首次读取、范围切换及普通刷新统一使用整个右侧主区域毛玻璃与大号大树，刷新保留统计节点 | 无外部 Props；近 7 / 30 / 90 天、全部时间；手动刷新 | 初次加载、范围切换、刷新中、首次失败重试、刷新失败保留旧数据、真实零用量；设置 → Token 用量 |
-| **BackendConnectionSettings** | `agent-frontend/src/components/settings/BackendConnectionSettings.tsx` | `BackendConnectionSettings.module.css`、SettingsPageLayout、SettingsGroup/Row、BackendConnectionModal、ConfirmDialog、Message、api | 后端运行位置摘要与配置入口；分别展示当前连接、已保存配置与待重启状态，不在页面内直接放置地址/Token 表单 | 无 Props；读取原生权威配置；保存变更后提示“立即重启 / 稍后重启”，调用原生正常退出重启流程，不热切换 API/SSE | 加载、读取失败、远程、本机、自动降级、待重启、重启失败手动指引；设置 → 后端连接 |
+| **BackendConnectionSettings** | `agent-frontend/src/components/settings/BackendConnectionSettings.tsx` | `BackendConnectionSettings.module.css`、SettingsPageLayout、SettingsGroup/Row、BackendConnectionModal、ConfirmDialog、Message、api | 后端运行位置摘要与配置入口；分别展示当前连接、已保存配置与待重启状态，不在页面内直接放置地址/Token 表单 | 无 Props；读取原生权威配置；保存变更后提示“立即重启 / 稍后重启”，调用原生正常退出重启流程，不热切换 API/SSE | 加载、读取失败、远程、本机、自动降级、待重启、重启失败手动指引；设置 → 后端连接及启动连接恢复页 |
 | **BackendConnectionModal** | `agent-frontend/src/components/settings/BackendConnectionModal.tsx` | `BackendConnectionModal.module.css`、Modal、FormField、Select、TextInput、Button、Message、api | 本机/远程连接草稿、地址与密码型 Token 配置、连接测试；取消丢弃草稿，Token 留空沿用钥匙串，不显示已有凭据 | `connection: BackendConnectionInfo`、`onClose()`、`onSaved(changed, remoteUrl)`；每次打开重新挂载；地址归一化；原生比较配置变化 | 本机 / 远程、测试中、保存中 Modal busy、防重提交、失败保留草稿；保存不热切换当前连接 |
+| **AgentResetSection** | `agent-frontend/src/components/reset/AgentResetSection.tsx` | `AgentResetSection.module.css`、SettingsGroup/Row、ConfirmDialog、TextInput、Button、Message、agentResetService | 个人上下文设置中的危险操作：先预览实际后端与删除／保留范围，输入确认文字后提交；超时查询同一幂等任务 | 无外部 Props；服务端短期凭证、scopeVersion、requestId、实际后端绑定 | 预览中 / 确认 / 字段校验 / 提交中 / 请求失败 | 设置 → 个人上下文 → Agent 恢复出厂设置 |
+| **AgentResetBoundary** | `agent-frontend/src/components/reset/AgentResetBoundary.tsx` | `AgentResetBoundary.module.css`、Button、BackendConnectionSettings、MessageProvider、agentResetService、api | 启动读取权威屏障；保护期间卸载旧应用树；按代次重新挂载并丢弃旧会话响应，显示本地结果与远端限制；查询失败可手动重查或独立配置原生连接，不放行应用树 | `children: ReactNode`；订阅本窗口状态发布并读取后端状态；以 revision 丢弃迟到状态；连接恢复复用保存与确认重启，轮询恢复保留配置草稿 | 启动检查 / 连接失败与恢复 / 浏览器排查指引 / 停稳 / 清理 / 失败恢复 / 正常重启 / 本地完成 | 主应用启动和重置期间；业务文件、凭据及长期偏好保留 |
 | **SettingsGroup** | [`SettingsGroup.tsx`](agent-frontend/src/components/settings/SettingsGroup.tsx) | `SettingsGroup.module.css` | 设置项分组卡片容器，组标题置于卡片外部，相关设置卡片内部按行排列 | `title: string`<br/>`description?: string`<br/>`children: ReactNode` | **结构**：外部标题 + 圆角浅灰卡片 | 设置页面中的功能逻辑分组 |
 | **SettingsRow** | [`SettingsGroup.tsx`](agent-frontend/src/components/settings/SettingsGroup.tsx) | `SettingsGroup.module.css` | 设置卡片中的标准行，统一左侧标题与说明、右侧控件与行分割线 | `label: ReactNode`<br/>`description?: ReactNode`<br/>`control: ReactNode`<br/>`labelFor?: string`<br/>`layout?: 'inline' \| 'stacked'`（默认 inline） | **布局**：inline 自适应左右两栏、控件右对齐；stacked 将标题说明置顶、控件独占下一行全宽，适合复合控件与长说明；数字微调保留自身尺寸与样式 | 承载 Toggle 开关、Select 下拉、按钮或文本输入 |
 
