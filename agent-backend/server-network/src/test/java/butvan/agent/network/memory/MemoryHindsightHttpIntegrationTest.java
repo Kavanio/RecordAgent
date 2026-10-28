@@ -38,7 +38,7 @@ class MemoryHindsightHttpIntegrationTest {
     private final String childId = UUID.randomUUID().toString();
     private final String secondChild = UUID.randomUUID().toString();
     private volatile String parentState = "completed", childState = "completed";
-    private volatile boolean twoChildren, hideFirstChild, documentGone, factsRemain, loseSubmitAck, loseChildAck, loseDocumentAck, invalidAck;
+    private volatile boolean twoChildren, hideFirstChild, documentGone, factsRemain, loseSubmitAck, loseChildAck, loseDocumentAck, invalidAck, failParentDelete;
     private volatile JsonNode recall;
     private volatile Runnable beforeRecall = () -> { };
     private volatile JsonNode lastWrite, lastRecall;
@@ -131,6 +131,29 @@ class MemoryHindsightHttpIntegrationTest {
         assertEquals(before, calls.size());
     }
 
+    @Test void unseenChildMakesDeletionUnknownEvenWhenAllVisibleTargetsAreGone() {
+        var write = write(); client.submit(write, () -> false); twoChildren = true; hideFirstChild = true;
+        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, client.deleteAndVerify(write.target()));
+        assertTrue(documentGone); assertTrue(removed.contains(secondChild)); assertTrue(removed.contains(write.operationId()));
+        assertFalse(removed.contains(childId), "本机服务刻意隐藏一个未观测任务，父完成不能证明不存在残留载荷");
+        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, adapter(journal, "synthetic-chain").deleteAndVerify(write.target()));
+        assertEquals(1, posts.get());
+    }
+
+    @Test void emptyChildrenDuringPartialCleanupNeverPublishSuccessfulWriteAndCanStillResumeCleanup() {
+        var write = write(); client.submit(write, () -> false); failParentDelete = true;
+        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, client.deleteAndVerify(write.target()));
+        assertTrue(removed.contains(childId)); assertFalse(removed.contains(write.operationId()));
+        assertEquals(MemoryWriteGateway.Outcome.UNKNOWN, client.query(write.operationId(), write.target(), () -> false),
+                "允许续做已发起删除的历史，不等于空子清单可以发布写入成功");
+
+        failParentDelete = false;
+        var restarted = adapter(new MemoryRemoteOperationRepository(fixture.jdbc, fixture.transactions), "synthetic-chain");
+        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, restarted.deleteAndVerify(write.target()));
+        assertTrue(removed.contains(write.operationId()));
+        assertEquals(1, deletes.stream().filter(childId::equals).count()); assertEquals(1, posts.get());
+    }
+
     @Test void cleanupWithRemainingFactsKeepsTaskPayloadPointersAndResumesAfterRestart() {
         var write = write(); client.submit(write, () -> false); factsRemain = true;
         client.deleteAndVerify(write.target()); assertEquals(List.of("document"), deletes);
@@ -139,6 +162,31 @@ class MemoryHindsightHttpIntegrationTest {
         var restarted = adapter(new MemoryRemoteOperationRepository(fixture.jdbc, fixture.transactions), "synthetic-chain");
         assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, restarted.deleteAndVerify(write.target()));
         assertEquals(1, deletes.stream().filter("document"::equals).count()); assertTrue(removed.contains(write.operationId()));
+    }
+
+    @Test void reappearingDocumentWithoutFactsMustNotDiscardRemoteTaskEvidenceOnResume() {
+        var write = write(); client.submit(write, () -> false); factsRemain = true;
+        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, client.deleteAndVerify(write.target()));
+        assertEquals(List.of("document"), deletes);
+
+        // 模拟旧清理步骤已落盘后，迟到写入重建了文档，但尚未生成可列举的事实。
+        factsRemain = false; documentGone = false;
+        var restarted = adapter(new MemoryRemoteOperationRepository(fixture.jdbc, fixture.transactions), "synthetic-chain");
+        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, restarted.deleteAndVerify(write.target()));
+        assertEquals(List.of("document"), deletes, "直接事实为空不能掩盖文档重现并继续删除任务载荷");
+        assertFalse(removed.contains(childId)); assertFalse(removed.contains(write.operationId()));
+        assertEquals(1, posts.get(), "核对清理不能重放原始写入");
+    }
+
+    @Test void resumedCleanupMustRecheckCurrentOperationsInsteadOfUsingOldTerminalFlags() {
+        var write = write(); client.submit(write, () -> false); factsRemain = true;
+        client.deleteAndVerify(write.target()); assertEquals(List.of("document"), deletes);
+
+        factsRemain = false; parentState = "processing"; childState = "processing";
+        var restarted = adapter(new MemoryRemoteOperationRepository(fixture.jdbc, fixture.transactions), "synthetic-chain");
+        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, restarted.deleteAndVerify(write.target()));
+        assertEquals(List.of("document"), deletes, "已完成的文档步骤不能代替当前任务停稳核对");
+        assertFalse(removed.contains(childId)); assertFalse(removed.contains(write.operationId()));
     }
 
     @Test void lostDocumentAndChildDeleteAcknowledgementsRecoverUsingPersistedIntent() {
@@ -228,9 +276,14 @@ class MemoryHindsightHttpIntegrationTest {
         } else if (suffix.startsWith("operations/")) {
             String id = suffix.substring(11).split("/", 2)[0];
             if (method.equals("DELETE")) {
-                assertTrue(suffix.endsWith("/delete")); deletes.add(id); removed.add(id);
-                status = loseChildAck && id.equals(childId) ? 503 : 200;
-                body = mapper.createObjectNode().put("success", true).put("operation_id", id);
+                assertTrue(suffix.endsWith("/delete"));
+                if (failParentDelete && id.equals(parentId)) {
+                    status = 503; body = mapper.createObjectNode();
+                } else {
+                    deletes.add(id); removed.add(id);
+                    status = loseChildAck && id.equals(childId) ? 503 : 200;
+                    body = mapper.createObjectNode().put("success", true).put("operation_id", id);
+                }
             } else if (removed.contains(id)) body = mapper.createObjectNode().put("operation_id", id).put("status", "not_found");
             else if (id.equals(parentId)) {
                 ObjectNode value = mapper.createObjectNode().put("operation_id", id).put("operation_type", "batch_retain").put("status", parentState);

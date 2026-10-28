@@ -9,11 +9,26 @@ import java.util.*;
 final class HindsightOperationStatus {
     private HindsightOperationStatus() { }
     static MemoryWriteGateway.Outcome observe(JsonNode value, MemoryRemoteGateway.Target target, MemoryRemoteOperationRepository repository) {
+        return observe(value, target, repository, false);
+    }
+    /** 仅允许续做已登记清理：原子历史均已发起删除时，父响应可能没有剩余子项。
+     * 这不是原始清单完整性的证明，也不能用于发布写入成功。
+     */
+    static MemoryWriteGateway.Outcome observeKnownCleanup(JsonNode value, MemoryRemoteGateway.Target target, MemoryRemoteOperationRepository repository) {
+        return observe(value, target, repository, true);
+    }
+    private static MemoryWriteGateway.Outcome observe(JsonNode value, MemoryRemoteGateway.Target target,
+                                                      MemoryRemoteOperationRepository repository, boolean cleanup) {
         if (!target.operationId().equals(value.path("operation_id").asText()) || !value.path("operation_type").asText().equals("batch_retain")) return MemoryWriteGateway.Outcome.UNKNOWN;
         String state = value.path("status").asText();
         if (!Set.of("pending", "processing", "completed", "failed", "cancelled", "not_found").contains(state)) return MemoryWriteGateway.Outcome.UNKNOWN;
         JsonNode rows = value.path("child_operations");
-        if (!rows.isArray() || rows.isEmpty() || rows.size() > 32) return MemoryWriteGateway.Outcome.UNKNOWN;
+        if (!rows.isArray() || rows.size() > 32) return MemoryWriteGateway.Outcome.UNKNOWN;
+        if (rows.isEmpty()) {
+            var known = repository.children(target.operationId());
+            if (!cleanup || known.isEmpty() || known.stream().anyMatch(child -> !child.deleteRequested()))
+                return MemoryWriteGateway.Outcome.UNKNOWN;
+        }
         List<Child> children = new ArrayList<>(); Set<String> ids = new HashSet<>();
         for (var row : rows) {
             String id = row.path("operation_id").asText(), childState = row.path("status").asText();

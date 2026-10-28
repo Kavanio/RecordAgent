@@ -20,10 +20,11 @@ final class HindsightDocumentCleanup {
         String id = target.operationId();
         var operation = repository.operation(target).orElseThrow();
         if (operation.parentDeleted()) return MemoryRemoteGateway.DeletionResult.UNKNOWN;
-        if (!operation.documentRequested()) {
+        // 文档步骤完成后仍须取得当前任务观测；仅在父历史已发起删除后使用原意图核对缺失。
+        if (!operation.parentRequested()) {
             var response = call("GET", target, "operations/" + id + "?include_payload=false", deadline);
             if (response.status() != 200) return MemoryRemoteGateway.DeletionResult.UNKNOWN;
-            var state = HindsightOperationStatus.observe(response.body(), target, repository);
+            var state = HindsightOperationStatus.observeKnownCleanup(response.body(), target, repository);
             if (state != MemoryWriteGateway.Outcome.SUCCEEDED && state != MemoryWriteGateway.Outcome.FAILED)
                 return MemoryRemoteGateway.DeletionResult.UNKNOWN;
             operation = repository.operation(target).orElseThrow();
@@ -50,6 +51,10 @@ final class HindsightDocumentCleanup {
         var facts = call("GET", target, "memories/list?document_id=" + target.documentId() + "&limit=1&offset=0", deadline);
         if (facts.status() != 200 || !facts.body().path("items").isArray() || !facts.body().path("items").isEmpty()
                 || !facts.body().path("total").isIntegralNumber() || facts.body().path("total").asLong() != 0) return MemoryRemoteGateway.DeletionResult.UNKNOWN;
+        // 已落盘的删除标志只是历史快照；空事实列表也不能排除尚未提取的迟到原文。
+        // 清理任务载荷前重新核对文档缺失；这仍不构成未来不会重建的停稳证明。
+        if (call("GET", target, "documents/" + target.documentId(), deadline).status() != 404)
+            return MemoryRemoteGateway.DeletionResult.UNKNOWN;
         repository.step(id, Step.FACTS_CHECKED);
         for (var child : repository.children(id)) {
             if (child.deleted()) continue;
