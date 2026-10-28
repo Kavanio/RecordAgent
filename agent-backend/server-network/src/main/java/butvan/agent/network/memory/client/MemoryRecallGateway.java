@@ -3,7 +3,7 @@ package butvan.agent.network.memory.client;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 
-/** 远端召回内部 seam；当前仅关闭／假 Adapter，生产 HTTP 仍待合约验证。 */
+/** 远端召回内部 seam；HTTP 协议已可隔离测试，生产接入仍需部署合约和用途授权。 */
 public interface MemoryRecallGateway {
     String recipientFingerprint();
     /** 实现须用剩余期限约束底层 I/O，并在取消时真正终止请求。 */

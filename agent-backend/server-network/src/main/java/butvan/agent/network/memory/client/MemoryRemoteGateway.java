@@ -1,6 +1,6 @@
 package butvan.agent.network.memory.client;
 
-/** 远端删除的内部 seam；M2-1 无 HTTP 实现，测试以假 Adapter 替换。 */
+/** 远端删除内部 seam；HTTP 仅清理已知目标，完整证据不足时保留 UNKNOWN。 */
 public interface MemoryRemoteGateway {
     /** 已核实接收方及处理链的指纹；未接入返回空，不能凭客户端字符串授权。 */
     String recipientFingerprint();

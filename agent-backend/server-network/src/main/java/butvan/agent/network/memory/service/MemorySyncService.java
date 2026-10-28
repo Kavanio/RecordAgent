@@ -16,7 +16,7 @@ import java.time.*;
 import java.util.*;
 import java.util.function.Supplier;
 
-/** 有界补偿和可测试 Worker；当前不注册定时器，只有显式驱动与假写入 Adapter。 */
+/** 有界补偿和可测试 Worker；当前仅显式驱动，不注册自动消费定时器或启用生产写入。 */
 @Slf4j
 @Service
 public class MemorySyncService {

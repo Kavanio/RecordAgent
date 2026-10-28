@@ -4,7 +4,7 @@ import butvan.agent.agents.memory.MemorySourceRegistry.Channel;
 import java.time.Instant;
 import java.util.function.BooleanSupplier;
 
-/** 增量写入的内部 seam；当前只有关闭 Adapter 与测试假 Adapter，没有生产 HTTP。 */
+/** 增量写入内部 seam；HTTP 协议 Adapter 仅在隔离测试显式使用，生产装配默认关闭。 */
 public interface MemoryWriteGateway {
     String recipientFingerprint();
     /** 实现必须复用稳定操作 ID，并在真实请求开始前检查取消信号。 */

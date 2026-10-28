@@ -51,6 +51,7 @@ public class MemoryResetRepository {
     }
     /** 必要远端目标核对后清除本地个人资格，保留最小目标墓碑。 */
     public void finish(String space, String resetId) {
+        jdbc.update("DELETE FROM memory_remote_operation WHERE space_id=?", space);
         jdbc.update("DELETE FROM memory_source_document WHERE space_id=?", space);
         jdbc.update("DELETE FROM memory_sync_cursor WHERE space_id=?", space);
         jdbc.update("DELETE FROM memory_command WHERE space_id=?", space);

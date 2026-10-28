@@ -151,12 +151,16 @@
 ## 经历记忆
 
 - `memory/` 独立保存空间、授权／设置、无正文来源凭据与幂等命令账本；使用随机持久化空间区分后端与环境，不以 `local-default` 作为全局远端身份。原文指针与内容哈希不能替代来源授权。
-- 授权绑定后端已核实的接收方／处理链指纹、保存／查询用途、渠道、生效时间、保留期限与额度；接收方变化、撤权及旧代次使原资格失效，重新授权不恢复旧来源。受理／终态已有本地接线，但当前无生产 HTTP Adapter 和自动消费定时器；关闭 Adapter 时不采集用户来源或读取正文。
+- 授权绑定后端已核实的接收方／处理链指纹、保存／查询用途、渠道、生效时间、保留期限与额度；接收方变化、撤权及旧代次使原资格失效，重新授权不恢复旧来源。受理／终态已有本地接线，HTTP 协议 Adapter 当前仅显式隔离测试，不注册生产数据 Bean 或自动消费定时器；关闭 Adapter 时不采集用户来源或读取正文。
 - `MemorySourceRegistry` 是 agents 到网络实现的 seam，网络实现保持租约覆盖事务提交；无网络模块可用关闭 Adapter。新增 HTTP 入口必须映射独立 DTO，不能透传内部空间或凭据。
 - 基础管理接口为 `GET/PUT /agent/memory/settings`、`POST/DELETE /agent/memory/authorization`：版本／revision 乐观锁、授权／撤权 requestId 幂等，DELETE 使用 JSON 请求体；写入必须携带 `X-Agent-Generation`。用途为保存／查询独立许可，用户只能授权后端受信 Adapter 的接收方；未接入时不能获得有效远端授权。设置快照包含原授权用途、渠道、生效时间、期限和上限，供页面核对。
 - `POST /agent/memory/connection-test` 无请求字段、沿用 Agent 代次与租约，只返回独立 ConnectionTestResponse。`BUTVAN_MEMORY_HINDSIGHT_PROBE_ENABLED` 默认 false，endpoint／token 仅经后端受保护环境提供；客户端不能提交 URL 或凭据。显式检查才依次 GET version、health/ready、openapi.json，不读取 bank、不调模型、不写授权或启用任何生产 Gateway；启动及设置读取不探测。公网需要 HTTPS，HTTP 只供字面 loopback／localhost 的本机测试；禁止 userinfo、query、fragment、路径逃逸、重定向及凭据回显。
 - `HindsightReadinessService` 同时最多一个探测，总期限 2500ms、连接超时 1000ms、每响应实际流读取最多 512 KiB；超时／取消终止底层 exchange，重置前后均受准入和租约保护。状态区分 NOT_CONFIGURED、INVALID_CONFIGURATION、INSECURE_TRANSPORT、BUSY、VERSION_MISMATCH、NOT_READY、CONTRACT_MISMATCH、INSPECTED、CANCELLED、UNAVAILABLE；只暴露安全摘要。INSPECTED 仅表示 API 1.1.0、就绪与必要字段存在；dataOperationsReady 始终 false，不能据此宣称鉴权、模型链、幂等行为或删除契约已验证。
 - 接入真实 Hindsight 保存／删除前阅读 `docs/RecordAgent总体建设规划/M2-5官方协议核验.md`：异步父／子任务保留 task_payload 正文，文档删除不清理这些操作；cancelled 不证明 Worker 退出，父终态／子列表也不能单独证明所有原子任务停稳。必须先持久化所需子任务指针与清理进度，再在已确认范围内核对任务正文、来源及派生结果；证据缺失保留 UNKNOWN 和目标，不将文档 404、空召回或安排刷新升级为 VERIFIED。
+- `HindsightHttpAdapter` 仅在隔离测试显式实例化，现有生产 Gateway 仍为 disabled；不新增前端直连或外发开关。连接仅接受受控 HTTPS 或字面 loopback HTTP，空 Token 不附加 Authorization；接收方指纹绑定规范地址、1.1.0 合约、处理链和凭据摘要。调用方必须经既有同步／召回／管理租约或全局重置协调，Adapter 不替代用途授权或自行绕过屏障。
+- V29 的 `memory_remote_operation`／`memory_remote_child` 只保存来源目标、请求哈希、父／子 ID、观测终态、删除意图与逐步核对标志，不保存原文、响应正文或 task_payload。外部写入前必须已有 `memory_deletion` 目标，首次发送先落摘要；重复调用、超时、5xx 或受理结构异常均只查询原 UUID，不改正文重发。每响应实际流读取最多 512 KiB、禁止重定向，写入／状态／已知清理每次最多 5 秒；召回继承现有 1500ms 期限与取消信号。
+- 父操作只接受匹配的 batch_retain，子列表最多 32、ID 唯一且合法；只有父完成和全部已观测子任务完成才能发布写入成功。取消、缺项、无故丢失既有子项或终态倒退保留 UNKNOWN，不能用旧终态替代当前查询。召回只发送单份有界 query、world／experience、low、最多 500 Token，不接 observation；最多检查 16 个结果、返回 4 项直接 document_id，仍由上层核对本空间原始来源。
+- HTTP 清理先保存子清单与终态观测，再记录文档删除意图、核对文档缺失和直接事实 total=0；逐一清理已知终态子操作载荷并核对，父操作最后。意图在副作用前落盘，响应丢失后按原指针续做，已核对项不重复删除；未知任务不盲目取消或重放。当前未证明原始子清单完整性及其他派生范围，HTTP 删除始终 UNKNOWN，不设置目标 VERIFIED；完整重置只能由具备完整证据的必需参与方收尾后清理本域账本，子行随父级联删除。scopeVersion 已升级 memory-m2-v3 并明示远端操作账本。
 - 来源管理为 `GET /agent/memory/documents?cursor=0&limit=20`（稳定 rowid 游标，limit 1—50）、`GET /documents/{id}`；响应使用独立 DTO，只按当前用户空间定位。列表仅返回版本、时间／渠道、同步／删除／纠正状态及最新管理任务 ID；详情按需从权威 transcript 核对原文，原文不可取得和远端不可用分别表达。
 - `POST /documents/{id}/corrections` 接收 expectedVersion、correctedText、confirmed、requestId；`DELETE /documents/{id}` 的 JSON 接收 expectedVersion、confirmed、requestId。纠正文本为最多 4000 字符的普通文本，沿用敏感／代码排除；独立存于 `memory_correction` 并受重置清理，当前只保存本机。两类命令均在短事务内 CAS 版本、停用原来源、取消同步、建立删除标记并持久化无正文任务；版本冲突 409、无效参数 400、跨空间／不存在 404，重置代次按统一 428／423 处理。原聊天与业务数据保持原样。
 - `GET /agent/memory/operations/{id}` 仅读取本用户原任务；`POST /operations/{id}/retry` 显式继续删除核对，不重发保存。管理请求与其他写入一样携带 Agent 代次；刷新不自动重试。无远端目标时本地撤回即可完成；有目标则先保持 PENDING，进程内发送与删除共用固定 256 条带锁，未停稳返回 WAITING_REMOTE。远端调用持有重置租约但不持有数据库事务；FAILED／UNKNOWN 保留目标并暂停受影响空间召回。生产 Gateway 的 VERIFIED 必须同时核对异步 operationId 已终结及派生结果已删除；重启后的未知写入不能仅凭本机空闲宣称完成。
@@ -177,4 +181,4 @@
 - 屏障先持久化，再取消并等候旧操作收尾；已使用的 SDK 或渠道运行时进入 `WAITING_RESTART`，正常重启后先恢复屏障再续做，禁止先恢复旧 checkpoint 或渠道投递。未知工作区、归属不明渠道、符号链接或清理失败均保持屏障，重试复用原 resetId。
 - `memory-caches` 完成前必须把 `SubagentCatalog` 恢复为内置定义；每次续做都执行内存失效，不能因文件步骤已完成而跳过。缓存清理失败继续保持屏障，不重新读取旧工作区定义。
 - 出厂重置清除聊天 Token 投影和复盘派生理解，保留系统用量、人工目标、普通任务与已冻结报告副本。未来 Hindsight Adapter 必须成为必需参与方；M1 的 `LOCAL_COMPLETE / NOT_INTEGRATED` 只表示本地完成。
-- 经历记忆基础参与方 `experience-memory` 已必需注册，但无生产 HTTP Adapter；重置 scopeVersion 绑定参与方与接收方，确认凭证绑定同一范围，该范围随重置日志持久化。remoteStatus 动态区分未接入、无目标、待处理、处理中、失败、未知和已核对完成；旧 M1 日志不能追认为已删除远端数据，缺失范围却存在远端目标时保持失败保护。
+- 经历记忆基础参与方 `experience-memory` 已必需注册，HTTP 协议仍未生产装配；重置 scopeVersion 绑定参与方与接收方，确认凭证绑定同一范围，该范围随重置日志持久化。remoteStatus 动态区分未接入、无目标、待处理、处理中、失败、未知和已核对完成；旧 M1 日志不能追认为已删除远端数据，缺失范围却存在远端目标时保持失败保护。
