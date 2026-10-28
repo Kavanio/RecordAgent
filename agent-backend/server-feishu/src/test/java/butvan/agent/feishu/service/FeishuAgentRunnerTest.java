@@ -30,7 +30,8 @@ class FeishuAgentRunnerTest {
         when(service.streamAgent(any())).thenReturn(session);
         var reply = new FeishuAgentRunner(service).run("session", runId, turnId, "input", java.util.List.of(), Duration.ofMinutes(10), control);
         assertEquals("完整答案，尾字🙂\n", reply.text());
-        verify(service).streamAgent(new AgentUserCall("session", "input", "input", List.of(), runId, turnId));
+        verify(service).streamAgent(new AgentUserCall("session", "input", "input", List.of(), runId, turnId, List.of(),
+                butvan.agent.agents.memory.MemorySourceRegistry.Channel.FEISHU));
     }
 
     @Test void cancelledTerminalDoesNotWaitForFiveMinutes() {

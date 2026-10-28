@@ -24,11 +24,15 @@ final class MemoryFixture {
     final PlatformTransactionManager transactions;
     final org.springframework.jdbc.core.JdbcTemplate jdbc;
     final FakeRemote remote = new FakeRemote();
-    final Clock clock = Clock.fixed(Instant.parse("2026-10-28T08:00:00Z"), ZoneOffset.UTC);
+    final Clock clock;
     final CurrentUserProvider user = new CurrentUserProvider();
     final MemoryService service;
 
     MemoryFixture(Path directory) {
+        this(directory, Clock.fixed(Instant.parse("2026-10-28T08:00:00Z"), ZoneOffset.UTC));
+    }
+    MemoryFixture(Path directory, Clock clock) {
+        this.clock = clock;
         storage = new AgentStorageProperties(directory);
         barrier = new ResetBarrier(storage);
         var properties = new LocalDatabaseProperties();

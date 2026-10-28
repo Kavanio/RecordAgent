@@ -41,6 +41,7 @@ class AgentServiceChannelResultTest {
     final ActiveAgentRunRegistry registry = new ActiveAgentRunRegistry();
     final String turn = UUID.randomUUID().toString();
     AgentService service;
+    AgentRunCompleter completer;
 
     @BeforeEach void prepare() {
         when(model.isInitialized()).thenReturn(true); when(model.getModel().getModelName()).thenReturn("test");
@@ -49,8 +50,9 @@ class AgentServiceChannelResultTest {
         when(transcript.appendUserMessageWithTurnId("session", "input", turn)).thenReturn(turn);
         when(context.assemble(any())).thenReturn(ContextEnvelope.empty());
         when(router.route(any())).thenReturn(mock(ToolRoutingDecision.class));
+        completer = new AgentRunCompleter(transcript, sessions, checkpoints);
         service = new AgentService(model, owner, sessions, transcript, pending, new AgentEventManager(), factory,
-                mock(AgentSecurity.class), new AgentRunCompleter(transcript, sessions, checkpoints), checkpoints, context,
+                mock(AgentSecurity.class), completer, checkpoints, context,
                 mock(ProfileMaintenanceScheduler.class), registry, mock(OrphanedToolCallRecovery.class), router,
                 mock(ToolCapabilityCatalog.class), mock(ToolRoutingStateSynchronizer.class));
     }
@@ -117,6 +119,25 @@ class AgentServiceChannelResultTest {
         assertTrue(stream.requestCancellation());
         AgentTurnResult result = stream.completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(MessageStatus.CANCELLED, result.status()); assertEquals("已生成的部分", result.content());
+        assertEquals("NOT_FOUND", registry.cancel("local-default", "session", "run").status());
+    }
+
+    @Test void memoryCallbackFailuresCannotChangePersistedSuccessfulChat() throws Exception {
+        var lifecycle = mock(butvan.agent.agents.memory.MemoryTurnLifecycle.class);
+        service.setMemoryLifecycle(lifecycle);
+        completer.setMemoryLifecycle(lifecycle);
+        doThrow(new IllegalStateException("synthetic ledger failure")).when(lifecycle).admitted(any(), anyString(), anyString());
+        doThrow(new IllegalStateException("synthetic queue failure")).when(lifecycle).completed(anyString(), anyString(), anyString(), any());
+        when(agent.streamEvents(anyList(), any())).thenReturn(Flux.just(
+                new AgentResultEvent(Msg.builder().role(MsgRole.ASSISTANT).textContent("完整回复").build()), new AgentEndEvent("reply")));
+        var stream = service.streamAgent(request());
+        var result = stream.completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(MessageStatus.COMPLETED, result.status());
+        var order = inOrder(transcript, lifecycle);
+        order.verify(transcript).appendUserMessageWithTurnId("session", "input", turn);
+        order.verify(lifecycle).admitted(any(), eq("local-default"), eq(turn));
+        order.verify(transcript).appendAssistantMessage(anyString(), eq(turn), anyString(), anyString(), eq(MessageStatus.COMPLETED), anyLong(), anyList(), any());
+        order.verify(lifecycle).completed("local-default", "session", turn, MessageStatus.COMPLETED);
         assertEquals("NOT_FOUND", registry.cancel("local-default", "session", "run").status());
     }
 }

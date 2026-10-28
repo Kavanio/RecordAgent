@@ -9,4 +9,6 @@ import org.springframework.context.annotation.Configuration;
 public class MemoryRemoteConfiguration {
     @Bean @ConditionalOnMissingBean(MemoryRemoteGateway.class)
     MemoryRemoteGateway memoryRemoteGateway() { return MemoryRemoteGateway.disabled(); }
+    @Bean @ConditionalOnMissingBean(MemoryWriteGateway.class)
+    MemoryWriteGateway memoryWriteGateway() { return MemoryWriteGateway.disabled(); }
 }

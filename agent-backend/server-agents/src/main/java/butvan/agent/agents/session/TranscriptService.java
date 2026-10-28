@@ -129,6 +129,35 @@ public class TranscriptService {
         );
     }
 
+    /** 有界核对单轮原文和权威终态；文件超限或该轮重复／损坏时拒绝推测来源。 */
+    public synchronized TurnSnapshot readMemoryTurn(String sessionId, String turnId) {
+        Path file = storageProperties.transcriptFile(sessionId);
+        if (!Files.exists(file)) return new TurnSnapshot(null, null);
+        int maximum = 8 * 1024 * 1024;
+        try (var input = Files.newInputStream(file)) {
+            byte[] bytes = input.readNBytes(maximum + 1);
+            if (bytes.length > maximum) throw new IllegalArgumentException("来源会话超过单次核对预算");
+            TranscriptMessageDto user = null, assistant = null;
+            for (String line : new String(bytes, StandardCharsets.UTF_8).split("\\R")) {
+                if (line.isBlank()) continue;
+                TranscriptMessageDto message = objectMapper.readValue(line, TranscriptMessageDto.class);
+                if (!java.util.Objects.equals(turnId, message.turnId())) continue;
+                if (message.role() == null) throw new IllegalArgumentException("来源轮次角色不明确");
+                if (message.role() == TranscriptMessageDto.MessageRole.USER) {
+                    if (user != null) throw new IllegalArgumentException("来源轮次存在重复用户记录");
+                    user = message;
+                } else {
+                    if (assistant != null) throw new IllegalArgumentException("来源轮次存在重复终态");
+                    assistant = message;
+                }
+            }
+            return new TurnSnapshot(user, assistant);
+        } catch (IOException exception) { throw new IllegalArgumentException("来源会话暂不可核对"); }
+    }
+
+    /** 仅供模块间原文核对，不能将整个对象作为记忆正文上传。 */
+    public record TurnSnapshot(TranscriptMessageDto user, TranscriptMessageDto assistant) { }
+
     /**
      * 删除本项目拥有的用户可见记录
      * @param sessionId

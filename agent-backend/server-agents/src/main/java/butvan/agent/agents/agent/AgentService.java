@@ -50,6 +50,12 @@ import java.util.*;
 @RequiredArgsConstructor
 public class AgentService {
 
+    private butvan.agent.agents.memory.MemoryTurnLifecycle memoryLifecycle = butvan.agent.agents.memory.MemoryTurnLifecycle.disabled();
+
+    /** 仅 agents 模块运行时保持关闭 Adapter；不改变既有构造和聊天依赖。 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setMemoryLifecycle(butvan.agent.agents.memory.MemoryTurnLifecycle lifecycle) { this.memoryLifecycle = lifecycle; }
+
     private final ModelHolder modelHolder;
     private final CurrentUserProvider currentUserProvider;
     private final SessionCatalogService sessionCatalogService;
@@ -133,6 +139,10 @@ public class AgentService {
             String turnId = request.turnId() == null
                     ? transcriptService.appendUserMessage(request.sessionId(), displayContent)
                     : transcriptService.appendUserMessageWithTurnId(request.sessionId(), displayContent, request.turnId());
+            try { memoryLifecycle.admitted(request, userId, turnId); }
+            catch (RuntimeException exception) {
+                log.warn("经历来源登记未完成，聊天继续：errorType={}", exception.getClass().getSimpleName());
+            }
             ContextEnvelope contextEnvelope = contextAssembler.assemble(
                     new ContextRequest(userId, displayContent));
             RuntimeContext context = createRuntimeContext(userId, request.sessionId());

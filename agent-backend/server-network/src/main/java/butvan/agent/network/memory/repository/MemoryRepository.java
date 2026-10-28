@@ -72,6 +72,11 @@ public class MemoryRepository {
 
     /** 停用旧来源，不删除仍可能需要远端清理的目标。 */
     public void invalidate(String space) {
+        jdbc.update("""
+                UPDATE memory_sync_operation SET state='CANCELLED',error_code='AUTHORIZATION_CHANGED'
+                WHERE source_id IN (SELECT id FROM memory_source_document WHERE space_id=?)
+                AND state NOT IN ('SUCCEEDED','FAILED','CANCELLED')
+                """, space);
         jdbc.update("UPDATE memory_source_document SET state='REVOKED' WHERE space_id=?", space);
     }
 
