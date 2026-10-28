@@ -112,6 +112,13 @@ public class PendingApprovalStore {
         sessionApprovals.remove(new SessionKey(userId, sessionId));
     }
 
+    /** 停稳后清除当前用户全部审批及会话决定。 */
+    public synchronized void clearUser(String userId) {
+        sessionDecisions.keySet().removeIf(key -> key.startsWith(userId + ":"));
+        approvals.entrySet().removeIf(entry -> entry.getValue().run().userId().equals(userId));
+        sessionApprovals.keySet().removeIf(key -> key.userId().equals(userId));
+    }
+
     private String key(String userId, String sessionId, ToolUseBlock tool) {
         try {
             String json = canonicalJson.writeValueAsString(tool.getInput());

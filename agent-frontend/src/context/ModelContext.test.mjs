@@ -165,3 +165,34 @@ test('首次引导支持自定义 API，提交两种格式所需字段', async (
   assert.equal(body.vendor, 'custom'); assert.equal(body.protocol, 'anthropic');
   assert.equal(body.baseUrl, 'https://init.example/v1');
 });
+
+test('图片识别标注随模型保存并在编辑后保留', async () => {
+  await mount(); let id;
+  await React.act(async () => { id = await model.addModelItem({ ...custom(), supportsVision: true }); });
+  assert.equal(backend.providers[0].models[0].supportsVision, true);
+  await React.act(async () => {
+    await model.updateModelItem({ providerId: id, modelId: 'same-model' },
+      { ...custom('anthropic', 'https://new.example/v1'), supportsVision: true });
+  });
+  assert.equal(backend.providers[0].models[0].supportsVision, true);
+  assert.equal(model.getAllModels()[0].supportsVision, true);
+  await React.act(async () => {
+    await model.updateModelItem({ providerId: id, modelId: 'same-model' }, { ...custom(), supportsVision: false });
+  });
+  assert.equal(backend.providers[0].models[0].supportsVision, false);
+});
+
+test('设置页可标注图片识别能力并提交到后端', async () => {
+  await mount(true); await click('添加模型');
+  await change('create-model-vendor', 'custom', true);
+  await change('create-model-name', '视觉模型');
+  await change('create-model-id', 'vision-model');
+  await change('create-model-base-url', 'https://custom.example/v1');
+  await change('create-model-api-key', 'test-key');
+  const toggle = document.querySelector('[aria-label="支持图片识别"]');
+  assert.ok(toggle);
+  await React.act(async () => toggle.click());
+  await click('保存并创建');
+  assert.equal(backend.providers[0].models[0].supportsVision, true);
+  assert.equal(document.querySelector('[aria-label="支持图片识别"]').getAttribute('aria-checked'), 'true');
+});

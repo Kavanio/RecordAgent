@@ -80,6 +80,13 @@ public class AgentService {
      */
     public AgentStreamSession streamAgent(AgentUserCall request) {
         if (request == null) throw new IllegalArgumentException("聊天请求不能为空");
+        if (!request.images().isEmpty() && !modelHolder.supportsVision()) {
+            throw new IllegalArgumentException("当前模型未标注图片识别能力，请在模型配置中开启或切换到视觉模型");
+        }
+        if (request.images().size() > AgentImages.MAX_COUNT
+                || request.images().stream().mapToLong(AgentImageAttachment::sizeBytes).sum() > AgentImages.MAX_TOTAL_BYTES) {
+            throw new IllegalArgumentException("每轮最多 4 张图片，总大小不能超过 12 MiB");
+        }
         String userId = currentUserProvider.currentUserId();
         String runId = normalizeRunId(request.runId());
         sessionCatalogService.requireActive(request.sessionId());
@@ -160,7 +167,7 @@ public class AgentService {
             // 3. 初始调用将用户消息交给 AgentScope；后续回复会传入确认消息
             runAgentStream(
                     run,
-                    List.of(run.currentUserMessage(input, request.ragContexts())),
+                    List.of(run.currentUserMessage(input, request.ragContexts(), request.images())),
                     streamSession
             );
         } catch (Exception e) {

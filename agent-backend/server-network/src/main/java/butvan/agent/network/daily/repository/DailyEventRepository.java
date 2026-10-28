@@ -68,16 +68,14 @@ public class DailyEventRepository {
                 now.toString(), now.toString());
     }
 
-    /** 查询某日全部日记录的公共字段。 */
-    public List<DailyEventRow> findDay(String ownerId, LocalDate date) {
-        return jdbcTemplate.query("""
+    /** 日视图与最小化待办投影共用发生规则；投影与类型限制仅由本类固定 SQL 片段提供。 */
+    private static final String DAY_OCCURRENCES_QUERY = """
                 WITH current_param(day_str) AS (SELECT ?)
-                SELECT id, event_date, event_type, title, source, status,
-                       version, created_at, updated_at
+                SELECT {projection}
                 FROM daily_event e
                 JOIN current_param p ON 1=1
                 LEFT JOIN todo_detail t ON t.event_id = e.id
-                WHERE e.owner_id = ?
+                WHERE e.owner_id = ? {scope}
                   AND (
                     (e.event_type <> 'todo' AND e.event_date = p.day_str)
                     OR (e.event_type = 'todo' AND (
@@ -114,7 +112,19 @@ public class DailyEventRepository {
                     ))
                   )
                 ORDER BY created_at ASC, id ASC
-                """, (resultSet, rowNumber) -> new DailyEventRow(
+                """;
+
+    /** 仅查询当前用户当日实际发生的待办 ID，不读取标题、正文或其他业务详情。 */
+    public List<String> findTodoIdsForDay(String ownerId, LocalDate date) {
+        return jdbcTemplate.queryForList(DAY_OCCURRENCES_QUERY.replace("{projection}", "e.id").replace("{scope}", "AND e.event_type = 'todo'"),
+                String.class, date.toString(), ownerId);
+    }
+
+    /** 查询某日全部日记录的公共字段，沿用原日视图发生规则。 */
+    public List<DailyEventRow> findDay(String ownerId, LocalDate date) {
+        return jdbcTemplate.query(DAY_OCCURRENCES_QUERY.replace("{projection}",
+                "id, event_date, event_type, title, source, status, version, created_at, updated_at").replace("{scope}", ""),
+                (resultSet, rowNumber) -> new DailyEventRow(
                 resultSet.getString("id"),
                 LocalDate.parse(resultSet.getString("event_date")),
                 resultSet.getString("event_type"),

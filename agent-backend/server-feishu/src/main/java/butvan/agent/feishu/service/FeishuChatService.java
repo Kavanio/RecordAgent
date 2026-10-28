@@ -1,5 +1,7 @@
 package butvan.agent.feishu.service;
 
+import butvan.agent.agents.agent.AgentImageAttachment;
+import butvan.agent.agents.agent.AgentImages;
 import butvan.agent.agents.identity.CurrentUserProvider;
 import butvan.agent.agents.model.ModelHolder;
 import butvan.agent.agents.session.SessionCatalogService;
@@ -9,6 +11,7 @@ import butvan.agent.agents.session.dto.SessionKind;
 import butvan.agent.agents.session.dto.TranscriptMessageDto;
 import butvan.agent.feishu.config.FeishuConfigData;
 import com.lark.oapi.channel.model.NormalizedMessage;
+import com.lark.oapi.channel.model.ResourceDescriptor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +37,9 @@ public class FeishuChatService implements AutoCloseable {
     private final ModelHolder modelHolder;
     private final CurrentUserProvider currentUser;
     private final Map<String, Running> running = new LinkedHashMap<>();
+    /** 待执行图片的平台键；只在内存保留，重启后对应任务直接标记中断，不重下载也不重执行。 */
+    private final Map<String, String> pendingImages = new ConcurrentHashMap<>();
+    private FeishuImageFetcher imageFetcher;
     private FeishuConfigData config;
     private FeishuTaskStore store;
     private FeishuDeliveryService delivery;
@@ -43,20 +49,25 @@ public class FeishuChatService implements AutoCloseable {
     private ScheduledExecutorService scheduler;
     private volatile boolean closed = true;
     private volatile boolean faulted;
+    @org.springframework.beans.factory.annotation.Autowired
+    private butvan.agent.agents.reset.ResetBarrier resetBarrier;
+    @org.springframework.beans.factory.annotation.Autowired
+    private butvan.agent.agents.storage.AgentStorageProperties storageProperties;
 
     /** 生命周期先取得独占账本，再允许连接收件；持久化路径不接收用户消息中的任意路径。 */
-    public synchronized void open(FeishuConfigData config, FeishuTextSender sender) throws IOException {
+    public synchronized void open(FeishuConfigData config, FeishuMessageSender sender,
+                                  FeishuImageFetcher imageFetcher) throws IOException {
         requireClosed();
         String namespace = stableId(config.appId() + ":" + currentUser.currentUserId());
-        open(config, sender, new FeishuTaskStore(Path.of(System.getProperty("user.home"),
-                ".butvan-agent", "channels", "feishu", namespace)), Clock.systemUTC(), System::nanoTime, true);
+        open(config, sender, imageFetcher, new FeishuTaskStore(storageProperties.getFeishuDirectory().resolve(namespace)), Clock.systemUTC(), System::nanoTime, true);
     }
 
     /** 内部时钟和存储 seam 用于确定性的断网、重启与心跳测试。 */
-    synchronized void open(FeishuConfigData config, FeishuTextSender sender, FeishuTaskStore store,
-                           Clock clock, LongSupplier nanoTime, boolean automaticTicks) {
+    synchronized void open(FeishuConfigData config, FeishuMessageSender sender, FeishuImageFetcher imageFetcher,
+                           FeishuTaskStore store, Clock clock, LongSupplier nanoTime, boolean automaticTicks) {
         requireClosed();
         this.config = config; this.store = store; this.clock = clock; this.nanoTime = nanoTime;
+        this.imageFetcher = imageFetcher;
         delivery = new FeishuDeliveryService(store, sender, clock);
         workers = Executors.newFixedThreadPool(config.maxConcurrentRuns(),
                 Thread.ofVirtual().name("feishu-task-", 0).factory());
@@ -75,10 +86,11 @@ public class FeishuChatService implements AutoCloseable {
 
     /** 长连接回调只进行受理落盘和有界调度，不等待模型或平台发送。 */
     public synchronized void handle(NormalizedMessage message) {
-        if (closed || faulted || message == null) return;
+        if (closed || faulted || message == null || (resetBarrier != null && resetBarrier.blocked())) return;
         // 首版只允许一个本人 open_id 的私聊，群聊即使 SDK 放行也不会触发任何回执或工具。
         if (!"p2p".equals(message.getChatType()) || !config.allowedSenderIds().contains(message.getSenderId())) return;
         if (message.getMessageId() == null || message.getChatId() == null) return;
+        if (!store.acceptsMessageTime(message.getCreateTime())) return;
         String conversation = stableId(config.appId() + ":" + currentUser.currentUserId() + ":"
                 + message.getChatId() + ":" + Objects.toString(message.getThreadId(), "") + ":" + message.getSenderId());
         String taskId = stableId(config.appId() + ":" + currentUser.currentUserId() + ":" + message.getMessageId());
@@ -90,10 +102,12 @@ public class FeishuChatService implements AutoCloseable {
             if (store.task(taskId) != null) return;
             String text = message.getContent();
             boolean command = text != null && isCommand(text.strip());
-            String rejection = !"text".equalsIgnoreCase(message.getRawContentType()) ? "目前只支持文本消息。"
-                    : text == null || text.isBlank() ? "消息内容不能为空。"
-                    : text.length() > 20_000 ? "消息内容不能超过 20000 个字符。"
-                    : !command && !modelHolder.isInitialized() ? "模型尚未配置，请先在桌面端完成模型初始化。" : null;
+            String imageKey = imageKey(message);
+            String rejection = rejection(message, text, command, imageKey);
+            if (imageKey != null) {
+                // 图片消息没有正文；给模型和 transcript 一个可读说明，图片本身在执行线程里按需下载。
+                task = task.toBuilder().input(AgentImages.IMAGE_ONLY_PROMPT).build();
+            }
             if (command || rejection != null) {
                 // 控制与校验反馈不占等待队列，但同样持久化去重。
                 task = task.toBuilder().state(Execution.SUCCEEDED).stage("控制反馈").build();
@@ -105,7 +119,9 @@ public class FeishuChatService implements AutoCloseable {
                 log.info("飞书消息已持久化受理：taskId={}, runId={}, ahead={}, inputLength={}",
                         task.id(), task.runId(), ahead, text.length());
                 if (ahead > 0) store.update(task.id(), t -> t.toBuilder().stage("等待执行").build());
-                String receipt = ahead == 0 ? "已收到，正在处理…" : "已收到，前面还有 " + ahead + " 条消息，请稍候。";
+                if (imageKey != null) pendingImages.put(task.id(), imageKey);
+                String receipt = (ahead == 0 ? "已收到，正在处理…" : "已收到，前面还有 " + ahead + " 条消息，请稍候。")
+                        + pendingDeliveryHint(task.conversation());
                 final String acceptedId = task.id();
                 delivery.notice(task, "receipt", receipt, true, () -> active(acceptedId));
             }
@@ -121,9 +137,57 @@ public class FeishuChatService implements AutoCloseable {
         }
     }
 
+    /**
+     * 同会话存在待核对的回复时，回执里直接给出可解除卡住的命令。
+     * UNKNOWN／FAILED 会按设计暂停该会话后续回复，只在日志里留线索会让用户以为渠道死掉。
+     */
+    private String pendingDeliveryHint(String conversation) {
+        return store.snapshot().tasks().stream()
+                .filter(task -> task.conversation().equals(conversation))
+                .filter(task -> task.parts().stream().anyMatch(part -> part.status() == Delivery.UNKNOWN
+                        || part.status() == Delivery.FAILED))
+                .max(Comparator.comparing(Task::acceptedAt))
+                .map(task -> task.parts().stream().anyMatch(part -> part.status() == Delivery.UNKNOWN)
+                        ? "\n（此前有回复发送状态不确定，确认已收到可发送 /ack " + task.id() + "，需要补发则发送 /resend " + task.id() + "）"
+                        : "\n（此前有回复发送失败；可发送 /retry " + task.id() + " 补发）")
+                .orElse("");
+    }
+
+    /**
+     * 受理前的统一校验。拒绝原因必须是用户照者能改的中文说明；图片先看模型能力再看格式，
+     * 真正的字节校验放到执行线程，避免在长连接回调里做网络和解析。
+     */
+    private String rejection(NormalizedMessage message, String text, boolean command, String imageKey) {
+        if ("post".equalsIgnoreCase(message.getRawContentType())) {
+            return "暂不支持图文混排消息，请将文字和图片分开发送（本条未提交给模型）";
+        }
+        if ("image".equalsIgnoreCase(message.getRawContentType()) && imageKey == null) {
+            return "未取得图片资源，请重新发送图片";
+        }
+        if (imageKey != null) {
+            if (!modelHolder.isInitialized()) return "模型尚未配置，请先在桌面端完成模型初始化。";
+            return modelHolder.supportsVision() ? null
+                    : "当前模型没有标注图片识别能力，请先在桌面端「模型配置」里开启后再发送图片。";
+        }
+        if (!"text".equalsIgnoreCase(message.getRawContentType())) return "目前只支持文本与图片消息。";
+        if (text == null || text.isBlank()) return "消息内容不能为空。";
+        if (text.length() > 20_000) return "消息内容不能超过 20000 个字符。";
+        return !command && !modelHolder.isInitialized() ? "模型尚未配置，请先在桌面端完成模型初始化。" : null;
+    }
+
+    /** 取图片消息的资源键；不下载任何内容，非图片消息返回 null。 */
+    private static String imageKey(NormalizedMessage message) {
+        if (!"image".equalsIgnoreCase(message.getRawContentType())
+                || message.getResources() == null || message.getResources().isEmpty()) return null;
+        return message.getResources().stream()
+                .filter(resource -> resource.getFileKey() != null && !resource.getFileKey().isBlank())
+                .filter(resource -> "image".equalsIgnoreCase(resource.getType()))
+                .map(ResourceDescriptor::getFileKey).findFirst().orElse(null);
+    }
+
     private boolean isCommand(String text) {
         return Set.of("/stop", "/clear", "/new").contains(text)
-                || text.matches("/(retry|resend) [a-f0-9-]{36}");
+                || text.matches("/(retry|resend|ack) [a-f0-9-]{36}");
     }
 
     private String control(Task command, String text) {
@@ -155,6 +219,14 @@ public class FeishuChatService implements AutoCloseable {
         Task target = store.task(id);
         if (target == null || !target.conversation().equals(command.conversation())) return "未找到属于当前聊天的任务。";
         boolean unknown = target.parts().stream().anyMatch(p -> p.status() == Delivery.UNKNOWN);
+        if (text.startsWith("/ack")) {
+            if (!unknown && target.parts().stream().noneMatch(p -> p.status() == Delivery.FAILED)) {
+                return "该任务没有需要确认的待定投递。";
+            }
+            // 只在用户亲自确认已经看到内容时使用：不重发、不重执行，只解除该会话的投递暂停。
+            delivery.acknowledge(id);
+            return "已确认该回复无需补发，该会话已恢复自动发送。";
+        }
         if (unknown && text.startsWith("/retry")) return "该回复可能已经送达。补发可能重复；确认后请发送 /resend " + id;
         if (target.parts().stream().noneMatch(p -> p.status() == Delivery.FAILED || p.status() == Delivery.UNKNOWN)) return "该任务没有需要补发的失败回复。";
         delivery.retry(id, text.startsWith("/resend"));
@@ -170,7 +242,7 @@ public class FeishuChatService implements AutoCloseable {
     }
 
     synchronized void tick() {
-        if (closed || faulted) return;
+        if (closed || faulted || (resetBarrier != null && resetBarrier.blocked())) return;
         long now = nanoTime.getAsLong();
         for (Map.Entry<String, Running> entry : running.entrySet()) {
             Task task = store.task(entry.getKey());
@@ -199,7 +271,7 @@ public class FeishuChatService implements AutoCloseable {
     }
 
     private void dispatch() {
-        if (closed || faulted) return;
+        if (closed || faulted || (resetBarrier != null && resetBarrier.blocked())) return;
         Set<String> occupied = new HashSet<>();
         for (String id : running.keySet()) occupied.add(store.task(id).conversation());
         for (Task task : store.snapshot().tasks()) {
@@ -240,7 +312,26 @@ public class FeishuChatService implements AutoCloseable {
 
     private void execute(Task task, Running execution) {
         try {
-            FeishuAgentRunner.Reply reply = runner.run(task.sessionId(), task.runId(), task.turnId(), task.input(),
+            List<AgentImageAttachment> images = List.of();
+            String imageKey = pendingImages.remove(task.id());
+            if (imageKey != null) {
+                if (!modelHolder.supportsVision()) {
+                    finish(task.id(), Execution.FAILED, "当前模型未标注图片识别能力，请切换到视觉模型后重发图片");
+                    return;
+                }
+                try {
+                    byte[] data = imageFetcher.fetch(task.replyTo(), imageKey);
+                    images = List.of(AgentImages.parse(data));
+                    log.info("飞书图片已读取：taskId={}, mediaType={}, bytes={}", task.id(), images.getFirst().mediaType(), data.length);
+                } catch (RuntimeException exception) {
+                    // 不重试下载：平台图片键有时效，反复重试只会拖延用户反馈。
+                    log.warn("飞书图片读取失败：taskId={}, errorType={}", task.id(), exception.getClass().getSimpleName());
+                    finish(task.id(), Execution.FAILED,
+                            "图片读取失败：仅支持 10 MiB 以内的 PNG、JPEG、WebP 或 GIF，请调整后重新发送。");
+                    return;
+                }
+            }
+            FeishuAgentRunner.Reply reply = runner.run(task.sessionId(), task.runId(), task.turnId(), task.input(), images,
                     Duration.ofSeconds(config.executionTimeoutSeconds()), execution.control);
             synchronized (this) {
                 Execution state = reply.result() == null
@@ -259,12 +350,13 @@ public class FeishuChatService implements AutoCloseable {
         } finally {
             synchronized (this) {
                 running.remove(task.id());
-                if (!closed && !faulted) { dispatch(); delivery.pump(); }
+                if (!closed && !faulted && (resetBarrier == null || !resetBarrier.blocked())) { dispatch(); delivery.pump(); }
             }
         }
     }
 
     private void finish(String taskId, Execution state, String text) {
+        pendingImages.remove(taskId);
         List<String> chunks = FeishuTextChunks.split(text);
         List<Part> parts = new ArrayList<>();
         for (int i = 0; i < chunks.size(); i++) parts.add(Part.builder().id(stableId(taskId + ":part:" + i))

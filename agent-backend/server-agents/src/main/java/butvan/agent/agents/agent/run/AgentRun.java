@@ -1,6 +1,7 @@
 package butvan.agent.agents.agent.run;
 
 import butvan.agent.agents.agent.event.AgentStreamEvent;
+import butvan.agent.agents.agent.AgentImageAttachment;
 import butvan.agent.agents.session.dto.TranscriptMessageDto;
 import butvan.agent.agents.session.AgentTurnResult;
 import io.agentscope.core.event.AgentResultEvent;
@@ -11,10 +12,15 @@ import butvan.agent.agents.usage.TurnUsageAccumulator;
 import butvan.agent.agents.usage.UsagePurpose;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.AgentEvent;
+import io.agentscope.core.message.Base64Source;
+import io.agentscope.core.message.ContentBlock;
+import io.agentscope.core.message.ImageBlock;
 import io.agentscope.core.message.Msg;
+import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.message.UserMessage;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,11 +83,37 @@ public class AgentRun {
 
     /** 创建当前用户消息，并登记其中由检索资料贡献的上下文片段。 */
     public Msg currentUserMessage(String input, List<String> ragContexts) {
+        return currentUserMessage(input, ragContexts, List.of());
+    }
+
+    /**
+     * 创建当前用户消息，并把图片作为内容块随本轮交给模型。
+     *
+     * <p>图片只存在于内存内容块中，不写入 transcript 或 checkpoint；
+     * 是否真的发给供应商仍由模型能力与适配器决定。</p>
+     *
+     * @param input       用户文本；纯图片消息也要给模型一个可读的说明
+     * @param ragContexts 检索资料片段
+     * @param images      本轮图片附件
+     * @return 当前轮次用户消息
+     */
+    public Msg currentUserMessage(String input, List<String> ragContexts, List<AgentImageAttachment> images) {
         if (runtimeContext != null) {
             runtimeContext.put(TokenUsageRoundContext.class, new TokenUsageRoundContext(turnId, ragContexts));
         }
+        List<ContentBlock> content = new ArrayList<>();
+        if (input != null && !input.isBlank()) {
+            content.add(TextBlock.builder().text(input).build());
+        }
+        if (images != null) {
+            for (AgentImageAttachment image : images) {
+                content.add(ImageBlock.builder()
+                        .source(new Base64Source(image.mediaType(), image.base64()))
+                        .build());
+            }
+        }
         return UserMessage.builder()
-                .textContent(input)
+                .content(content)
                 .metadata(Map.of(TokenUsageRoundContext.TURN_METADATA_KEY, turnId))
                 .build();
     }

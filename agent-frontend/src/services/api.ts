@@ -8,7 +8,8 @@ import type {
 import type { SubagentProgressDto } from '../types/team';
 import type { FullModelConfig, ModelProtocol } from '../types/model';
 import { invoke } from '@tauri-apps/api/core';
-
+import { assertChatStreamResponse } from './chatStreamResponse';
+import { withAgentGeneration } from './agentGeneration';
 export interface ModelConfig {
   vendor: string;
   name: string;
@@ -54,7 +55,7 @@ export function getApiBaseUrl(): string {
 }
 
 /** 判断当前是否运行在 Tauri 桌面端 */
-function isTauri(): boolean {
+export function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
@@ -162,7 +163,7 @@ export function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
       // 非 URL 请求交由浏览器 Fetch API 返回标准错误。
     }
   }
-  return fetch(input, { ...init, headers });
+  return fetch(input, { ...init, headers: withAgentGeneration(headers) });
 }
 
 /** EventSource 不支持自定义请求头，令牌仅用于受保护的 SSE 订阅。 */
@@ -456,6 +457,8 @@ export async function streamAgentChat(
     context?: string;
     recordReferenceIds?: string[];
     analysisContext?: AgentAnalysisContextRequest;
+    /** 随本轮一次性提交的图片（Base64，不含 data URL 前缀）。 */
+    images?: { mediaType: string; dataBase64: string }[];
     approvalId?: string;
     signal?: AbortSignal;
   },
@@ -491,13 +494,12 @@ export async function streamAgentChat(
               content: payloadContent,
               recordReferenceIds: params.recordReferenceIds ?? [],
               analysisContext: params.analysisContext,
+              images: params.images ?? [],
             }),
       }
     );
 
-    if (!response.ok) {
-      throw new Error(`HTTP 响应异常: Status ${response.status}`);
-    }
+    await assertChatStreamResponse(response);
 
     if (!response.body) {
       throw new Error('ReadableStream 不可用');

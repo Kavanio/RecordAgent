@@ -132,17 +132,71 @@ public class FinanceRepository {
                 """, deltaMinor, now.toString(), ownerId, accountId, deltaMinor) == 1;
     }
 
-    /** 保存流水。 */
+    /** 保存流水；划账等成对流水通过 pairId 关联，其余流水为 null。 */
     public void insertTransaction(
             String id, String ownerId, String accountId, LocalDate date, LocalTime time, String type,
-            String category, String note, long amountMinor, String currency, String source, Instant now) {
+            String category, String note, long amountMinor, String currency, String source,
+            String pairId, Instant now) {
         jdbcTemplate.update("""
                 INSERT INTO finance_transaction (
                     id, owner_id, account_id, transaction_date, transaction_time, transaction_type,
-                    category, note, amount_minor, currency, source, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    category, note, amount_minor, currency, source, pair_id, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, id, ownerId, accountId, date.toString(), time.toString(), type, category, note,
-                amountMinor, currency, source, now.toString());
+                amountMinor, currency, source, pairId, now.toString());
+    }
+
+    /** 删除一条归属当前用户的流水，返回是否命中。 */
+    public boolean deleteTransaction(String ownerId, String transactionId) {
+        return jdbcTemplate.update(
+                "DELETE FROM finance_transaction WHERE owner_id = ? AND id = ?",
+                ownerId, transactionId) == 1;
+    }
+
+    /**
+     * 查询与指定划账流水配对的另一条流水。
+     * 新数据按 pair_id 精确匹配；迁移前无法配对的历史数据按同日期、同时间、同金额的反向流向兜底匹配。
+     */
+    public Optional<FinanceTransaction> findTransferPartner(String ownerId, FinanceTransaction transfer) {
+        String pairId = jdbcTemplate.query(
+                "SELECT pair_id FROM finance_transaction WHERE owner_id = ? AND id = ?",
+                resultSet -> resultSet.next() ? resultSet.getString("pair_id") : null,
+                ownerId, transfer.id());
+        if (pairId != null) {
+            return jdbcTemplate.query("""
+                    SELECT t.id, t.account_id, a.name AS account_name, t.transaction_date, t.transaction_time,
+                           t.transaction_type, t.category, t.note, t.amount_minor, t.currency, t.source, t.created_at
+                    FROM finance_transaction t
+                    JOIN finance_account a ON a.id = t.account_id
+                    WHERE t.owner_id = ? AND t.pair_id = ? AND t.id <> ?
+                    """, (rs, rowNum) -> mapTransaction(rs), ownerId, pairId, transfer.id())
+                    .stream().findFirst();
+        }
+        String oppositeType = "transfer_out".equals(transfer.transactionType()) ? "transfer_in" : "transfer_out";
+        return jdbcTemplate.query("""
+                SELECT t.id, t.account_id, a.name AS account_name, t.transaction_date, t.transaction_time,
+                       t.transaction_type, t.category, t.note, t.amount_minor, t.currency, t.source, t.created_at
+                FROM finance_transaction t
+                JOIN finance_account a ON a.id = t.account_id
+                WHERE t.owner_id = ? AND t.transaction_type = ? AND t.transaction_date = ?
+                  AND t.transaction_time = ? AND t.amount_minor = ? AND t.id <> ?
+                ORDER BY t.created_at, t.id
+                LIMIT 1
+                """, (rs, rowNum) -> mapTransaction(rs), ownerId, oppositeType,
+                transfer.date().toString(), transfer.time().toString(),
+                transfer.amount().movePointRight(2).longValueExact(), transfer.id())
+                .stream().findFirst();
+    }
+
+    private FinanceTransaction mapTransaction(java.sql.ResultSet resultSet) throws java.sql.SQLException {
+        return new FinanceTransaction(
+                resultSet.getString("id"), resultSet.getString("account_id"), resultSet.getString("account_name"),
+                LocalDate.parse(resultSet.getString("transaction_date")),
+                LocalTime.parse(resultSet.getString("transaction_time")),
+                resultSet.getString("transaction_type"), resultSet.getString("category"),
+                resultSet.getString("note"), BigDecimal.valueOf(resultSet.getLong("amount_minor"), 2),
+                resultSet.getString("currency"), resultSet.getString("source"),
+                Instant.parse(resultSet.getString("created_at")));
     }
 
     /** 按所有者读取单条财务流水。 */

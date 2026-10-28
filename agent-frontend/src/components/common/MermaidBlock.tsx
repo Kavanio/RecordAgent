@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Copy, Maximize2, Minus, Plus, X } from 'lucide-react';
-import { CodeBlock } from './CodeBlock';
+import { CodeBlock } from '@/components/ui/code-block';
 import styles from './MermaidBlock.module.css';
 
 type MermaidApi = (typeof import('mermaid'))['default'];

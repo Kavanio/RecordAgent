@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CalendarDotsIcon, MagnifyingGlassIcon, PencilSimpleIcon, WalletIcon } from '@phosphor-icons/react';
+import { CalendarDotsIcon, MagnifyingGlassIcon, PencilSimpleIcon, TrashIcon, WalletIcon } from '@phosphor-icons/react';
 import type { FinanceAccount, FinanceTransaction } from '../../types/finance';
 import { Drawer } from '../common/Drawer';
 import { Select } from '../common/Select';
@@ -17,13 +17,19 @@ interface TransactionDrawerProps {
   onClose: () => void;
   onRetry: () => void;
   onEdit: (transaction: FinanceTransaction) => void;
+  /** 请求删除；仅在可安全回滚余额的流水上展示入口，自动收益不提供删除。 */
+  onDelete: (transaction: FinanceTransaction) => void;
 }
+
+/** 自动收益由系统按日计提且无法重算，与不可回滚来源一起不提供删除入口。 */
+const isDeletable = (transaction: FinanceTransaction) => transaction.transactionType !== 'yield'
+  && transaction.source !== 'automatic';
 
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
 
 /** 全部流水抽屉：支持按支付分类、不同资产支付、交易类型、日期和关键词多维筛选。 */
 export const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
-  open, transactions, accounts, loading, error, onClose, onRetry, onEdit,
+  open, transactions, accounts, loading, error, onClose, onRetry, onEdit, onDelete,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState('');
@@ -172,6 +178,13 @@ export const TransactionDrawer: React.FC<TransactionDrawerProps> = ({
                       aria-label={`编辑流水：${transaction.note}`}
                       title="编辑流水"
                     ><PencilSimpleIcon size={13} /></button>}
+                    {isDeletable(transaction) && <button
+                      type="button"
+                      className={`${styles.editButton} ${styles.deleteButton}`}
+                      onClick={() => onDelete(transaction)}
+                      aria-label={`删除流水：${transaction.note}`}
+                      title="删除流水"
+                    ><TrashIcon size={13} /></button>}
                   </div>
                 </div>
                 <div className={styles.meta}>

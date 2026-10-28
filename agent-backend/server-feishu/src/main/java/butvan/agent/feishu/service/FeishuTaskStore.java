@@ -80,7 +80,7 @@ public final class FeishuTaskStore implements AutoCloseable {
     /** 成功返回队列前方数量；重复受理返回 -1，持久化失败则抛出异常而不是回执成功。 */
     public synchronized int accept(Task task, int maxQueued, long now) {
         requireHealthy();
-        if (task(task.id()) != null) return -1;
+        if (state.resetMessageIds().contains(task.id()) || task(task.id()) != null) return -1;
         List<Task> retained = state.tasks().stream().filter(existing -> !canPrune(existing, now)).toList();
         long waiting = retained.stream().filter(t -> t.state() == Execution.QUEUED).count();
         long ahead = retained.stream().filter(t -> t.conversation().equals(task.conversation()) && t.state().active()).count();
@@ -92,7 +92,7 @@ public final class FeishuTaskStore implements AutoCloseable {
             throw new IllegalStateException("当前待处理消息较多，请稍后重试。");
         }
         List<Task> tasks = new ArrayList<>(retained); tasks.add(task);
-        commit(new State(1, state.bindings(), tasks));
+        commit(new State(1, state.bindings(), tasks, state.resetMessageIds(), state.resetBefore()));
         return (int) ahead;
     }
 
@@ -103,7 +103,7 @@ public final class FeishuTaskStore implements AutoCloseable {
         for (int i = 0; i < tasks.size(); i++) {
             if (tasks.get(i).id().equals(id)) {
                 tasks.set(i, change.apply(tasks.get(i)));
-                commit(new State(1, state.bindings(), tasks));
+                commit(new State(1, state.bindings(), tasks, state.resetMessageIds(), state.resetBefore()));
                 return;
             }
         }
@@ -116,7 +116,21 @@ public final class FeishuTaskStore implements AutoCloseable {
         Map<String, String> bindings = new LinkedHashMap<>(state.bindings());
         if (!bindings.containsKey(key) && bindings.size() >= MAX_RECORDS) throw new IllegalStateException("渠道会话数量已达上限");
         bindings.put(key, sessionId);
-        commit(new State(1, bindings, state.tasks()));
+        commit(new State(1, bindings, state.tasks(), state.resetMessageIds(), state.resetBefore()));
+    }
+
+    /** 停稳且持有独占锁时清除正文；无正文去重墓碑不随七天记录保留期淘汰。 */
+    public synchronized void resetPersonalState() {
+        requireHealthy();
+        Set<String> ids = new HashSet<>(state.resetMessageIds());
+        state.tasks().forEach(task -> ids.add(task.id()));
+        commit(new State(1, Map.of(), List.of(), ids, Math.max(state.resetBefore(), System.currentTimeMillis())));
+    }
+
+    /** 重置后拒绝平台旧消息及缺失时间的重投，补足已经过七天淘汰的旧 ID。 */
+    public synchronized boolean acceptsMessageTime(long createTime) {
+        requireHealthy();
+        return state.resetBefore() == 0 || createTime > state.resetBefore();
     }
 
     /** 用于受理／出站的快速熔断判断，不等同于飞书网络健康。 */
@@ -210,10 +224,12 @@ public final class FeishuTaskStore implements AutoCloseable {
         @Override public String toString() { return "FeishuTask[id=" + id + ", state=" + state + "]"; }
     }
 
-    public record State(int version, Map<String, String> bindings, List<Task> tasks) {
+    public record State(int version, Map<String, String> bindings, List<Task> tasks, Set<String> resetMessageIds, long resetBefore) {
+        public State(int version, Map<String, String> bindings, List<Task> tasks) { this(version, bindings, tasks, Set.of(), 0); }
         public State {
             bindings = Collections.unmodifiableMap(new LinkedHashMap<>(bindings));
             tasks = List.copyOf(tasks);
+            resetMessageIds = resetMessageIds == null ? Set.of() : Set.copyOf(resetMessageIds);
         }
     }
 

@@ -5,7 +5,7 @@ import butvan.agent.network.config.database.LocalDatabaseConfiguration;
 import butvan.agent.network.controller.ApiExceptionHandler;
 import butvan.agent.network.finance.repository.FinanceRepository;
 import butvan.agent.network.finance.service.FinanceService;
-import butvan.agent.network.daily.service.ExpenseAnalyticsService;
+import butvan.agent.network.daily.DailyEventModuleConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -45,6 +45,10 @@ class FinanceApiIntegrationTest {
 
     @Test
     void apiCreatesAccountAndIncomeTransaction() throws Exception {
+        // 月度接口使用实际当前月；测试流水与修改后的日期保持在同月，避免跨月后断言失效。
+        LocalDate today = LocalDate.now();
+        String transactionDate = today.withDayOfMonth(1).toString();
+        String correctedDate = today.toString();
         String accountJson = mockMvc.perform(post("/agent/finance/accounts")
                         .contentType("application/json")
                         .content("""
@@ -71,19 +75,19 @@ class FinanceApiIntegrationTest {
                                   "transactionType": "income",
                                   "category": "稿费",
                                   "categoryColor": "#3b82f6",
-                                  "note": "九月工资",
+                                  "note": "本月稿费",
                                   "amount": 500.00,
-                                  "date": "2026-09-03",
+                                  "date": "%s",
                                   "time": "09:00"
                                 }
-                                """.formatted(accountId)))
+                                """.formatted(accountId, transactionDate)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.transactionType").value("income"))
                 .andReturn().getResponse().getContentAsString();
         String transactionId = new com.fasterxml.jackson.databind.ObjectMapper()
                 .readTree(transactionJson).path("data").path("id").asText();
 
-        mockMvc.perform(get("/agent/finance/transactions/day").param("date", "2026-09-03"))
+        mockMvc.perform(get("/agent/finance/transactions/day").param("date", transactionDate))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].id").value(transactionId))
                 .andExpect(jsonPath("$.data[0].accountId").value(accountId));
@@ -92,7 +96,7 @@ class FinanceApiIntegrationTest {
                 .andExpect(jsonPath("$.data").isEmpty());
 
         mockMvc.perform(get("/agent/finance/cashflow-summary")
-                        .param("from", "2026-09-03").param("to", "2026-09-03"))
+                        .param("from", transactionDate).param("to", transactionDate))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.income").value(500.00))
                 .andExpect(jsonPath("$.data.expense").value(0));
@@ -111,12 +115,14 @@ class FinanceApiIntegrationTest {
 
         mockMvc.perform(get("/agent/finance/transactions"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].note").value("九月工资"))
+                .andExpect(jsonPath("$.data[0].note").value("本月稿费"))
                 .andExpect(jsonPath("$.data[0].accountName").value("支付宝余额宝"));
 
         mockMvc.perform(get("/agent/finance/expense-chart").param("range", "month"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.range").value("month"))
+                .andExpect(jsonPath("$.data.from").value(transactionDate))
+                .andExpect(jsonPath("$.data.to").value(correctedDate))
                 .andExpect(jsonPath("$.data.totalIncome").value(500.00))
                 .andExpect(jsonPath("$.data.categoryColors").isMap())
                 .andExpect(jsonPath("$.data.days").isArray());
@@ -124,8 +130,8 @@ class FinanceApiIntegrationTest {
         mockMvc.perform(get("/agent/finance/expense-chart").param("range", "today"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.range").value("today"))
-                .andExpect(jsonPath("$.data.from").value(LocalDate.now().toString()))
-                .andExpect(jsonPath("$.data.to").value(LocalDate.now().toString()));
+                .andExpect(jsonPath("$.data.from").value(correctedDate))
+                .andExpect(jsonPath("$.data.to").value(correctedDate));
 
         // 创建第二个账户并验证划账接口
         String secondAccountJson = mockMvc.perform(post("/agent/finance/accounts")
@@ -152,17 +158,17 @@ class FinanceApiIntegrationTest {
                                   "accountId": "%s",
                                   "transactionType": "income",
                                   "category": "稿费",
-                                  "note": "修正后的九月稿费",
+                                  "note": "修正后的本月稿费",
                                   "amount": 500.00,
-                                  "date": "2026-09-05",
+                                  "date": "%s",
                                   "time": "10:30"
                                 }
-                                """.formatted(secondAccountId)))
+                                """.formatted(secondAccountId, correctedDate)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accountId").value(secondAccountId))
                 .andExpect(jsonPath("$.data.accountName").value("微信零钱"))
-                .andExpect(jsonPath("$.data.date").value("2026-09-05"))
-                .andExpect(jsonPath("$.data.note").value("修正后的九月稿费"));
+                .andExpect(jsonPath("$.data.date").value(correctedDate))
+                .andExpect(jsonPath("$.data.note").value("修正后的本月稿费"));
 
         mockMvc.perform(get("/agent/finance/categories"))
                 .andExpect(jsonPath("$.data.colors.income.稿费").value("#3B82F6"));
@@ -172,8 +178,8 @@ class FinanceApiIntegrationTest {
                         .content("""
                                 {"accountId":"%s","transactionType":"income","category":"稿费",
                                  "categoryColor":"#bad","note":"无效颜色","amount":500,
-                                 "date":"2026-09-05","time":"10:30"}
-                                """.formatted(secondAccountId)))
+                                 "date":"%s","time":"10:30"}
+                                """.formatted(secondAccountId, correctedDate)))
                 .andExpect(jsonPath("$.code").value(400));
         mockMvc.perform(get("/agent/finance/categories"))
                 .andExpect(jsonPath("$.data.colors.income.稿费").value("#3B82F6"));
@@ -191,10 +197,10 @@ class FinanceApiIntegrationTest {
                                   "toAccountId": "%s",
                                   "amount": 350.00,
                                   "note": "日常充值零钱",
-                                  "date": "2026-09-04",
+                                  "date": "%s",
                                   "time": "11:20"
                                 }
-                                """.formatted(accountId, secondAccountId)))
+                                """.formatted(accountId, secondAccountId, correctedDate)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.fromTransaction.transactionType").value("transfer_out"))
                 .andExpect(jsonPath("$.data.fromTransaction.amount").value(350.00))
@@ -241,7 +247,7 @@ class FinanceApiIntegrationTest {
     @Import({
             LocalDatabaseConfiguration.class,
             FinanceRepository.class,
-            ExpenseAnalyticsService.class,
+            DailyEventModuleConfiguration.class,
             FinanceService.class,
             FinanceController.class,
             ApiExceptionHandler.class,

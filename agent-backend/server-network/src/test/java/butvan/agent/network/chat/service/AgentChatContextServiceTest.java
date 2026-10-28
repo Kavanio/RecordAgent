@@ -110,7 +110,8 @@ class AgentChatContextServiceTest {
             LocalDatabaseConfiguration.class,
             DailyEventModuleConfiguration.class,
             RecordService.class,
-            AgentChatContextService.class
+            AgentChatContextService.class,
+        butvan.agent.agents.model.ModelHolder.class
     })
     static class TestApplication {
     }

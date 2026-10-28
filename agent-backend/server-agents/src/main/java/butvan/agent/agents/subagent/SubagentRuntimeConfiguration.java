@@ -30,7 +30,8 @@ public class SubagentRuntimeConfiguration {
         Path workspace = storageProperties.getWorkspaceDirectory();
         AbstractFilesystem filesystem = new LocalFilesystemSpec()
                 .toFilesystem(workspace, IsolationScope.USER.toNamespaceFactory());
-        return new WorkspaceManager(workspace, filesystem);
+        // 共享任务仓库不需要可选全文索引；避免启动时打开旧记忆索引阻碍恢复清理。
+        return new WorkspaceManager(workspace, filesystem, null);
 
     }
 

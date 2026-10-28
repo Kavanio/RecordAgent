@@ -224,7 +224,7 @@ pnpm --dir agent-frontend dev
 
 ### 飞书渠道
 
-`server-feishu` 通过长连接接收本人私聊，复用 `server-agents`：受理后立即发送普通文本回执，长任务默认每 60 秒提醒，完成后发送完整文本（长文分段），不再使用流式卡片。配置须包含 `feishu.enabled=true`、`appId`、`appSecret` 以及唯一的本人 `allowedSenderIds`；旧配置缺少白名单时安全禁用，群聊不开放。
+`server-feishu` 通过长连接接收本人私聊，复用 `server-agents`：受理后立即发送普通文本回执，长任务默认每 60 秒提醒，完成后发送完整回答（长文分段），不再使用流式卡片。回复以卡片富文本渲染 Markdown（标题、列表、行内代码、代码块、表格），回执与状态提醒仍是普通文本，卡片富文本需飞书客户端 7.20 及以上。支持直接发图片：仅当当前模型在模型配置中标注了图片识别能力时才下载并交给模型（PNG／JPEG／WebP／GIF，单张不超过 10 MiB，图片不进聊天记录）。配置须包含 `feishu.enabled=true`、`appId`、`appSecret` 以及唯一的本人 `allowedSenderIds`；旧配置缺少白名单时安全禁用，群聊不开放。
 
 任务受理、会话绑定和回复投递保存在后端数据目录；支持排队、停止、重启核对和人工补发，发送失败不会重新执行工具。配置迁移、命令、限额与故障处理见 [`agent-backend/server-feishu/README.md`](agent-backend/server-feishu/README.md)。
 
@@ -279,12 +279,11 @@ mvn -f agent-backend/pom.xml test
 pnpm --dir agent-frontend lint
 pnpm --dir agent-frontend build
 
-# 前端领域测试（按需选择）
-pnpm --dir agent-frontend test:tasks
-pnpm --dir agent-frontend test:models
-pnpm --dir agent-frontend test:finance
-pnpm --dir agent-frontend test:sidebar
-pnpm --dir agent-frontend test:loading
+# 前端领域测试（全量，自动发现 src 下所有 *.test.mjs）
+pnpm --dir agent-frontend test
+
+# 需要只跑单个文件时显式指定
+pnpm --dir agent-frontend test src/components/chat/ChatWorkspace.test.mjs
 
 # Rust 壳层检查
 cargo check --manifest-path agent-frontend/src-tauri/Cargo.toml

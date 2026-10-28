@@ -31,7 +31,7 @@ public class SubagentCatalog {
      * 用真实工具全集重建目录（内置与目录定义的黑名单转换需要全集）。
      * AgentFactory 构建 Agent 后调用一次。
      */
-    public void refresh(List<String> allToolNames) {
+    public synchronized void refresh(List<String> allToolNames) {
         // 清空后重新加载；本类构造时只放了占位数据
         specs.clear();
         AgentDefinitionLoader loader = new AgentDefinitionLoader();
@@ -39,15 +39,20 @@ public class SubagentCatalog {
         // 用户级与项目级按需补充（见第 9 步 config 后改为从 LocalConfigService 读路径）
     }
 
-    public List<SubagentDeclaration> declarations() {
+    /** 停稳后的出厂重置只恢复内置定义，不重新读取已删除的个人工作区。 */
+    public synchronized void resetToBuiltins() {
+        refresh(List.of());
+    }
+
+    public synchronized List<SubagentDeclaration> declarations() {
         return specs.values().stream().map(ButvanSubagentSpec::declaration).toList();
     }
 
-    public ButvanSubagentSpec get(String name) {
+    public synchronized ButvanSubagentSpec get(String name) {
         return specs.get(name);
     }
 
-    public List<String> names() {
+    public synchronized List<String> names() {
         return new ArrayList<>(specs.keySet());
     }
 }

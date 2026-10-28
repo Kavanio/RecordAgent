@@ -69,6 +69,7 @@
 }
 
 .reasoningTag,
+.visionTag,
 .contextTag {
   font-size: 10.5px;
   line-height: 1;
@@ -84,6 +85,12 @@
   color: #1d4ed8;
   background: #eff6ff;
   border-color: #bfdbfe;
+}
+
+.visionTag {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
 }
 
 .modelName {

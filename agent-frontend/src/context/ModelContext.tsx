@@ -10,6 +10,7 @@ interface ModelInput {
   modelId: string;
   name: string;
   makeDefault?: boolean;
+  supportsVision?: boolean;
 }
 
 type ListedModel = ModelItem & {
@@ -110,7 +111,8 @@ export const ModelProviderContext: React.FC<{ children: React.ReactNode }> = ({ 
       savedId = params.vendor === 'custom'
         ? (oldProvider?.type === 'custom' ? oldProvider.id : `custom-${crypto.randomUUID()}`)
         : params.vendor;
-      const item: ModelItem = { id: params.modelId, name: params.name, providerId: savedId };
+      const item: ModelItem = { id: params.modelId, name: params.name, providerId: savedId,
+        supportsVision: params.supportsVision === true };
       let providers = previous.providers.map(p => ({ ...p,
         models: p.models.filter(m => !(p.id === old?.providerId && m.id === old.modelId)),
       }));

@@ -1,8 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Plus, ArrowUp, Mic, Square } from 'lucide-react';
+import { Plus, ArrowUp, Mic, Square, X } from 'lucide-react';
 import { ModelSelector } from '../model/ModelSelector';
 import { PermissionModeSelector } from './PermissionModeSelector';
-import type { SessionPermissionMode } from '../../types/chat';
+import type { ChatImageAttachment, SessionPermissionMode } from '../../types/chat';
 import { useMessage } from '../common/Message';
 import {
   createSpeechRecognition,
@@ -10,6 +10,7 @@ import {
   requestMicrophoneAccess,
   type SpeechRecognitionController,
 } from '../../services/speechRecognition';
+import { CHAT_IMAGE_TYPES, MAX_CHAT_IMAGES } from '../../features/chat-images/chatImages';
 import styles from './PromptInput.module.css';
 
 interface PromptInputProps {
@@ -35,11 +36,16 @@ interface PromptInputProps {
   isJevDisabled?: boolean;
   isJevSaving?: boolean;
   jevTitle?: string;
+  /** 已附加的图片；由父组件持有，发送后清空。 */
+  images?: ChatImageAttachment[];
+  onAddImages?: (files: File[]) => Promise<void>;
+  onRemoveImage?: (index: number) => void;
+  imagesLoading?: boolean;
 }
 
 /**
  * AI 对话输入框：可组合前置标签、自动增高文本域与底部工具条。
- * 工具条左侧保留附件占位、审批模式与 Jev 开关，右侧为 AI 模型选择、语音听写与发送按钮。
+ * 工具条左侧提供图片附件、审批模式与 Jev 开关，右侧为 AI 模型选择、语音听写与发送按钮。
  */
 export const PromptInput: React.FC<PromptInputProps> = ({
   value,
@@ -64,8 +70,13 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   isJevDisabled = false,
   isJevSaving = false,
   jevTitle,
+  images = [],
+  onAddImages,
+  onRemoveImage,
+  imagesLoading = false,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionController | null>(null);
   const dictationBasePromptRef = useRef('');
   const finalDictationRef = useRef('');
@@ -87,7 +98,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
     if (onInputKeyDown?.(e)) return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (isStreaming) return;
+      if (isStreaming || imagesLoading) return;
       onSend();
     }
   };
@@ -147,10 +158,43 @@ export const PromptInput: React.FC<PromptInputProps> = ({
   };
 
   const hasValue = value.trim().length > 0;
-  const isSendEnabled = canSend ?? hasValue;
+  const isSendEnabled = !imagesLoading && (canSend ?? (hasValue || images.length > 0));
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    void onAddImages?.(files);
+  };
+
+  /** 支持直接粘贴截图；有图片时阻止默认粘贴，避免 Base64 文本污染输入框。 */
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.clipboardData?.files ?? []);
+    if (files.length === 0) return;
+    event.preventDefault();
+    void onAddImages?.(files);
+  };
 
   return (
     <div className={`${styles.container} ${className || ''}`}>
+      {images.length > 0 && (
+        <div className={styles.attachments} aria-label="已附加图片">
+          {images.map((image, index) => (
+            <div key={`${image.name || 'image'}-${index}`} className={styles.attachmentItem}>
+              <img className={styles.attachmentImage} src={image.dataUrl} alt={image.name || '待发送图片'} />
+              <button
+                type="button"
+                className={styles.attachmentRemove}
+                onClick={() => onRemoveImage?.(index)}
+                aria-label={`移除第 ${index + 1} 张图片`}
+                title="移除"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className={styles.editor}>
         {leadingContent && <div className={styles.leadingContent}>{leadingContent}</div>}
         <textarea
@@ -161,6 +205,7 @@ export const PromptInput: React.FC<PromptInputProps> = ({
           value={value}
           onChange={(e) => onValueChange(e.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           aria-expanded={Boolean(suggestionListId)}
           aria-controls={suggestionListId}
         />
@@ -168,12 +213,21 @@ export const PromptInput: React.FC<PromptInputProps> = ({
 
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={CHAT_IMAGE_TYPES.join(',')}
+            multiple
+            hidden
+            onChange={handleFileSelect}
+          />
           <button
             type="button"
             className={styles.iconBtn}
-            title="添加附件（即将推出）"
-            aria-label="添加附件（即将推出）"
-            disabled
+            title="添加图片（也可直接粘贴）"
+            aria-label="添加图片"
+            disabled={!onAddImages || images.length >= MAX_CHAT_IMAGES}
+            onClick={() => fileInputRef.current?.click()}
           >
             <Plus size={18} />
           </button>

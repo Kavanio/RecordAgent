@@ -45,6 +45,9 @@ public class AgentAnalysisContextService {
         if (request == null || request.analysisContext() == null) {
             throw new IllegalArgumentException("分析上下文不能为空");
         }
+        if (!request.images().isEmpty()) {
+            throw new IllegalArgumentException("图片暂不能与业务分析命令一起发送，请单独发送图片");
+        }
         if (request.recordReferenceIds() != null && !request.recordReferenceIds().isEmpty()) {
             throw new IllegalArgumentException("资料引用与业务分析上下文不能同时提交");
         }

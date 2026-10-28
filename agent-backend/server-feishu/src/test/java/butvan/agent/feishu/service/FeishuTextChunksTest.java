@@ -23,6 +23,17 @@ class FeishuTextChunksTest {
         assertEquals(text, FeishuTextChunks.split(text).stream()
                 .map(part -> part.substring(part.indexOf('\n') + 1)).collect(java.util.stream.Collectors.joining()));
     }
+    @Test void fencedCodeBlockSplitAcrossPartsIsClosedAndReopened() {
+        String text = "```java\n" + ("int value = 1;\n".repeat(700)) + "```\n结尾\n";
+        var pieces = FeishuTextChunks.split(text);
+        assertTrue(pieces.size() > 1);
+        for (String piece : pieces) {
+            long fences = piece.lines().filter(line -> line.startsWith("```")).count();
+            assertEquals(0, fences % 2, "每段围栏必须成对，否则后半段会被渲染成代码或把闭合符当正文");
+        }
+        assertEquals("```java", pieces.get(1).lines().skip(1).findFirst().orElse(""));
+        assertEquals("```", pieces.get(0).lines().toList().getLast());
+    }
     @Test void emptySuccessIsExplicit() {
         assertFalse(FeishuTextChunks.split("").getFirst().isBlank());
         assertFalse(FeishuTextChunks.split(" \n\t").getFirst().isBlank());

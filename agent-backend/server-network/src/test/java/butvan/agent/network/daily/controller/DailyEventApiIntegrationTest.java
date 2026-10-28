@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -64,12 +65,10 @@ class DailyEventApiIntegrationTest {
                 .andExpect(jsonPath("$.data.events[0].title").value("验证日记录接口"))
                 .andExpect(jsonPath("$.data.events[0].details.completed").value(false));
 
+        // 指定星期的待办进入日历，不进入只收不固定日期任务的便签接口。
         mockMvc.perform(get("/agent/daily-events/recurring-todos?date=2026-09-03"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].title").value("验证日记录接口"))
-                .andExpect(jsonPath("$.data[0].recurrence").value("weekly"))
-                .andExpect(jsonPath("$.data[0].occurrenceDate").value("2026-09-06"))
-                .andExpect(jsonPath("$.data[0].completed").value(false));
+                .andExpect(jsonPath("$.data").isEmpty());
     }
 
     @Test
@@ -98,7 +97,8 @@ class DailyEventApiIntegrationTest {
                                   "eventDate": "2026-02-10",
                                   "title": "完成月度总结",
                                   "priority": "medium",
-                                  "recurrence": "monthly"
+                                  "recurrence": "monthly",
+                                  "recurrenceMonthDay": 31
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -110,7 +110,31 @@ class DailyEventApiIntegrationTest {
 
         mockMvc.perform(get("/agent/daily-events/recurring-todos?date=2026-02-10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].occurrenceDate").value("2026-02-28"));
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    void apiKeepsUnspecifiedWeeklyAndMonthlyTodosInNotesInsteadOfDayTimeline() throws Exception {
+        // 独立周期避免与固定日期用例共享的临时数据库互相影响。
+        for (String recurrence : new String[]{"weekly", "monthly"}) {
+            String title = "不固定日期的" + recurrence;
+            mockMvc.perform(post("/agent/daily-events/todos")
+                            .contentType("application/json")
+                            .content("""
+                                    {"eventDate":"2026-11-10","title":"%s","priority":"medium","recurrence":"%s"}
+                                    """.formatted(title, recurrence)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.data.details.recurrence").value(recurrence))
+                    .andExpect(jsonPath("$.data.details.recurrenceWeekday").doesNotExist())
+                    .andExpect(jsonPath("$.data.details.recurrenceMonthDay").doesNotExist());
+            mockMvc.perform(get("/agent/daily-events/recurring-todos?date=2026-11-10"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data[*].title", hasItem(title)));
+        }
+        mockMvc.perform(get("/agent/daily-events/days/2026-11-10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.events").isEmpty());
     }
 
     private static Path createDatabasePath() {

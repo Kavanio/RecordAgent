@@ -52,6 +52,12 @@ public class ActiveAgentRunRegistry {
         sessionRuns.remove(new SessionKey(userId, sessionId), session.runId());
     }
 
+    /** 发出取消请求；真正停稳由重置租约等待确认。 */
+    public void cancelAll(String userId) {
+        runs.values().stream().filter(run -> run.userId().equals(userId))
+                .forEach(run -> run.session().requestCancellation());
+    }
+
     public record CancelResult(String runId, boolean accepted, String status) {}
 
     private record ActiveRun(String userId, String sessionId, AgentStreamSession session) {}

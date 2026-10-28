@@ -30,6 +30,9 @@ public class FeishuChannelLifecycle implements SmartLifecycle {
     private Thread worker;
 
     @Autowired
+    private butvan.agent.agents.reset.ResetBarrier resetBarrier;
+
+    @Autowired
     public FeishuChannelLifecycle(FeishuProperties properties, FeishuChatService chat) {
         this(properties, chat, FeishuChannelLifecycle::buildChannel, 30_000);
     }
@@ -42,12 +45,14 @@ public class FeishuChannelLifecycle implements SmartLifecycle {
 
     @Override
     public synchronized void start() {
+        if (resetBarrier != null && resetBarrier.blocked()) return;
         if (running || (worker != null && worker.isAlive())) return;
         FeishuConfigData config = properties.load();
         if (!config.isReady()) {
             log.info("飞书渠道未启用：需要 enabled、App ID、App Secret 以及唯一的本人 allowedSenderIds；修改后重启。");
             return;
         }
+        if (resetBarrier != null) resetBarrier.markRuntimeUsed();
         running = true;
         long currentGeneration = ++generation;
         worker = Thread.ofVirtual().name("feishu-connect").unstarted(() -> connectLoop(config, currentGeneration));
@@ -57,8 +62,9 @@ public class FeishuChannelLifecycle implements SmartLifecycle {
     private void connectLoop(FeishuConfigData config, long currentGeneration) {
         try {
             if (!active(currentGeneration)) return;
-            chat.open(config, new LarkTextSender(Client.newBuilder(config.appId(), config.appSecret())
-                    .requestTimeout(15, TimeUnit.SECONDS).logReqAtDebug(false).build()));
+            Client client = Client.newBuilder(config.appId(), config.appSecret())
+                    .requestTimeout(15, TimeUnit.SECONDS).logReqAtDebug(false).build();
+            chat.open(config, new LarkMessageSender(client), new LarkImageFetcher(client));
             long delayMillis = 1000;
             while (active(currentGeneration)) {
                 LarkChannel candidate = null;

@@ -147,6 +147,9 @@ public final class DailyEventModels {
             Object details) {
     }
 
+    /** 统计用待办发生项，仅包含周期去重与完成计数所需字段，无标题、正文和其他业务数据。 */
+    public record TodoOccurrence(String id, String recurrence, boolean completed) {}
+
     /** 某一天的全部日记录。 */
     public record DailyDay(LocalDate date, List<DailyEvent> events) {
     }
