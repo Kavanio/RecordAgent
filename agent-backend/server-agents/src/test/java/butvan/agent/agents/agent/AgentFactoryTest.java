@@ -83,6 +83,10 @@ class AgentFactoryTest {
         );
 
         try (HarnessAgent agent = factory.currentAgent()) {
+            assertTrue(agent.getDelegate().getSysPrompt().contains("# 普通聊天"),
+                    "普通会话需要聊天、语言与判断规则");
+            assertTrue(agent.getDelegate().getSysPrompt().contains("# 语言与英语"),
+                    "普通会话应在需要时提供适量英语表达");
             assertFalse(agent.getDelegate().isPendingToolRecoveryEnabled(),
                     "框架自动恢复会抢先把 HITL ConfirmResult 改写为失败结果");
             assertTrue(agent.getDelegate().getMiddlewares().stream()
@@ -150,6 +154,13 @@ class AgentFactoryTest {
 
         assertSame(first, firstAgain);
         assertNotSame(first, second);
+        String projectPrompt = first.getDelegate().getSysPrompt();
+        assertTrue(projectPrompt.contains("# 任务执行规范"));
+        assertTrue(projectPrompt.contains("acceptance_report"));
+        assertFalse(projectPrompt.contains("# 普通聊天"),
+                "项目会话不混入日常聊天与英语练习模块");
+        assertFalse(projectPrompt.contains("# 语言与英语"));
+        assertTrue(first.getDelegate().getSysPrompt().contains("PermissionContext"));
         first.close();
         second.close();
     }

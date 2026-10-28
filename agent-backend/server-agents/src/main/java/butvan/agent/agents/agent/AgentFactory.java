@@ -81,11 +81,10 @@ public class AgentFactory {
     private HarnessAgent createHarnessAgent(Model model, Path projectRoot) {
         // 模型名缺失时给兜底名，保证系统提示词可读
         String modelName = model.getModelName() == null ? "unknown-model" : model.getModelName();
-        // 根据模型名与工作目录构建系统提示词
-        String systemPrompt = PromptBuilder.buildDefaultSystemPrompt(
-                modelName,
-                projectRoot == null ? System.getProperty("user.dir") : projectRoot.toString()
-        );
+        // 项目会话使用不含日常聊天模块的工程提示词；普通会话保留聊天、语言与判断规则
+        String systemPrompt = projectRoot == null
+                ? PromptBuilder.buildDefaultSystemPrompt(modelName, System.getProperty("user.dir"))
+                : PromptBuilder.buildProjectSystemPrompt(modelName, projectRoot.toString());
         // 组装 HarnessAgent：计划模式、工具集、权限、工作区、状态存储、上下文压缩
         HarnessAgent.Builder builder = HarnessAgent.builder()
                 .name("butvan_agent")
