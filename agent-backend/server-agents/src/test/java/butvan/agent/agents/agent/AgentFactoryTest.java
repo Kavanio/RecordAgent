@@ -2,6 +2,8 @@ package butvan.agent.agents.agent;
 
 import butvan.agent.agents.context.ContextInjectionMiddleware;
 import butvan.agent.agents.model.ModelHolder;
+import butvan.agent.agents.method.MethodCardCatalog;
+import butvan.agent.agents.method.MethodCardTool;
 import butvan.agent.agents.identity.CurrentUserProvider;
 import butvan.agent.agents.project.ProjectRegistry;
 import butvan.agent.agents.session.SessionCatalogService;
@@ -69,7 +71,7 @@ class AgentFactoryTest {
 
         AgentFactory factory = new AgentFactory(
                 modelHolder,
-                new ToolRegistry(List.of(), capabilityCatalog),
+                new ToolRegistry(List.of(new MethodCardTool(new MethodCardCatalog())), capabilityCatalog),
                 storage,
                 new InMemoryAgentStateStore(),
                 null,
@@ -87,6 +89,9 @@ class AgentFactoryTest {
                     "普通会话需要聊天、语言与判断规则");
             assertTrue(agent.getDelegate().getSysPrompt().contains("# 语言与英语"),
                     "普通会话应在需要时提供适量英语表达");
+            assertTrue(agent.getDelegate().getSysPrompt().contains("method_search"));
+            assertFalse(agent.getDelegate().getSysPrompt().contains("Spacing Effects in Learning"),
+                    "常驻 Prompt 不携带方法卡正文");
             assertFalse(agent.getDelegate().isPendingToolRecoveryEnabled(),
                     "框架自动恢复会抢先把 HITL ConfirmResult 改写为失败结果");
             assertTrue(agent.getDelegate().getMiddlewares().stream()
@@ -160,6 +165,7 @@ class AgentFactoryTest {
         assertFalse(projectPrompt.contains("# 普通聊天"),
                 "项目会话不混入日常聊天与英语练习模块");
         assertFalse(projectPrompt.contains("# 语言与英语"));
+        assertFalse(projectPrompt.contains("method_search"), "工程会话不主动插入生活学习指导");
         assertTrue(first.getDelegate().getSysPrompt().contains("PermissionContext"));
         first.close();
         second.close();

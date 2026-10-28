@@ -67,6 +67,7 @@ class PromptBuilderTest {
         assertTrue(prompt.contains("PermissionContext"));
         assertFalse(prompt.contains("# 普通聊天"));
         assertFalse(prompt.contains("# 语言与英语"));
+        assertFalse(prompt.contains("method_search"));
         assertTrue(new ApproximateTokenCounter().count(prompt) <= 1_200);
     }
 
@@ -78,6 +79,9 @@ class PromptBuilderTest {
         assertTrue(prompt.contains("# 判断与来源"));
         assertTrue(prompt.contains("不因过去学过英语就每句双语"));
         assertTrue(prompt.contains("没核对就不加引号"));
+        assertTrue(prompt.contains("method_search"));
+        assertTrue(prompt.contains("用户拒绝练习或信息紧急时"));
+        assertFalse(prompt.contains("Spacing Effects in Learning"), "卡片正文不进入常驻提示词");
     }
 
     @Test

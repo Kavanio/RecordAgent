@@ -30,6 +30,8 @@ public class ToolCapabilityCatalog {
                     prefixes("agent_", "task_", "wait_async_")),
             capability("skills", "按路径加载任务所需的 Skill 说明",
                     prefixes("load_skill_")),
+            capability("methods", "按需查带一手来源、适用条件和限制的学习方法卡；只读，不创建目标或待办",
+                    names("method_search")),
             capability("web", "搜索互联网中的实时信息与外部资料",
                     names("web_search")),
             capability("calendar", "查询、创建、更新、完成或删除日程与待办",
