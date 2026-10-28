@@ -10,6 +10,7 @@ import java.util.HashSet;
 public final class MemoryModels {
     private MemoryModels() { }
     public record Settings(String spaceId, long version, boolean autoSave, boolean autoRecall) { }
+    public record State(Settings settings, Grant grant, String recipientFingerprint, boolean authorized) { }
     public record Grant(long revision, boolean active, String fingerprint, boolean save, boolean recall,
                         Set<Channel> channels, Instant effectiveAt, int retentionDays, int writeLimit, int queryLimit) { }
     public record Authorization(long expectedRevision, String recipientFingerprint, boolean allowSave,

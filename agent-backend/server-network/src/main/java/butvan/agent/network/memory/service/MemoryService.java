@@ -40,14 +40,31 @@ public class MemoryService implements MemorySourceRegistry {
     }
 
     /** 只返回当前用户的内部设置快照；HTTP 层另外映射 DTO。 */
-    public Settings settings() { return guarded(null, () -> repository.settings(space())); }
-    public Grant grant() { return guarded(null, () -> repository.grant(space())); }
+    public Settings settings() {
+        return guarded(null, () -> { String space = space(); currentGrant(space); return repository.settings(space); });
+    }
+    /** 接收方变更会持久化撤销，不因切回旧地址而自动恢复旧授权。 */
+    public Grant grant() { return guarded(null, () -> currentGrant(space())); }
+    /** 仅表示存在受信 Adapter，不执行网络健康检查。 */
     public boolean remoteAvailable() { return !fingerprint().isEmpty(); }
 
-    public Settings saveSettings(long expectedVersion, boolean save, boolean recall) {
+    /** 管理页使用同一事务的权威快照，接收方变化时不把旧授权显示为有效。 */
+    public State state() {
         return guarded(null, () -> {
             String space = space();
-            Grant grant = repository.grant(space);
+            Grant grant = currentGrant(space);
+            String recipient = fingerprint();
+            return new State(repository.settings(space), grant, recipient,
+                    grant.active() && !recipient.isEmpty() && recipient.equals(grant.fingerprint()));
+        });
+    }
+
+    /** 设置开关不产生新授权；扩大到未获准用途时原子拒绝。 */
+    public Settings saveSettings(long expectedVersion, boolean save, boolean recall) {
+        if (expectedVersion < 0) throw new MemoryRequestException(400, "记忆设置版本无效");
+        return guarded(null, () -> {
+            String space = space();
+            Grant grant = currentGrant(space);
             if ((save && !allowed(grant, true)) || (recall && !allowed(grant, false)))
                 throw new MemoryRequestException(409, "请先确认当前接收方及对应记忆用途授权");
             repository.settings(space, expectedVersion, save, recall);
@@ -77,6 +94,7 @@ public class MemoryService implements MemorySourceRegistry {
 
     /** 撤权保留远端删除目标，重新授权不会恢复旧来源。 */
     public AuthorizationResult revoke(long expectedRevision, String requestId) {
+        if (expectedRevision < 0) throw new MemoryRequestException(400, "记忆授权版本无效");
         requestId(requestId);
         return guarded(null, () -> {
             String space = space();
@@ -96,7 +114,7 @@ public class MemoryService implements MemorySourceRegistry {
         validate(source);
         return guarded(source.generation(), () -> {
             String space = space();
-            Grant grant = repository.grant(space);
+            Grant grant = currentGrant(space);
             if (!repository.settings(space).autoSave() || !allowed(grant, true)
                     || !grant.channels().contains(source.channel()) || source.occurredAt().isBefore(grant.effectiveAt())
                     || source.occurredAt().isAfter(clock.instant())) return Optional.empty();
@@ -108,9 +126,24 @@ public class MemoryService implements MemorySourceRegistry {
         if (receipt == null || !barrier.isCurrent(receipt.generation())) return false;
         return guarded(receipt.generation(), () -> {
             String space = space();
-            Grant grant = repository.grant(space);
+            Grant grant = currentGrant(space);
             return space.equals(receipt.spaceId()) && grant.revision() == receipt.authorizationRevision()
                     && allowed(grant, true) && repository.settings(space).autoSave() && repository.current(receipt, space);
+        });
+    }
+
+    /** 供后续 Worker 在发送前登记稳定操作 ID；不发送，也不能替代发送瞬间的授权校验。 */
+    public void recordRemoteOperation(Receipt receipt, String operationId) {
+        if (receipt == null || operationId == null || !operationId.matches("[a-zA-Z0-9_-]{1,128}"))
+            throw new MemoryRequestException(400, "记忆操作标识无效");
+        guarded(receipt.generation(), () -> {
+            String space = space();
+            Grant grant = currentGrant(space);
+            if (!space.equals(receipt.spaceId()) || grant.revision() != receipt.authorizationRevision()
+                    || !allowed(grant, true) || !repository.settings(space).autoSave() || !repository.current(receipt, space))
+                throw new MemoryRequestException(409, "记忆来源资格已失效");
+            repository.recordRemoteOperation(receipt, operationId);
+            return null;
         });
     }
 
@@ -118,12 +151,26 @@ public class MemoryService implements MemorySourceRegistry {
         return grant.active() && !fingerprint().isEmpty() && grant.fingerprint().equals(fingerprint())
                 && (save ? grant.save() : grant.recall());
     }
+    private Grant currentGrant(String space) {
+        Grant grant = repository.grant(space);
+        if (grant.active() && !grant.fingerprint().equals(fingerprint())) {
+            repository.revoke(space, grant.revision());
+            Settings settings = repository.settings(space);
+            repository.settings(space, settings.version(), false, false);
+            return repository.grant(space);
+        }
+        return grant;
+    }
     private String fingerprint() { return Objects.requireNonNullElse(remote.recipientFingerprint(), ""); }
     private String space() { return repository.space(user.currentUserId(), environment); }
 
     /** 租约在数据库事务提交后释放；HTTP 代次检查由统一 AOP 提供。 */
     private <T> T guarded(Long generation, Supplier<T> body) {
-        try (var ignored = barrier.enter(generation)) { return transaction.execute(status -> body.get()); }
+        try (var ignored = barrier.enter(generation)) {
+            // 接收方变化是独立的撤销事实，不应随随后发生的业务冲突一起回滚。
+            transaction.executeWithoutResult(status -> currentGrant(space()));
+            return transaction.execute(status -> body.get());
+        }
     }
 
     private Optional<AuthorizationResult> replay(String space, String request, String kind, String hash) {

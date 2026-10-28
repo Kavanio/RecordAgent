@@ -26,11 +26,13 @@ public class MemoryRepository {
         return id;
     }
 
+    /** 读取单一空间的独立开关与乐观锁版本。 */
     public Settings settings(String space) {
         return jdbc.queryForObject("SELECT * FROM memory_settings WHERE space_id=?", (rs, n) ->
                 new Settings(space, rs.getLong("version"), rs.getBoolean("auto_save"), rs.getBoolean("auto_recall")), space);
     }
 
+    /** 读取当前授权快照，权限判断留在应用入口。 */
     public Grant grant(String space) {
         return jdbc.queryForObject("SELECT * FROM memory_authorization WHERE space_id=?", (rs, n) -> {
             String channels = rs.getString("channels");
@@ -50,6 +52,7 @@ public class MemoryRepository {
                 save, recall, space, expected));
     }
 
+    /** CAS 替换授权并使旧来源失效，不能用新版本追认旧轮次。 */
     public void authorize(String space, Authorization input, Instant now) {
         conflict(jdbc.update("""
                 UPDATE memory_authorization SET revision=revision+1,active=1,recipient_fingerprint=?,
@@ -61,6 +64,7 @@ public class MemoryRepository {
         invalidate(space);
     }
 
+    /** 按预期 revision 撤权；保留来源映射供远端清理。 */
     public void revoke(String space, long expected) {
         conflict(jdbc.update("UPDATE memory_authorization SET revision=revision+1,active=0 WHERE space_id=? AND revision=?", space, expected));
         invalidate(space);
@@ -71,12 +75,14 @@ public class MemoryRepository {
         jdbc.update("UPDATE memory_source_document SET state='REVOKED' WHERE space_id=?", space);
     }
 
+    /** 查询当前空间的幂等命令结果，不跨用户复用请求 ID。 */
     public Optional<Command> command(String space, String request) {
         return jdbc.query("SELECT * FROM memory_command WHERE space_id=? AND request_id=?", (rs, n) ->
                 new Command(rs.getString("kind"), rs.getString("payload_hash"), rs.getLong("result_revision"),
                         Instant.parse(rs.getString("effective_at"))), space, request).stream().findFirst();
     }
 
+    /** 仅保存请求摘要与安全结果，不保存授权请求正文。 */
     public void command(String space, String request, String kind, String hash, AuthorizationResult result) {
         jdbc.update("INSERT INTO memory_command VALUES(?,?,?,?,?,?)", space, request, kind, hash, result.revision(), result.effectiveAt().toString());
     }
@@ -98,11 +104,25 @@ public class MemoryRepository {
                 source.channel().name(), source.occurredAt().toString(), grant.revision()).stream().findFirst();
     }
 
+    /** 核对凭据指向的来源仍在当前空间且未被撤回。 */
     public boolean current(Receipt receipt, String space) {
         return Boolean.TRUE.equals(jdbc.queryForObject("""
                 SELECT EXISTS(SELECT 1 FROM memory_source_document WHERE id=? AND space_id=? AND generation=?
                 AND authorization_revision=? AND state='CAPTURED')
                 """, Boolean.class, receipt.sourceId(), space, receipt.generation(), receipt.authorizationRevision()));
+    }
+
+    /** 外部副作用发生前先保存可能写入的目标；此记录本身不授权网络发送。 */
+    public void recordRemoteOperation(Receipt receipt, String operationId) {
+        conflict(jdbc.update("""
+                UPDATE memory_source_document SET remote_possible=1,remote_operation_id=? WHERE id=? AND space_id=?
+                AND state='CAPTURED' AND (remote_operation_id IS NULL OR remote_operation_id=?)
+                """, operationId, receipt.sourceId(), receipt.spaceId(), operationId));
+        jdbc.update("""
+                INSERT INTO memory_deletion(space_id,document_id,recipient_fingerprint,operation_id,state)
+                SELECT space_id,document_id,recipient_fingerprint,remote_operation_id,'TRACKED'
+                FROM memory_source_document WHERE id=? ON CONFLICT(space_id,document_id) DO NOTHING
+                """, receipt.sourceId());
     }
 
     private void conflict(int count) {

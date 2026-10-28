@@ -16,5 +16,5 @@ export interface AgentResetStatus {
   completedSteps: string[];
   message: string;
   retryable: boolean;
-  remoteStatus: 'NOT_INTEGRATED';
+  remoteStatus: 'NOT_INTEGRATED' | 'NOT_REQUIRED' | 'PENDING' | 'PROCESSING' | 'FAILED' | 'UNKNOWN' | 'COMPLETE';
 }

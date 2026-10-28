@@ -12,6 +12,12 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    /** 记忆设置与授权冲突使用稳定安全说明，不返回远端异常或来源。 */
+    @ExceptionHandler(butvan.agent.network.memory.service.MemoryRequestException.class)
+    public Result<Void> handleMemoryRequest(butvan.agent.network.memory.service.MemoryRequestException exception) {
+        return Result.error(exception.getCode(), exception.getMessage());
+    }
+
     /** 重置冲突、凭证过期及任务不存在保持稳定业务码。 */
     @ExceptionHandler(butvan.agent.network.reset.service.ResetRequestException.class)
     public Result<Void> handleResetRequest(butvan.agent.network.reset.service.ResetRequestException exception) {

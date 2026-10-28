@@ -23,7 +23,8 @@ public class ResetOperationAspect {
             + "execution(public * butvan.agent.agents.context.*Service.*(..)) || "
             + "execution(public * butvan.agent.agents.subagent.SubagentTaskService.*(..)) || "
             + "execution(public * butvan.agent.network.review.service.*Service.*(..)) || "
-            + "execution(public * butvan.agent.network.usage.service.TokenUsageIndexService.*(..))")
+            + "execution(public * butvan.agent.network.usage.service.TokenUsageIndexService.*(..)) || "
+            + "execution(public * butvan.agent.network.memory.service.MemoryService.*(..))")
     public Object guard(ProceedingJoinPoint call) throws Throwable {
         if (depth.get() > 0) return call.proceed();
         Long expectedGeneration = null;

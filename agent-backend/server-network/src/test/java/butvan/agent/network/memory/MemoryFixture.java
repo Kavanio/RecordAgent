@@ -22,6 +22,7 @@ final class MemoryFixture {
     final ResetBarrier barrier;
     final MemoryRepository repository;
     final PlatformTransactionManager transactions;
+    final org.springframework.jdbc.core.JdbcTemplate jdbc;
     final FakeRemote remote = new FakeRemote();
     final Clock clock = Clock.fixed(Instant.parse("2026-10-28T08:00:00Z"), ZoneOffset.UTC);
     final CurrentUserProvider user = new CurrentUserProvider();
@@ -35,7 +36,8 @@ final class MemoryFixture {
         var config = new LocalDatabaseConfiguration();
         var dataSource = config.localDataSource(properties);
         config.flyway(dataSource).migrate();
-        repository = new MemoryRepository(config.jdbcTemplate(dataSource));
+        jdbc = config.jdbcTemplate(dataSource);
+        repository = new MemoryRepository(jdbc);
         transactions = config.transactionManager(dataSource);
         service = service(remote, user, "test");
     }
@@ -57,7 +59,8 @@ final class MemoryFixture {
         volatile String fingerprint = "fake-recipient-chain-v1";
         volatile DeletionResult result = DeletionResult.VERIFIED;
         final AtomicInteger deletions = new AtomicInteger();
+        volatile Runnable beforeDeletion = () -> { };
         public String recipientFingerprint() { return fingerprint; }
-        public DeletionResult deleteAndVerify(Target target) { deletions.incrementAndGet(); return result; }
+        public DeletionResult deleteAndVerify(Target target) { deletions.incrementAndGet(); beforeDeletion.run(); return result; }
     }
 }

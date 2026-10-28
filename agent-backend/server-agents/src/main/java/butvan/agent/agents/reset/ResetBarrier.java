@@ -32,7 +32,7 @@ public class ResetBarrier {
         try {
             ResetFiles.requireSafe(storage.getRootDirectory(), file);
             state = Files.exists(file) ? mapper.readValue(Files.readAllBytes(file), State.class)
-                    : new State(0, 0, null, null, null, "IDLE", List.of(), "");
+                    : new State(0, 0, null, null, null, "IDLE", List.of(), "", null);
             if (state == null || state.generation() < 0 || !List.of("IDLE", "QUIESCING", "CLEANING", "WAITING_WRITERS", "WAITING_RESTART", "FAILED", "LOCAL_COMPLETE").contains(state.status())
                     || state.completedSteps() == null) throw new IOException("invalid reset journal");
         } catch (IOException exception) {
@@ -63,24 +63,32 @@ public class ResetBarrier {
 
     /** 先刷盘再改变内存代次，失败时不进入清理。 */
     public synchronized void begin(String resetId, String requestId, String owner) {
+        begin(resetId, requestId, owner, null);
+    }
+    /** 确认范围随重置日志持久化；旧日志缺失此字段时保持未授权远端的语义。 */
+    public synchronized void begin(String resetId, String requestId, String owner, String scopeVersion) {
         if (blocked()) throw new ResetBlockedException();
-        save(new State(state.revision(), state.generation() + 1, resetId, requestId, owner, "QUIESCING", List.of(), ""));
+        save(new State(state.revision(), state.generation() + 1, resetId, requestId, owner, "QUIESCING", List.of(), "", scopeVersion));
     }
     public synchronized void progress(String status, String message) {
         if (!blocked()) throw new IllegalStateException("没有待完成的重置");
         save(new State(state.revision(), state.generation(), state.resetId(), state.requestId(), state.owner(), status,
-                state.completedSteps(), message));
+                state.completedSteps(), message, state.scopeVersion()));
     }
     public synchronized void stepDone(String step) {
         var steps = new ArrayList<>(state.completedSteps());
         if (!steps.contains(step)) steps.add(step);
-        save(new State(state.revision(), state.generation(), state.resetId(), state.requestId(), state.owner(), "CLEANING", steps, ""));
+        save(new State(state.revision(), state.generation(), state.resetId(), state.requestId(), state.owner(), "CLEANING", steps, "", state.scopeVersion()));
     }
     public synchronized void complete() {
+        complete("本地聊天与记忆已清除，业务数据保留；Hindsight 尚未接入，未执行远端清理");
+    }
+    /** 协调器完成必要参与方后提供真实范围说明；旧 M1 调用仍保持原语义。 */
+    public synchronized void complete(String message) {
         if (!blocked()) throw new IllegalStateException("没有待完成的重置");
         if (writers != 0) throw new IllegalStateException("旧写入者尚未退出");
         save(new State(state.revision(), state.generation(), state.resetId(), state.requestId(), state.owner(), "LOCAL_COMPLETE",
-                state.completedSteps(), "本地聊天与记忆已清除，业务数据保留；Hindsight 尚未接入，未执行远端清理"));
+                state.completedSteps(), message, state.scopeVersion()));
     }
     public synchronized boolean awaitIdle(Duration timeout) {
         long end = System.nanoTime() + timeout.toNanos();
@@ -94,7 +102,7 @@ public class ResetBarrier {
     }
     private void save(State next) {
         next = new State(state.revision() + 1, next.generation(), next.resetId(), next.requestId(), next.owner(),
-                next.status(), List.copyOf(next.completedSteps()), next.message());
+                next.status(), List.copyOf(next.completedSteps()), next.message(), next.scopeVersion());
         try {
             ResetFiles.requireSafe(root, file);
             Files.createDirectories(file.getParent());
@@ -116,13 +124,13 @@ public class ResetBarrier {
             // 原子替换后目录刷盘仍可能失败；任何不确定结果都必须让本进程保持屏障。
             storageFault = true;
             state = new State(next.revision(), next.generation(), next.resetId(), next.requestId(), next.owner(), "FAILED",
-                    next.completedSteps(), "重置进度保存失败，请检查磁盘与权限后重试");
+                    next.completedSteps(), "重置进度保存失败，请检查磁盘与权限后重试", next.scopeVersion());
             throw new IllegalStateException("重置进度保存失败，保持保护状态");
         }
     }
     /** 仅保存代次、步骤和安全提示，不保存正文、凭据或真实路径。 */
     public record State(long revision, long generation, String resetId, String requestId, String owner, String status,
-                        List<String> completedSteps, String message) { }
+                        List<String> completedSteps, String message, String scopeVersion) { }
     public final class Lease implements AutoCloseable {
         private final long generation;
         private boolean closed;

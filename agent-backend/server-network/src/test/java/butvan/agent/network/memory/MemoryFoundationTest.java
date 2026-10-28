@@ -8,6 +8,7 @@ import butvan.agent.network.memory.service.MemoryRequestException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
+import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /** 经公开应用入口验证持久化、资格冻结及隔离，不以私有 SQL 作为测试契约。 */
@@ -74,6 +75,9 @@ class MemoryFoundationTest {
         f.remote.fingerprint = "different-processing-chain";
         assertFalse(f.service.isCurrent(fresh));
         assertTrue(f.service.capture(f.source()).isEmpty());
+        f.remote.fingerprint = "fake-recipient-chain-v1";
+        assertFalse(f.service.isCurrent(fresh));
+        assertFalse(f.service.grant().active());
     }
 
     @Test void optimisticVersionsAndIdempotentRequestsDoNotOverrideLaterDecisions() {
@@ -89,5 +93,39 @@ class MemoryFoundationTest {
         f.service.revoke(1, "revoke");
         assertEquals(result, f.service.authorize(input));
         assertFalse(f.service.grant().active());
+    }
+
+    @Test void simultaneousGrantCommandsOnlyOneCanClaimTheExpectedRevision() throws Exception {
+        var f = new MemoryFixture(directory);
+        f.service.settings();
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            Callable<Integer> first = () -> authorizeAfterStart(f, start, "first");
+            Callable<Integer> second = () -> authorizeAfterStart(f, start, "second");
+            var a = executor.submit(first);
+            var b = executor.submit(second);
+            start.countDown();
+            var codes = java.util.List.of(a.get(5, TimeUnit.SECONDS), b.get(5, TimeUnit.SECONDS));
+            assertTrue(codes.contains(200));
+            assertTrue(codes.contains(409));
+            assertEquals(1, f.service.grant().revision());
+        }
+    }
+    private int authorizeAfterStart(MemoryFixture f, CountDownLatch start, String request) throws Exception {
+        assertTrue(start.await(5, TimeUnit.SECONDS));
+        try { f.service.authorize(f.authorization(0, request)); return 200; }
+        catch (MemoryRequestException exception) { return exception.getCode(); }
+    }
+
+    @Test void failedWriteCannotRollBackRevocationCausedByRecipientChange() {
+        var f = new MemoryFixture(directory);
+        f.enabled();
+        var receipt = f.service.capture(f.source()).orElseThrow();
+        f.remote.fingerprint = "changed-chain";
+        assertEquals(409, assertThrows(MemoryRequestException.class,
+                () -> f.service.recordRemoteOperation(receipt, "must-not-send")).getCode());
+        f.remote.fingerprint = "fake-recipient-chain-v1";
+        assertFalse(f.service.grant().active());
+        assertFalse(f.service.isCurrent(receipt));
     }
 }

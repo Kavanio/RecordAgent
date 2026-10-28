@@ -153,6 +153,8 @@
 - `memory/` 独立保存空间、授权／设置、无正文来源凭据与幂等命令账本；使用随机持久化空间区分后端与环境，不以 `local-default` 作为全局远端身份。原文指针与内容哈希不能替代来源授权。
 - 授权绑定后端已核实的接收方／处理链指纹、保存／查询用途、渠道、生效时间、保留期限与额度；接收方变化、撤权及旧代次使原资格失效，重新授权不恢复旧来源。基础阶段不接聊天受理、不运行 Worker，也不提供生产 HTTP Adapter。
 - `MemorySourceRegistry` 是 agents 到网络实现的 seam，网络实现保持租约覆盖事务提交；无网络模块可用关闭 Adapter。新增 HTTP 入口必须映射独立 DTO，不能透传内部空间或凭据。
+- 基础管理接口为 `GET/PUT /agent/memory/settings`、`POST/DELETE /agent/memory/authorization`：版本／revision 乐观锁、授权／撤权 requestId 幂等，DELETE 使用 JSON 请求体；写入必须携带 `X-Agent-Generation`。用途为保存／查询独立许可，用户只能授权后端受信 Adapter 的接收方；未接入时不能获得有效远端授权。连接探测、来源管理和 Worker 尚未接线。
+- 远端操作开始前必须登记稳定操作 ID 与无正文目标；`memory_deletion` 和 `memory_reset` 持久化删除目标与重置结果。撤权不删除远端目标，重置参与方先冻结资格再核对清理；缺凭据、接收方变化、失败或未知结果保留目标和保护屏障，重试原任务。新授权不得复活旧代次来源。
 
 ## Agent 恢复出厂设置
 
@@ -161,3 +163,4 @@
 - 屏障先持久化，再取消并等候旧操作收尾；已使用的 SDK 或渠道运行时进入 `WAITING_RESTART`，正常重启后先恢复屏障再续做，禁止先恢复旧 checkpoint 或渠道投递。未知工作区、归属不明渠道、符号链接或清理失败均保持屏障，重试复用原 resetId。
 - `memory-caches` 完成前必须把 `SubagentCatalog` 恢复为内置定义；每次续做都执行内存失效，不能因文件步骤已完成而跳过。缓存清理失败继续保持屏障，不重新读取旧工作区定义。
 - 出厂重置清除聊天 Token 投影和复盘派生理解，保留系统用量、人工目标、普通任务与已冻结报告副本。未来 Hindsight Adapter 必须成为必需参与方；M1 的 `LOCAL_COMPLETE / NOT_INTEGRATED` 只表示本地完成。
+- 经历记忆基础参与方 `experience-memory` 已必需注册，但无生产 HTTP Adapter；重置 scopeVersion 绑定参与方与接收方，确认凭证绑定同一范围，该范围随重置日志持久化。remoteStatus 动态区分未接入、无目标、待处理、处理中、失败、未知和已核对完成；旧 M1 日志不能追认为已删除远端数据，缺失范围却存在远端目标时保持失败保护。
