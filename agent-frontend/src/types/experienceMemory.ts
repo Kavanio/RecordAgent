@@ -1,5 +1,26 @@
 export type MemoryChannel = 'DESKTOP' | 'FEISHU';
 
+export interface MemoryTrialConnection {
+  version: number;
+  configured: boolean;
+  endpoint: string;
+  processingChain: string;
+  secureTransport: boolean;
+  credentialConfigured: boolean;
+  recipientFingerprint: string;
+  message: string;
+}
+export interface MemoryTrialConnect {
+  expectedVersion: number;
+  endpoint: string;
+  token: string | null;
+  clearToken: boolean;
+  processingChain: string;
+  acceptTrialRisks: boolean;
+  allowPlaintext: boolean;
+  requestId: string;
+}
+
 export interface MemorySettings {
   version: number;
   autoSave: boolean;

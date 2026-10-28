@@ -43,17 +43,18 @@ export function MemoryAuthorizationDialog({ settings, busy, onClose, onConfirm }
     <div className={styles.content}>
       <p>接收方标识：<code>{settings.recipientFingerprint}</code></p>
       <p>授权生效后，仅处理所选渠道的新普通聊天文本；不补录旧历史。外部服务可能抽取相关经历，召回时会收到当前问题的有界文本。重新授权会停用旧来源；已开启的开关按新范围继续运行，关闭的开关保持关闭。撤权不会删除既有远端数据。</p>
+      <p>当前为真实聊天试用：删除会立即停用引用，但远端彻底删除未保证；删除未确认时本空间召回暂停，恢复出厂可能保持保护。纠正目前仅保存本机，请勿上传密码、密钥或敏感资料。</p>
       <SettingsGroup title="用途与来源">
         <SettingsRow label="允许保存新经历" control={<input type="checkbox" aria-label="允许保存新经历" checked={save} disabled={busy} onChange={(e) => setSave(e.target.checked)} />} />
         <SettingsRow label="允许查询相关经历" control={<input type="checkbox" aria-label="允许查询相关经历" checked={recall} disabled={busy} onChange={(e) => setRecall(e.target.checked)} />} />
         <SettingsRow label="允许渠道" control={<div className={styles.options}>{(['DESKTOP', 'FEISHU'] as const).map((channel) => <label key={channel}><input type="checkbox" checked={channels.includes(channel)} disabled={busy} onChange={(e) => chooseChannel(channel, e.target.checked)} />{channel === 'DESKTOP' ? '桌面普通聊天' : '绑定飞书普通聊天'}</label>)}</div>} />
       </SettingsGroup>
-      <SettingsGroup title="保留与调用上限" description="保留期用于召回筛选，远端自动到期清理尚未开放；每日调用按 UTC 计数，不等于费用或 Token。">
+      <SettingsGroup title="保留与调用上限" description="保留期仅用于召回筛选，远端自动到期清理尚未开放。每日调用按 UTC 计数；查询额度也包含同步状态核对，建议高于保存额度，不等于费用或 Token。试用可先选择 7 天、每日保存 5 次、查询 30 次。">
         <SettingsRow label="保留天数" labelFor="memory-retention" control={<TextInput id="memory-retention" type="number" min={1} max={3650} value={retention} disabled={busy} onChange={(e) => setRetention(e.target.value)} />} />
         <SettingsRow label="每日保存上限" labelFor="memory-writes" control={<TextInput id="memory-writes" type="number" min={1} max={1000} value={writes} disabled={busy} onChange={(e) => setWrites(e.target.value)} />} />
         <SettingsRow label="每日查询上限" labelFor="memory-queries" control={<TextInput id="memory-queries" type="number" min={1} max={1000} value={queries} disabled={busy} onChange={(e) => setQueries(e.target.value)} />} />
       </SettingsGroup>
-      <label className={styles.options}><input type="checkbox" checked={confirmed} disabled={busy} onChange={(e) => setConfirmed(e.target.checked)} />我已确认接收方、用途、渠道和上限，理解已有开关将在新授权范围内继续生效。</label>
+      <label className={styles.options}><input type="checkbox" checked={confirmed} disabled={busy} onChange={(e) => setConfirmed(e.target.checked)} />我已确认接收方、用途、渠道、上限及试用删除限制，理解已有开关将在新授权范围内继续生效。</label>
       {error && <p role="alert">{error}</p>}
     </div>
   </ConfirmDialog>;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, test } from 'node:test';
 import { act, getReact, jsonResponse, loadModule, mount, startHarness, stopHarness, useFetchStub } from '../../testing/harness.mjs';
 
-let Page, Provider, view, stub, settings, documents, detail, operation, calls, failCommand, failSettings;
+let Page, Provider, view, stub, settings, documents, detail, operation, calls, failCommand, failSettings, connection, failConnection;
 before(async () => {
   await startHarness();
   ({ ExperienceMemorySettings: Page } = await loadModule('/src/components/memory/ExperienceMemorySettings.tsx'));
@@ -14,11 +14,22 @@ beforeEach(() => {
   settings = { version: 0, autoSave: false, autoRecall: false, authorizationRevision: 0,
     authorized: false, remoteAvailable: false, recipientFingerprint: '', allowSave: false, allowRecall: false,
     channels: [], effectiveAt: null, retentionDays: 0, dailyWriteLimit: 0, dailyQueryLimit: 0 };
-  documents = []; detail = null; operation = null; calls = []; failCommand = false; failSettings = false;
+  documents = []; detail = null; operation = null; calls = []; failCommand = false; failSettings = false; failConnection = false;
+  connection = { version: 0, configured: false, endpoint: '', processingChain: '', secureTransport: false,
+    credentialConfigured: false, recipientFingerprint: '', message: '尚未配置真实聊天试用连接' };
   stub = useFetchStub(async (url, init) => {
     const method = init?.method ?? 'GET'; const body = init?.body ? JSON.parse(init.body) : null;
     calls.push({ path: url.pathname, cursor: url.searchParams.get('cursor'), method, body, headers: init?.headers });
     const path = url.pathname.replace('/agent/memory', '');
+    if (path === '/trial-connection') {
+      if (method === 'PUT') {
+        if (failConnection) throw new Error('连接请求中断');
+        connection = { ...connection, version: connection.version + 1, configured: true, endpoint: body.endpoint,
+          processingChain: body.processingChain, credentialConfigured: !!body.token, recipientFingerprint: 'trial-recipient', message: '试用连接已保存' };
+        settings = { ...settings, remoteAvailable: true, recipientFingerprint: 'trial-recipient' };
+      }
+      return jsonResponse(connection);
+    }
     if (path === '/settings') {
       if (failSettings) return jsonResponse(null, 503);
       if (method === 'PUT') settings = { ...settings, autoSave: body.autoSave, autoRecall: body.autoRecall, version: settings.version + 1 };
@@ -131,6 +142,40 @@ test('页面重新挂载可恢复来源原任务，读取状态不重发删除',
   documents = [detail.document]; await render(); await click('查看来源');
   assert.match(document.body.textContent, /远端删除核对失败/);
   assert.ok(calls.every(c => c.method === 'GET'));
+});
+
+test('客户端可配置真实试用，明文与删除限制须确认；连接不自动授权或开启上传', async () => {
+  await render(); await click('配置记忆服务');
+  await change('#memory-service-endpoint', 'http://memory.example.test:18888/');
+  await click('检查并保存连接');
+  assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
+  await act(async () => document.querySelector('input[aria-label="确认真实聊天试用风险"]').click());
+  await click('检查并保存连接'); assert.match(document.body.textContent, /明文/);
+  assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
+  await act(async () => document.querySelector('input[aria-label="允许本地址使用明文HTTP"]').click());
+  await click('检查并保存连接');
+  const call = calls.find(c => c.path.endsWith('/trial-connection') && c.method === 'PUT');
+  assert.equal(call.body.endpoint, 'http://memory.example.test:18888/'); assert.equal(call.body.acceptTrialRisks, true);
+  assert.equal(call.body.allowPlaintext, true); assert.equal(call.body.token, null);
+  assert.equal(call.headers.get('X-Agent-Generation'), '7');
+  assert.equal([...document.querySelectorAll('button')].find(b => b.textContent === '查看并授权').disabled, false);
+  assert.ok([...document.querySelectorAll('[role="switch"]')].every(s => s.getAttribute('aria-checked') === 'false'));
+  assert.equal(calls.filter(c => c.path.endsWith('/authorization') && c.method === 'POST').length, 0);
+});
+
+test('连接凭据不回显，失败保留草稿及原请求 ID，成功关闭凭据输入', async () => {
+  connection = { ...connection, configured: true, credentialConfigured: true, endpoint: 'https://memory.example.test/' };
+  await render(); await click('修改记忆服务');
+  const password = document.querySelector('#memory-service-token'); assert.equal(password.type, 'password'); assert.equal(password.value, '');
+  await change('#memory-service-token', 'fake-secret-sentinel');
+  await act(async () => document.querySelector('input[aria-label="确认真实聊天试用风险"]').click());
+  failConnection = true; await click('检查并保存连接');
+  assert.equal(document.querySelector('#memory-service-token').value, 'fake-secret-sentinel');
+  assert.doesNotMatch(document.body.textContent, /fake-secret-sentinel/);
+  failConnection = false; await click('检查并保存连接');
+  const attempts = calls.filter(c => c.path.endsWith('/trial-connection') && c.method === 'PUT');
+  assert.equal(attempts.length, 2); assert.equal(attempts[0].body.requestId, attempts[1].body.requestId);
+  assert.equal(document.querySelector('#memory-service-token'), null);
 });
 
 test('设置加载失败提供就地重试，来源列表仍可独立使用', async () => {

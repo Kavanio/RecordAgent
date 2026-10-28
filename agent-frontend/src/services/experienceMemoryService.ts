@@ -1,7 +1,7 @@
 import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
 import type {
   MemoryAuthorization, MemoryDocumentCommand, MemoryDocumentDetail,
-  MemoryDocumentPage, MemoryOperation, MemorySettings,
+  MemoryDocumentPage, MemoryOperation, MemorySettings, MemoryTrialConnect, MemoryTrialConnection,
 } from '../types/experienceMemory';
 
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
@@ -17,6 +17,8 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
   return result.data;
 }
 
+export const fetchMemoryTrialConnection = () => request<MemoryTrialConnection>('/trial-connection');
+export const connectMemoryTrial = (input: MemoryTrialConnect) => request<MemoryTrialConnection>('/trial-connection', 'PUT', input);
 export const fetchMemorySettings = () => request<MemorySettings>('/settings');
 export const saveMemorySettings = (settings: MemorySettings, autoSave: boolean, autoRecall: boolean) =>
   request<MemorySettings>('/settings', 'PUT', { expectedVersion: settings.version, autoSave, autoRecall });

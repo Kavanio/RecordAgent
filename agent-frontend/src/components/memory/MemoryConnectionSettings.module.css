@@ -1,0 +1,6 @@
+.content { display: flex; flex-direction: column; gap: 16px; font-size: 13px; line-height: 1.7; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.option { display: flex; align-items: flex-start; gap: 8px; }
+.option input { flex-shrink: 0; margin-top: 5px; }
+.content p { margin: 0; overflow-wrap: anywhere; }
+.content [role='alert'] { color: #c03636; }

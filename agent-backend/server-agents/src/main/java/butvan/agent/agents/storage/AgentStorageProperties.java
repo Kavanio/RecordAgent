@@ -48,6 +48,9 @@ public class AgentStorageProperties {
     /** 飞书渠道账本根目录，凭据仍归 config.json。 */
     private final Path feishuDirectory;
 
+    /** 受保护的记忆服务试用连接；含凭据，恢复出厂保留，不属于工作区或业务表。 */
+    private final Path hindsightConnectionFile;
+
     /** 天气与节假日持久化缓存目录。 */
     private final Path dailyContextDirectory;
 
@@ -72,6 +75,7 @@ public class AgentStorageProperties {
         workspaceDirectory = this.rootDirectory.resolve("agentscope").resolve("workspace");
         resetStateFile = this.rootDirectory.resolve("reset/state.json");
         feishuDirectory = this.rootDirectory.resolve("channels/feishu");
+        hindsightConnectionFile = this.rootDirectory.resolve("hindsight-connection.json");
         dailyContextDirectory = this.rootDirectory.resolve("daily-context");
 
         // 应用启动的时候创建本项目明确拥有的目录

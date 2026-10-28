@@ -16,7 +16,7 @@ import java.time.*;
 import java.util.*;
 import java.util.function.Supplier;
 
-/** 有界补偿和可测试 Worker；当前仅显式驱动，不注册自动消费定时器或启用生产写入。 */
+/** 有界补偿和同步 Worker；真实试用调度只消费已经登记且当前仍获准的来源。 */
 @Slf4j
 @Service
 public class MemorySyncService {
@@ -71,7 +71,10 @@ public class MemorySyncService {
                     || !state.recipientFingerprint().equals(writer.recipientFingerprint())) return 0;
             reconcile(limit);
             var operations = repository.due(state.settings().spaceId(), clock.millis(), limit);
-            for (var operation : operations) process(operation, state.grant());
+            for (var operation : operations) {
+                if (Thread.currentThread().isInterrupted()) break;
+                process(operation, state.grant());
+            }
             return operations.size();
         });
     }

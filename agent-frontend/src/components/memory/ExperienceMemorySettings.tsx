@@ -8,6 +8,7 @@ import { useMessage } from '../common/Message';
 import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
 import { MemoryAuthorizationDialog } from './MemoryAuthorizationDialog';
 import { MemoryDocumentManager } from './MemoryDocumentManager';
+import { MemoryConnectionSettings } from './MemoryConnectionSettings';
 import styles from './ExperienceMemorySettings.module.css';
 
 /** 经历记忆独立设置：保存设置、用途授权和来源管理各自保持权威状态。 */
@@ -52,8 +53,9 @@ export function ExperienceMemorySettings() {
     }, '授权已撤销，保存与召回已关闭；远端数据仍须单独删除');
   };
   return <div className={styles.content}>
+    <MemoryConnectionSettings onChanged={load} />
     <SettingsGroup title="经历记忆" description="从获准的新普通聊天保存经历，并为当前问题召回少量相关片段。默认关闭。">
-      <SettingsRow label="远端接入" description={settings?.remoteAvailable ? '接收方由后端管理。实际服务与处理链须完成核实后才能试用。' : '当前未接入远端记忆服务，不会上传聊天；页面可先检查未接入状态和空列表。'}
+      <SettingsRow label="远端接入" description={settings?.remoteAvailable ? '试用接收方已由后端配置；还须授权并开启对应开关，不代表完整远端删除已核实。' : '当前未接入远端记忆服务，不会上传聊天；请先配置上方 Hindsight 试用连接。'}
         control={<span>{settings ? settings.remoteAvailable ? settings.recipientFingerprint : '未接入' : '正在读取…'}</span>} />
       {error && <SettingsRow label="设置读取失败" description={<span role="alert">{error}</span>} control={<Button variant="outline" disabled={busy} onClick={() => void load()}>重试读取设置</Button>} />}
       {settings && <>
