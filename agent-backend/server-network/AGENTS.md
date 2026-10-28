@@ -148,6 +148,12 @@
 - 日历周期便签通过 `GET /agent/daily-events/recurring-todos?date=YYYY-MM-DD` 读取所选日期所在自然周与自然月内已生效、且未指定具体星期／日期的周／月待办；普通、每日及固定日期待办不进入该接口。响应包含当前周期完成状态与乐观锁版本，已完成项的 occurrenceDate 为实际完成日，未完成项为当前周期的展示定位日。
 - SQLite 集成测试必须通过公开 Service 或 HTTP 接口验证行为，不得把私有 SQL 实现作为测试契约。
 
+## 经历记忆
+
+- `memory/` 独立保存空间、授权／设置、无正文来源凭据与幂等命令账本；使用随机持久化空间区分后端与环境，不以 `local-default` 作为全局远端身份。原文指针与内容哈希不能替代来源授权。
+- 授权绑定后端已核实的接收方／处理链指纹、保存／查询用途、渠道、生效时间、保留期限与额度；接收方变化、撤权及旧代次使原资格失效，重新授权不恢复旧来源。基础阶段不接聊天受理、不运行 Worker，也不提供生产 HTTP Adapter。
+- `MemorySourceRegistry` 是 agents 到网络实现的 seam，网络实现保持租约覆盖事务提交；无网络模块可用关闭 Adapter。新增 HTTP 入口必须映射独立 DTO，不能透传内部空间或凭据。
+
 ## Agent 恢复出厂设置
 
 - `reset/` 只负责当前单用户的重置协调、确认 DTO、HTTP 适配与个人操作准入；领域 SQL 留在对应 Repository，通过 `ResetParticipant` 参与。恢复任务和屏障存于 `AgentStorageProperties.resetStateFile`，不存正文或凭据。
