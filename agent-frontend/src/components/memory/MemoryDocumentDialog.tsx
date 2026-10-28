@@ -5,7 +5,6 @@ import { Button } from '../common/Button';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { Modal } from '../common/Modal';
 import { useMessage } from '../common/Message';
-import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
 import styles from './MemoryDocumentDialog.module.css';
 
 const STATES: Record<MemoryOperation['state'], string> = {
@@ -73,28 +72,40 @@ export function MemoryDocumentDialog({ id, onClose, onChanged }: Props) {
     finally { setBusy(false); }
   };
   return <>
-    <Modal open title="经历来源详情" width={680} busy={busy} onClose={onClose}>
+    <Modal open title="经历来源详情" width={480} busy={busy} onClose={onClose}>
       <div className={styles.content}>
         {loading && <p role="status">正在读取来源详情…</p>}
         {error && <p role="alert">{error}</p>}
-        <div className={styles.actions}><Button variant="outline" disabled={busy || loading} onClick={() => void refresh()}>刷新详情</Button></div>
         {detail && <>
-          <SettingsGroup title="来源原文" description="原聊天保持原样。缺失、损坏或超限的原文不会用其他内容替代。">
-            <SettingsRow label={`版本 ${detail.document.version} · ${detail.document.state === 'REVOKED' ? '已停用' : '已登记'}`} description={id} control={<span>{detail.document.channel === 'DESKTOP' ? '桌面' : '飞书'}</span>} />
+          <div className={styles.meta}>
+            <span>版本 {detail.document.version} · {detail.document.state === 'REVOKED' ? '已停用' : '已登记'} · {detail.document.channel === 'DESKTOP' ? '桌面' : '飞书'}</span>
+            <Button variant="ghost" disabled={busy || loading} onClick={() => void refresh()}>刷新详情</Button>
+          </div>
+          <code className={styles.id}>{id}</code>
+          <section className={styles.block}>
+            <span className={styles.title}>来源原文</span>
+            <p className={styles.hint}>原聊天不受影响；原文缺失或损坏时不拿其他内容替代。</p>
             <pre className={styles.original}>{detail.originalStatus === 'AVAILABLE' ? detail.originalText : '原文不可取得'}</pre>
-          </SettingsGroup>
-          <SettingsGroup title="纠正内容" description="确认后立即停用旧来源，纠正保存在当前应用后端，不提交外部记忆服务、不改写原聊天，也不冒充已生效的远端记忆。">
-            <div className={styles.editor}><label htmlFor="memory-correction">你的纠正（最多 4000 字符）</label>
-              <textarea id="memory-correction" value={draft} disabled={busy} maxLength={4000} onChange={(e) => setDraft(e.target.value)} />
-              <div className={styles.actions}><Button variant="primary" disabled={busy || !draft.trim() || draft === detail.correctedText} onClick={() => setConfirm('CORRECT')}>保存纠正并停用旧来源</Button></div>
+          </section>
+          <section className={styles.block}>
+            <span className={styles.title}>纠正内容</span>
+            <p className={styles.hint}>保存后旧来源立即停用。纠正只存在本机，不发外部记忆服务、不改原聊天。</p>
+            <textarea id="memory-correction" aria-label="你的纠正" value={draft} disabled={busy} maxLength={4000} placeholder="最多 4000 字符" onChange={(e) => setDraft(e.target.value)} />
+            <div className={styles.actions}><Button variant="primary" disabled={busy || !draft.trim() || draft === detail.correctedText} onClick={() => setConfirm('CORRECT')}>保存纠正并停用旧来源</Button></div>
+          </section>
+          {operation && <section className={styles.block}>
+            <span className={styles.title}>纠正／删除任务</span>
+            <div className={styles.actions}>
+              <span className={styles.state}>{STATES[operation.state]}</span>
+              <Button variant="outline" disabled={busy || !operation.retryAllowed} onClick={() => void retry()}>继续核对删除</Button>
             </div>
-          </SettingsGroup>
-          {operation && <SettingsGroup title="纠正／删除任务">
-            <SettingsRow label={STATES[operation.state]} description={operation.kind === 'CORRECT' ? '纠正保存在当前应用后端，不提交外部记忆服务；此任务核对旧来源的远端删除。' : '只撤回经历记忆，不删除原聊天或业务数据。'} control={<Button variant="outline" disabled={busy || !operation.retryAllowed} onClick={() => void retry()}>继续核对删除</Button>} />
-          </SettingsGroup>}
-          <SettingsGroup title="撤回此记忆来源">
-            <SettingsRow label="删除记忆来源" description="删除本域纠正并停用来源；存在远端目标时，核对完成前保持未完成状态。原聊天保留。" control={<Button variant="danger" disabled={busy} onClick={() => setConfirm('DELETE')}>删除记忆来源</Button>} />
-          </SettingsGroup>
+            <p className={styles.hint}>{operation.kind === 'CORRECT' ? '只核对旧来源的远端删除，不重发纠正正文。' : '只撤回经历记忆，不删除原聊天或业务数据。'}</p>
+          </section>}
+          <section className={styles.block}>
+            <span className={styles.title}>撤回此记忆来源</span>
+            <p className={styles.hint}>停用来源并删除本域纠正；远端核对完成前不会显示为已删除。原聊天保留。</p>
+            <div className={styles.actions}><Button variant="danger" disabled={busy} onClick={() => setConfirm('DELETE')}>删除记忆来源</Button></div>
+          </section>
         </>}
       </div>
     </Modal>

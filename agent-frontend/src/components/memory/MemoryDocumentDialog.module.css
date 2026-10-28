@@ -1,7 +1,13 @@
-.content { display: flex; flex-direction: column; gap: 20px; }
-.original { margin: 0; padding: 16px 20px; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 13px; line-height: 1.8; max-height: 240px; overflow-y: auto; }
-.editor { display: flex; flex-direction: column; gap: 12px; padding: 16px 20px; font-size: 13px; }
-.editor textarea { width: 100%; min-height: 120px; box-sizing: border-box; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; resize: vertical; font: inherit; line-height: 1.7; }
-.editor textarea:focus-visible { outline: 2px solid #94a3b8; outline-offset: 2px; }
-.actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
-.content [role='alert'] { color: #c03636; font-size: 13px; }
+.content { display: flex; flex-direction: column; gap: 10px; font-size: 12px; line-height: 1.55; }
+.content p { margin: 0; overflow-wrap: anywhere; }
+.meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--text-secondary); }
+.id { padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: #64748b; font: 500 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+.block { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--border-subtle); border-radius: 10px; }
+.title { color: var(--text-primary); font-size: 12px; font-weight: 650; }
+.hint { color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+.original { margin: 0; max-height: 160px; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 12px; line-height: 1.7; }
+.block textarea { width: 100%; min-height: 64px; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; resize: vertical; font: inherit; line-height: 1.6; }
+.block textarea:focus-visible { outline: 2px solid #94a3b8; outline-offset: 2px; }
+.actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.state { margin-right: auto; color: var(--text-secondary); }
+.content [role='alert'] { color: #c03636; }
