@@ -25,7 +25,8 @@ public class ResetOperationAspect {
             + "execution(public * butvan.agent.network.review.service.*Service.*(..)) || "
             + "execution(public * butvan.agent.network.usage.service.TokenUsageIndexService.*(..)) || "
             + "execution(public * butvan.agent.network.memory.service.MemoryService.*(..)) || "
-            + "execution(public * butvan.agent.network.memory.service.MemoryManagementService.*(..))")
+            + "execution(public * butvan.agent.network.memory.service.MemoryManagementService.*(..)) || "
+            + "execution(public * butvan.agent.network.memory.client.HindsightReadinessService.check(..))")
     public Object guard(ProceedingJoinPoint call) throws Throwable {
         if (depth.get() > 0) return call.proceed();
         Long expectedGeneration = null;

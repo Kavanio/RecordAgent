@@ -18,6 +18,10 @@ public final class MemoryDtos {
                             boolean confirmed, String requestId) { }
     public record Revoke(long expectedRevision, String requestId) { }
     public record AuthorizationResponse(long revision, Instant effectiveAt) { }
+    /** 只读连通性与合约摘要，不把健康状态当成数据处理授权或删除保证。 */
+    public record ConnectionTestResponse(String status, boolean configured, boolean secureTransport, boolean reachable,
+                                         boolean ready, String apiVersion, boolean contractFieldsPresent,
+                                         boolean dataOperationsReady, boolean credentialConfigured, String message) { }
     public record DocumentResponse(String id, long version, Instant occurredAt, String channel, String state,
                                    String syncState, String deletionState, boolean corrected, String operationId) { }
     public record DocumentPage(List<DocumentResponse> items, String nextCursor) { }
