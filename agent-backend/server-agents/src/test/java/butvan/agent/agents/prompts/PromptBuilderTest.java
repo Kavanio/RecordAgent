@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -43,6 +44,18 @@ class PromptBuilderTest {
         assertTrue(prompt.contains("工程或业务操作"));
         assertTrue(prompt.contains("PermissionContext"));
         assertTrue(prompt.contains("acceptance_report"));
+        assertTrue(prompt.contains("普通聊天不进入计划模式"));
+    }
+
+    @Test
+    void bothPromptVariantsKeepSharedSafetyAndToolRules() {
+        for (String prompt : List.of(buildDefaultPrompt(),
+                PromptBuilder.buildProjectSystemPrompt("test-model", temporaryDirectory.toString()))) {
+            assertTrue(prompt.contains("# 高风险动作审查"));
+            assertTrue(prompt.contains("# 工具调度规范"));
+            assertTrue(prompt.contains("# 工作区上下文按需加载"));
+            assertTrue(prompt.contains("PermissionContext"));
+        }
     }
 
     @Test
