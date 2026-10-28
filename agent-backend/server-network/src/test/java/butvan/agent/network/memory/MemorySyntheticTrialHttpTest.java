@@ -56,6 +56,10 @@ class MemorySyntheticTrialHttpTest {
                 var withdrawn = trial.run(MemorySyntheticTrial.Action.WITHDRAW);
                 assertEquals("WITHDRAWN_REMOTE_UNVERIFIED", withdrawn.status());
                 assertEquals(3, withdrawn.deletions().size()); assertFalse(withdrawn.remoteErasureVerified());
+                var printed = mapper.readTree(MemoryHindsightSyntheticTrialIT.formatReport(withdrawn));
+                assertTrue(printed.path("deletions").get(0).path("updatedAt").isTextual());
+                assertEquals(withdrawn.deletions().getFirst().updatedAt(),
+                        java.time.Instant.parse(printed.path("deletions").get(0).path("updatedAt").asText()));
                 assertTrue(withdrawn.deletions().stream().allMatch(operation -> operation.state().equals("UNKNOWN")));
                 assertEquals(3, posts.get(), "清理不能重发合成正文");
             }

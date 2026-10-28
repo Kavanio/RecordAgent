@@ -23,9 +23,10 @@ class MemoryHindsightSyntheticTrialIT {
         try { endpoint = URI.create(required("RECORDAGENT_MEMORY_TRIAL_ENDPOINT")); }
         catch (IllegalArgumentException invalid) { throw new IllegalArgumentException("试跑连接地址格式无效，请检查受保护配置"); }
         try (var trial = new MemorySyntheticTrial(root, endpoint,
-                System.getenv().getOrDefault("RECORDAGENT_MEMORY_TRIAL_TOKEN", ""), required("RECORDAGENT_MEMORY_TRIAL_PROCESSING_CHAIN"))) {
+                System.getenv().getOrDefault("RECORDAGENT_MEMORY_TRIAL_TOKEN", ""), required("RECORDAGENT_MEMORY_TRIAL_PROCESSING_CHAIN"),
+                "CONFIRM_FIXED_URL_SYNTHETIC_NO_TOKEN".equals(System.getenv("RECORDAGENT_MEMORY_TRIAL_PLAINTEXT_ACK")))) {
             var report = trial.run(action);
-            System.out.println(new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(report));
+            System.out.println(formatReport(report));
             assertFalse(report.remoteErasureVerified(), "本试跑从不宣告完整物理删除");
             String expected = switch (action) {
                 case PREPARE -> "PREPARED";
@@ -37,6 +38,10 @@ class MemoryHindsightSyntheticTrialIT {
             };
             assertEquals(expected, report.status(), "本步骤未达到预期；保留同一试跑目录，查看 latest-report.json，不要盲目重跑写入");
         }
+    }
+    static String formatReport(MemorySyntheticTrial.Report report) throws com.fasterxml.jackson.core.JsonProcessingException {
+        return new ObjectMapper().findAndRegisterModules().disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .writerWithDefaultPrettyPrinter().writeValueAsString(report);
     }
     private static String required(String name) {
         String value = System.getenv(name);

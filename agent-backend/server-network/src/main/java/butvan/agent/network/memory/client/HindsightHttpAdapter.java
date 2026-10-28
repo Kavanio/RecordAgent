@@ -23,10 +23,15 @@ public final class HindsightHttpAdapter implements MemoryWriteGateway, MemoryRec
 
     /** 只接受受控 HTTPS 或字面本机 loopback；空 Token 表示不附加接口鉴权。 */
     public HindsightHttpAdapter(URI endpoint, String token, String processingChain, MemoryRemoteOperationRepository operations, ObjectMapper mapper) {
+        this(endpoint, token, processingChain, operations, mapper, null);
+    }
+    /** 内部传输 seam 供隔离验证复用协议；公开构造与生产连接校验保持不变。 */
+    HindsightHttpAdapter(URI endpoint, String token, String processingChain, MemoryRemoteOperationRepository operations,
+                         ObjectMapper mapper, HindsightHttpTransport transport) {
         this.endpoint = validate(endpoint, token, processingChain);
         this.token = token; this.operations = operations; this.mapper = mapper;
         fingerprint = MemorySourcePolicy.hash(this.endpoint + "\n" + processingChain + "\n1.1.0\n" + MemorySourcePolicy.hash(token));
-        http = new HindsightHttpTransport(mapper);
+        http = transport == null ? new HindsightHttpTransport(mapper) : transport;
         cleanup = new HindsightDocumentCleanup(http, operations, this.endpoint, token);
     }
     @Override public String recipientFingerprint() { return fingerprint; }

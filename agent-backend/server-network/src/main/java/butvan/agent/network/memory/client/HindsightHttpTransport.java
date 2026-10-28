@@ -13,7 +13,7 @@ import java.util.concurrent.Flow;
 import java.util.function.BooleanSupplier;
 
 /** 内部有界 HTTP：禁止重定向，共享总期限；调用方限定路径、方法和用途。 */
-final class HindsightHttpTransport implements AutoCloseable {
+class HindsightHttpTransport implements AutoCloseable {
     private static final int MAX_RESPONSE_BYTES = 512 * 1024;
     private final ObjectMapper mapper;
     private final HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
@@ -31,6 +31,8 @@ final class HindsightHttpTransport implements AutoCloseable {
         else if (method.equals("DELETE")) request.DELETE();
         else if (method.equals("POST") && body != null) request.header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(mapper.writeValueAsBytes(body)));
+        else if (method.equals("PUT") && body != null) request.header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofByteArray(mapper.writeValueAsBytes(body)));
         else throw new IOException("记忆请求方法无效");
         if (!token.isBlank()) request.header("Authorization", "Bearer " + token);
         var future = client.sendAsync(request.build(), ignored -> new LimitedBody());

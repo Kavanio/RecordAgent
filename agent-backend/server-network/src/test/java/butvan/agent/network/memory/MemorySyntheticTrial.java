@@ -24,28 +24,28 @@ final class MemorySyntheticTrial implements AutoCloseable {
     record Task(String id, String sourceId, String state, int attempts, int queries) { }
     record Match(String source, String content) { }
     record Report(String action, String status, String bankId, boolean remoteErasureVerified, int recallUsed,
-                  List<Task> operations, List<Match> matches, List<OperationResponse> deletions) { }
+                  List<Task> operations, List<Match> matches, List<OperationResponse> deletions, boolean explicitPlaintextTrial,
+                  List<ApprovedSyntheticHindsight.Observation> transportObservations) { }
     private static final String SCHEMA = "recordagent-synthetic-trial-v1";
-    private static final List<String> SAMPLES = List.of(
-            "纯虚构测试：小舟尝试把每日手记翻成英文来练习英语，目前仍在摸索，并没有掌握英语。",
-            "纯虚构测试：小舟周末练习摄影，发现光线不足时照片容易拍糊，准备下次再尝试。",
-            "纯虚构测试：小舟原本打算周六阅读，后来改成周日；这是计划调整，不代表已经读完。"
-    );
-    private static final List<String> QUERIES = List.of(
-            "虚构人物小舟尝试怎样练英语？", "虚构人物小舟拍照时遇到了什么问题？", "虚构人物小舟的阅读计划有什么调整？"
-    );
-    private final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+    private static final List<String> SAMPLES = SyntheticMemoryTrialData.SAMPLES;
+    private static final List<String> QUERIES = SyntheticMemoryTrialData.QUERIES;
+    private final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules()
+            .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     private final Path root;
     private final HindsightConnectionProperties connection = new HindsightConnectionProperties();
     private FileChannel channel;
     private FileLock lock;
     private HindsightHttpAdapter gateway;
+    private ApprovedSyntheticHindsight.Session approvedHttp;
     private MemorySyncFixture fixture;
     private MemorySyncService worker;
     private MemoryManagementService management;
     private ObjectNode state;
 
     MemorySyntheticTrial(Path directory, URI endpoint, String token, String chain) throws Exception {
+        this(directory, endpoint, token, chain, false);
+    }
+    MemorySyntheticTrial(Path directory, URI endpoint, String token, String chain, boolean explicitPlaintext) throws Exception {
         root = directory.toAbsolutePath().normalize();
         try {
             if (!root.getFileName().toString().startsWith("recordagent-synthetic-trial-") || Files.isSymbolicLink(root))
@@ -67,11 +67,14 @@ final class MemorySyntheticTrial implements AutoCloseable {
             } else state = mapper.createObjectNode().put("schema", SCHEMA);
             fixture = new MemorySyncFixture(root);
             var journal = new MemoryRemoteOperationRepository(fixture.base.jdbc, fixture.base.transactions);
-            gateway = new HindsightHttpAdapter(endpoint, token, chain, journal, mapper);
+            if (explicitPlaintext) {
+                approvedHttp = ApprovedSyntheticHindsight.open(endpoint, token, chain, journal, mapper);
+                gateway = approvedHttp.adapter();
+            } else gateway = new HindsightHttpAdapter(endpoint, token, chain, journal, mapper);
             String fingerprint = gateway.recipientFingerprint();
             if (existing && !fingerprint.equals(state.path("recipient").asText()))
                 throw new IllegalArgumentException("连接或处理链已变化，请先处理原试跑目标");
-            state.put("recipient", fingerprint);
+            state.put("recipient", fingerprint).put("explicitPlaintextTrial", approvedHttp != null);
             fixture.base.remote.fingerprint = fingerprint;
             var memory = fixture.base.service(gateway, fixture.base.user, "test");
             worker = new MemorySyncService(memory, new MemorySyncRepository(fixture.base.jdbc), fixture.transcript,
@@ -103,7 +106,13 @@ final class MemorySyntheticTrial implements AutoCloseable {
                 var ids = state.putArray("sources"); worker.operations().forEach(operation -> ids.add(operation.sourceId()));
                 state.put("prepared", true); save("trial.json", state);
             }
-            verifySources(); status = "PREPARED";
+            verifySources();
+            if (approvedHttp != null && !state.path("bankReady").asBoolean()) {
+                String bank = approvedHttp.initializeBank();
+                if (!bank.equals("READY")) throw new IllegalStateException("合成试跑空间尚未就绪：" + bank);
+                state.put("bankReady", true); save("trial.json", state);
+            }
+            status = "PREPARED";
         } else if (action == Action.CHECK) status = check();
         else if (action == Action.WITHDRAW) {
             verifyIdentities();
@@ -159,12 +168,19 @@ final class MemorySyntheticTrial implements AutoCloseable {
         }
         var tasks = worker.operations().stream().map(operation -> new Task(operation.id(), operation.sourceId(),
                 operation.state(), operation.attempts(), operation.queries())).toList();
-        var report = new Report(action.name(), status, state.path("bank").asText(), false, state.path("recallUsed").asInt(), tasks, matches, deletions);
+        var report = new Report(action.name(), status, state.path("bank").asText(), false, state.path("recallUsed").asInt(), tasks, matches, deletions, approvedHttp != null,
+                approvedHttp == null ? List.of() : approvedHttp.observations());
         save("latest-report.json", mapper.valueToTree(report));
         return report;
     }
 
     private String check() {
+        if (approvedHttp != null) {
+            long generation = fixture.base.barrier.state().generation();
+            try (var ignored = fixture.base.barrier.enter(generation)) {
+                return approvedHttp.check(() -> !fixture.base.barrier.isCurrent(generation));
+            }
+        }
         try (var probe = new HindsightReadinessService(connection, mapper, fixture.base.barrier)) { return probe.check().status(); }
     }
     private void verifyIdentities() {
@@ -173,6 +189,20 @@ final class MemorySyntheticTrial implements AutoCloseable {
         if (!state.path("prepared").asBoolean() || tasks.size() != SAMPLES.size() || expected.size() != SAMPLES.size()
                 || !expected.equals(tasks.stream().map(MemorySyncRepository.Operation::sourceId).collect(java.util.stream.Collectors.toSet())))
             throw new IllegalStateException("没有准备好的三个合成来源，或来源身份已变化");
+        if (approvedHttp != null) {
+            var registrations = new ArrayList<ApprovedSyntheticHindsight.Source>(); var children = new HashSet<String>();
+            var sources = new MemorySyncRepository(fixture.base.jdbc);
+            var journal = new MemoryRemoteOperationRepository(fixture.base.jdbc, fixture.base.transactions);
+            String space = state.path("bank").asText().substring(3);
+            for (var task : tasks) {
+                var source = sources.sourceForManagement(space, task.sourceId()).orElseThrow();
+                String text = SAMPLES.stream().filter(value -> butvan.agent.agents.memory.MemorySourcePolicy.hash(value).equals(source.hash()))
+                        .findFirst().orElseThrow(() -> new IllegalStateException("来源哈希不属于固定合成内容"));
+                registrations.add(new ApprovedSyntheticHindsight.Source(source.space(), source.document(), task.id(), text, source.occurredAt()));
+                journal.children(task.id()).forEach(child -> children.add(child.id()));
+            }
+            approvedHttp.bind(registrations, children);
+        }
     }
     private void verifySources() {
         verifyIdentities();
