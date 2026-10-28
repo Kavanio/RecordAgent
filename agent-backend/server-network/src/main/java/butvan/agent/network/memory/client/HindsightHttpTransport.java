@@ -16,8 +16,9 @@ import java.util.function.BooleanSupplier;
 class HindsightHttpTransport implements AutoCloseable {
     private static final int MAX_RESPONSE_BYTES = 512 * 1024;
     private final ObjectMapper mapper;
-    private final HttpClient client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
-            .connectTimeout(Duration.ofSeconds(1)).build();
+    // 显式使用 HTTP/1.1，避免部分部署对明文 h2c 升级处理不兼容而忽略 POST／PUT 正文。
+    private final HttpClient client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1)
+            .followRedirects(HttpClient.Redirect.NEVER).connectTimeout(Duration.ofSeconds(1)).build();
 
     HindsightHttpTransport(ObjectMapper mapper) { this.mapper = mapper; }
 

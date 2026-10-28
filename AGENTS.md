@@ -87,7 +87,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 - 经历记忆设置与来源管理位于桌面“个人上下文”；纠正正文独立存于 `memory_correction`，当前仅本地保存，不扩大聊天外发授权。纠正／删除先原子停用旧来源并保留原聊天，再通过原管理任务显式核对远端目标；只有已验证删除且异步写入终结才能显示完成。实现管理或删除能力时遵守 `agent-backend/server-network/AGENTS.md` 的“经历记忆”节。
 - Hindsight 只读连接检查默认关闭，仅由显式请求触发；服务健康与必要 OpenAPI 字段存在不构成保存／召回授权或删除完成证明。生产删除必须覆盖远端任务载荷中的原文及所承诺范围的派生数据，不能仅凭取消成功或文档 404 标记 VERIFIED；当前生产数据 Gateway 继续关闭。
 - Hindsight HTTP 协议 Adapter 的父／子操作身份与清理意图由 `memory_remote_operation`／`memory_remote_child` 无正文账本持久化；重启沿用原目标，受理未知不重复提交正文。已知源文档及任务载荷清理不等于完整派生删除，证据不足持续 UNKNOWN；该 Adapter 当前仅供隔离测试或获准的纯合成试跑显式实例化，不注册生产数据 Bean。
-- 经历记忆合成试跑只走测试源码中的显式入口，独立本地账本与随机 bank，不开放真实聊天、生产 Gateway 或前端后门；运行、恢复或清理时阅读 `docs/RecordAgent总体建设规划/M2合成试跑说明.md`。调用次数限制不代表供应商费用封顶，试跑通过也不代表完整删除已验证。
+- 经历记忆合成试跑只走测试源码中的显式入口，独立本地账本与随机 bank，不开放真实聊天、生产 Gateway 或前端后门；运行、恢复或清理时阅读 `docs/RecordAgent总体建设规划/M2合成试跑说明.md`。调用次数限制不代表供应商费用封顶，试跑通过也不代表完整删除已验证。用户明确接受的明文试跑例外只能限定事先确认的唯一地址、空 Token 与固定虚构内容，不构成真实聊天上传授权。
 - 自动经历召回从 `ConversationContextAssembler` 经 `MemoryRecallPort` 接入，保存与查询许可独立；查询只取获准普通用户文本，默认无生产 Adapter，未接入时保持原本地检索。预算上限 850／300／500 Token、Top-K 4；有远端参与时不借空结果、暂停或失败回落本地绕过来源失效。每次 Model Call 前复核画像开关、重置代次及来源有效性，失效片段移出本轮缓存；查询、结果及有效性回调只留在本轮内存，禁止写入 AgentState／transcript。
 - Agent 工具 Schema 默认按 `ToolSchemaRoutingPolicy` 中的能力组延迟暴露，只常驻轻量元工具；新增或重命名工具时必须同步确认其分组，未知工具仅作为兼容兜底保持常驻，禁止无评估地恢复全量 Schema 注入。
 - Agent 聊天运行必须使用稳定 `runId` 贯穿请求、SSE、运行注册表和终态收尾关联；显式取消必须通过后端取消接口向 AgentScope、生产线程、模型适配器和工具传播。传输层断开与用户显式取消必须区分；取消后必须保留 partial assistant、工具状态和 usage，且只有一个终态路径可写入。真正可恢复的暂停只能在有明确 checkpoint、待恢复动作和工具幂等语义后开放，不得用 Java 线程 suspend/resume 冒充。
