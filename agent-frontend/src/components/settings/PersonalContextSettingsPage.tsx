@@ -12,6 +12,7 @@ import { ConfirmDialog } from '../common/ConfirmDialog';
 import { LeverSwitch } from '../common/LeverSwitch';
 import { formatTokenCount } from '../chat/tokenUsageFormat';
 import { AgentResetSection } from '../reset/AgentResetSection';
+import { ExperienceMemorySettings } from '../memory/ExperienceMemorySettings';
 import { SettingsPageLayout } from './SettingsPageLayout';
 import styles from './PersonalContextSettingsPage.module.css';
 
@@ -171,6 +172,7 @@ export function PersonalContextSettingsPage() {
         {!proposal && <p className={styles.emptyProposal}>没有待审核提案。自动检查只在开关开启、发现新记忆且距上次检查超过 24 小时时运行。</p>}
       </section>
 
+      <ExperienceMemorySettings />
       <AgentResetSection />
       <p className={styles.privacy}>画像、开关、提案与最近 20 个历史版本均保存在本机。敏感片段不会进入自动提案；暂停不会删除任何数据。</p>
     </div>

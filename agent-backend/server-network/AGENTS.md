@@ -153,7 +153,11 @@
 - `memory/` 独立保存空间、授权／设置、无正文来源凭据与幂等命令账本；使用随机持久化空间区分后端与环境，不以 `local-default` 作为全局远端身份。原文指针与内容哈希不能替代来源授权。
 - 授权绑定后端已核实的接收方／处理链指纹、保存／查询用途、渠道、生效时间、保留期限与额度；接收方变化、撤权及旧代次使原资格失效，重新授权不恢复旧来源。受理／终态已有本地接线，但当前无生产 HTTP Adapter 和自动消费定时器；关闭 Adapter 时不采集用户来源或读取正文。
 - `MemorySourceRegistry` 是 agents 到网络实现的 seam，网络实现保持租约覆盖事务提交；无网络模块可用关闭 Adapter。新增 HTTP 入口必须映射独立 DTO，不能透传内部空间或凭据。
-- 基础管理接口为 `GET/PUT /agent/memory/settings`、`POST/DELETE /agent/memory/authorization`：版本／revision 乐观锁、授权／撤权 requestId 幂等，DELETE 使用 JSON 请求体；写入必须携带 `X-Agent-Generation`。用途为保存／查询独立许可，用户只能授权后端受信 Adapter 的接收方；未接入时不能获得有效远端授权。连接探测、来源管理 UI 尚未接线。
+- 基础管理接口为 `GET/PUT /agent/memory/settings`、`POST/DELETE /agent/memory/authorization`：版本／revision 乐观锁、授权／撤权 requestId 幂等，DELETE 使用 JSON 请求体；写入必须携带 `X-Agent-Generation`。用途为保存／查询独立许可，用户只能授权后端受信 Adapter 的接收方；未接入时不能获得有效远端授权。设置快照包含原授权用途、渠道、生效时间、期限和上限，供页面核对；连接探测留待生产 Adapter。
+- 来源管理为 `GET /agent/memory/documents?cursor=0&limit=20`（稳定 rowid 游标，limit 1—50）、`GET /documents/{id}`；响应使用独立 DTO，只按当前用户空间定位。列表仅返回版本、时间／渠道、同步／删除／纠正状态及最新管理任务 ID；详情按需从权威 transcript 核对原文，原文不可取得和远端不可用分别表达。
+- `POST /documents/{id}/corrections` 接收 expectedVersion、correctedText、confirmed、requestId；`DELETE /documents/{id}` 的 JSON 接收 expectedVersion、confirmed、requestId。纠正文本为最多 4000 字符的普通文本，沿用敏感／代码排除；独立存于 `memory_correction` 并受重置清理，当前只保存本机。两类命令均在短事务内 CAS 版本、停用原来源、取消同步、建立删除标记并持久化无正文任务；版本冲突 409、无效参数 400、跨空间／不存在 404，重置代次按统一 428／423 处理。原聊天与业务数据保持原样。
+- `GET /agent/memory/operations/{id}` 仅读取本用户原任务；`POST /operations/{id}/retry` 显式继续删除核对，不重发保存。管理请求与其他写入一样携带 Agent 代次；刷新不自动重试。无远端目标时本地撤回即可完成；有目标则先保持 PENDING，进程内发送与删除共用固定 256 条带锁，未停稳返回 WAITING_REMOTE。远端调用持有重置租约但不持有数据库事务；FAILED／UNKNOWN 保留目标并暂停受影响空间召回。生产 Gateway 的 VERIFIED 必须同时核对异步 operationId 已终结及派生结果已删除；重启后的未知写入不能仅凭本机空闲宣称完成。
+- `memory_management_operation` 的 requestId 在空间内唯一，保存请求摘要、结果版本和状态，不保存正文；重放相同命令恢复原结果，复用 ID 改来源／版本／正文返回 409。`memory_correction` 与管理任务随来源在重置清理时级联删除；`memory_deletion` 最小目标墓碑保留。新增正文存储同步更新重置范围版本与预览。
 - 聊天 HTTP Adapter 仅给普通请求标注 DESKTOP；业务展开、资料引用、未知旧调用、项目会话、图片、命令和筛选出的敏感／代码文本不进入经历保存。原文必须与 transcript 的用户 ID／时间／哈希一致，单源文本最多 4000 字符，单次会话核对最多读取 8 MiB；超限／损坏失败保护，不回退到模型 context。
 - `MemorySyncService` 显式批次入口最多检查／消费各 20 项，补偿使用持久化循环游标，仅从已登记凭据发现成功终态；每源唯一任务，活动积压上限 1000。短事务 CAS 与 30 秒领取租约控制并发，租约过期或写入未知只查询原操作；仅明确未提交可最多写入尝试 3 次，查询最多 8 次，未知不得盲目重放。每日 UTC 写入／查询分别原子预占授权额度，不冒充供应商用量，也不因重置退还。
 - Worker 在数据库事务外调用写入 Adapter，整个调用持有重置租约，并在发送及发布前复核授权、代次和来源；撤权／重置取消未结束任务，过期 claimToken 的迟到结果不可发布。任务只保存来源引用与稳定操作 ID，正文仅在当前 Adapter 调用内存中存在。

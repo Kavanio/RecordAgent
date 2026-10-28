@@ -28,6 +28,14 @@ public class MemoryService implements MemorySourceRegistry {
     private final MemoryRemoteGateway remote;
     private final TransactionTemplate transaction;
     private final String environment;
+    // 固定数量的进程内条带锁：发送与管理删除串行，避免无界锁注册表。
+    private final java.util.concurrent.locks.ReentrantLock[] sourceLocks = java.util.stream.IntStream.range(0, 256)
+            .mapToObj(i -> new java.util.concurrent.locks.ReentrantLock()).toArray(java.util.concurrent.locks.ReentrantLock[]::new);
+
+    /** 同一来源的外部副作用必须共用此锁；只 tryLock，调用方可保留等待状态。 */
+    public java.util.concurrent.locks.ReentrantLock sourceOperationLock(String sourceId) {
+        return sourceLocks[Math.floorMod(sourceId.hashCode(), sourceLocks.length)];
+    }
 
     public MemoryService(MemoryRepository repository, ResetBarrier barrier, CurrentUserProvider user, Clock automationClock,
                          MemoryRemoteGateway remote, PlatformTransactionManager manager,

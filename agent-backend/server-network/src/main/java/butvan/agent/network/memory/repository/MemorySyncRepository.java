@@ -39,6 +39,10 @@ public class MemorySyncRepository {
         return jdbc.query("SELECT rowid AS ordinal,* FROM memory_source_document WHERE id=? AND state='CAPTURED'",
                 SOURCE, sourceId).stream().findFirst();
     }
+    /** 管理查看包含停用来源，必须另校验空间，不赋予重新发送资格。 */
+    public Optional<SourceRow> sourceForManagement(String space, String sourceId) {
+        return jdbc.query("SELECT rowid AS ordinal,* FROM memory_source_document WHERE space_id=? AND id=?", SOURCE, space, sourceId).stream().findFirst();
+    }
     /** 持久化循环游标，尚未结束的老轮次不会饿死后续成功轮次。 */
     public List<SourceRow> candidates(String space, int limit) {
         jdbc.update("INSERT INTO memory_sync_cursor(space_id) VALUES(?) ON CONFLICT DO NOTHING", space);

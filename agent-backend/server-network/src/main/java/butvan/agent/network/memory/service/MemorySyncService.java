@@ -93,6 +93,18 @@ public class MemorySyncService {
     }
 
     private void process(Operation operation, butvan.agent.network.memory.model.MemoryModels.Grant grant) {
+        // 只读查询允许接管过期 claim；旧生产者仍持发送锁，删除须等待其真实退出。
+        if (List.of("SUBMITTED", "UNKNOWN", "CLAIMED").contains(operation.state())) {
+            processLocked(operation, grant);
+            return;
+        }
+        var lock = memory.sourceOperationLock(operation.sourceId());
+        if (!lock.tryLock()) return;
+        try { processLocked(operation, grant); }
+        finally { lock.unlock(); }
+    }
+
+    private void processLocked(Operation operation, butvan.agent.network.memory.model.MemoryModels.Grant grant) {
         var candidate = repository.source(operation.sourceId());
         if (candidate.isEmpty()) return;
         SourceRow source = candidate.get();

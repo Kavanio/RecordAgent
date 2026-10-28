@@ -1,0 +1,7 @@
+.content { display: flex; flex-direction: column; gap: 20px; }
+.original { margin: 0; padding: 16px 20px; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 13px; line-height: 1.8; max-height: 240px; overflow-y: auto; }
+.editor { display: flex; flex-direction: column; gap: 12px; padding: 16px 20px; font-size: 13px; }
+.editor textarea { width: 100%; min-height: 120px; box-sizing: border-box; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; resize: vertical; font: inherit; line-height: 1.7; }
+.editor textarea:focus-visible { outline: 2px solid #94a3b8; outline-offset: 2px; }
+.actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.content [role='alert'] { color: #c03636; font-size: 13px; }

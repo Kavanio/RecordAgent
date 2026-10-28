@@ -1,0 +1,2 @@
+.content { display: flex; flex-direction: column; gap: 24px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }

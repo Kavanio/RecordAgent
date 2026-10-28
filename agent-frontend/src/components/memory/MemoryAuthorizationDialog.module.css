@@ -1,0 +1,5 @@
+.content { display: flex; flex-direction: column; gap: 16px; font-size: 13px; line-height: 1.7; }
+.content p { margin: 0; overflow-wrap: anywhere; }
+.options { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.options label { display: flex; align-items: center; gap: 6px; }
+.content [role='alert'] { color: #c03636; }

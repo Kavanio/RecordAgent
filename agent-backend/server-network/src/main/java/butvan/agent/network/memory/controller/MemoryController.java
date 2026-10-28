@@ -8,7 +8,7 @@ import butvan.agent.network.memory.service.MemoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-/** 经历记忆基础管理入口；后端解析身份，尚不提供正文管理、聊天接线或远端探测。 */
+/** 经历记忆授权入口；后端解析身份，不接受任意接收地址或凭据。 */
 @RestController
 @RequestMapping("/agent/memory")
 @RequiredArgsConstructor
@@ -22,7 +22,8 @@ public class MemoryController {
         var settings = state.settings();
         var grant = state.grant();
         return Result.success(new SettingsResponse(settings.version(), settings.autoSave(), settings.autoRecall(),
-                grant.revision(), state.authorized(), !state.recipientFingerprint().isEmpty(), state.recipientFingerprint()));
+                grant.revision(), state.authorized(), !state.recipientFingerprint().isEmpty(), state.recipientFingerprint(),
+                grant.save(), grant.recall(), grant.channels(), grant.effectiveAt(), grant.retentionDays(), grant.writeLimit(), grant.queryLimit()));
     }
     /** 设置仅变更开关，不创建或扩大授权。 */
     @PutMapping("/settings") @ApiLog("保存经历记忆独立开关")
