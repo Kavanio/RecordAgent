@@ -44,7 +44,7 @@ pnpm build   # tsc -b && vite build，类型检查与生产构建
 
 - 长期偏好统一走 `services/desktopPreferences.ts`，权威来源是 `~/.butvan-agent/desktop/`，WebView `localStorage` 只是同步缓存与浏览器开发兜底。禁止绕过该入口直接读写 `localStorage` 作为持久化。
 - 后端地址一律经 `services/api.ts` 获取，禁止在组件内硬编码地址或端口。
-- 经历记忆 UI 位于 `components/memory/`，从个人上下文设置进入；HTTP 集中于 `experienceMemoryService` 并继承 apiFetch 的 Agent 代次。用途授权和独立开关分开提交，未接入时关闭远端操作；来源详情按需读取，纠正明确标注仅本地。刷新恢复原管理任务，不自动发送删除核对；未知／失败不得显示远端删除成功，版本冲突提示刷新，失败重试复用同一请求内容的 requestId。
+- 经历记忆 UI 位于 `components/memory/`，从个人上下文设置进入；HTTP 集中于 `experienceMemoryService` 并继承 apiFetch 的 Agent 代次。用途授权和独立开关分开提交，未接入时关闭远端操作；来源详情按需读取，纠正明确标注仅本地。刷新恢复原管理任务，不自动发送删除核对；未知／失败不得显示完整远端删除成功，版本冲突提示刷新，失败重试复用同一请求内容的 requestId。清理文案统一经 `features/memory/cleanupPresentation.ts`：旧后端无 `cleanupProgress` 时保守回退；原文、直接事实、父任务和非空已知子清单全部有清理记录时，只显示“已完成已知内容清理，完整擦除未核实”，并明确是上次记录、召回仍暂停。此时按钮改为仅 GET 的“刷新清理进度”，不反复发送无新增证据的删除核对。
 
 ## 六、Agent 重置交互
 

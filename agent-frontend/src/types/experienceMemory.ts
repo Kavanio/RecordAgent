@@ -51,6 +51,15 @@ export interface MemoryAuthorization {
   requestId: string;
 }
 
+/** 上次已记录的已知目标清理步骤，不是完整擦除或当前远端快照的证明。 */
+export interface MemoryCleanupProgress {
+  documentDeletionRecorded: boolean;
+  factsClearanceRecorded: boolean;
+  knownChildTasks: number;
+  childDeletionsRecorded: number;
+  parentDeletionRecorded: boolean;
+}
+
 export interface MemoryDocument {
   id: string;
   version: number;
@@ -61,6 +70,7 @@ export interface MemoryDocument {
   deletionState: string;
   corrected: boolean;
   operationId: string | null;
+  cleanupProgress?: MemoryCleanupProgress | null;
 }
 
 export interface MemoryDocumentPage { items: MemoryDocument[]; nextCursor: string | null }
@@ -79,5 +89,6 @@ export interface MemoryOperation {
   state: 'PENDING' | 'WAITING_REMOTE' | 'SUCCEEDED' | 'FAILED' | 'UNKNOWN';
   updatedAt: string;
   retryAllowed: boolean;
+  cleanupProgress?: MemoryCleanupProgress | null;
 }
 export interface MemoryDocumentCommand { expectedVersion: number; confirmed: boolean; requestId: string }

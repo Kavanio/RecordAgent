@@ -16,16 +16,19 @@ final class MemoryTrialServer implements AutoCloseable {
     final HttpServer server;
     final ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor();
     final AtomicInteger reads = new AtomicInteger(), posts = new AtomicInteger(), bankInitializations = new AtomicInteger(), recalls = new AtomicInteger();
+    final AtomicInteger requests = new AtomicInteger();
     final Map<String, JsonNode> writes = new ConcurrentHashMap<>();
     final Set<String> removed = ConcurrentHashMap.newKeySet();
     volatile String version = "1.1.0";
     volatile boolean rejectBank;
+    volatile boolean rejectTaskCleanup;
     MemoryTrialServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.setExecutor(threads); server.createContext("/", this::handle); server.start();
     }
     String endpoint() { return "http://127.0.0.1:" + server.getAddress().getPort() + "/"; }
     private void handle(HttpExchange exchange) throws IOException {
+        requests.incrementAndGet();
         String path = exchange.getRequestURI().getPath(), method = exchange.getRequestMethod();
         ObjectNode body = mapper.createObjectNode(); int status = 200;
         if (path.equals("/version")) { reads.incrementAndGet(); body.put("api_version", version); }
@@ -49,7 +52,10 @@ final class MemoryTrialServer implements AutoCloseable {
             } else if (suffix.startsWith("operations/")) {
                 String id = suffix.substring(11).split("/", 2)[0];
                 body.put("operation_id", id);
-                if (method.equals("DELETE")) { removed.add(id); body.put("success", true); }
+                if (method.equals("DELETE")) {
+                    if (rejectTaskCleanup) status = 503;
+                    else { removed.add(id); body.put("success", true); }
+                }
                 else if (removed.contains(id) || !writes.containsKey(id)) body.put("status", "not_found");
                 else {
                     body.put("operation_type", "batch_retain").put("status", "completed");

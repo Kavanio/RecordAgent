@@ -4,6 +4,7 @@ import butvan.agent.agents.agent.AgentUserCall;
 import butvan.agent.agents.agent.permission.PendingApprovalStore;
 import butvan.agent.agents.agent.run.ActiveAgentRunRegistry;
 import butvan.agent.agents.context.PersonalContextService;
+import butvan.agent.agents.identity.CurrentUserProvider;
 import butvan.agent.agents.memory.MemoryRecallPort;
 import butvan.agent.agents.memory.MemorySourceRegistry.Channel;
 import butvan.agent.agents.reset.AgentResetFiles;
@@ -12,7 +13,9 @@ import butvan.agent.agents.session.dto.*;
 import butvan.agent.agents.subagent.*;
 import butvan.agent.agents.usage.ApproximateTokenCounter;
 import butvan.agent.network.memory.client.*;
+import butvan.agent.network.memory.controller.MemoryDocumentsController;
 import butvan.agent.network.memory.dto.MemoryDtos.Correct;
+import butvan.agent.network.memory.dto.MemoryDtos.DeleteDocument;
 import butvan.agent.network.memory.dto.MemoryTrialDtos.Connect;
 import butvan.agent.network.memory.model.MemoryModels.Authorization;
 import butvan.agent.network.memory.repository.*;
@@ -23,10 +26,13 @@ import butvan.agent.network.reset.service.AgentResetService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.nio.file.*;
 import java.time.Duration;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 /** 真实试用 HTTP Adapter 的进程组件重建回归；仅本机假服务，不等同于真实飞书或安装包验收。 */
 class MemoryTrialRecoveryIntegrationTest {
@@ -70,6 +76,68 @@ class MemoryTrialRecoveryIntegrationTest {
                 assertEquals(1, server.posts.get());
                 assertEquals(2, server.recalls.get(), "纠正并重建组件后不能再发查询");
             }
+        }
+    }
+
+    @Test void knownCleanupProgressIsReadableAfterReconstructionWithoutClaimingCompleteErasure() throws Exception {
+        try (var server = new MemoryTrialServer()) {
+            String source, task;
+            int requests;
+            try (var runtime = new TrialRuntime()) {
+                runtime.prepare(server, "合成来源：尝试用手记练习英语。", Channel.DESKTOP);
+                var document = runtime.management.documents("0", 20).items().getFirst();
+                source = document.id();
+                assertFalse(document.cleanupProgress().documentDeletionRecorded());
+                task = runtime.management.delete(source, new DeleteDocument(0, true, "progress-delete")).id();
+                var result = runtime.management.retry(task);
+                assertEquals("UNKNOWN", result.state());
+                var progress = result.cleanupProgress();
+                assertTrue(progress.documentDeletionRecorded()); assertTrue(progress.factsClearanceRecorded());
+                assertEquals(1, progress.knownChildTasks()); assertEquals(1, progress.childDeletionsRecorded());
+                assertTrue(progress.parentDeletionRecorded());
+                requests = server.requests.get();
+                assertEquals(progress, runtime.management.document(source).document().cleanupProgress());
+                assertEquals(progress, runtime.management.documents("0", 20).items().getFirst().cleanupProgress());
+                var mvc = MockMvcBuilders.standaloneSetup(new MemoryDocumentsController(runtime.management)).build();
+                mvc.perform(get("/agent/memory/operations/" + task))
+                        .andExpect(jsonPath("$.data.state").value("UNKNOWN"))
+                        .andExpect(jsonPath("$.data.cleanupProgress.documentDeletionRecorded").value(true))
+                        .andExpect(jsonPath("$.data.cleanupProgress.childDeletionsRecorded").value(1));
+                assertEquals(requests, server.requests.get(), "读取步骤不触发远端请求或重复删除");
+            }
+            try (var runtime = new TrialRuntime()) {
+                var result = runtime.management.operation(task);
+                assertEquals("UNKNOWN", result.state()); assertTrue(result.cleanupProgress().parentDeletionRecorded());
+                assertTrue(new MemoryRecallRepository(runtime.f.jdbc).deletionPending(runtime.memory.settings().spaceId()));
+                assertEquals("REVOKED", runtime.management.document(source).document().state());
+                assertEquals(requests, server.requests.get());
+                assertEquals(1, server.posts.get());
+                var other = runtime.f.service(runtime.remote, new CurrentUserProvider() {
+                    @Override public String currentUserId() { return "other-user"; }
+                }, "test");
+                var foreign = new MemoryManagementService(other, new MemoryManagementRepository(runtime.f.jdbc), runtime.sources,
+                        runtime.verifier, runtime.remote, runtime.f.barrier, runtime.f.transactions, runtime.clock);
+                assertTrue(foreign.documents("0", 20).items().isEmpty());
+                assertEquals(404, assertThrows(MemoryRequestException.class, () -> foreign.operation(task)).getCode());
+                assertEquals(404, assertThrows(MemoryRequestException.class, () -> foreign.document(source)).getCode());
+            }
+        }
+    }
+
+    @Test void failedTaskCleanupReportsOnlyRecordedSteps() throws Exception {
+        try (var server = new MemoryTrialServer(); var runtime = new TrialRuntime()) {
+            runtime.prepare(server, "合成来源：周末尝试摄影。", Channel.DESKTOP);
+            String source = runtime.management.documents("0", 20).items().getFirst().id();
+            var task = runtime.management.delete(source, new DeleteDocument(0, true, "partial-delete"));
+            server.rejectTaskCleanup = true;
+            var result = runtime.management.retry(task.id());
+            assertEquals("UNKNOWN", result.state());
+            var progress = result.cleanupProgress();
+            assertTrue(progress.documentDeletionRecorded()); assertTrue(progress.factsClearanceRecorded());
+            assertEquals(1, progress.knownChildTasks()); assertEquals(0, progress.childDeletionsRecorded());
+            assertFalse(progress.parentDeletionRecorded());
+            assertEquals(progress, runtime.management.operation(task.id()).cleanupProgress());
+            assertTrue(new MemoryRecallRepository(runtime.f.jdbc).deletionPending(runtime.memory.settings().spaceId()));
         }
     }
 

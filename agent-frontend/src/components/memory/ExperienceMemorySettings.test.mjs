@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, test } from 'node:test';
 import { act, getReact, jsonResponse, loadModule, mount, startHarness, stopHarness, useFetchStub } from '../../testing/harness.mjs';
 
-let Page, Provider, view, stub, settings, documents, detail, operation, calls, failCommand, failSettings, connection, failConnection;
+let Page, Provider, view, stub, settings, documents, detail, operation, calls, failCommand, failSettings, connection, failConnection, retryCleanupProgress;
 before(async () => {
   await startHarness();
   ({ ExperienceMemorySettings: Page } = await loadModule('/src/components/memory/ExperienceMemorySettings.tsx'));
@@ -15,6 +15,7 @@ beforeEach(() => {
     authorized: false, remoteAvailable: false, recipientFingerprint: '', allowSave: false, allowRecall: false,
     channels: [], effectiveAt: null, retentionDays: 0, dailyWriteLimit: 0, dailyQueryLimit: 0 };
   documents = []; detail = null; operation = null; calls = []; failCommand = false; failSettings = false; failConnection = false;
+  retryCleanupProgress = undefined;
   connection = { version: 0, configured: false, endpoint: '', processingChain: '', secureTransport: false,
     credentialConfigured: false, recipientFingerprint: '', message: '尚未配置真实聊天试用连接' };
   stub = useFetchStub(async (url, init) => {
@@ -52,7 +53,10 @@ beforeEach(() => {
       return jsonResponse(operation);
     }
     if (path === '/operations/task/retry') {
-      operation = { ...operation, state: 'UNKNOWN' }; return jsonResponse(operation);
+      operation = { ...operation, state: 'UNKNOWN', cleanupProgress: retryCleanupProgress };
+      detail = { ...detail, document: { ...detail.document, deletionState: 'UNKNOWN', cleanupProgress: retryCleanupProgress } };
+      documents = [detail.document];
+      return jsonResponse(operation);
     }
     if (path === '/operations/task') return jsonResponse(operation);
     throw new Error(`未设置请求桩：${method} ${path}`);
@@ -142,6 +146,46 @@ test('页面重新挂载可恢复来源原任务，读取状态不重发删除',
   documents = [detail.document]; await render(); await click('查看来源');
   assert.match(document.body.textContent, /远端删除核对失败/);
   assert.ok(calls.every(c => c.method === 'GET'));
+});
+
+test('已清理的已知目标显示实际进度，完整擦除仍未核实；后续刷新不重复删除', async () => {
+  seedSource();
+  operation = { id: 'task', sourceId: 'source', kind: 'DELETE', version: 1, state: 'PENDING', retryAllowed: true, updatedAt: '2026-10-28T08:00:00Z' };
+  detail.document = { ...detail.document, operationId: 'task', state: 'REVOKED', version: 1, deletionState: 'PENDING' };
+  documents = [detail.document];
+  retryCleanupProgress = { documentDeletionRecorded: true, factsClearanceRecorded: true,
+    knownChildTasks: 1, childDeletionsRecorded: 1, parentDeletionRecorded: true };
+  await render(); await click('查看来源'); await click('继续核对删除');
+  assert.match(document.body.textContent, /已完成已知内容清理，完整擦除未核实/);
+  assert.match(document.body.textContent, /已知子任务 1\/1 已删除/);
+  assert.match(document.body.textContent, /本空间召回仍暂停/);
+  assert.doesNotMatch(document.body.textContent, /远端删除结果未知|远端删除未完成/);
+  const posts = calls.filter(c => c.method !== 'GET').length;
+  await click('刷新清理进度');
+  assert.equal(calls.filter(c => c.method !== 'GET').length, posts);
+  assert.equal(operation.state, 'UNKNOWN', '进度展示不伪造完整删除成功');
+  await view.unmount(); view = null;
+  await render(); await click('查看来源');
+  assert.match(document.body.textContent, /已完成已知内容清理，完整擦除未核实/);
+  assert.equal(calls.filter(c => c.method !== 'GET').length, posts);
+});
+
+test('部分步骤或空子清单不能显示已知目标全部清理完成', async () => {
+  seedSource();
+  const cleanupProgress = { documentDeletionRecorded: true, factsClearanceRecorded: false,
+    knownChildTasks: 2, childDeletionsRecorded: 1, parentDeletionRecorded: false };
+  operation = { id: 'task', sourceId: 'source', kind: 'DELETE', version: 1, state: 'UNKNOWN', retryAllowed: true,
+    updatedAt: '2026-10-28T08:00:00Z', cleanupProgress };
+  detail.document = { ...detail.document, operationId: 'task', state: 'REVOKED', deletionState: 'UNKNOWN', cleanupProgress };
+  documents = [detail.document]; await render(); await click('查看来源');
+  assert.match(document.body.textContent, /部分清理步骤已完成，仍待核实/);
+  assert.match(document.body.textContent, /已知子任务 1\/2 已删除/);
+  assert.doesNotMatch(document.body.textContent, /已完成已知内容清理/);
+  assert.ok([...document.querySelectorAll('button')].some(button => button.textContent === '继续核对删除'));
+  operation.cleanupProgress = { ...cleanupProgress, factsClearanceRecorded: true, parentDeletionRecorded: true,
+    knownChildTasks: 0, childDeletionsRecorded: 0 };
+  await click('刷新详情');
+  assert.doesNotMatch(document.body.textContent, /已完成已知内容清理/);
 });
 
 test('客户端可配置真实试用，明文与删除限制须确认；连接不自动授权或开启上传', async () => {

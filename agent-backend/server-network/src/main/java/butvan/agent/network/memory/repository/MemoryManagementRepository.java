@@ -16,16 +16,25 @@ public class MemoryManagementRepository {
 
     /** 仅向应用层返回内部投影，Controller 另行映射 DTO。 */
     public record Document(long cursor, String id, long version, Instant occurredAt, String channel, String state,
-                           String syncState, String deletionState, String correction, String operationId) { }
+                           String syncState, String deletionState, String correction, String operationId, CleanupSnapshot cleanup) { }
+    /** 已持久化的历史核对步骤，不证明当前远端快照或完整擦除；null 表示没有匹配账本。 */
+    public record CleanupSnapshot(boolean documentDeleted, boolean factsChecked, int knownChildren, int deletedChildren,
+                                  boolean parentDeleted) { }
     /** 稳定管理任务，幂等重放不重做来源写入。 */
     public record Operation(String id, String sourceId, String kind, String hash, long version, String state, Instant updatedAt) { }
 
     private static final String DOCUMENTS = """
             SELECT d.rowid AS cursor,d.*,COALESCE(s.state,'NOT_QUEUED') AS sync_state,
             COALESCE(t.state,'NOT_REQUIRED') AS deletion_state,c.corrected_text,
-            (SELECT o.id FROM memory_management_operation o WHERE o.source_id=d.id ORDER BY o.result_version DESC LIMIT 1) AS management_id
+            (SELECT o.id FROM memory_management_operation o WHERE o.source_id=d.id ORDER BY o.result_version DESC LIMIT 1) AS management_id,
+            r.operation_id AS cleanup_id,r.document_deleted AS cleanup_document,r.facts_checked AS cleanup_facts,
+            r.parent_deleted AS cleanup_parent,
+            (SELECT COUNT(*) FROM memory_remote_child k WHERE k.operation_id=r.operation_id) AS cleanup_children,
+            (SELECT COUNT(*) FROM memory_remote_child k WHERE k.operation_id=r.operation_id AND k.deleted=1) AS cleanup_deleted_children
             FROM memory_source_document d LEFT JOIN memory_sync_operation s ON s.source_id=d.id
             LEFT JOIN memory_deletion t ON t.space_id=d.space_id AND t.document_id=d.document_id
+            LEFT JOIN memory_remote_operation r ON r.space_id=t.space_id AND r.document_id=t.document_id
+                AND r.operation_id=t.operation_id AND r.recipient_fingerprint=t.recipient_fingerprint
             LEFT JOIN memory_correction c ON c.source_id=d.id
             """;
 
@@ -41,7 +50,10 @@ public class MemoryManagementRepository {
     private Document document(java.sql.ResultSet rs, int n) throws java.sql.SQLException {
         return new Document(rs.getLong("cursor"), rs.getString("id"), rs.getLong("version"), Instant.parse(rs.getString("occurred_at")),
                 rs.getString("channel"), rs.getString("state"), rs.getString("sync_state"), rs.getString("deletion_state"),
-                rs.getString("corrected_text"), rs.getString("management_id"));
+                rs.getString("corrected_text"), rs.getString("management_id"),
+                rs.getString("cleanup_id") == null ? null : new CleanupSnapshot(rs.getBoolean("cleanup_document"),
+                        rs.getBoolean("cleanup_facts"), rs.getInt("cleanup_children"), rs.getInt("cleanup_deleted_children"),
+                        rs.getBoolean("cleanup_parent")));
     }
     /** 空间内 requestId 唯一，不能被用于其他来源或正文。 */
     public Optional<Operation> command(String space, String request) {

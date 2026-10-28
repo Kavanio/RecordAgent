@@ -1,16 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { correctMemoryDocument, deleteMemoryDocument, fetchMemoryDocument, fetchMemoryOperation, retryMemoryOperation } from '../../services/experienceMemoryService';
 import type { MemoryDocumentDetail, MemoryOperation } from '../../types/experienceMemory';
+import { cleanupProgressDescription, knownCleanupRecorded, memoryDeletionLabel } from '../../features/memory/cleanupPresentation';
 import { Button } from '../common/Button';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { Modal } from '../common/Modal';
 import { useMessage } from '../common/Message';
 import styles from './MemoryDocumentDialog.module.css';
 
-const STATES: Record<MemoryOperation['state'], string> = {
-  PENDING: '等待核对远端删除', WAITING_REMOTE: '等待在途保存结束', SUCCEEDED: '记忆来源撤回已完成',
-  FAILED: '远端删除核对失败', UNKNOWN: '远端删除结果未知',
-};
 interface Props { id: string; onClose: () => void; onChanged: () => void }
 
 /** 原文、独立纠正和删除任务详情；刷新恢复原任务，不自动发送远端请求。 */
@@ -24,6 +21,7 @@ export function MemoryDocumentDialog({ id, onClose, onChanged }: Props) {
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState<'CORRECT' | 'DELETE' | null>(null);
   const command = useRef<{ key: string; id: string } | null>(null);
+  const knownCleanup = operation?.state === 'UNKNOWN' && knownCleanupRecorded(operation.cleanupProgress);
   const load = async () => {
     const next = await fetchMemoryDocument(id);
     setDetail(next); setDraft(next.correctedText ?? '');
@@ -67,7 +65,7 @@ export function MemoryDocumentDialog({ id, onClose, onChanged }: Props) {
     try {
       const task = await retryMemoryOperation(operation.id);
       setOperation(task); onChanged();
-      showMessage(task.state === 'SUCCEEDED' ? 'success' : 'info', STATES[task.state]);
+      showMessage(task.state === 'SUCCEEDED' ? 'success' : 'info', memoryDeletionLabel(task.state, task.cleanupProgress));
     } catch (cause) { showMessage('error', cause instanceof Error ? cause.message : '核对失败，请读取原任务状态'); }
     finally { setBusy(false); }
   };
@@ -96,9 +94,12 @@ export function MemoryDocumentDialog({ id, onClose, onChanged }: Props) {
           {operation && <section className={styles.block}>
             <span className={styles.title}>纠正／删除任务</span>
             <div className={styles.actions}>
-              <span className={styles.state}>{STATES[operation.state]}</span>
-              <Button variant="outline" disabled={busy || !operation.retryAllowed} onClick={() => void retry()}>继续核对删除</Button>
+              <span className={styles.state}>{memoryDeletionLabel(operation.state, operation.cleanupProgress)}</span>
+              <Button variant="outline" disabled={busy || (!knownCleanup && !operation.retryAllowed)} onClick={() => void (knownCleanup ? refresh() : retry())}>{knownCleanup ? '刷新清理进度' : '继续核对删除'}</Button>
             </div>
+            {operation.cleanupProgress && <p className={styles.hint}>{cleanupProgressDescription(operation.cleanupProgress)}</p>}
+            {knownCleanup && <p className={styles.hint}>现有可核对步骤已记录，刷新只读取进度，不重新删除。当前接口仍无法核实完整擦除。</p>}
+            {operation.state === 'UNKNOWN' && <p className={styles.hint}>该来源保持停用；完整擦除未核实，本空间召回仍暂停。</p>}
             <p className={styles.hint}>{operation.kind === 'CORRECT' ? '只核对旧来源的远端删除，不重发纠正正文。' : '只撤回经历记忆，不删除原聊天或业务数据。'}</p>
           </section>}
           <section className={styles.block}>

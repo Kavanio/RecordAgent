@@ -132,6 +132,8 @@ class MemoryManagementIntegrationTest {
         var f = new MemorySyncFixture(directory); f.base.enabled();
         var service = manager(f); String id = source(f, true);
         var task = service.delete(id, new DeleteDocument(0, true, "delete"));
+        assertNull(task.cleanupProgress(), "无 HTTP 核对账本时不能凭停用来源推断远端清理进度");
+        assertNull(service.document(id).document().cleanupProgress());
         String recipient = f.base.remote.fingerprint; f.base.remote.fingerprint = "";
         assertEquals("UNKNOWN", service.retry(task.id()).state()); assertEquals(0, f.base.remote.deletions.get());
         f.base.remote.fingerprint = recipient; f.base.remote.result = MemoryRemoteGateway.DeletionResult.FAILED;

@@ -22,8 +22,12 @@ public final class MemoryDtos {
     public record ConnectionTestResponse(String status, boolean configured, boolean secureTransport, boolean reachable,
                                          boolean ready, String apiVersion, boolean contractFieldsPresent,
                                          boolean dataOperationsReady, boolean credentialConfigured, String message) { }
+    /** 上次已记录的已知目标清理步骤；不是完整擦除证明，不改变删除任务状态。 */
+    public record CleanupProgress(boolean documentDeletionRecorded, boolean factsClearanceRecorded, int knownChildTasks,
+                                  int childDeletionsRecorded, boolean parentDeletionRecorded) { }
     public record DocumentResponse(String id, long version, Instant occurredAt, String channel, String state,
-                                   String syncState, String deletionState, boolean corrected, String operationId) { }
+                                   String syncState, String deletionState, boolean corrected, String operationId,
+                                   CleanupProgress cleanupProgress) { }
     public record DocumentPage(List<DocumentResponse> items, String nextCursor) { }
     public record DocumentDetail(DocumentResponse document, String originalStatus, String originalText,
                                  String correctedText, String correctionStatus) { }
@@ -32,5 +36,5 @@ public final class MemoryDtos {
     }
     public record DeleteDocument(long expectedVersion, boolean confirmed, String requestId) { }
     public record OperationResponse(String id, String sourceId, String kind, long version, String state,
-                                    Instant updatedAt, boolean retryAllowed) { }
+                                    Instant updatedAt, boolean retryAllowed, CleanupProgress cleanupProgress) { }
 }

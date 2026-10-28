@@ -80,10 +80,10 @@ public class MemoryManagementService {
                 var previous = repository.command(space, request);
                 if (previous.isPresent()) {
                     if (!previous.get().hash().equals(hash)) throw new MemoryRequestException(409, "请求 ID 已用于另一项来源操作");
-                    return response(previous.get());
+                    return response(space, previous.get());
                 }
                 repository.document(space, id);
-                return response(repository.mutate(space, id, version, kind, text, request, hash, clock.instant()));
+                return response(space, repository.mutate(space, id, version, kind, text, request, hash, clock.instant()));
             });
         });
     }
@@ -91,7 +91,10 @@ public class MemoryManagementService {
     /** 页面刷新只读原任务，查询不自动触发外部删除。 */
     public OperationResponse operation(String id) {
         identifier(id);
-        return guarded(() -> response(repository.operation(space(), id)));
+        return guarded(() -> {
+            String space = space();
+            return response(space, repository.operation(space, id));
+        });
     }
 
     /** 显式继续同一删除核对；与在途保存互斥，网络期间不持有数据库事务。 */
@@ -100,7 +103,7 @@ public class MemoryManagementService {
         return guarded(() -> {
             String space = space();
             var operation = repository.operation(space, id);
-            if (operation.state().equals("SUCCEEDED")) return response(operation);
+            if (operation.state().equals("SUCCEEDED")) return response(space, operation);
             var lock = memory.sourceOperationLock(operation.sourceId());
             // 同线程假 Adapter 回调也不能越过一个尚未结束的生产者。
             if (lock.isHeldByCurrentThread() || !lock.tryLock()) return update(space, operation, "WAITING_REMOTE");
@@ -128,7 +131,7 @@ public class MemoryManagementService {
     private OperationResponse update(String space, Operation operation, String state) {
         return transaction.execute(status -> {
             repository.status(space, operation, state, clock.instant());
-            return response(repository.operation(space, operation.id()));
+            return response(space, repository.operation(space, operation.id()));
         });
     }
     private String space() { return memory.settings().spaceId(); }
@@ -140,9 +143,16 @@ public class MemoryManagementService {
     }
     private DocumentResponse response(Document d) {
         return new DocumentResponse(d.id(), d.version(), d.occurredAt(), d.channel(), d.state(), d.syncState(),
-                d.deletionState(), d.correction() != null, d.operationId());
+                d.deletionState(), d.correction() != null, d.operationId(), progress(d.cleanup()));
     }
-    private OperationResponse response(Operation o) {
-        return new OperationResponse(o.id(), o.sourceId(), o.kind(), o.version(), o.state(), o.updatedAt(), !o.state().equals("SUCCEEDED"));
+    private OperationResponse response(String space, Operation o) {
+        var cleanup = repository.document(space, o.sourceId()).cleanup();
+        return new OperationResponse(o.id(), o.sourceId(), o.kind(), o.version(), o.state(), o.updatedAt(),
+                !o.state().equals("SUCCEEDED"), progress(cleanup));
+    }
+    /** 只投影已记录步骤；不联网、不据此把 UNKNOWN 升级为成功或解除召回／重置屏障。 */
+    private CleanupProgress progress(CleanupSnapshot snapshot) {
+        return snapshot == null ? null : new CleanupProgress(snapshot.documentDeleted(), snapshot.factsChecked(),
+                snapshot.knownChildren(), snapshot.deletedChildren(), snapshot.parentDeleted());
     }
 }
