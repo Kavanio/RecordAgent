@@ -40,7 +40,8 @@ public class FeishuAgentRunner {
         boolean interrupted = false;
         try {
             if (control.stopping()) return new Reply(null, control.reason(), "任务在执行前已停止。");
-            session = agentService.streamAgent(new AgentUserCall(sessionId, input, input, List.of(), runId, turnId, images));
+            session = agentService.streamAgent(new AgentUserCall(sessionId, input, input, List.of(), runId, turnId, images,
+                    butvan.agent.agents.memory.MemorySourceRegistry.Channel.FEISHU));
             while (true) {
                 checkStop(session, deadline, control);
                 AgentStreamEvent event;

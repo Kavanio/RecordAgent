@@ -1,6 +1,7 @@
 package butvan.agent.agents.routing;
 
 import io.agentscope.core.state.AgentState;
+import butvan.agent.agents.tool.ToolCapabilityCatalog;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -10,7 +11,7 @@ import java.util.List;
 public class ToolRoutingStateSynchronizer {
 
     /**
-     * 使用 Jev 选中的能力组替换当前会话的已激活工具组。
+     * 使用 Jev 选组与已启用的只读方法卡合成本轮能力，其余旧组被替换。
      *
      * <p>模型可见 Schema 与 ToolExecutor 都依赖这份会话状态。这里只修改当前
      * {@link AgentState}，不修改跨会话共享的 Toolkit。</p>
@@ -25,7 +26,8 @@ public class ToolRoutingStateSynchronizer {
         }
 
         // selectedGroups：排序后的能力组快照，保证状态文件内容稳定。
-        List<String> selectedGroups = decision.selectedGroups().stream().sorted().toList();
+        List<String> selectedGroups = ToolCapabilityCatalog.groupsForTurn(
+                decision.selectedGroups(), state.getToolContext().getActivatedGroups());
         if (selectedGroups.equals(state.getToolContext().getActivatedGroups())) {
             return false;
         }

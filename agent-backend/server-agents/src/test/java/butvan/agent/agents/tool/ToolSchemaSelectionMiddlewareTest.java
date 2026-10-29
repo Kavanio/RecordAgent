@@ -5,6 +5,7 @@ import io.agentscope.core.agent.Agent;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.message.ToolUseBlock;
 import io.agentscope.core.middleware.ActingInput;
+import io.agentscope.core.middleware.AgentInput;
 import io.agentscope.core.middleware.ModelCallInput;
 import io.agentscope.core.model.ToolSchema;
 import io.agentscope.core.tool.Toolkit;
@@ -35,6 +36,7 @@ class ToolSchemaSelectionMiddlewareTest {
     void setUp() {
         registerSchema("read_file");
         registerSchema("calendar_query");
+        registerSchema("method_search");
         registerSchema("diagnostic_ping");
         ToolSchemaRoutingPolicy.apply(toolkit, catalog);
         when(agent.getToolkit()).thenReturn(toolkit);
@@ -50,6 +52,17 @@ class ToolSchemaSelectionMiddlewareTest {
         assertEquals(
                 Set.of("reset_equipped_tools", "diagnostic_ping", "read_file"),
                 names(routed.tools()));
+    }
+
+    @Test
+    void activeDecisionKeepsEquippedMethodsButNotOtherPreviousGroups() {
+        var context = activeContext(Set.of());
+        var equipped = input(toolkit.getToolSchemas(List.of("methods", "calendar")));
+        assertEquals(Set.of("reset_equipped_tools", "diagnostic_ping", "method_search"),
+                names(invokeModelCall(context, equipped).tools()));
+        var deactivated = input(toolkit.getToolSchemas(List.of("calendar")));
+        assertEquals(Set.of("reset_equipped_tools", "diagnostic_ping"),
+                names(invokeModelCall(context, deactivated).tools()));
     }
 
     @Test
@@ -85,6 +98,20 @@ class ToolSchemaSelectionMiddlewareTest {
         assertEquals(
                 Set.of("reset_equipped_tools", "diagnostic_ping", "calendar_query"),
                 names(routed.tools()));
+    }
+
+    @Test
+    void manualSelectionSurvivesRuntimeContextCopiesAndDoesNotLeakToANewRun() {
+        RuntimeContext original = activeContext(Set.of("workspace"));
+        middleware.onAgent(agent, original, new AgentInput(List.of()), next -> Flux.empty()).blockLast();
+        RuntimeContext actingCopy = RuntimeContext.builder(original).build();
+        middleware.onActing(agent, actingCopy, new ActingInput(List.of(
+                new ToolUseBlock("reset", "reset_equipped_tools", Map.of("to_activate", List.of("calendar"))))),
+                next -> Flux.empty()).blockLast();
+        ModelCallInput input = input(toolkit.getToolSchemas(List.of("calendar")));
+        assertSame(input, invokeModelCall(RuntimeContext.builder(original).build(), input));
+        assertEquals(Set.of("reset_equipped_tools", "diagnostic_ping", "read_file"),
+                names(invokeModelCall(activeContext(Set.of("workspace")), input).tools()));
     }
 
     @Test

@@ -21,6 +21,12 @@ public class AgentEventManager {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AgentStreamEvent map(AgentEvent event, Map<String, StringBuilder> toolArgsBuffer) {
+        return map(event, toolArgsBuffer, new java.util.HashMap<>());
+    }
+
+    /** 使用当前 run 的前缀缓冲纠正已知框架技术错误，不依据正文中间出现的 Error 字样推断失败。 */
+    public AgentStreamEvent map(AgentEvent event, Map<String, StringBuilder> toolArgsBuffer,
+                                Map<String, StringBuilder> resultPrefixes) {
 
         if (event.getSource() != null) {
             String source = event.getSource();
@@ -74,6 +80,9 @@ public class AgentEventManager {
         }
         // 工具结果增量：追加到业务事件（原 payload() 的结果日志可收敛到这里）
         if (event instanceof ToolResultTextDeltaEvent resultEvent) {
+            StringBuilder prefix = resultPrefixes.computeIfAbsent(resultEvent.getToolCallId(), ignored -> new StringBuilder());
+            String delta = resultEvent.getDelta() == null ? "" : resultEvent.getDelta();
+            if (prefix.length() < 128) prefix.append(delta, 0, Math.min(delta.length(), 128 - prefix.length()));
             return new AgentStreamEvent.ToolResult(
                     resultEvent.getToolCallId(),
                     resultEvent.getToolCallName(),
@@ -82,12 +91,17 @@ public class AgentEventManager {
         }
         // 工具结果终态：单独传递真实状态，避免错误结果在 UI 中显示为成功。
         if (event instanceof ToolResultEndEvent endEvent) {
+            StringBuilder buffered = resultPrefixes.remove(endEvent.getToolCallId());
+            String prefix = buffered == null ? "" : buffered.toString().stripLeading();
+            boolean knownError = prefix.startsWith("Error: Unauthorized tool call:")
+                    || prefix.startsWith("Error: Parameter validation failed for tool")
+                    || prefix.startsWith("Error: Tool not found:");
             return new AgentStreamEvent.ToolResult(
                     endEvent.getToolCallId(),
                     endEvent.getToolCallName(),
                     "",
                     switch (endEvent.getState()) {
-                        case SUCCESS -> AgentStreamEvent.ToolStatus.COMPLETED;
+                        case SUCCESS -> knownError ? AgentStreamEvent.ToolStatus.FAILED : AgentStreamEvent.ToolStatus.COMPLETED;
                         case INTERRUPTED -> AgentStreamEvent.ToolStatus.CANCELLED;
                         case ERROR, DENIED -> AgentStreamEvent.ToolStatus.FAILED;
                         case RUNNING -> AgentStreamEvent.ToolStatus.RUNNING;

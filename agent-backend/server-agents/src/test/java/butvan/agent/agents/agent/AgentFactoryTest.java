@@ -2,6 +2,8 @@ package butvan.agent.agents.agent;
 
 import butvan.agent.agents.context.ContextInjectionMiddleware;
 import butvan.agent.agents.model.ModelHolder;
+import butvan.agent.agents.method.MethodCardCatalog;
+import butvan.agent.agents.method.MethodCardTool;
 import butvan.agent.agents.identity.CurrentUserProvider;
 import butvan.agent.agents.project.ProjectRegistry;
 import butvan.agent.agents.session.SessionCatalogService;
@@ -31,6 +33,7 @@ import reactor.core.publisher.Flux;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -69,7 +72,7 @@ class AgentFactoryTest {
 
         AgentFactory factory = new AgentFactory(
                 modelHolder,
-                new ToolRegistry(List.of(), capabilityCatalog),
+                new ToolRegistry(List.of(new MethodCardTool(new MethodCardCatalog())), capabilityCatalog),
                 storage,
                 new InMemoryAgentStateStore(),
                 null,
@@ -83,10 +86,24 @@ class AgentFactoryTest {
         );
 
         try (HarnessAgent agent = factory.currentAgent()) {
+            assertFalse(agent.getToolkit().getToolNames().stream()
+                    .anyMatch(name -> Set.of("memory_search", "memory_get", "memory_save").contains(name)),
+                    "真实Harness工具注册后也必须移除绕过应用授权与删除屏障的本地记忆入口");
+            assertTrue(agent.getDelegate().getSysPrompt().contains("# 普通聊天"),
+                    "普通会话需要聊天、语言与判断规则");
+            assertTrue(agent.getDelegate().getSysPrompt().contains("# 语言与英语"),
+                    "普通会话应在需要时提供适量英语表达");
+            assertTrue(agent.getDelegate().getSysPrompt().contains("method_search"));
+            assertFalse(agent.getDelegate().getSysPrompt().contains("Spacing Effects in Learning"),
+                    "常驻 Prompt 不携带方法卡正文");
             assertFalse(agent.getDelegate().isPendingToolRecoveryEnabled(),
                     "框架自动恢复会抢先把 HITL ConfirmResult 改写为失败结果");
             assertTrue(agent.getDelegate().getMiddlewares().stream()
                     .noneMatch(WorkspaceContextMiddleware.class::isInstance));
+            assertTrue(agent.getDelegate().getMiddlewares().stream().noneMatch(middleware ->
+                            Set.of("MemoryFlushMiddleware", "MemoryMaintenanceMiddleware")
+                                    .contains(middleware.getClass().getSimpleName())),
+                    "框架不能绕过应用记忆授权，自动抽取或合并整段历史");
             List<Class<?>> middlewareOrder = agent.getDelegate().getMiddlewares().stream()
                     .map(Object::getClass).toList();
             assertTrue(middlewareOrder.indexOf(ContextInjectionMiddleware.class)
@@ -143,15 +160,28 @@ class AgentFactoryTest {
                 Files.createDirectories(temporaryDirectory.resolve("projects/second")).toString()).id();
         String firstSession = sessions.create(new CreateSessionRequest(SessionKind.PROJECT, "first", firstProject)).id();
         String secondSession = sessions.create(new CreateSessionRequest(SessionKind.PROJECT, "second", secondProject)).id();
+        String siblingSession = sessions.create(new CreateSessionRequest(SessionKind.PROJECT, "sibling", firstProject)).id();
 
         HarnessAgent first = factory.currentAgent(firstSession);
         HarnessAgent firstAgain = factory.currentAgent(firstSession);
         HarnessAgent second = factory.currentAgent(secondSession);
+        HarnessAgent sibling = factory.currentAgent(siblingSession);
 
         assertSame(first, firstAgain);
         assertNotSame(first, second);
+        assertNotSame(first, sibling, "同项目的不同会话也必须独享可变 Toolkit");
+        assertNotSame(first.getToolkit(), sibling.getToolkit());
+        String projectPrompt = first.getDelegate().getSysPrompt();
+        assertTrue(projectPrompt.contains("# 任务执行规范"));
+        assertTrue(projectPrompt.contains("acceptance_report"));
+        assertFalse(projectPrompt.contains("# 普通聊天"),
+                "项目会话不混入日常聊天与英语练习模块");
+        assertFalse(projectPrompt.contains("# 语言与英语"));
+        assertFalse(projectPrompt.contains("method_search"), "工程会话不主动插入生活学习指导");
+        assertTrue(first.getDelegate().getSysPrompt().contains("PermissionContext"));
         first.close();
         second.close();
+        sibling.close();
     }
 
     private int schemaTokens(List<ToolSchema> schemas) throws Exception {

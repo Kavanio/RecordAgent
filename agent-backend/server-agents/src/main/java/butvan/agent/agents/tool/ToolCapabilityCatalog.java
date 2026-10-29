@@ -3,6 +3,7 @@ package butvan.agent.agents.tool;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -22,14 +23,16 @@ public class ToolCapabilityCatalog {
             capability("workspace", "读写、搜索项目文件以及执行本地命令；代码和本机任务需要启用",
                     names("read_file", "write_file", "edit_file", "list_files", "glob_files",
                             "grep_files", "execute", "custom_bash")),
-            capability("memory", "检索和保存长期记忆、搜索当前或历史会话",
-                    prefixes("memory_", "session_")),
+            capability("memory", "检索近期聊天历史；长期经历由个人上下文授权管线处理，不以历史检索冒充长期记忆",
+                    prefixes("session_")),
             capability("planning", "进入或维护计划模式，并在任务完成后生成验收报告",
                     nameOrPrefix("acceptance_report", "plan_")),
             capability("delegation", "创建、联系和等待子 Agent，以及管理异步任务",
                     prefixes("agent_", "task_", "wait_async_")),
             capability("skills", "按路径加载任务所需的 Skill 说明",
                     prefixes("load_skill_")),
+            capability("methods", "按需查带一手来源、适用条件和限制的学习方法卡；只读，不创建目标或待办",
+                    names("method_search")),
             capability("web", "搜索互联网中的实时信息与外部资料",
                     names("web_search")),
             capability("calendar", "查询、创建、更新、完成或删除日程与待办",
@@ -71,6 +74,17 @@ public class ToolCapabilityCatalog {
         if (toolName == null) return Optional.empty();
         // item：流处理中正在检查的单个能力组。
         return capabilities.stream().filter(item -> item.matches(toolName)).findFirst();
+    }
+
+    /**
+     * 合成本轮执行与 Schema 共用的分组：保留已启用的只读方法卡，避免历史调用失效。
+     * methods 仅匹配固定的 method_search，无个人数据或写入能力；其余组仍按轮替换。
+     * 首次未启用或被元工具显式停用时，不凭历史消息重新激活。
+     */
+    public static List<String> groupsForTurn(Set<String> routed, Collection<String> equipped) {
+        var groups = new java.util.TreeSet<>(routed);
+        if (equipped.contains("methods")) groups.add("methods");
+        return List.copyOf(groups);
     }
 
     /**

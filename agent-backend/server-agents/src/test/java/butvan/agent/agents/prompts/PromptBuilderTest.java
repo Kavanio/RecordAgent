@@ -5,8 +5,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PromptBuilderTest {
@@ -19,7 +21,7 @@ class PromptBuilderTest {
         String prompt = buildDefaultPrompt();
 
         assertTrue(prompt.contains("# 工作区上下文按需加载"));
-        assertTrue(prompt.contains("memory_search"));
+        assertTrue(prompt.contains("保存以处理状态为准"));
         assertTrue(prompt.contains("AGENTS.md"));
         assertTrue(prompt.indexOf("# 系统运行规则")
                 < prompt.indexOf("# 工作区上下文按需加载"));
@@ -30,6 +32,78 @@ class PromptBuilderTest {
     @Test
     void defaultPromptDoesNotDuplicateToneStyleSection() {
         assertEquals(1, occurrences(buildDefaultPrompt(), "# 语气与格式"));
+    }
+
+    @Test
+    void ordinaryConversationDoesNotRequirePlansOrAcceptanceReports() {
+        String prompt = buildDefaultPrompt();
+
+        assertTrue(prompt.contains("# 普通聊天"));
+        assertTrue(prompt.contains("普通聊天不要求计划和验收报告"));
+        assertTrue(prompt.contains("一次最多问一个必要问题"));
+        assertTrue(prompt.contains("工程或业务操作"));
+        assertTrue(prompt.contains("PermissionContext"));
+        assertTrue(prompt.contains("acceptance_report"));
+        assertTrue(prompt.contains("普通聊天不进入计划模式"));
+    }
+
+    @Test
+    void bothPromptVariantsKeepSharedSafetyAndToolRules() {
+        for (String prompt : List.of(buildDefaultPrompt(),
+                PromptBuilder.buildProjectSystemPrompt("test-model", temporaryDirectory.toString()))) {
+            assertTrue(prompt.contains("# 高风险动作审查"));
+            assertTrue(prompt.contains("# 工具调度规范"));
+            assertTrue(prompt.contains("# 工作区上下文按需加载"));
+            assertTrue(prompt.contains("PermissionContext"));
+        }
+    }
+
+    @Test
+    void projectPromptKeepsEngineeringRulesButDropsCompanionBehaviour() {
+        String prompt = PromptBuilder.buildProjectSystemPrompt("test-model", temporaryDirectory.toString());
+
+        assertTrue(prompt.contains("# 任务执行规范"));
+        assertTrue(prompt.contains("acceptance_report"));
+        assertTrue(prompt.contains("PermissionContext"));
+        assertFalse(prompt.contains("# 普通聊天"));
+        assertFalse(prompt.contains("# 语言与英语"));
+        assertFalse(prompt.contains("method_search"));
+        assertTrue(new ApproximateTokenCounter().count(prompt) <= 1_200);
+    }
+
+    @Test
+    void defaultPromptCarriesLanguageAndJudgementRules() {
+        String prompt = buildDefaultPrompt();
+
+        assertTrue(prompt.contains("# 语言与英语"));
+        assertTrue(prompt.contains("# 判断与来源"));
+        assertTrue(prompt.contains("不因过去学过英语就每句双语"));
+        assertTrue(prompt.contains("没核对就不加引号"));
+        assertTrue(prompt.contains("method_search"));
+        assertTrue(prompt.contains("用户拒绝练习或信息紧急时"));
+        assertTrue(prompt.contains("默认一到三句"));
+        assertTrue(prompt.contains("150字内"));
+        assertTrue(prompt.contains("建议只给一个做法"));
+        assertTrue(prompt.contains("用户要求详解、比较或多项资料时再展开"));
+        assertTrue(prompt.indexOf("# 普通聊天") > prompt.indexOf("# 运行环境"));
+        assertTrue(prompt.contains("不为续聊硬问"));
+        assertTrue(prompt.contains("翻译默认一句推荐表达"));
+        assertTrue(prompt.contains("旧经历不代表当前安排"));
+        assertTrue(prompt.contains("不替用户决定停止练习"));
+        assertFalse(prompt.contains("Spacing Effects in Learning"), "卡片正文不进入常驻提示词");
+    }
+
+    @Test
+    void referenceLookupsStayOnTopicAndHistoryDisclosesItsLimitedScope() {
+        String ordinary = buildDefaultPrompt();
+        String project = PromptBuilder.buildProjectSystemPrompt("test-model", temporaryDirectory.toString());
+
+        assertTrue(ordinary.contains("查资料只解释所问，不照抄整卡，不安排练习或休息"));
+        assertTrue(ordinary.contains("用户要求详解、比较或多项资料时再展开"));
+        assertFalse(project.contains("不安排练习或休息"));
+        for (String prompt : List.of(ordinary, project)) {
+            assertTrue(prompt.contains("说明仅为部分近期记录"));
+        }
     }
 
     @Test

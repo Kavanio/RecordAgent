@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BrainCircuit, Check, Database, FileText, PauseCircle, RefreshCw, Save, Sparkles, Trash2, X } from 'lucide-react';
+import { BrainCircuit, Check, Database, FileText, PauseCircle, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import {
   acceptProfileProposal, checkProfileMaintenance, clearPersonalContextProfile,
   fetchPersonalContext, fetchProfileMaintenance, rejectProfileProposal,
@@ -8,10 +8,13 @@ import {
 import type { PersonalContextSettings, ProfileMaintenanceStatus } from '../../types/personalContext';
 import { Button } from '../common/Button';
 import { useMessage } from '../common/Message';
+import { Modal } from '../common/Modal';
+import { SettingsGroup, SettingsRow } from './SettingsGroup';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { LeverSwitch } from '../common/LeverSwitch';
 import { formatTokenCount } from '../chat/tokenUsageFormat';
 import { AgentResetSection } from '../reset/AgentResetSection';
+import { ExperienceMemorySettings } from '../memory/ExperienceMemorySettings';
 import { SettingsPageLayout } from './SettingsPageLayout';
 import styles from './PersonalContextSettingsPage.module.css';
 
@@ -34,6 +37,7 @@ export function PersonalContextSettingsPage() {
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingClear, setConfirmingClear] = useState(false);
+  const [managingProfile, setManagingProfile] = useState(false);
 
   const applySettings = (next: PersonalContextSettings) => {
     setSettings(next);
@@ -125,10 +129,10 @@ export function PersonalContextSettingsPage() {
   const lastChecked = maintenance.lastCheckedAt
     ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(maintenance.lastCheckedAt)) : null;
 
-  return <SettingsPageLayout title="个人上下文" description="用有界的稳定画像与相关记忆，让 Agent 了解你，同时控制每轮上下文成本。">
+  return <SettingsPageLayout title="个人上下文" description="管理 Agent 对你的了解和记忆。">
     <div className={styles.content}>
       <section className={styles.switchRow} aria-labelledby="context-switch-title">
-        <div className={styles.switchCopy}><span className={styles.icon}><BrainCircuit size={18} aria-hidden="true" /></span><div><h2 id="context-switch-title">自动使用个人上下文</h2><p>{settings.enabled ? '对话时注入画像，并按当前问题召回少量相关记忆。' : '已暂停自动注入，画像与记忆仍保留在本机。'}</p></div></div>
+        <div className={styles.switchCopy}><span className={styles.icon}><BrainCircuit size={18} aria-hidden="true" /></span><div><h2 id="context-switch-title">自动使用个人上下文</h2><p>{settings.enabled ? '回答时参考你的个人信息和相关经历。' : '已暂停使用，已有个人信息和记忆不会删除。'}</p></div></div>
         <LeverSwitch checked={settings.enabled} disabled={saving} label={settings.enabled ? '已开启' : '已暂停'} onChange={(enabled) => void mutateSettings(() => updatePersonalContextEnabled(enabled), enabled ? '已开启个人上下文' : '已暂停个人上下文')} />
       </section>
 
@@ -138,23 +142,34 @@ export function PersonalContextSettingsPage() {
         <div><dt><PauseCircle size={14} />合计上限</dt><dd>≤ {formatTokenCount(settings.totalTokenBudget)}</dd></div>
       </dl>
 
-      <section className={styles.editor} aria-labelledby="profile-editor-title">
-        <div className={styles.editorHeading}><div><h2 id="profile-editor-title">个人画像</h2><p>写入长期稳定的信息，例如沟通偏好、常用技术栈与工作习惯；不要填写密钥或密码。</p></div><span>{sourceLabel}</span></div>
-        {settings.source === 'legacy' && <p className={styles.legacyNote}>当前内容从旧版画像读取。保存后会创建独立画像文件，后续由你直接维护。</p>}
-        <textarea className={styles.textarea} value={draft} maxLength={settings.maxProfileChars} onChange={(event) => setDraft(event.target.value)} placeholder={'例如：\n- 偏好简短、先给结论的中文回复\n- 常用 React、TypeScript 与 Spring Boot\n- 做重大取舍前希望先看到方案与风险'} aria-describedby="profile-help" />
-        <div className={styles.editorFooter} id="profile-help"><span className={atLimit ? styles.limit : ''}>{draft.length.toLocaleString()} / {settings.maxProfileChars.toLocaleString()} 字符 · 已保存画像约 {formatTokenCount(settings.estimatedTokens)} tokens</span><div className={styles.actions}><Button variant="ghost" icon={<Trash2 size={14} />} disabled={saving || (!draft && settings.source === 'explicit')} onClick={() => setConfirmingClear(true)}>清空画像</Button><Button variant="primary" icon={<Save size={14} />} disabled={saving || !dirty} onClick={() => void mutateSettings(() => updatePersonalContextProfile(draft), '个人画像已保存')}>{saving ? '正在保存' : '保存画像'}</Button></div></div>
-      </section>
+      <SettingsGroup title="个人画像">
+        <SettingsRow label={settings.profile.trim() ? '已保存个人画像' : '尚未填写个人画像'} description="管理你的偏好和习惯，内容仅在打开后显示。"
+          control={<Button variant="outline" onClick={() => setManagingProfile(true)}>管理画像</Button>} />
+      </SettingsGroup>
 
-      <section className={styles.maintenance} aria-labelledby="maintenance-title">
-        <div className={styles.maintenanceHeader}>
-          <div className={styles.switchCopy}><span className={styles.icon}><Sparkles size={18} aria-hidden="true" /></span><div><h2 id="maintenance-title">画像辅助维护</h2><p>对话结束后低频检查新记忆，只生成提案；你确认后才会修改画像。</p></div></div>
-          <LeverSwitch checked={maintenance.enabled} disabled={saving || checking} label={maintenance.enabled ? '已开启' : '已关闭'} onChange={(enabled) => void toggleMaintenance(enabled)} />
-        </div>
-        <div className={styles.maintenanceMeta}>
-          <span>{RESULT_LABELS[maintenance.lastResult]}{lastChecked ? ` · ${lastChecked}` : ''}</span>
-          <Button variant="outline" size="sm" icon={<RefreshCw size={14} />} disabled={saving || checking || Boolean(proposal)} onClick={() => void checkNow()}>{checking ? '正在检查' : proposal ? '请先审核提案' : '立即检查'}</Button>
-        </div>
+      <SettingsGroup title="画像辅助维护">
+        <SettingsRow label="自动生成更新建议" description="根据新记忆建议更新个人信息，你确认后才修改。"
+          control={<LeverSwitch checked={maintenance.enabled} disabled={saving || checking} label={maintenance.enabled ? '已开启' : '已关闭'} onChange={(enabled) => void toggleMaintenance(enabled)} />} />
+        <SettingsRow label="检查状态" description={`${RESULT_LABELS[maintenance.lastResult]}${lastChecked ? ` · ${lastChecked}` : ''}`}
+          control={<Button variant="outline" size="sm" icon={<RefreshCw size={14} />} disabled={saving || checking || Boolean(proposal)} onClick={() => void checkNow()}>{checking ? '正在检查' : proposal ? '请先审核提案' : '立即检查'}</Button>} />
+        {proposal ? <SettingsRow label="待审核建议" description="有一份更新建议，查看后再决定是否应用。"
+          control={<Button variant="outline" size="sm" onClick={() => setManagingProfile(true)}>审核画像建议</Button>} />
+          : <p className={styles.emptyProposal}>暂无更新建议，开启后最多每天自动检查一次新记忆。</p>}
+      </SettingsGroup>
 
+      <ExperienceMemorySettings />
+      <AgentResetSection />
+      <p className={styles.privacy}>个人信息和更新建议保存在本机，暂停使用不会删除。</p>
+    </div>
+
+    <Modal open={managingProfile} title="管理个人画像" width={760} centered busy={saving} onClose={() => setManagingProfile(false)}>
+      <div className={styles.profileDialog}>
+        <section className={styles.editor} aria-labelledby="profile-editor-title">
+          <div className={styles.editorHeading}><div><h2 id="profile-editor-title">个人画像</h2><p>写下你的偏好和习惯，请勿填写密码或密钥。</p></div><span>{sourceLabel}</span></div>
+          {settings.source === 'legacy' && <p className={styles.legacyNote}>这是旧版保存的个人信息，保存后可在这里继续编辑。</p>}
+          <textarea aria-label="个人画像内容" className={styles.textarea} value={draft} maxLength={settings.maxProfileChars} onChange={(event) => setDraft(event.target.value)} placeholder={'例如：\n- 偏好简短、先给结论的中文回复\n- 常用 React、TypeScript 与 Spring Boot\n- 做重大取舍前希望先看到方案与风险'} aria-describedby="profile-help" />
+          <div className={styles.editorFooter} id="profile-help"><span className={atLimit ? styles.limit : ''}>{draft.length.toLocaleString()} / {settings.maxProfileChars.toLocaleString()} 字符 · 已保存画像约 {formatTokenCount(settings.estimatedTokens)} tokens</span><div className={styles.actions}><Button variant="ghost" icon={<Trash2 size={14} />} disabled={saving || (!draft && settings.source === 'explicit')} onClick={() => setConfirmingClear(true)}>清空画像</Button><Button variant="primary" icon={<Save size={14} />} disabled={saving || !dirty} onClick={() => void mutateSettings(() => updatePersonalContextProfile(draft), '个人画像已保存')}>{saving ? '正在保存' : '保存画像'}</Button></div></div>
+        </section>
         {proposal && <div className={styles.proposal}>
           <div className={styles.proposalHeading}><div><h3>待审核画像提案</h3><p>{proposal.summary || '发现可能需要更新的长期信息。'}</p></div><span>{proposal.changes.length} 项变化</span></div>
           {proposalStale && <p className={styles.stale} role="alert">你已在提案生成后修改画像。请忽略本提案，再重新检查。</p>}
@@ -168,12 +183,8 @@ export function PersonalContextSettingsPage() {
           <textarea id="proposal-profile" className={`${styles.textarea} ${styles.proposalTextarea}`} value={proposalDraft} maxLength={settings.maxProfileChars} onChange={(event) => setProposalDraft(event.target.value)} />
           <div className={styles.proposalActions}><Button variant="ghost" icon={<X size={14} />} disabled={saving} onClick={() => void rejectProposal()}>忽略提案</Button><Button variant="primary" icon={<Check size={14} />} disabled={saving || proposalStale} onClick={() => void acceptProposal()}>{saving ? '正在应用' : '确认并应用'}</Button></div>
         </div>}
-        {!proposal && <p className={styles.emptyProposal}>没有待审核提案。自动检查只在开关开启、发现新记忆且距上次检查超过 24 小时时运行。</p>}
-      </section>
-
-      <AgentResetSection />
-      <p className={styles.privacy}>画像、开关、提案与最近 20 个历史版本均保存在本机。敏感片段不会进入自动提案；暂停不会删除任何数据。</p>
-    </div>
+      </div>
+    </Modal>
 
     <ConfirmDialog
       open={confirmingClear}

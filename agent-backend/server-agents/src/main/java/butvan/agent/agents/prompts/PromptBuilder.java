@@ -130,8 +130,44 @@ public class PromptBuilder {
     }
 
 
+    /**
+     * 构建普通会话（含日常聊天与随后的工程操作）使用的 System Prompt。
+     *
+     * @param modelName 当前模型名称
+     * @param workDir 当前工作目录
+     * @return 组装后的系统提示词
+     */
     public static String buildDefaultSystemPrompt(String modelName, String workDir) {
         EnvironmentContext env = detectEnvironment(modelName, workDir);
+        return engineeringSections(env)
+                .add(PromptsSections.conversationSection())
+                .add(PromptsSections.languageSection())
+                .add(PromptsSections.judgementSection())
+                .build();
+    }
+
+    /**
+     * 构建项目会话使用的 System Prompt。
+     *
+     * <p>项目会话聚焦软件工程执行，不带上日常聊天、英语练习与生活建议模块；工具、权限、
+     * 计划审批和验收要求保持不变。</p>
+     *
+     * @param modelName 当前模型名称
+     * @param workDir 当前项目根目录
+     * @return 组装后的系统提示词
+     */
+    public static String buildProjectSystemPrompt(String modelName, String workDir) {
+        EnvironmentContext env = detectEnvironment(modelName, workDir);
+        return engineeringSections(env).build();
+    }
+
+    /**
+     * 组装两种会话共用的工程与安全模块。
+     *
+     * @param env 当前运行环境
+     * @return 已加入共用模块的 builder
+     */
+    private static PromptBuilder engineeringSections(EnvironmentContext env) {
         return new PromptBuilder()
                 .add(PromptsSections.identitySection())
                 .add(PromptsSections.systemSection())
@@ -142,7 +178,6 @@ public class PromptBuilder {
                 .add(PromptsSections.usingToolsSection())
                 .add(PromptsSections.toneStyleSection())
                 .add(PromptsSections.outputEfficiencySection())
-                .add(PromptsSections.environmentSection(env))
-                .build();
+                .add(PromptsSections.environmentSection(env));
     }
 }

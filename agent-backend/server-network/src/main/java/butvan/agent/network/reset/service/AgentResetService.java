@@ -19,7 +19,7 @@ import java.util.concurrent.*;
 @Slf4j
 @Service
 public class AgentResetService {
-    public static final String SCOPE = "agent-reset-m1-v1";
+    public static final String SCOPE = "agent-reset-m2-v1";
     public static final String CONFIRMATION = "清除聊天与记忆";
     private final ResetBarrier barrier;
     private final AgentResetFiles files;
@@ -50,13 +50,15 @@ public class AgentResetService {
         if (tickets.size() >= 32) tickets.clear();
         String token = UUID.randomUUID().toString();
         long expiry = clock.millis() + 300_000;
-        tickets.put(token, new Ticket(user.currentUserId(), barrier.state().generation(), expiry));
-        return new Preview(token, expiry, SCOPE, barrier.state().generation(),
-                List.of("全部聊天、运行检查点和审批决定", "个人画像、提案、历史和长期记忆", "AgentScope 会话、任务、消息、计划和索引",
-                        "当前用户飞书旧正文和绑定", "聊天 Token 投影、AI 观察、建议、反馈、事实快照与生成结果"),
+        String scope = scopeVersion();
+        tickets.put(token, new Ticket(user.currentUserId(), barrier.state().generation(), expiry, scope));
+        var deletes = new ArrayList<>(List.of("全部聊天、运行检查点和审批决定", "个人画像、提案、历史和长期记忆", "AgentScope 会话、任务、消息、计划和索引",
+                "当前用户飞书旧正文和绑定", "聊天 Token 投影、AI 观察、建议、反馈、事实快照与生成结果"));
+        participants.forEach(participant -> deletes.addAll(participant.additionalDeletes(user.currentUserId())));
+        return new Preview(token, expiry, scope, barrier.state().generation(), deletes,
                 List.of("手记、资料、附件、待办、日程、财务和学习", "人工复盘目标、普通任务和已冻结报告副本",
                         "模型与飞书凭据、桌面偏好、非聊天系统用量", "SQLite 业务库、项目引用、真实项目与 Git worktree"),
-                "仅重置当前实际连接后端；归属不明的工作区会阻止清理。运行时使用过时需正常重启后端续做；Hindsight 尚未接入，未执行远端清理。已发送消息与系统备份无法撤回。");
+                "仅重置当前实际连接后端；归属不明的工作区会阻止清理。运行时使用过时需正常重启后端续做；远端目标按账本核对，未接入不代表远端已清理。已发送消息与系统备份无法撤回。");
     }
     /** 凭证、身份、范围与代次一起核验；同一请求重复提交返回同一任务。 */
     public synchronized Status confirm(Confirm input) {
@@ -64,15 +66,16 @@ public class AgentResetService {
             throw new ResetRequestException(400, "请输入“清除聊天与记忆”完成二次确认");
         if (input.requestId() == null || !input.requestId().matches("[a-zA-Z0-9-]{1,80}"))
             throw new ResetRequestException(400, "幂等请求 ID 无效");
-        if (!SCOPE.equals(input.scopeVersion())) throw new ResetRequestException(409, "清理范围已变化，请重新预览");
+        if (!scopeVersion().equals(input.scopeVersion())) throw new ResetRequestException(409, "清理范围已变化，请重新预览");
         var state = barrier.state();
         if (Objects.equals(input.requestId(), state.requestId()) && Objects.equals(user.currentUserId(), state.owner())) return current();
         if (barrier.blocked()) throw new ResetRequestException(409, "已有重置任务，请查看当前进度");
         Ticket ticket = tickets.get(input.confirmationToken());
         if (ticket == null || ticket.expiresAt() <= clock.millis()) throw new ResetRequestException(410, "预览确认凭证已失效，请重新预览");
-        if (!ticket.owner().equals(user.currentUserId()) || ticket.generation() != state.generation())
+        if (!ticket.owner().equals(user.currentUserId()) || ticket.generation() != state.generation()
+                || !ticket.scope().equals(input.scopeVersion()))
             throw new ResetRequestException(409, "用户或状态代次已变化，请重新预览");
-        barrier.begin(UUID.randomUUID().toString(), input.requestId(), ticket.owner());
+        barrier.begin(UUID.randomUUID().toString(), input.requestId(), ticket.owner(), ticket.scope());
         tickets.clear();
         schedule();
         return current();
@@ -83,7 +86,7 @@ public class AgentResetService {
         if (state.owner() != null && !state.owner().equals(user.currentUserId()))
             throw new ResetRequestException(404, "未找到重置任务");
         return new Status(state.resetId(), state.revision(), state.generation(), state.status(), state.completedSteps(), state.message(),
-                List.of("FAILED", "WAITING_RESTART", "WAITING_WRITERS").contains(state.status()), "NOT_INTEGRATED");
+                List.of("FAILED", "WAITING_RESTART", "WAITING_WRITERS").contains(state.status()), remoteStatus());
     }
     public synchronized Status get(String resetId) {
         if (!Objects.equals(resetId, barrier.state().resetId())) throw new ResetRequestException(404, "未找到重置任务");
@@ -147,7 +150,15 @@ public class AgentResetService {
             // 每次续做都清内存：启动时目录可能先于重置恢复，已完成步骤不能跳过本进程缓存失效。
             subagents.resetToBuiltins();
             barrier.stepDone("memory-caches");
-            barrier.complete();
+            String remote = remoteStatus();
+            if (!List.of("NOT_INTEGRATED", "NOT_REQUIRED", "COMPLETE").contains(remote))
+                throw new IllegalStateException("远端清理尚未完成");
+            String explanation = switch (remote) {
+                case "COMPLETE" -> "已登记远端目标及派生结果已核对清理";
+                case "NOT_REQUIRED" -> "没有需要清理的远端写入目标";
+                default -> "远端记忆尚未接入，未执行远端清理";
+            };
+            barrier.complete("本地聊天与记忆已清除，业务数据保留；" + explanation);
             for (var participant : participants) {
                 try { participant.resume(); }
                 catch (RuntimeException exception) { log.warn("重置后渠道恢复失败：participant={}", participant.id()); }
@@ -162,5 +173,19 @@ public class AgentResetService {
         }
     }
     @PreDestroy public synchronized void close() { closing = true; worker.shutdown(); }
-    private record Ticket(String owner, long generation, long expiresAt) { }
+    private String scopeVersion() {
+        String extensions = participants.stream().map(p -> p.id() + ":" + p.scopeVersion(user.currentUserId()))
+                .collect(java.util.stream.Collectors.joining("|"));
+        return SCOPE + "-" + UUID.nameUUIDFromBytes(extensions.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+    private String remoteStatus() {
+        // 按最保守状态汇总；未来增加远端参与方时不能被另一方的完成状态覆盖。
+        var statuses = participants.stream().map(p -> p.remoteStatus(user.currentUserId(), barrier.state().resetId())).toList();
+        if (statuses.stream().anyMatch(status -> !List.of("NOT_INTEGRATED", "NOT_REQUIRED", "COMPLETE", "FAILED", "UNKNOWN", "PROCESSING", "PENDING").contains(status)))
+            return "UNKNOWN";
+        for (String status : List.of("FAILED", "UNKNOWN", "PROCESSING", "PENDING", "COMPLETE", "NOT_REQUIRED"))
+            if (statuses.contains(status)) return status;
+        return "NOT_INTEGRATED";
+    }
+    private record Ticket(String owner, long generation, long expiresAt, String scope) { }
 }

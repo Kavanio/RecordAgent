@@ -16,7 +16,9 @@ public record ContextRequest(
         int totalBudget,
         int profileBudget,
         int memoryBudget,
-        int memoryTopK
+        int memoryTopK,
+        butvan.agent.agents.memory.MemorySourceRegistry.Channel channel,
+        java.util.function.BooleanSupplier cancelled
 ) {
 
     public static final int DEFAULT_TOTAL_BUDGET = 850;
@@ -32,6 +34,20 @@ public record ContextRequest(
         if (totalBudget < 0 || profileBudget < 0 || memoryBudget < 0 || memoryTopK < 0) {
             throw new IllegalArgumentException("上下文预算不能为负数");
         }
+        totalBudget = Math.min(totalBudget, DEFAULT_TOTAL_BUDGET);
+        profileBudget = Math.min(profileBudget, DEFAULT_PROFILE_BUDGET);
+        memoryBudget = Math.min(memoryBudget, DEFAULT_MEMORY_BUDGET);
+        memoryTopK = Math.min(memoryTopK, DEFAULT_MEMORY_TOP_K);
+        cancelled = cancelled == null ? () -> false : cancelled;
+    }
+
+    /** 旧调用只使用本地检索，不从缺少可信来源的参数推测远端外发许可。 */
+    public ContextRequest(String userId, String query, int totalBudget, int profileBudget, int memoryBudget, int memoryTopK) {
+        this(userId, query, totalBudget, profileBudget, memoryBudget, memoryTopK, null, () -> false);
+    }
+    public ContextRequest(String userId, String query, butvan.agent.agents.memory.MemorySourceRegistry.Channel channel,
+                          java.util.function.BooleanSupplier cancelled) {
+        this(userId, query, DEFAULT_TOTAL_BUDGET, DEFAULT_PROFILE_BUDGET, DEFAULT_MEMORY_BUDGET, DEFAULT_MEMORY_TOP_K, channel, cancelled);
     }
 
     public ContextRequest(String userId, String query) {

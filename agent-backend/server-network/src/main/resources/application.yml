@@ -15,6 +15,12 @@ butvan:
     require-token: ${BUTVAN_API_REQUIRE_TOKEN:false}
   cors:
     allowed-origins: ${BUTVAN_CORS_ALLOWED_ORIGINS:tauri://localhost,http://tauri.localhost,https://tauri.localhost,http://localhost:5173,http://127.0.0.1:5173}
+  memory:
+    hindsight:
+      # 仅允许用户显式触发只读探测；不注册生产保存／召回 Adapter。
+      probe-enabled: ${BUTVAN_MEMORY_HINDSIGHT_PROBE_ENABLED:false}
+      endpoint: ${BUTVAN_MEMORY_HINDSIGHT_ENDPOINT:}
+      token: ${BUTVAN_MEMORY_HINDSIGHT_TOKEN:}
 
 spring:
   servlet:

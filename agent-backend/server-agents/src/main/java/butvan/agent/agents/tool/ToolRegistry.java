@@ -19,6 +19,9 @@ public class ToolRegistry {
     /** capabilityCatalog：Tool 能力组的唯一目录。 */
     private final ToolCapabilityCatalog capabilityCatalog;
 
+    /** 应用工具在框架注册完成后重新应用，保证权威实现不会被同名内置工具覆盖。 */
+    private final List<AgentToolModule> toolModules;
+
     /**
      * 创建业务工具注册表。
      *
@@ -30,6 +33,7 @@ public class ToolRegistry {
             ToolCapabilityCatalog capabilityCatalog
     ) {
         this.capabilityCatalog = capabilityCatalog;
+        this.toolModules = List.copyOf(toolModules);
         this.toolkit = new Toolkit();
         toolModules.forEach(this.toolkit::registerTool);
     }
@@ -40,6 +44,7 @@ public class ToolRegistry {
      * <p>必须在 HarnessAgent 完成内置工具注册后调用，确保框架工具和业务工具使用同一套路由策略。</p>
      */
     public void enableOnDemandSchemas(Toolkit agentToolkit) {
+        toolModules.forEach(agentToolkit::registerTool);
         ToolSchemaRoutingPolicy.apply(agentToolkit, capabilityCatalog);
     }
 
