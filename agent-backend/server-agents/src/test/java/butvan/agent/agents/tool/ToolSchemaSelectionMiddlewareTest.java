@@ -36,6 +36,7 @@ class ToolSchemaSelectionMiddlewareTest {
     void setUp() {
         registerSchema("read_file");
         registerSchema("calendar_query");
+        registerSchema("method_search");
         registerSchema("diagnostic_ping");
         ToolSchemaRoutingPolicy.apply(toolkit, catalog);
         when(agent.getToolkit()).thenReturn(toolkit);
@@ -51,6 +52,17 @@ class ToolSchemaSelectionMiddlewareTest {
         assertEquals(
                 Set.of("reset_equipped_tools", "diagnostic_ping", "read_file"),
                 names(routed.tools()));
+    }
+
+    @Test
+    void activeDecisionKeepsEquippedMethodsButNotOtherPreviousGroups() {
+        var context = activeContext(Set.of());
+        var equipped = input(toolkit.getToolSchemas(List.of("methods", "calendar")));
+        assertEquals(Set.of("reset_equipped_tools", "diagnostic_ping", "method_search"),
+                names(invokeModelCall(context, equipped).tools()));
+        var deactivated = input(toolkit.getToolSchemas(List.of("calendar")));
+        assertEquals(Set.of("reset_equipped_tools", "diagnostic_ping"),
+                names(invokeModelCall(context, deactivated).tools()));
     }
 
     @Test

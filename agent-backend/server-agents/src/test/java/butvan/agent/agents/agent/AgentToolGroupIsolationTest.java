@@ -6,6 +6,7 @@ import butvan.agent.agents.method.MethodCardCatalog;
 import butvan.agent.agents.method.MethodCardTool;
 import butvan.agent.agents.model.ModelHolder;
 import butvan.agent.agents.routing.ToolRoutingDecision;
+import butvan.agent.agents.routing.ToolRoutingStateSynchronizer;
 import butvan.agent.agents.project.ProjectRegistry;
 import butvan.agent.agents.session.SessionCatalogService;
 import butvan.agent.agents.session.dto.CreateSessionRequest;
@@ -43,6 +44,50 @@ import static org.junit.jupiter.api.Assertions.*;
 /** 用真实 AgentFactory／Harness／工具执行链复现另一会话停用分组造成的 Unauthorized。 */
 class AgentToolGroupIsolationTest {
     @TempDir Path directory;
+
+    @Test
+    void methodLookupSurvivesRoutingReplacementAcrossAnInterveningChatTurn() {
+        var results = new java.util.ArrayList<String>();
+        var followupSchemaVisible = new java.util.concurrent.atomic.AtomicBoolean();
+        Model model = new Model() {
+            @Override public Flux<ChatResponse> stream(List<Msg> messages, List<ToolSchema> tools,
+                                                       GenerateOptions options) {
+                Msg last = messages.getLast();
+                if (last.getRole() == MsgRole.USER && !"随便聊聊".equals(last.getTextContent())) {
+                    if ("再查方法".equals(last.getTextContent())) followupSchemaVisible.set(tools.stream()
+                            .anyMatch(t -> "method_search".equals(t.getName())));
+                    return Flux.just(response(lookup(java.util.UUID.randomUUID().toString())));
+                }
+                if (last.getRole() == MsgRole.TOOL) results.add(last.getContentBlocks(ToolResultBlock.class)
+                        .stream().flatMap(r -> r.getOutput().stream()).filter(TextBlock.class::isInstance)
+                        .map(TextBlock.class::cast).map(TextBlock::getText)
+                        .collect(java.util.stream.Collectors.joining()));
+                return Flux.just(response(TextBlock.builder().text("完成").build()));
+            }
+            @Override public String getModelName() { return "turn-routing-regression"; }
+        };
+        var fixture = fixture(model);
+        var synchronizer = new ToolRoutingStateSynchronizer();
+        String sid = fixture.sessions().create(new CreateSessionRequest(SessionKind.GENERAL, "continuation", null)).id();
+        try (HarnessAgent agent = fixture.factory().currentAgent(sid)) {
+            List<String> requests = List.of("查主动回忆", "随便聊聊", "再查方法");
+            for (int turn = 0; turn < requests.size(); turn++) {
+                var decision = new ToolRoutingDecision(ToolRoutingDecision.Status.ACTIVE,
+                        turn == 0 ? Set.of("methods") : Set.of(), Map.of(), "fake", 0);
+                // 必须经过 AgentService 每个新轮次实际使用的状态同步边界，不能只测 Middleware。
+                var state = agent.getDelegate().getAgentState("test-user", sid);
+                if (synchronizer.apply(state, decision)) agent.getDelegate().saveAgentState("test-user", sid);
+                var rc = context(sid);
+                rc.put(ToolRoutingDecision.class, decision);
+                agent.streamEvents(new UserMessage(requests.get(turn)), rc).blockLast(Duration.ofSeconds(5));
+            }
+            assertEquals(2, results.size());
+            assertTrue(results.getFirst().contains("retrieval-practice-v1"));
+            assertFalse(results.getLast().contains("Unauthorized tool call"), results.getLast());
+            assertTrue(results.getLast().contains("retrieval-practice-v1"));
+            assertTrue(followupSchemaVisible.get(), "跨轮保留时模型可见 Schema 也必须与执行资格一致");
+        }
+    }
 
     @Test
     void manualGroupSelectionSurvivesEveryModelCallInAnActiveRoutedTurn() {

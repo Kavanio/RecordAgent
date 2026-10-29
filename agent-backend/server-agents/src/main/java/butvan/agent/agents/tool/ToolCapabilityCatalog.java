@@ -3,6 +3,7 @@ package butvan.agent.agents.tool;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -73,6 +74,17 @@ public class ToolCapabilityCatalog {
         if (toolName == null) return Optional.empty();
         // item：流处理中正在检查的单个能力组。
         return capabilities.stream().filter(item -> item.matches(toolName)).findFirst();
+    }
+
+    /**
+     * 合成本轮执行与 Schema 共用的分组：保留已启用的只读方法卡，避免历史调用失效。
+     * methods 仅匹配固定的 method_search，无个人数据或写入能力；其余组仍按轮替换。
+     * 首次未启用或被元工具显式停用时，不凭历史消息重新激活。
+     */
+    public static List<String> groupsForTurn(Set<String> routed, Collection<String> equipped) {
+        var groups = new java.util.TreeSet<>(routed);
+        if (equipped.contains("methods")) groups.add("methods");
+        return List.copyOf(groups);
     }
 
     /**
