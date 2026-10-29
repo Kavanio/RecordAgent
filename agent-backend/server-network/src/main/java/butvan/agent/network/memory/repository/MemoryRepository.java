@@ -23,7 +23,34 @@ public class MemoryRepository {
         String id = jdbc.queryForObject("SELECT id FROM memory_space WHERE owner_id=? AND environment=?", String.class, owner, environment);
         jdbc.update("INSERT INTO memory_settings(space_id) VALUES(?) ON CONFLICT DO NOTHING", id);
         jdbc.update("INSERT INTO memory_authorization(space_id) VALUES(?) ON CONFLICT DO NOTHING", id);
+        jdbc.update("INSERT INTO memory_runtime_policy(space_id) VALUES(?) ON CONFLICT DO NOTHING", id);
         return id;
+    }
+
+    /** 运行保护与授权分开存放；缺失时按保守默认值创建，不改动任何授权字段。 */
+    public RuntimePolicy runtimePolicy(String space) {
+        jdbc.update("INSERT INTO memory_runtime_policy(space_id) VALUES(?) ON CONFLICT DO NOTHING", space);
+        return jdbc.queryForObject("SELECT * FROM memory_runtime_policy WHERE space_id=?", (rs, n) ->
+                new RuntimePolicy(space, rs.getLong("version"), rs.getInt("batch_size"),
+                        rs.getInt("daily_write_limit"), rs.getInt("daily_status_limit"), rs.getInt("daily_recall_limit")), space);
+    }
+
+    /** 单条 CAS 更新节流参数；不触碰授权 revision、生效时间或来源资格。 */
+    public RuntimePolicy runtimePolicy(String space, long expectedVersion, int batchSize, int writeLimit,
+                                       int statusLimit, int recallLimit) {
+        conflict(jdbc.update("""
+                UPDATE memory_runtime_policy SET version=version+1,batch_size=?,daily_write_limit=?,
+                daily_status_limit=?,daily_recall_limit=? WHERE space_id=? AND version=?
+                """, batchSize, writeLimit, statusLimit, recallLimit, space, expectedVersion));
+        return runtimePolicy(space);
+    }
+
+    /** 只累计过滤原因，不保存被排除正文；仅用于已授权空间的运行状态展示。 */
+    public void recordSkip(String space, String day, String reason) {
+        jdbc.update("""
+                INSERT INTO memory_source_skip(space_id,day,reason,skipped) VALUES(?,?,?,1)
+                ON CONFLICT(space_id,day,reason) DO UPDATE SET skipped=skipped+1
+                """, space, day, reason);
     }
 
     /** 读取单一空间的独立开关与乐观锁版本。 */
@@ -42,7 +69,8 @@ public class MemoryRepository {
             return new Grant(rs.getLong("revision"), rs.getBoolean("active"), rs.getString("recipient_fingerprint"),
                     rs.getBoolean("allow_save"), rs.getBoolean("allow_recall"), decoded,
                     effective == null ? null : Instant.parse(effective), rs.getInt("retention_days"),
-                    rs.getInt("daily_write_limit"), rs.getInt("daily_query_limit"));
+                    rs.getInt("daily_write_limit"), rs.getInt("daily_query_limit"),
+                    rs.getInt("policy_version"), RecallMode.valueOf(rs.getString("recall_mode")));
         }, space);
     }
 
@@ -56,11 +84,13 @@ public class MemoryRepository {
     public void authorize(String space, Authorization input, Instant now) {
         conflict(jdbc.update("""
                 UPDATE memory_authorization SET revision=revision+1,active=1,recipient_fingerprint=?,
-                allow_save=?,allow_recall=?,channels=?,effective_at=?,retention_days=?,daily_write_limit=?,daily_query_limit=?
+                allow_save=?,allow_recall=?,channels=?,effective_at=?,retention_days=?,daily_write_limit=?,daily_query_limit=?,
+                policy_version=?,recall_mode=?
                 WHERE space_id=? AND revision=?
                 """, input.recipientFingerprint(), input.allowSave(), input.allowRecall(),
                 input.channels().stream().map(Enum::name).sorted().collect(Collectors.joining(",")), now.toString(),
-                input.retentionDays(), input.dailyWriteLimit(), input.dailyQueryLimit(), space, input.expectedRevision()));
+                input.retentionDays(), input.dailyWriteLimit(), input.dailyQueryLimit(), input.policyVersion(),
+                input.recallMode().name(), space, input.expectedRevision()));
         invalidate(space);
     }
 

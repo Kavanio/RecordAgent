@@ -1,7 +1,8 @@
 import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
 import type {
   MemoryAuthorization, MemoryDocumentCommand, MemoryDocumentDetail,
-  MemoryDocumentPage, MemoryOperation, MemorySettings, MemoryTrialConnect, MemoryTrialConnection,
+  MemoryDocumentPage, MemoryOperation, MemoryRuntimePolicy, MemorySettings, MemoryStatus,
+  MemoryTrialConnect, MemoryTrialConnection,
 } from '../types/experienceMemory';
 
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
@@ -22,6 +23,17 @@ export const connectMemoryTrial = (input: MemoryTrialConnect) => request<MemoryT
 export const fetchMemorySettings = () => request<MemorySettings>('/settings');
 export const saveMemorySettings = (settings: MemorySettings, autoSave: boolean, autoRecall: boolean) =>
   request<MemorySettings>('/settings', 'PUT', { expectedVersion: settings.version, autoSave, autoRecall });
+/** 只调节流；不改变用途、渠道、召回范围，也不产生新授权。 */
+export const saveMemoryRuntimePolicy = (policy: MemoryRuntimePolicy) =>
+  request<MemoryRuntimePolicy>('/runtime-policy', 'PUT', {
+    expectedVersion: policy.version,
+    batchSize: policy.batchSize,
+    dailyWriteLimit: policy.dailyWriteLimit,
+    dailyStatusLimit: policy.dailyStatusLimit,
+    dailyRecallLimit: policy.dailyRecallLimit,
+  });
+/** 只读本地积压与暂停原因，不触发远端探测。 */
+export const fetchMemoryStatus = () => request<MemoryStatus>('/status');
 export const authorizeMemory = (input: MemoryAuthorization) =>
   request<{ revision: number; effectiveAt: string }>('/authorization', 'POST', input);
 export const revokeMemory = (expectedRevision: number, requestId: string) =>

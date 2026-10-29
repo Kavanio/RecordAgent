@@ -3,6 +3,7 @@ package butvan.agent.network.memory;
 import butvan.agent.network.controller.ApiExceptionHandler;
 import butvan.agent.network.memory.controller.MemoryController;
 import butvan.agent.network.memory.service.MemoryService;
+import butvan.agent.network.memory.service.MemoryStatusService;
 import butvan.agent.network.reset.service.ResetOperationAspect;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -22,7 +23,9 @@ class MemoryHttpIntegrationTest {
         var proxy = new AspectJProxyFactory(f.service);
         proxy.setProxyTargetClass(true);
         proxy.addAspect(new ResetOperationAspect(f.barrier));
-        return MockMvcBuilders.standaloneSetup(new MemoryController(proxy.getProxy()))
+        return MockMvcBuilders.standaloneSetup(new MemoryController(proxy.getProxy(), new MemoryStatusService(
+                        f.service, new butvan.agent.network.memory.repository.MemoryStatusRepository(f.jdbc),
+                        new butvan.agent.network.memory.repository.MemoryRecallRepository(f.jdbc), f.clock)))
                 .setControllerAdvice(new ApiExceptionHandler()).build();
     }
     private String grant() {

@@ -30,7 +30,7 @@ public class MemoryResetParticipant implements ResetParticipant {
     @Override public String id() { return "experience-memory"; }
     @Override public String scopeVersion(String owner) { return "memory-m2-v3:" + remote.recipientFingerprint(); }
     @Override public List<String> additionalDeletes(String owner) {
-        return List.of("经历记忆授权、来源资格、本域纠正正文、管理与远端操作账本；已登记远端目标及其派生结果（未核对完成时保持保护）");
+        return List.of("经历记忆授权、来源资格、本域纠正正文、管理与远端操作账本、过滤计数和运行保护；已登记远端目标及其派生结果（未核对完成时保持保护）");
     }
     @Override public String remoteStatus(String owner, String resetId) {
         return repository.statusForOwner(owner, environment, resetId);

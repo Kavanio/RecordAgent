@@ -51,6 +51,20 @@ final class MemoryRecallFixture implements AutoCloseable {
         gateway.reply = List.of(new MemoryRecallGateway.Candidate("曾尝试用手记学英语，当时感觉不错。",
                 List.of(sync.writer.writes.getFirst().target().documentId()), true));
     }
+    /** V2 授权显式选择召回模式与持续处理，不提交任何自授权日额度。 */
+    void preparedV2(butvan.agent.network.memory.model.MemoryModels.RecallMode mode, int retentionDays) {
+        sync.base.service.authorize(new butvan.agent.network.memory.model.MemoryModels.Authorization(0,
+                sync.base.remote.fingerprint, true, true, Set.of(Channel.DESKTOP), retentionDays, 0, 0,
+                butvan.agent.network.memory.model.MemoryModels.POLICY_V2, mode, true, true, true, "grant-v2"));
+        sync.base.service.saveSettings(0, true, true);
+    }
+    /** 完成一次真实分享并让假写入成功，返回可用于召回核对的来源。 */
+    void synced() {
+        sync.finish(sync.admit("今天尝试把手记翻成英文，感觉不错。"), MessageStatus.COMPLETED, true);
+        sync.sync.runOnce(20);
+        gateway.reply = List.of(new MemoryRecallGateway.Candidate("曾尝试用手记学英语，当时感觉不错。",
+                List.of(sync.writer.writes.getFirst().target().documentId()), true));
+    }
     ContextRequest request(String query) { return new ContextRequest("local-default", query, Channel.DESKTOP, () -> false); }
     MemoryRecallPort.Request portRequest(java.util.function.BooleanSupplier cancelled) {
         return new MemoryRecallPort.Request("local-default", "英语学习", 500, 4, Channel.DESKTOP, cancelled);

@@ -15,14 +15,14 @@ import java.util.concurrent.*;
 public class MemorySyncScheduler implements AutoCloseable {
     private final ScheduledExecutorService executor;
     @Autowired public MemorySyncScheduler(MemorySyncService sync, MemoryWriteGateway writer) { this(sync, writer, Duration.ofSeconds(2)); }
-    /** 短间隔仅供隔离测试；生产固定两秒，每次最多五项，无并行堆积。 */
+    /** 短间隔仅供隔离测试；生产固定两秒，批次大小取自独立运行保护，无并行堆积。 */
     public MemorySyncScheduler(MemorySyncService sync, MemoryWriteGateway writer, Duration delay) {
         if (delay == null || delay.compareTo(Duration.ofMillis(10)) < 0 || delay.compareTo(Duration.ofSeconds(2)) > 0)
             throw new IllegalArgumentException("记忆调度间隔无效");
         executor = Executors.newSingleThreadScheduledExecutor(task -> Thread.ofPlatform().daemon(true).name("memory-sync-worker").unstarted(task));
         executor.scheduleWithFixedDelay(() -> {
             if (writer.recipientFingerprint() == null || writer.recipientFingerprint().isBlank()) return;
-            try { sync.runOnce(5); }
+            try { sync.runOnce(); }
             catch (ResetBlockedException blocked) { log.debug("记忆消费因重置保护暂停"); }
             catch (RuntimeException failure) { log.warn("记忆后台消费未完成：errorType={}", failure.getClass().getSimpleName()); }
         }, delay.toMillis(), delay.toMillis(), TimeUnit.MILLISECONDS);

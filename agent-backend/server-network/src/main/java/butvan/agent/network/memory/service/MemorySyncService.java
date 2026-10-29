@@ -5,6 +5,8 @@ import butvan.agent.agents.reset.*;
 import butvan.agent.agents.session.*;
 import butvan.agent.agents.session.dto.TranscriptMessageDto.MessageStatus;
 import butvan.agent.network.memory.client.*;
+import butvan.agent.network.memory.model.MemoryModels.Limits;
+import butvan.agent.network.memory.model.MemoryModels.Meter;
 import butvan.agent.network.memory.repository.MemorySyncRepository;
 import butvan.agent.network.memory.repository.MemorySyncRepository.*;
 import lombok.extern.slf4j.Slf4j;
@@ -61,6 +63,12 @@ public class MemorySyncService {
         });
     }
 
+    /** 生产调度入口：每批大小来自独立运行保护，不受授权 revision 影响。 */
+    public int runOnce() {
+        if (writer.recipientFingerprint() == null || writer.recipientFingerprint().isBlank()) return 0;
+        return runOnce(guarded(() -> memory.runtimePolicy().batchSize()));
+    }
+
     /** 显式的一批消费入口；关闭写入 Adapter 时不读原文、不调用任何网络。 */
     public int runOnce(int requestedLimit) {
         int limit = limit(requestedLimit);
@@ -69,11 +77,12 @@ public class MemorySyncService {
             var state = memory.state();
             if (!state.authorized() || !state.settings().autoSave()
                     || !state.recipientFingerprint().equals(writer.recipientFingerprint())) return 0;
+            var limits = memory.limits(state.grant());
             reconcile(limit);
             var operations = repository.due(state.settings().spaceId(), clock.millis(), limit);
             for (var operation : operations) {
                 if (Thread.currentThread().isInterrupted()) break;
-                process(operation, state.grant());
+                process(operation, state.grant(), limits);
             }
             return operations.size();
         });
@@ -95,19 +104,19 @@ public class MemorySyncService {
         });
     }
 
-    private void process(Operation operation, butvan.agent.network.memory.model.MemoryModels.Grant grant) {
+    private void process(Operation operation, butvan.agent.network.memory.model.MemoryModels.Grant grant, Limits limits) {
         // 只读查询允许接管过期 claim；旧生产者仍持发送锁，删除须等待其真实退出。
         if (List.of("SUBMITTED", "UNKNOWN", "CLAIMED").contains(operation.state())) {
-            processLocked(operation, grant);
+            processLocked(operation, grant, limits);
             return;
         }
         var lock = memory.sourceOperationLock(operation.sourceId());
         if (!lock.tryLock()) return;
-        try { processLocked(operation, grant); }
+        try { processLocked(operation, grant, limits); }
         finally { lock.unlock(); }
     }
 
-    private void processLocked(Operation operation, butvan.agent.network.memory.model.MemoryModels.Grant grant) {
+    private void processLocked(Operation operation, butvan.agent.network.memory.model.MemoryModels.Grant grant, Limits limits) {
         var candidate = repository.source(operation.sourceId());
         if (candidate.isEmpty()) return;
         SourceRow source = candidate.get();
@@ -118,8 +127,10 @@ public class MemorySyncService {
         }
         boolean query = List.of("SUBMITTED", "UNKNOWN", "CLAIMED").contains(operation.state());
         String day = clock.instant().atZone(ZoneOffset.UTC).toLocalDate().toString();
+        Meter meter = query ? limits.statusMeter() : Meter.WRITE;
+        int dailyLimit = query ? limits.statusLimit() : limits.writeLimit();
         var token = transaction.execute(status -> repository.claim(operation, source.space(), day, clock.millis(),
-                query ? grant.queryLimit() : grant.writeLimit(), query));
+                dailyLimit, meter));
         if (token.isEmpty()) return;
         if ((query && operation.queries() >= 8) || (!query && operation.attempts() >= 3)) {
             repository.finish(operation.id(), token.get(), query ? "UNKNOWN" : "FAILED", Long.MAX_VALUE, "ATTEMPT_LIMIT");

@@ -55,9 +55,16 @@ public class MemoryResetRepository {
         jdbc.update("DELETE FROM memory_source_document WHERE space_id=?", space);
         jdbc.update("DELETE FROM memory_sync_cursor WHERE space_id=?", space);
         jdbc.update("DELETE FROM memory_command WHERE space_id=?", space);
+        // 过滤计数属于从聊天派生的个人状态；运行保护恢复保守默认，已发生用量不退还。
+        jdbc.update("DELETE FROM memory_source_skip WHERE space_id=?", space);
+        jdbc.update("""
+                UPDATE memory_runtime_policy SET version=version+1,batch_size=5,daily_write_limit=500,
+                daily_status_limit=2000,daily_recall_limit=200 WHERE space_id=?
+                """, space);
         jdbc.update("""
                 UPDATE memory_authorization SET recipient_fingerprint='',allow_save=0,allow_recall=0,channels='',
-                effective_at=NULL,retention_days=0,daily_write_limit=0,daily_query_limit=0 WHERE space_id=?
+                effective_at=NULL,retention_days=0,daily_write_limit=0,daily_query_limit=0,
+                policy_version=1,recall_mode='RECENT_DAYS' WHERE space_id=?
                 """, space);
         String status = jdbc.queryForObject("SELECT remote_status FROM memory_reset WHERE space_id=? AND reset_id=?", String.class, space, resetId);
         if (!List.of("NOT_REQUIRED", "NOT_INTEGRATED").contains(status)) status(space, resetId, "COMPLETE");

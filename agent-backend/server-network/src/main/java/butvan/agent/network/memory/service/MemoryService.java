@@ -6,6 +6,7 @@ import butvan.agent.agents.reset.ResetBarrier;
 import butvan.agent.network.memory.client.MemoryRemoteGateway;
 import butvan.agent.network.memory.model.MemoryModels.*;
 import butvan.agent.network.memory.repository.MemoryRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -19,6 +20,7 @@ import java.util.*;
 import java.util.function.Supplier;
 
 /** 授权与来源资格的唯一应用入口；租约包含整个数据库提交，不负责聊天接线或外发。 */
+@Slf4j
 @Service
 public class MemoryService implements MemorySourceRegistry {
     private final MemoryRepository repository;
@@ -87,7 +89,8 @@ public class MemoryService implements MemorySourceRegistry {
             String space = space();
             String hash = hash(input.expectedRevision() + ":" + input.recipientFingerprint() + ":" + input.allowSave()
                     + ":" + input.allowRecall() + ":" + new TreeSet<>(input.channels()) + ":" + input.retentionDays()
-                    + ":" + input.dailyWriteLimit() + ":" + input.dailyQueryLimit());
+                    + ":" + input.dailyWriteLimit() + ":" + input.dailyQueryLimit() + ":" + input.policyVersion()
+                    + ":" + input.recallMode() + ":" + input.continuousProcessing() + ":" + input.acknowledgeSourceImpact());
             var previous = replay(space, input.requestId(), "AUTHORIZE", hash);
             if (previous.isPresent()) return previous.get();
             if (!input.recipientFingerprint().equals(fingerprint()) || !remoteAvailable())
@@ -116,6 +119,40 @@ public class MemoryService implements MemorySourceRegistry {
             repository.command(space, requestId, "REVOKE", hash, result);
             return result;
         });
+    }
+
+    /** 供 Worker／召回解析本次配额类别；V1 旧授权仍共用合并查询上限。 */
+    public Limits limits(Grant grant) {
+        return guarded(null, () -> Limits.of(grant, repository.runtimePolicy(space())));
+    }
+
+    /** 运行保护快照；读取本身不探测远端或启用任何开关。 */
+    public RuntimePolicy runtimePolicy() {
+        return guarded(null, () -> repository.runtimePolicy(space()));
+    }
+
+    /** 只改节流参数；不产生新授权，也不使已登记来源失效。 */
+    public RuntimePolicy saveRuntimePolicy(long expectedVersion, int batchSize, int writeLimit, int statusLimit, int recallLimit) {
+        if (expectedVersion < 0 || batchSize < 1 || batchSize > 20 || writeLimit < 1 || writeLimit > 100_000
+                || statusLimit < 1 || statusLimit > 100_000 || recallLimit < 1 || recallLimit > 100_000)
+            throw new MemoryRequestException(400, "请填写有效的运行批次与每日调用保护（1—100000）。");
+        return guarded(null, () -> repository.runtimePolicy(space(), expectedVersion, batchSize, writeLimit, statusLimit, recallLimit));
+    }
+
+    /** 仅记录已授权空间被过滤的原因计数；不保存正文，也不阻断聊天。 */
+    public void skip(MemorySourceRegistry.Channel channel, String reason) {
+        if (channel == null || reason == null || !reason.matches("[A-Z_]{1,40}")) return;
+        try {
+            guarded(null, () -> {
+                String space = space();
+                Grant grant = currentGrant(space);
+                if (!repository.settings(space).autoSave() || !allowed(grant, true) || !grant.channels().contains(channel)) return null;
+                repository.recordSkip(space, clock.instant().atZone(java.time.ZoneOffset.UTC).toLocalDate().toString(), reason);
+                return null;
+            });
+        } catch (RuntimeException exception) {
+            log.info("记忆过滤计数未保存：errorType={}", exception.getClass().getSimpleName());
+        }
     }
 
     @Override public Optional<Receipt> capture(Source source) {
@@ -193,11 +230,34 @@ public class MemoryService implements MemorySourceRegistry {
         if (input == null || !input.confirmed() || input.expectedRevision() < 0
                 || input.recipientFingerprint() == null || !input.recipientFingerprint().matches("[a-zA-Z0-9_-]{1,128}")
                 || (!input.allowSave() && !input.allowRecall()) || input.channels() == null || input.channels().isEmpty()
-                || input.channels().stream().anyMatch(Objects::isNull) || input.retentionDays() < 1 || input.retentionDays() > 3650
+                || input.channels().stream().anyMatch(Objects::isNull))
+            throw new MemoryRequestException(400, "请确认有效的记忆用途与渠道。");
+        requestId(input.requestId());
+        if (input.v2()) validateV2(input);
+        else validateV1(input);
+    }
+
+    /** V1 保持原有限期与自授权日额度，升级本身不扩大旧确认内容。 */
+    private void validateV1(Authorization input) {
+        if (input.retentionDays() < 1 || input.retentionDays() > 3650
                 || input.dailyWriteLimit() < 1 || input.dailyWriteLimit() > 1000
                 || input.dailyQueryLimit() < 1 || input.dailyQueryLimit() > 1000)
-            throw new MemoryRequestException(400, "请确认有效的记忆用途、渠道、保留期限和调用上限");
-        requestId(input.requestId());
+            throw new MemoryRequestException(400, "请确认有效的保留期限和调用上限。");
+    }
+
+    /** V2 必须显式选择召回模式、确认持续后台处理与旧来源失效，且不得混入 V1 日额度。 */
+    private void validateV2(Authorization input) {
+        if (!input.continuousProcessing() || !input.acknowledgeSourceImpact())
+            throw new MemoryRequestException(400, "请确认持续后台处理及已有来源不能自动沿用。");
+        if (input.dailyWriteLimit() != 0 || input.dailyQueryLimit() != 0)
+            throw new MemoryRequestException(400, "长期召回授权不包含每日记忆条数上限，请在运行保护中调整。");
+        if (input.recallMode() == RecallMode.ALL_AUTHORIZED) {
+            if (input.retentionDays() != 0)
+                throw new MemoryRequestException(400, "长期召回不再按统一保留天数排除来源。");
+            return;
+        }
+        if (input.retentionDays() < 1 || input.retentionDays() > 3650)
+            throw new MemoryRequestException(400, "请填写 1—3650 天的召回时间范围。");
     }
     private void validate(Source source) {
         if (source == null || !Objects.equals(source.owner(), user.currentUserId()) || source.generation() < 0

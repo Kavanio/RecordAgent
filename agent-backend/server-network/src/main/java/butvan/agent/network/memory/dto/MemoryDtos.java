@@ -11,11 +11,26 @@ public final class MemoryDtos {
     public record SettingsResponse(long version, boolean autoSave, boolean autoRecall, long authorizationRevision,
                                    boolean authorized, boolean remoteAvailable, String recipientFingerprint,
                                    boolean allowSave, boolean allowRecall, Set<Channel> channels, Instant effectiveAt,
-                                   int retentionDays, int dailyWriteLimit, int dailyQueryLimit) { }
+                                   int retentionDays, int dailyWriteLimit, int dailyQueryLimit,
+                                   int policyVersion, String recallMode, RuntimePolicyResponse runtimePolicy) { }
+    /** 运行保护与用途授权分开展示；它不改变授权 revision 或召回范围。 */
+    public record RuntimePolicyResponse(long version, int batchSize, int dailyWriteLimit, int dailyStatusLimit,
+                                        int dailyRecallLimit) { }
+    public record SaveRuntimePolicy(long expectedVersion, int batchSize, int dailyWriteLimit, int dailyStatusLimit,
+                                    int dailyRecallLimit) { }
     public record SaveSettings(long expectedVersion, boolean autoSave, boolean autoRecall) { }
+    /** V2 字段均可为 null：V1 客户端只提交期限与日额度，后端按 V1 严格解释。 */
     public record Authorize(long expectedRevision, String recipientFingerprint, boolean allowSave, boolean allowRecall,
-                            Set<Channel> channels, int retentionDays, int dailyWriteLimit, int dailyQueryLimit,
-                            boolean confirmed, String requestId) { }
+                            Set<Channel> channels, Integer retentionDays, Integer dailyWriteLimit, Integer dailyQueryLimit,
+                            Integer policyVersion, String recallMode, Boolean continuousProcessing,
+                            Boolean acknowledgeSourceImpact, boolean confirmed, String requestId) { }
+    /** 当日调用计数与当前生效上限；V1 只有合并查询列，不与 V2 分类互相换算。 */
+    public record UsageResponse(String day, int writeCalls, int legacyCombinedQueries, int statusCalls, int recallCalls,
+                                int writeLimit, int statusLimit, int recallLimit) { }
+    /** 只读的本地权威状态；不包含正文，也不代表远端完整删除或已形成具体事实。 */
+    public record StatusResponse(long sourceTotal, long sourceActive, java.util.Map<String, Long> operations,
+                                 Instant oldestPendingAt, java.util.List<String> pauseReasons, UsageResponse usage,
+                                 java.util.Map<String, Long> skippedToday) { }
     public record Revoke(long expectedRevision, String requestId) { }
     public record AuthorizationResponse(long revision, Instant effectiveAt) { }
     /** 只读连通性与合约摘要，不把健康状态当成数据处理授权或删除保证。 */

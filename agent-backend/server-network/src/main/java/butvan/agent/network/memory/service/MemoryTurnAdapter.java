@@ -22,9 +22,15 @@ public class MemoryTurnAdapter implements MemoryTurnLifecycle {
     private final ResetBarrier barrier;
 
     @Override public void admitted(AgentUserCall request, String owner, String turnId) {
-        if (!memory.remoteAvailable() || !MemorySourcePolicy.eligible(request)) return;
+        if (!memory.remoteAvailable()) return;
         var session = sessions.requireActive(request.sessionId());
         if (session.kind() != SessionKind.GENERAL || session.projectId() != null) return;
+        var decision = MemorySourcePolicy.decide(request);
+        if (decision != MemorySourcePolicy.Decision.ELIGIBLE) {
+            // 只记录已授权空间的无正文原因计数，不保存被排除内容。
+            memory.skip(request.memoryChannel(), decision.reason());
+            return;
+        }
         long generation = barrier.state().generation();
         var user = transcript.readMemoryTurn(request.sessionId(), turnId).user();
         if (user == null || !user.content().equals(request.content().strip())) return;

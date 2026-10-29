@@ -6,6 +6,7 @@ import butvan.agent.agents.memory.*;
 import butvan.agent.agents.reset.*;
 import butvan.agent.agents.session.dto.TranscriptMessageDto.MessageStatus;
 import butvan.agent.network.memory.client.MemoryRecallGateway;
+import butvan.agent.network.memory.model.MemoryModels;
 import butvan.agent.network.memory.model.MemoryModels.State;
 import butvan.agent.network.memory.repository.*;
 import butvan.agent.network.memory.repository.MemorySyncRepository.SourceRow;
@@ -112,8 +113,11 @@ public class MemoryRecallAdapter implements MemoryRecallPort {
         var control = new MemoryRecallGateway.Control(deadline, () -> cancelled.get() || closed.get()
                 || request.cancelled().getAsBoolean() || !validScope(scope));
         if (control.isCancelled()) return Result.empty(Status.CANCELLED);
-        boolean reserved = Boolean.TRUE.equals(transaction.execute(status -> repository.reserveQuery(state.settings().spaceId(),
-                clock.instant().atZone(ZoneOffset.UTC).toLocalDate().toString(), state.grant().queryLimit())));
+        boolean reserved = Boolean.TRUE.equals(transaction.execute(status -> {
+            var limits = MemoryModels.Limits.of(state.grant(), memory.runtimePolicy());
+            return repository.reserve(state.settings().spaceId(),
+                    clock.instant().atZone(ZoneOffset.UTC).toLocalDate().toString(), limits.recallLimit(), limits.recallMeter());
+        }));
         if (!reserved) return Result.empty(Status.BUDGET_EXHAUSTED);
         int points = Math.min(1000, request.query().codePointCount(0, request.query().length()));
         String query = request.query().substring(0, request.query().offsetByCodePoints(0, points));
@@ -164,8 +168,11 @@ public class MemoryRecallAdapter implements MemoryRecallPort {
     /** 同一次权威读取返回原文，避免先核对哈希、再从另一次读取拼出未核对正文。 */
     private String verifiedOriginal(SourceRow source, Scope scope) {
         try {
-            if (source.generation() != scope.generation || source.revision() != scope.state.grant().revision()
-                    || source.occurredAt().plus(Duration.ofDays(scope.state.grant().retentionDays())).isBefore(clock.instant())
+            var grant = scope.state.grant();
+            // 长期模式只取消统一年龄上限；来源仍必须属于当前 revision 且远端写入已核对成功。
+            boolean aged = !grant.longTermRecall()
+                    && source.occurredAt().plus(Duration.ofDays(grant.retentionDays())).isBefore(clock.instant());
+            if (source.generation() != scope.generation || source.revision() != grant.revision() || aged
                     || repository.verifiedSource(scope.state.settings().spaceId(), source.document(), scope.state.recipientFingerprint()).isEmpty()) return null;
             var turn = verifier.read(source);
             return turn != null && turn.assistant() != null && turn.assistant().status() == MessageStatus.COMPLETED

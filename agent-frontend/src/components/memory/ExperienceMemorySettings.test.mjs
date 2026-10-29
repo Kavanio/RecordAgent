@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, test } from 'node:test';
 import { act, getReact, jsonResponse, loadModule, mount, startHarness, stopHarness, useFetchStub } from '../../testing/harness.mjs';
 
-let Page, Provider, view, stub, settings, documents, detail, operation, calls, failCommand, failSettings, connection, failConnection, retryCleanupProgress;
+let Page, Provider, view, stub, settings, documents, detail, operation, calls, failCommand, failSettings, connection, failConnection, retryCleanupProgress, memoryStatus;
 before(async () => {
   await startHarness();
   ({ ExperienceMemorySettings: Page } = await loadModule('/src/components/memory/ExperienceMemorySettings.tsx'));
@@ -13,7 +13,12 @@ after(stopHarness);
 beforeEach(() => {
   settings = { version: 0, autoSave: false, autoRecall: false, authorizationRevision: 0,
     authorized: false, remoteAvailable: false, recipientFingerprint: '', allowSave: false, allowRecall: false,
-    channels: [], effectiveAt: null, retentionDays: 0, dailyWriteLimit: 0, dailyQueryLimit: 0 };
+    channels: [], effectiveAt: null, retentionDays: 0, dailyWriteLimit: 0, dailyQueryLimit: 0,
+    policyVersion: 2, recallMode: 'ALL_AUTHORIZED',
+    runtimePolicy: { version: 0, batchSize: 5, dailyWriteLimit: 500, dailyStatusLimit: 2000, dailyRecallLimit: 200 } };
+  memoryStatus = { sourceTotal: 0, sourceActive: 0, operations: {}, oldestPendingAt: null, pauseReasons: [],
+    usage: { day: '2026-10-28', writeCalls: 0, legacyCombinedQueries: 0, statusCalls: 0, recallCalls: 0,
+      writeLimit: 500, statusLimit: 2000, recallLimit: 200 }, skippedToday: {} };
   documents = []; detail = null; operation = null; calls = []; failCommand = false; failSettings = false; failConnection = false;
   retryCleanupProgress = undefined;
   connection = { version: 0, configured: false, endpoint: '', processingChain: '', secureTransport: false,
@@ -35,6 +40,12 @@ beforeEach(() => {
       if (failSettings) return jsonResponse(null, 503);
       if (method === 'PUT') settings = { ...settings, autoSave: body.autoSave, autoRecall: body.autoRecall, version: settings.version + 1 };
       return jsonResponse({ ...settings });
+    }
+    if (path === '/status') return jsonResponse({ ...memoryStatus });
+    if (path === '/runtime-policy') {
+      settings = { ...settings, runtimePolicy: { version: settings.runtimePolicy.version + 1, batchSize: body.batchSize,
+        dailyWriteLimit: body.dailyWriteLimit, dailyStatusLimit: body.dailyStatusLimit, dailyRecallLimit: body.dailyRecallLimit } };
+      return jsonResponse(settings.runtimePolicy);
     }
     if (path === '/authorization') {
       if (method === 'POST') settings = { ...settings, ...body, authorized: true, authorizationRevision: 1 };
@@ -93,18 +104,61 @@ test('未接入时展示关闭状态及空来源，禁用授权，不发送外�
 test('用途与渠道须显式确认；授权成功不自动开启保存召回', async () => {
   settings.remoteAvailable = true; settings.recipientFingerprint = 'synthetic-chain'; await render();
   await click('查看并授权'); await click('确认授权范围');
-  assert.match(document.body.textContent, /请选择用途和渠道/);
+  assert.match(document.body.textContent, /请选择用途和允许渠道/);
   assert.equal(calls.filter(c => c.method === 'POST').length, 0);
   await act(async () => document.querySelector('input[aria-label="允许保存新经历"]').click());
   const labels = [...document.querySelectorAll('label')];
   await act(async () => labels.find(n => n.textContent === '桌面普通聊天').querySelector('input').click());
-  await change('#memory-retention', '30'); await change('#memory-writes', '5'); await change('#memory-queries', '5');
   await act(async () => [...document.querySelectorAll('label')].find(n => n.textContent.startsWith('我已确认')).querySelector('input').click());
+  await click('确认授权范围');
+  assert.match(document.body.textContent, /请确认持续后台处理/);
+  await act(async () => document.querySelector('input[aria-label="允许持续在后台处理新聊天"]').click());
+  await act(async () => document.querySelector('input[aria-label="确认已有来源不会自动沿用"]').click());
   await click('确认授权范围');
   const call = calls.find(c => c.path.endsWith('/authorization') && c.method === 'POST');
   assert.deepEqual(call.body.channels, ['DESKTOP']); assert.equal(call.body.allowRecall, false);
+  assert.equal(call.body.policyVersion, 2); assert.equal(call.body.recallMode, 'ALL_AUTHORIZED');
+  assert.equal(call.body.retentionDays, null);
+  assert.equal(call.body.continuousProcessing, true); assert.equal(call.body.acknowledgeSourceImpact, true);
+  assert.equal('dailyWriteLimit' in call.body, false, '长期授权不提交每日条数上限');
   assert.equal(call.headers.get('X-Agent-Generation'), '7');
   assert.ok([...document.querySelectorAll('[role="switch"]')].every(s => s.getAttribute('aria-checked') === 'false'));
+});
+
+test('最近天数模式校验范围；长期与近期模式互斥', async () => {
+  settings.remoteAvailable = true; settings.recipientFingerprint = 'synthetic-chain'; await render();
+  await click('查看并授权');
+  await act(async () => document.querySelector('input[aria-label="允许保存新经历"]').click());
+  const labels = [...document.querySelectorAll('label')];
+  await act(async () => labels.find(n => n.textContent === '桌面普通聊天').querySelector('input').click());
+  await act(async () => document.querySelector('input[aria-label="只召回最近一段时间"]').click());
+  await act(async () => document.querySelector('input[aria-label="允许持续在后台处理新聊天"]').click());
+  await act(async () => document.querySelector('input[aria-label="确认已有来源不会自动沿用"]').click());
+  await act(async () => [...document.querySelectorAll('label')].find(n => n.textContent.startsWith('我已确认')).querySelector('input').click());
+  await change('#memory-retention', '0'); await click('确认授权范围');
+  assert.match(document.body.textContent, /1—3650 天/);
+  await change('#memory-retention', '30'); await click('确认授权范围');
+  const call = calls.find(c => c.path.endsWith('/authorization') && c.method === 'POST');
+  assert.equal(call.body.recallMode, 'RECENT_DAYS'); assert.equal(call.body.retentionDays, 30);
+});
+
+test('运行保护单独保存，不修改授权；状态展示积压和过滤原因', async () => {
+  settings = { ...settings, authorized: true, remoteAvailable: true, allowSave: true, allowRecall: true,
+    authorizationRevision: 4, recipientFingerprint: 'synthetic', channels: ['DESKTOP'] };
+  memoryStatus = { ...memoryStatus, sourceTotal: 3, sourceActive: 2,
+    operations: { PENDING: 2, UNKNOWN: 1 }, oldestPendingAt: '2026-10-28T07:59:00Z',
+    pauseReasons: ['RECALL_DISABLED'], skippedToday: { USER_OPT_OUT: 1 } };
+  await render();
+  assert.match(view.text(), /待处理 2、失败 0、结果未知 1/);
+  assert.match(view.text(), /当前暂停：召回开关关闭/);
+  assert.match(view.text(), /今日过滤：你要求不记住 1/);
+  await click('调整运行保护');
+  await change('#memory-runtime-batch', '10'); await change('#memory-runtime-recall', '400');
+  await click('保存运行保护');
+  const call = calls.find(c => c.path === '/agent/memory/runtime-policy');
+  assert.equal(call.body.expectedVersion, 0); assert.equal(call.body.batchSize, 10); assert.equal(call.body.dailyRecallLimit, 400);
+  assert.equal(settings.authorizationRevision, 4, '运行保护不影响授权 revision');
+  assert.match(view.text(), /每批 10 条/);
 });
 
 test('保存召回各自控制；撤权须确认且 DELETE 使用 JSON 和当前 revision', async () => {

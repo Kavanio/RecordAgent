@@ -1,6 +1,7 @@
 package butvan.agent.network.memory.repository;
 
 import butvan.agent.agents.memory.MemorySourceRegistry.*;
+import butvan.agent.network.memory.model.MemoryModels.Meter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -76,9 +77,15 @@ public class MemorySyncRepository {
                 """, OPERATION, space, now, now, limit);
     }
     /** 短事务内先预占当天额度再 CAS 领取；失败调用不退额度。 */
-    public Optional<String> claim(Operation operation, String space, String day, long now, int dailyLimit, boolean query) {
+    public Optional<String> claim(Operation operation, String space, String day, long now, int dailyLimit, Meter meter) {
+        String column = switch (meter) {
+            case WRITE -> "write_calls";
+            case STATUS -> "status_calls";
+            case RECALL -> "recall_calls";
+            case LEGACY_QUERY -> "query_calls";
+        };
+        boolean query = meter != Meter.WRITE;
         jdbc.update("INSERT INTO memory_sync_usage(space_id,day) VALUES(?,?) ON CONFLICT DO NOTHING", space, day);
-        String column = query ? "query_calls" : "write_calls";
         int reserved = jdbc.update("UPDATE memory_sync_usage SET " + column + "=" + column + "+1 WHERE space_id=? AND day=? AND " + column + "<?",
                 space, day, dailyLimit);
         if (reserved == 0) return Optional.empty();
