@@ -50,7 +50,8 @@ class MemoryTrialConnectionTest {
             var proxy = new org.springframework.aop.aspectj.annotation.AspectJProxyFactory(runtime);
             proxy.setProxyTargetClass(true); proxy.addAspect(new butvan.agent.network.reset.service.ResetOperationAspect(f.barrier));
             var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(
-                    new butvan.agent.network.memory.controller.MemoryTrialConnectionController(proxy.getProxy()))
+                    new butvan.agent.network.memory.controller.MemoryTrialConnectionController(proxy.getProxy(),
+                            f.service(proxy.getProxy(), f.user, "test")))
                     .setControllerAdvice(new butvan.agent.network.controller.ApiExceptionHandler()).build();
             var input = new Connect(0, server.endpoint(), "secret-sentinel", false, "chain", true, false, "http-connect");
             String body = mapper.writeValueAsString(input);
@@ -69,6 +70,28 @@ class MemoryTrialConnectionTest {
                     .header("X-Agent-Generation", "0").contentType("application/json").content(body))
                     .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value(423));
             assertEquals(3, server.reads.get());
+        }
+    }
+
+    @Test void defaultBankIdIsNormalizedAndCustomBankIdIsBoundIntoTheRecipientIdentity() throws Exception {
+        var f = new MemoryFixture(directory);
+        try (var server = new MemoryTrialServer(); var runtime = runtime(f)) {
+            var controller = new butvan.agent.network.memory.controller.MemoryTrialConnectionController(runtime,
+                    f.service(runtime, f.user, "test"));
+            String automatic = "ra-" + f.service(runtime, f.user, "test").settings().spaceId();
+            var initial = controller.connection().getData();
+            assertEquals(automatic, initial.bankId(), "未配置时回显默认库，便于用户识别实际写入目标");
+            var defaulted = controller.connect(new Connect(initial.version(), server.endpoint(), "", false, "chain", true, false,
+                    "bank-default", automatic)).getData();
+            assertEquals(automatic, defaulted.bankId());
+            assertEquals("", new HindsightTrialStore(f.storage, mapper).read().orElseThrow().bankId(), "原样保存默认库 ID 必须归一化为空串");
+            var custom = controller.connect(new Connect(defaulted.version(), server.endpoint(), "", false, "chain", true, false,
+                    "bank-custom", "team-bank_1")).getData();
+            assertEquals("team-bank_1", custom.bankId());
+            assertNotEquals(defaulted.recipientFingerprint(), custom.recipientFingerprint(), "库身份必须进入接收方指纹");
+            assertThrows(butvan.agent.network.memory.service.MemoryRequestException.class, () -> controller.connect(
+                    new Connect(custom.version(), server.endpoint(), "", false, "chain", true, false, "bank-invalid", "bad bank!")));
+            assertEquals("team-bank_1", controller.connection().getData().bankId(), "非法库 ID 不覆盖已保存配置");
         }
     }
 

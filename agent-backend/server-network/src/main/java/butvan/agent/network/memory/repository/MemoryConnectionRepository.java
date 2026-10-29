@@ -22,7 +22,7 @@ public class MemoryConnectionRepository {
             boolean pinned = Boolean.TRUE.equals(jdbc.queryForObject("""
                     SELECT EXISTS(SELECT 1 FROM memory_deletion WHERE state<>'VERIFIED' AND recipient_fingerprint<>?)
                     """, Boolean.class, recipient));
-            if (pinned) throw new MemoryRequestException(409, "旧接收方仍有未核实的远端目标，不能更换地址、凭据或处理链；请保留原连接继续清理");
+            if (pinned) throw new MemoryRequestException(409, "旧接收方仍有未核实的远端目标，不能更换记忆库、地址、凭据或处理链；请保留原连接继续清理");
             return action.get();
         });
     }

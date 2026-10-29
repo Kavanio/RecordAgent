@@ -18,7 +18,12 @@ public class HindsightTrialStore {
     }
     /** 凭据禁止使用 record 的默认 toString。 */
     public record Configuration(long version, String endpoint, String token, String processingChain, boolean allowPlaintext,
-                                boolean trialRisksAccepted, String requestId) {
+                                boolean trialRisksAccepted, String requestId, String bankId) {
+        public Configuration { bankId = bankId == null ? "" : bankId; }
+        public Configuration(long version, String endpoint, String token, String processingChain, boolean allowPlaintext,
+                             boolean trialRisksAccepted, String requestId) {
+            this(version, endpoint, token, processingChain, allowPlaintext, trialRisksAccepted, requestId, "");
+        }
         @Override public String toString() { return "HindsightTrialConfiguration{REDACTED}"; }
     }
     public Optional<Configuration> read() throws IOException {

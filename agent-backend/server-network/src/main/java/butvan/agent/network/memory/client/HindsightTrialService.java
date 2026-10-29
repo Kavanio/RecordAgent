@@ -60,7 +60,7 @@ public class HindsightTrialService implements MemoryRemoteGateway, MemoryWriteGa
         var config = current.config();
         return new Connection(config.version(), true, config.endpoint(), config.processingChain(),
                 URI.create(config.endpoint()).getScheme().equals("https"), !config.token().isEmpty(), current.gateway().recipientFingerprint(),
-                "真实聊天试用连接已保存；完整远端删除未核实，仍须另行授权并开启保存／召回");
+                "真实聊天试用连接已保存；完整远端删除未核实，仍须另行授权并开启保存／召回", config.bankId());
     }
     /** 显式检查只读合约后保存连接；版本与 requestId 防止重复探测及静默覆盖。 */
     public Connection connect(Connect input) {
@@ -88,7 +88,10 @@ public class HindsightTrialService implements MemoryRemoteGateway, MemoryWriteGa
         String chain = input.processingChain() == null || input.processingChain().isBlank() ? DEFAULT_CHAIN : input.processingChain().strip();
         if (chain.length() > 400) throw new MemoryRequestException(400, "处理配置说明最多 400 字符");
         long version = previous == null ? 0 : previous.config().version();
-        var config = new HindsightTrialStore.Configuration(version + 1, endpoint, token, chain, input.allowPlaintext(), true, input.requestId());
+        String bankId = input.bankId() == null ? (previous == null ? "" : previous.config().bankId()) : input.bankId().strip();
+        if (!bankId.isEmpty() && !HindsightHttpAdapter.identifier(bankId))
+            throw new MemoryRequestException(400, "记忆库 ID 只允许 1—128 个英文字母、数字、下划线或连字符");
+        var config = new HindsightTrialStore.Configuration(version + 1, endpoint, token, chain, input.allowPlaintext(), true, input.requestId(), bankId);
         HindsightHttpAdapter candidate;
         try { candidate = gateway(config); }
         catch (IllegalArgumentException invalid) { throw new MemoryRequestException(400, "连接格式无效；公网 HTTP 须明确确认且不能携带 Token，地址不能包含凭据、查询或片段"); }
@@ -114,7 +117,7 @@ public class HindsightTrialService implements MemoryRemoteGateway, MemoryWriteGa
         } finally { if (!installed && (active == null || active.gateway() != candidate)) candidate.close(); }
     }
     private HindsightHttpAdapter gateway(HindsightTrialStore.Configuration config) {
-        return HindsightHttpAdapter.forTrial(URI.create(config.endpoint()), config.token(), config.processingChain(), operations, mapper, config.allowPlaintext());
+        return HindsightHttpAdapter.forTrial(URI.create(config.endpoint()), config.token(), config.processingChain(), operations, mapper, config.allowPlaintext(), config.bankId());
     }
     /** 三次 GET 共享 2500ms；不读取 bank、不调用模型，不把合约检查当作删除证明。 */
     private void inspect(HindsightTrialStore.Configuration config, long generation) {

@@ -3,6 +3,7 @@ export type MemoryChannel = 'DESKTOP' | 'FEISHU';
 export type MemoryRecallMode = 'ALL_AUTHORIZED' | 'RECENT_DAYS';
 
 export interface MemoryTrialConnection {
+  bankId?: string;
   version: number;
   configured: boolean;
   endpoint: string;
@@ -13,6 +14,7 @@ export interface MemoryTrialConnection {
   message: string;
 }
 export interface MemoryTrialConnect {
+  bankId?: string;
   expectedVersion: number;
   endpoint: string;
   token: string | null;

@@ -10,8 +10,8 @@ import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
 import styles from './MemoryConnectionSettings.module.css';
 
 interface Props { onChanged: () => Promise<void> }
-interface Draft { endpoint: string; token: string; clearToken: boolean; chain: string; accepted: boolean; plaintext: boolean }
-const emptyDraft = (): Draft => ({ endpoint: '', token: '', clearToken: false, chain: '', accepted: false, plaintext: false });
+interface Draft { bankId: string; endpoint: string; token: string; clearToken: boolean; chain: string; accepted: boolean; plaintext: boolean }
+const emptyDraft = (): Draft => ({ bankId: '', endpoint: '', token: '', clearToken: false, chain: '', accepted: false, plaintext: false });
 function publicHttp(endpoint: string) {
   try { const url = new URL(endpoint); return url.protocol === 'http:' && !['127.0.0.1', '[::1]', 'localhost'].includes(url.hostname); }
   catch { return false; }
@@ -36,16 +36,18 @@ export function MemoryConnectionSettings({ onChanged }: Props) {
   };
   useEffect(() => { void load(); }, []);
   const open = () => {
-    setDraft({ ...emptyDraft(), endpoint: connection?.endpoint ?? '', chain: connection?.processingChain ?? '' });
+    setDraft({ ...emptyDraft(), endpoint: connection?.endpoint ?? '', bankId: connection?.bankId ?? '', chain: connection?.processingChain ?? '' });
     request.current = null; setFormError(''); setEditing(true);
   };
   const submit = async () => {
     if (!connection || saving) return;
     const endpoint = draft.endpoint.trim();
+    const bankId = draft.bankId.trim();
+    if (bankId && !/^[a-zA-Z0-9_-]{1,128}$/.test(bankId)) { setFormError('Bank ID 只允许 1—128 个英文字母、数字、下划线或连字符。'); return; }
     if (!endpoint || !draft.accepted) { setFormError('请填写服务地址，并确认真实聊天试用与删除限制。'); return; }
     if (publicHttp(endpoint) && !draft.plaintext) { setFormError('此地址使用公网明文 HTTP，请单独确认风险，或改用 HTTPS。'); return; }
     if (publicHttp(endpoint) && draft.token) { setFormError('公网明文试用不能携带 Token，请使用 HTTPS 或清空 Token。'); return; }
-    const values = { expectedVersion: connection.version, endpoint, token: draft.token || null, clearToken: draft.clearToken,
+    const values = { bankId: connection.bankId === undefined ? undefined : bankId, expectedVersion: connection.version, endpoint, token: draft.token || null, clearToken: draft.clearToken,
       processingChain: draft.chain.trim(), acceptTrialRisks: draft.accepted, allowPlaintext: draft.plaintext };
     const key = JSON.stringify(values);
     if (request.current?.key !== key) request.current = { key, id: crypto.randomUUID() };
@@ -64,6 +66,8 @@ export function MemoryConnectionSettings({ onChanged }: Props) {
       <SettingsRow label="记忆服务" description={connection?.configured ? connection.endpoint : connection?.message ?? '正在读取连接配置…'}
         control={<div className={styles.actions}><Button variant="outline" disabled={loading || !connection || saving} onClick={open}>{connection?.configured ? '修改记忆服务' : '配置记忆服务'}</Button>
           <Button variant="ghost" disabled={loading || editing || saving} onClick={() => void load()}>刷新连接摘要</Button></div>} />
+      <SettingsRow label="记忆库 Bank ID" description={connection?.bankId || '更新后端后可查看和配置记忆库'}
+        control={<Button variant="outline" disabled={loading || saving || !connection?.bankId} onClick={open}>配置记忆库</Button>} />
       <SettingsRow label="试用限制" description="删除后会停止引用，但暂时无法保证远端彻底清除。" control={<span className={styles.badge}>删除未核实</span>} />
       <details className={styles.details}>
         <summary>查看连接详情和试用说明</summary>
@@ -77,6 +81,9 @@ export function MemoryConnectionSettings({ onChanged }: Props) {
       <div className={styles.content}>
         <FormField label="Hindsight 服务地址" htmlFor="memory-service-endpoint" hint="填写 API 基础地址。由后端连接，不让前端直接访问 Hindsight。">
           <TextInput id="memory-service-endpoint" type="url" value={draft.endpoint} disabled={saving} maxLength={2048} placeholder="https://记忆服务地址/" onChange={(e) => setDraft(d => ({ ...d, endpoint: e.target.value }))} />
+        </FormField>
+        <FormField label="记忆库 Bank ID" htmlFor="memory-bank-id" hint="留空使用本应用固定的默认库。不会迁移或删除旧记忆；旧库存在未核实清理的远端目标时不能切换。请使用本应用专用库。">
+          <TextInput id="memory-bank-id" value={draft.bankId} disabled={saving || connection?.bankId === undefined} maxLength={128} placeholder="留空使用默认库" onChange={(e) => setDraft(d => ({ ...d, bankId: e.target.value }))} />
         </FormField>
         <FormField label="接口 Token（没有则留空）" htmlFor="memory-service-token" hint={connection?.credentialConfigured ? '已有凭据不会回显；相同地址留空保留，地址变化不沿用旧凭据。' : '保存在后端受保护文件，不写浏览器缓存或聊天。公网 HTTP 不允许携带 Token。'}>
           <TextInput id="memory-service-token" type="password" autoComplete="new-password" value={draft.token} disabled={saving || draft.clearToken} maxLength={8192} onChange={(e) => setDraft(d => ({ ...d, token: e.target.value }))} />

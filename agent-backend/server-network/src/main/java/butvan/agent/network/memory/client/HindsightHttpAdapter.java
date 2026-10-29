@@ -21,6 +21,7 @@ public final class HindsightHttpAdapter implements MemoryWriteGateway, MemoryRec
     private final String fingerprint;
     private final HindsightDocumentCleanup cleanup;
     private final boolean trial;
+    private final String selectedBankId;
     private final Set<String> initializedSpaces = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /** 只接受受控 HTTPS 或字面本机 loopback；空 Token 表示不附加接口鉴权。 */
@@ -39,12 +40,23 @@ public final class HindsightHttpAdapter implements MemoryWriteGateway, MemoryRec
     }
     private HindsightHttpAdapter(URI endpoint, String token, String processingChain, MemoryRemoteOperationRepository operations,
                                  ObjectMapper mapper, HindsightHttpTransport transport, boolean allowPlaintext, boolean trial) {
+        this(endpoint, token, processingChain, operations, mapper, transport, allowPlaintext, trial, "");
+    }
+    public static HindsightHttpAdapter forTrial(URI endpoint, String token, String processingChain,
+            MemoryRemoteOperationRepository operations, ObjectMapper mapper, boolean allowPlaintext, String bankId) {
+        return new HindsightHttpAdapter(endpoint, token, processingChain, operations, mapper, null, allowPlaintext, true, bankId);
+    }
+    private HindsightHttpAdapter(URI endpoint, String token, String processingChain, MemoryRemoteOperationRepository operations,
+            ObjectMapper mapper, HindsightHttpTransport transport, boolean allowPlaintext, boolean trial, String bankId) {
+        selectedBankId = bankId == null ? "" : bankId;
+        if (!selectedBankId.isEmpty() && !identifier(selectedBankId)) throw new IllegalArgumentException("记忆库 ID 无效");
         this.endpoint = validate(endpoint, token, processingChain, allowPlaintext);
         this.token = token; this.operations = operations; this.mapper = mapper; this.trial = trial;
         fingerprint = MemorySourcePolicy.hash(this.endpoint + "\n" + processingChain + "\n1.1.0\n" + MemorySourcePolicy.hash(token)
-                + (trial ? "\nreal-chat-trial-v1-unverified-erasure" : ""));
+                + (trial ? "\nreal-chat-trial-v1-unverified-erasure" : "")
+                + (selectedBankId.isEmpty() ? "" : "\nbank=" + selectedBankId));
         http = transport == null ? new HindsightHttpTransport(mapper) : transport;
-        cleanup = new HindsightDocumentCleanup(http, operations, this.endpoint, token);
+        cleanup = new HindsightDocumentCleanup(http, operations, this.endpoint, token, this::bank);
     }
     @Override public String recipientFingerprint() { return fingerprint; }
 
@@ -58,7 +70,7 @@ public final class HindsightHttpAdapter implements MemoryWriteGateway, MemoryRec
             if (!operations.begin(request.target(), hash)) return query(request.operationId(), request.target(), cancelled);
             long deadline = deadline();
             // 原目标及发送意图已落盘后，才可初始化本应用的随机空间；不使用原有 bank。
-            if (trial && !initializeSpace(request.target().spaceId(), deadline, cancelled)) return Outcome.UNKNOWN;
+            if (trial && selectedBankId.isEmpty() && !initializeSpace(request.target().spaceId(), deadline, cancelled)) return Outcome.UNKNOWN;
             var item = mapper.createObjectNode().put("content", request.content()).put("timestamp", request.occurredAt().toString())
                     .put("document_id", request.target().documentId()).put("update_mode", "replace");
             item.putObject("metadata").put("source_system", "recordagent").put("role", "user").put("channel", request.channel().name());
@@ -136,7 +148,7 @@ public final class HindsightHttpAdapter implements MemoryWriteGateway, MemoryRec
         return ids.isMissingNode() || ids.isNull() || (ids.isArray() && ids.size() == 1 && expected.equals(ids.get(0).asText()));
     }
     private URI uri(String space, String suffix) { return endpoint.resolve("v1/default/banks/" + bank(space) + "/" + suffix); }
-    private String bank(String space) { return "ra-" + space; }
+    private String bank(String space) { return selectedBankId.isEmpty() ? "ra-" + space : selectedBankId; }
     private long deadline() { return System.nanoTime() + Duration.ofSeconds(5).toNanos(); }
     static boolean identifier(String value) { return value != null && value.matches("[a-zA-Z0-9_-]{1,128}"); }
     static boolean uuid(String value) {

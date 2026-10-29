@@ -12,9 +12,14 @@ final class HindsightDocumentCleanup {
     private final MemoryRemoteOperationRepository repository;
     private final URI endpoint;
     private final String token;
+    private final java.util.function.Function<String, String> bank;
 
     HindsightDocumentCleanup(HindsightHttpTransport http, MemoryRemoteOperationRepository repository, URI endpoint, String token) {
-        this.http = http; this.repository = repository; this.endpoint = endpoint; this.token = token;
+        this(http, repository, endpoint, token, space -> "ra-" + space);
+    }
+    HindsightDocumentCleanup(HindsightHttpTransport http, MemoryRemoteOperationRepository repository, URI endpoint,
+                            String token, java.util.function.Function<String, String> bank) {
+        this.http = http; this.repository = repository; this.endpoint = endpoint; this.token = token; this.bank = bank;
     }
     MemoryRemoteGateway.DeletionResult clean(MemoryRemoteGateway.Target target, long deadline) throws IOException, InterruptedException {
         String id = target.operationId();
@@ -39,7 +44,7 @@ final class HindsightDocumentCleanup {
             boolean absent = before.status() == 404 && operation.documentRequested();
             if (!absent) {
                 if (before.status() != 200 || !target.documentId().equals(before.body().path("id").asText())
-                        || !("ra-" + target.spaceId()).equals(before.body().path("bank_id").asText())) return MemoryRemoteGateway.DeletionResult.UNKNOWN;
+                        || !bank.apply(target.spaceId()).equals(before.body().path("bank_id").asText())) return MemoryRemoteGateway.DeletionResult.UNKNOWN;
                 repository.step(id, Step.DOCUMENT_REQUESTED);
                 var deleted = call("DELETE", target, document, deadline);
                 if (deleted.status() != 200 || !success(deleted.body(), "document_id", target.documentId())) return MemoryRemoteGateway.DeletionResult.UNKNOWN;
@@ -85,6 +90,6 @@ final class HindsightDocumentCleanup {
         return body.path("success").isBoolean() && body.path("success").asBoolean() && id.equals(body.path(field).asText());
     }
     private HindsightHttpTransport.Reply call(String method, MemoryRemoteGateway.Target target, String path, long deadline) throws IOException, InterruptedException {
-        return http.request(method, endpoint.resolve("v1/default/banks/ra-" + target.spaceId() + "/" + path), token, null, deadline, () -> false);
+        return http.request(method, endpoint.resolve("v1/default/banks/" + bank.apply(target.spaceId()) + "/" + path), token, null, deadline, () -> false);
     }
 }
