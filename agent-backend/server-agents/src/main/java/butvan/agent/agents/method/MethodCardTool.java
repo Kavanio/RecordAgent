@@ -16,7 +16,8 @@ import java.util.List;
 public class MethodCardTool implements AgentToolModule {
 
     private static final String NOTE = "以下是研究概括；适用条件与小尝试是应用建议，非书籍原话。"
-            + "结合当前情境选择，建议须经用户采纳，不自动创建目标或待办；无匹配不代表没有其他方法。";
+            + "默认只概括所问方法与必要出处，不照抄整卡；详解或比较按请求展开；查资料不代表用户要练习或休息。"
+            + "建议须经用户采纳，不自动创建目标或待办；无匹配不代表没有其他方法。";
 
     private final MethodCardCatalog catalog;
 

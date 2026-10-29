@@ -94,6 +94,19 @@ class PromptBuilderTest {
     }
 
     @Test
+    void referenceLookupsStayOnTopicAndHistoryDisclosesItsLimitedScope() {
+        String ordinary = buildDefaultPrompt();
+        String project = PromptBuilder.buildProjectSystemPrompt("test-model", temporaryDirectory.toString());
+
+        assertTrue(ordinary.contains("查资料只解释所问，不照抄整卡，不安排练习或休息"));
+        assertTrue(ordinary.contains("用户要求详解、比较或多项资料时再展开"));
+        assertFalse(project.contains("不安排练习或休息"));
+        for (String prompt : List.of(ordinary, project)) {
+            assertTrue(prompt.contains("说明仅为部分近期记录"));
+        }
+    }
+
+    @Test
     void defaultPromptStaysWithinHardTokenBudget() {
         int tokens = new ApproximateTokenCounter().count(buildDefaultPrompt());
 
