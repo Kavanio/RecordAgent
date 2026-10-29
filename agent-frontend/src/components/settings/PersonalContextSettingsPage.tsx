@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BrainCircuit, Check, Database, FileText, PauseCircle, RefreshCw, Save, Sparkles, Trash2, X } from 'lucide-react';
+import { BrainCircuit, Check, Database, FileText, PauseCircle, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import {
   acceptProfileProposal, checkProfileMaintenance, clearPersonalContextProfile,
   fetchPersonalContext, fetchProfileMaintenance, rejectProfileProposal,
@@ -147,22 +147,15 @@ export function PersonalContextSettingsPage() {
           control={<Button variant="outline" onClick={() => setManagingProfile(true)}>管理画像</Button>} />
       </SettingsGroup>
 
-      <section className={styles.maintenance} aria-labelledby="maintenance-title">
-        <div className={styles.maintenanceHeader}>
-          <div className={styles.switchCopy}><span className={styles.icon}><Sparkles size={18} aria-hidden="true" /></span><div><h2 id="maintenance-title">画像辅助维护</h2><p>根据新记忆建议更新个人信息，你确认后才修改。</p></div></div>
-          <LeverSwitch checked={maintenance.enabled} disabled={saving || checking} label={maintenance.enabled ? '已开启' : '已关闭'} onChange={(enabled) => void toggleMaintenance(enabled)} />
-        </div>
-        <div className={styles.maintenanceMeta}>
-          <span>{RESULT_LABELS[maintenance.lastResult]}{lastChecked ? ` · ${lastChecked}` : ''}</span>
-          <Button variant="outline" size="sm" icon={<RefreshCw size={14} />} disabled={saving || checking || Boolean(proposal)} onClick={() => void checkNow()}>{checking ? '正在检查' : proposal ? '请先审核提案' : '立即检查'}</Button>
-        </div>
-
-        {proposal && <div className={styles.maintenanceMeta}>
-          <span>有一份更新建议待审核</span>
-          <Button variant="outline" size="sm" onClick={() => setManagingProfile(true)}>审核画像建议</Button>
-        </div>}
-        {!proposal && <p className={styles.emptyProposal}>暂无更新建议，开启后最多每天自动检查一次新记忆。</p>}
-      </section>
+      <SettingsGroup title="画像辅助维护">
+        <SettingsRow label="自动生成更新建议" description="根据新记忆建议更新个人信息，你确认后才修改。"
+          control={<LeverSwitch checked={maintenance.enabled} disabled={saving || checking} label={maintenance.enabled ? '已开启' : '已关闭'} onChange={(enabled) => void toggleMaintenance(enabled)} />} />
+        <SettingsRow label="检查状态" description={`${RESULT_LABELS[maintenance.lastResult]}${lastChecked ? ` · ${lastChecked}` : ''}`}
+          control={<Button variant="outline" size="sm" icon={<RefreshCw size={14} />} disabled={saving || checking || Boolean(proposal)} onClick={() => void checkNow()}>{checking ? '正在检查' : proposal ? '请先审核提案' : '立即检查'}</Button>} />
+        {proposal ? <SettingsRow label="待审核建议" description="有一份更新建议，查看后再决定是否应用。"
+          control={<Button variant="outline" size="sm" onClick={() => setManagingProfile(true)}>审核画像建议</Button>} />
+          : <p className={styles.emptyProposal}>暂无更新建议，开启后最多每天自动检查一次新记忆。</p>}
+      </SettingsGroup>
 
       <ExperienceMemorySettings />
       <AgentResetSection />
