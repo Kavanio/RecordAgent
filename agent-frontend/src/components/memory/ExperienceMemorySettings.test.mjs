@@ -127,6 +127,63 @@ test('用途与渠道须显式确认；授权成功不自动开启保存召回',
   assert.ok([...document.querySelectorAll('[role="switch"]')].every(s => s.getAttribute('aria-checked') === 'false'));
 });
 
+test('保存授权后重新打开回显用途和渠道，风险确认仍需重新勾选', async () => {
+  settings.remoteAvailable = true; settings.recipientFingerprint = 'synthetic-chain'; await render();
+  await click('查看并授权');
+  for (const input of document.querySelectorAll('[role="dialog"] input[type="checkbox"]')) {
+    await act(async () => input.click());
+  }
+  await click('确认授权范围');
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  await view.unmount(); view = null;
+  await render(); await click('重新授权');
+  const dialog = document.querySelector('[role="dialog"]');
+  assert.equal(dialog.querySelector('[aria-label="允许保存新经历"]').checked, true);
+  assert.equal(dialog.querySelector('[aria-label="允许查询相关经历"]').checked, true);
+  for (const text of ['桌面普通聊天', '绑定飞书普通聊天']) {
+    assert.equal([...dialog.querySelectorAll('label')].find(n => n.textContent === text).querySelector('input').checked, true);
+  }
+  assert.equal(dialog.querySelector('[aria-label="长期召回获准来源"]').checked, true);
+  assert.equal(dialog.querySelector('[aria-label="允许持续在后台处理新聊天"]').checked, false);
+  assert.equal(dialog.querySelector('[aria-label="确认已有来源不会自动沿用"]').checked, false);
+  assert.equal([...dialog.querySelectorAll('label')].find(n => n.textContent.startsWith('我已确认')).querySelector('input').checked, false);
+  const posts = calls.filter(c => c.method === 'POST').length;
+  await click('确认授权范围');
+  assert.match(document.body.textContent, /请确认持续后台处理/);
+  assert.equal(calls.filter(c => c.method === 'POST').length, posts);
+});
+
+for (const policyVersion of [1, 2]) {
+  test(`V${policyVersion} 授权回显近期天数和部分用途，取消草稿不改变已保存范围`, async () => {
+    settings = { ...settings, authorized: true, remoteAvailable: true, recipientFingerprint: 'synthetic-chain',
+      allowSave: false, allowRecall: true, channels: ['FEISHU'], policyVersion,
+      recallMode: policyVersion === 1 ? 'ALL_AUTHORIZED' : 'RECENT_DAYS', retentionDays: 30 };
+    await render(); await click('重新授权');
+    const assertScope = () => {
+      assert.equal(document.querySelector('[aria-label="允许保存新经历"]').checked, false);
+      assert.equal(document.querySelector('[aria-label="允许查询相关经历"]').checked, true);
+      const labels = [...document.querySelectorAll('[role="dialog"] label')];
+      assert.equal(labels.find(n => n.textContent === '桌面普通聊天').querySelector('input').checked, false);
+      assert.equal(labels.find(n => n.textContent === '绑定飞书普通聊天').querySelector('input').checked, true);
+      assert.equal(document.querySelector('[aria-label="只召回最近一段时间"]').checked, true);
+      assert.equal(document.querySelector('#memory-retention').value, '30');
+    };
+    assertScope();
+    await act(async () => document.querySelector('[aria-label="允许保存新经历"]').click());
+    await change('#memory-retention', '60');
+    await click('取消'); await click('重新授权'); assertScope();
+    assert.ok(calls.every(c => c.method === 'GET'));
+  });
+}
+
+test('撤销授权后不回显旧用途和渠道', async () => {
+  settings = { ...settings, authorized: false, remoteAvailable: true, recipientFingerprint: 'synthetic-chain',
+    allowSave: true, allowRecall: true, channels: ['DESKTOP', 'FEISHU'], recallMode: 'RECENT_DAYS', retentionDays: 30 };
+  await render(); await click('查看并授权');
+  assert.ok([...document.querySelectorAll('[role="dialog"] input[type="checkbox"]')].every(input => !input.checked));
+  assert.equal(document.querySelector('[aria-label="长期召回获准来源"]').checked, true);
+});
+
 test('最近天数模式校验范围；长期与近期模式互斥', async () => {
   settings.remoteAvailable = true; settings.recipientFingerprint = 'synthetic-chain'; await render();
   await click('查看并授权');

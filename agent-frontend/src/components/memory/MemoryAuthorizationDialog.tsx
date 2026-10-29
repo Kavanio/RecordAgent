@@ -12,17 +12,21 @@ interface Props {
 }
 
 /**
- * 每次打开创建独立授权草稿；用途、渠道和召回范围逐项确认后才提交。
+ * 每次打开从有效授权创建独立草稿，回显用途、渠道和召回范围；
+ * 持续处理、已有来源影响及风险确认仍须本次显式勾选后才提交。
  *
  * <p>长期模式不再让用户填写每日记忆条数：持续后台处理是明确的用途确认，
  * 日常节流在“运行保护”里单独调整，调频不会使已积累来源失效。</p>
  */
 export function MemoryAuthorizationDialog({ settings, busy, onClose, onConfirm }: Props) {
-  const [save, setSave] = useState(false);
-  const [recall, setRecall] = useState(false);
-  const [channels, setChannels] = useState<MemoryChannel[]>([]);
-  const [mode, setMode] = useState<MemoryRecallMode>('ALL_AUTHORIZED');
-  const [retention, setRetention] = useState('90');
+  const [save, setSave] = useState(settings.authorized && settings.allowSave);
+  const [recall, setRecall] = useState(settings.authorized && settings.allowRecall);
+  const [channels, setChannels] = useState<MemoryChannel[]>(() => settings.authorized ? [...settings.channels] : []);
+  // V1 的天数范围按近期模式展示，避免重新打开时默认扩大为长期召回。
+  const [mode, setMode] = useState<MemoryRecallMode>(settings.authorized
+    ? (settings.policyVersion >= 2 ? settings.recallMode : 'RECENT_DAYS') : 'ALL_AUTHORIZED');
+  const [retention, setRetention] = useState(settings.authorized && settings.retentionDays > 0
+    ? String(settings.retentionDays) : '90');
   const [continuous, setContinuous] = useState(false);
   const [impact, setImpact] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
