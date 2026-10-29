@@ -15,7 +15,14 @@ public record AgentUserCall(
         List<String> ragContexts,
         String runId,
         String turnId,
-        List<AgentImageAttachment> images) {
+        List<AgentImageAttachment> images,
+        butvan.agent.agents.memory.MemorySourceRegistry.Channel memoryChannel) {
+
+    /** 旧调用没有可信来源标签，保持不参与远端经历保存的兼容行为。 */
+    public AgentUserCall(String sessionId, String content, String context, List<String> ragContexts,
+                         String runId, String turnId, List<AgentImageAttachment> images) {
+        this(sessionId, content, context, ragContexts, runId, turnId, images, null);
+    }
 
     /** 保留桌面端既有构造契约；只有持久化渠道需要预先指定轮次 ID。 */
     public AgentUserCall(String sessionId, String content, String context, List<String> ragContexts, String runId) {

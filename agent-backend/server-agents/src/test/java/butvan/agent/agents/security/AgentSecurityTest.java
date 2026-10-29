@@ -46,6 +46,11 @@ class AgentSecurityTest {
         assertFalse(ask.getAllowRules().containsKey("write_file"));
         assertFalse(full.getAllowRules().containsKey("write_file"));
         assertTrue(ask.getAllowRules().containsKey("acceptance_report"));
+        assertTrue(ask.getAllowRules().containsKey("session_recent"));
+        assertFalse(ask.getAllowRules().containsKey("memory_search"));
+        assertFalse(security.createPermissionContext(SessionPermissionMode.AUTO_EDIT)
+                .getAllowRules().containsKey("memory_save"));
+        assertFalse(ask.getAllowRules().containsKey("memory_write"));
         assertFalse(ask.getAllowRules().containsKey("plan_exit"));
     }
 }

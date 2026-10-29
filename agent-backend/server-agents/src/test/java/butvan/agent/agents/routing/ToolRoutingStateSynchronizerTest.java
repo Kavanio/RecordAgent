@@ -17,6 +17,21 @@ class ToolRoutingStateSynchronizerTest {
             new ToolRoutingStateSynchronizer();
 
     @Test
+    void activeDecisionPreservesOnlyAlreadyEquippedMethodsAndRespectsExplicitDeactivation() {
+        AgentState state = AgentState.builder().build();
+        state.getToolContext().setActivatedGroups(List.of("calendar", "methods", "memory"));
+        var decision = new ToolRoutingDecision(ToolRoutingDecision.Status.ACTIVE,
+                Set.of("web"), Map.of(), "jev-test", 0);
+        assertTrue(synchronizer.apply(state, decision));
+        assertEquals(List.of("methods", "web"), state.getToolContext().getActivatedGroups());
+        assertFalse(synchronizer.apply(state, decision));
+        // 对应元工具停用后的权威状态，不能因为先前用过方法卡而再次补回。
+        state.getToolContext().setActivatedGroups(List.of());
+        assertTrue(synchronizer.apply(state, decision));
+        assertEquals(List.of("web"), state.getToolContext().getActivatedGroups());
+    }
+
+    @Test
     void activeDecisionReplacesSessionActivatedGroupsBeforeExecution() {
         AgentState state = AgentState.builder().build();
         state.getToolContext().setActivatedGroups(List.of("calendar"));

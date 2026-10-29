@@ -50,8 +50,11 @@ public class AgentFactory {
     private final SessionCatalogService sessionCatalogService;
     private final ProjectRegistry projectRegistry;
 
-    /** 同一模型下按项目根隔离 Agent，避免不同会话共享文件系统能力根。 */
-    private final Map<String, HarnessAgent> cachedAgents = new HashMap<>();
+    /** 按会话与项目根隔离 Agent，避免会话之间互相修改 Toolkit 的可变激活分组。 */
+    private final Map<AgentCacheKey, HarnessAgent> cachedAgents = new HashMap<>();
+
+    /** 项目根变化时重建文件系统能力；无绑定会话的兼容入口独占一个缓存项。 */
+    private record AgentCacheKey(String sessionId, Path projectRoot) {}
 
     /**
      * 用对象引用识别 ModelHolder 是否已经切换了模型实例。
@@ -63,7 +66,7 @@ public class AgentFactory {
         return currentAgent(null);
     }
 
-    /** 按会话解析项目根并返回隔离后的 Agent。 */
+    /** 按会话身份与解析后的项目根返回独享 Toolkit 的 Agent。 */
     public synchronized HarnessAgent currentAgent(String sessionId) {
         Model currentModel = modelHolder.getModel();
         if (cachedModel != currentModel) {
@@ -73,7 +76,8 @@ public class AgentFactory {
         }
 
         Path projectRoot = resolveProjectRoot(sessionId);
-        String cacheKey = projectRoot == null ? "__general__" : projectRoot.toString();
+        AgentCacheKey cacheKey = new AgentCacheKey(
+                sessionId == null || sessionId.isBlank() ? null : sessionId, projectRoot);
         return cachedAgents.computeIfAbsent(cacheKey, ignored -> createHarnessAgent(currentModel, projectRoot));
     }
 
@@ -81,16 +85,16 @@ public class AgentFactory {
     private HarnessAgent createHarnessAgent(Model model, Path projectRoot) {
         // 模型名缺失时给兜底名，保证系统提示词可读
         String modelName = model.getModelName() == null ? "unknown-model" : model.getModelName();
-        // 根据模型名与工作目录构建系统提示词
-        String systemPrompt = PromptBuilder.buildDefaultSystemPrompt(
-                modelName,
-                projectRoot == null ? System.getProperty("user.dir") : projectRoot.toString()
-        );
+        // 项目会话使用不含日常聊天模块的工程提示词；普通会话保留聊天、语言与判断规则
+        String systemPrompt = projectRoot == null
+                ? PromptBuilder.buildDefaultSystemPrompt(modelName, System.getProperty("user.dir"))
+                : PromptBuilder.buildProjectSystemPrompt(modelName, projectRoot.toString());
         // 组装 HarnessAgent：计划模式、工具集、权限、工作区、状态存储、上下文压缩
         HarnessAgent.Builder builder = HarnessAgent.builder()
                 .name("butvan_agent")
                 .sysPrompt(systemPrompt)
                 .model(model)
+                .middleware(new butvan.agent.agents.prompts.RuntimeDateMiddleware())
                 .middleware(contextInjectionMiddleware) // 先向消息列表临时注入有界个人上下文
                 .middleware(toolSchemaSelectionMiddleware)
                 .middleware(tokenUsageMiddleware)
@@ -99,6 +103,10 @@ public class AgentFactory {
                 .toolkit(toolRegistry.getToolkit())
                 .workspace(storageProperties.getWorkspaceDirectory())
                 .disableWorkspaceContext()
+                // 同时传播到框架子Agent，防止其重新注册本地Markdown记忆工具。
+                .disableMemoryTools()
+                // 自动经历仅走应用授权 seam；关闭框架整段抽取、合并与维护写入。
+                .disableMemoryHooks()
                 // 框架自动恢复发生在 ConfirmResult 消费之前，会误伤正常 HITL；遗留调用由应用层恢复。
                 .enablePendingToolRecovery(false)
                 .stateStore(agentStateStore)
@@ -106,6 +114,7 @@ public class AgentFactory {
                 .messageBus(subagentMessageBus)
                 .subagents(subagentCatalog.declarations())
                 .compaction(CompactionConfig.builder()
+                        .flushBeforeCompact(false)
                         .triggerMessages(30)    // 30 条消息触发上下文压缩
                         .keepMessages(10)       // 压缩后保留最近 10 条
                         //.triggerTokens(131072)   // 固定 token 阈值，禁用动态 contextWindowSize 探测（避免框架向 DashScope 发送非法 URL 的探测请求）

@@ -1,0 +1,65 @@
+[
+  {
+    "keywords": ["间隔", "分散学习", "复习", "背单词", "spaced learning", "spacing"],
+    "card": {
+      "id": "spaced-learning-v1",
+      "title": "间隔学习",
+      "summary": "把同一材料的学习分散到不同时间，可能有助于延迟记忆。研究中的合适间隔随保留时长变化，并非越久越好。",
+      "whenToUse": "已初步理解、希望日后记住的词汇、事实或短表达，有机会再次接触。",
+      "whenNotToUse": "尚未理解先补理解；时间表不能取代实际运用和技能反馈。",
+      "tryNext": "挑三句已理解的短表达，隔天用两分钟回想并核对，再按遗忘情况调整。数量和时间只是低负担起点。",
+      "limits": "核实范围为作者机构摘要中的事实学习与延迟测试；不据此规定通用最优间隔，也不承诺个人英语交流效果。",
+      "source": {
+        "title": "Spacing Effects in Learning: A Temporal Ridgeline of Optimal Retention",
+        "authors": "Nicholas J. Cepeda, Edward Vul, Doug Rohrer, John T. Wixted, Harold Pashler",
+        "year": 2008,
+        "url": "https://digitalcommons.usf.edu/psy_facpub/1766/",
+        "doi": "10.1111/j.1467-9280.2008.02209.x",
+        "locator": "作者机构记录 Abstract；仅核对公开摘要，未据此扩写全文细节。",
+        "checkedAt": "2026-10-28"
+      }
+    }
+  },
+  {
+    "keywords": ["主动回忆", "检索练习", "提取练习", "回想", "背单词", "记不住", "总是忘", "retrieval practice"],
+    "card": {
+      "id": "retrieval-practice-v1",
+      "title": "主动回忆／检索练习",
+      "summary": "学过后先遮住材料，试着说出或写出，再核对。外语词对实验中，继续回忆已学词有助于一周后的保持。",
+      "whenToUse": "已接触并初步理解的词汇、概念或短表达；允许低压力尝试，有可信材料可核对。",
+      "whenNotToUse": "从未学过先看示例；没有可靠答案不能以流畅代替正确；疲惫或只想闲聊时不强行测试。",
+      "tryNext": "从看懂的手记译文挑一句，遮住英文试说，再核对一个差异；想不起来可看提示。",
+      "limits": "实验为大学生学习40对外语词并在一周后测试；不能推为阅读无用或所有复杂技能收益相同，不承诺个人效果。",
+      "source": {
+        "title": "The Critical Importance of Retrieval for Learning",
+        "authors": "Jeffrey D. Karpicke, Henry L. Roediger III",
+        "year": 2008,
+        "url": "https://learninglab.psych.purdue.edu/downloads/2008/2008_Karpicke_Roediger_Science.pdf",
+        "doi": "10.1126/science.1152408",
+        "locator": "印刷页966–968，Table 1与Figure 2及推广限制；PDF首张为出版信息封面。",
+        "checkedAt": "2026-10-28"
+      }
+    }
+  },
+  {
+    "keywords": ["针对性练习", "有目的练习", "刻意练习", "反馈练习", "一万小时", "deliberate practice", "反馈", "具体目标"],
+    "card": {
+      "id": "focused-practice-v1",
+      "title": "具体目标与反馈的针对性练习",
+      "summary": "挑一个可观察的薄弱点，设小目标，取得反馈，修正后再试。缺少合格教师个别指导时，宜称有目的或针对性练习。",
+      "whenToUse": "想改善明确技能点，有可比较的表现和可靠反馈，难度与当前能力相称。",
+      "whenNotToUse": "无具体目标、无可靠反馈或已明显疲惫时先调整；不用时长、痛苦或越难越好衡量质量。",
+      "tryNext": "只挑译文中的一个表达问题，写候选说法，核对可靠例句或请老师反馈，修正后再试一次。",
+      "limits": "来源是原作者的概念澄清，并非产品效果试验或已核对的中文书籍原文。练习效果仍有实证争论，不承诺一万小时成为专家。",
+      "source": {
+        "title": "Deliberate Practice and Proposed Limits on the Effects of Practice on the Acquisition of Expert Performance: Why the Original Definition Matters and Recommendations for Future Research",
+        "authors": "K. Anders Ericsson, Kyle W. Harwell",
+        "year": 2019,
+        "url": "https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2019.02396/full",
+        "doi": "10.3389/fpsyg.2019.02396",
+        "locator": "The Original Definition of Deliberate Practice；Purposeful Practice。",
+        "checkedAt": "2026-10-28"
+      }
+    }
+  }
+]

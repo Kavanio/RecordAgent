@@ -24,6 +24,12 @@ public class AgentRunCompleter {
     private final SessionCatalogService sessionCatalogService;
     private final AgentRunCheckpointService checkpointService;
 
+    private butvan.agent.agents.memory.MemoryTurnLifecycle memoryLifecycle = butvan.agent.agents.memory.MemoryTurnLifecycle.disabled();
+
+    /** 可选记忆观察者只在权威落盘后执行，不影响已完成聊天。 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setMemoryLifecycle(butvan.agent.agents.memory.MemoryTurnLifecycle lifecycle) { this.memoryLifecycle = lifecycle; }
+
 
     /**
      * 结束一次运行并落库
@@ -79,6 +85,11 @@ public class AgentRunCompleter {
         } catch (RuntimeException exception) {
             run.abortCompletion();
             throw exception;
+        }
+
+        try { memoryLifecycle.completed(run.userId(), run.sessionId(), run.turnId(), status); }
+        catch (RuntimeException exception) {
+            log.warn("经历任务通知未完成，保留补偿资格：errorType={}", exception.getClass().getSimpleName());
         }
 
         try {

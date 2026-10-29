@@ -44,6 +44,7 @@ pnpm build   # tsc -b && vite build，类型检查与生产构建
 
 - 长期偏好统一走 `services/desktopPreferences.ts`，权威来源是 `~/.butvan-agent/desktop/`，WebView `localStorage` 只是同步缓存与浏览器开发兜底。禁止绕过该入口直接读写 `localStorage` 作为持久化。
 - 后端地址一律经 `services/api.ts` 获取，禁止在组件内硬编码地址或端口。
+- 经历记忆 UI 位于 `components/memory/`，从个人上下文设置进入；HTTP 集中于 `experienceMemoryService` 并继承 apiFetch 的 Agent 代次。用途授权和独立开关分开提交，未接入时关闭远端操作；来源详情按需读取，纠正明确标注仅本地。刷新恢复原管理任务，不自动发送删除核对；未知／失败不得显示完整远端删除成功，版本冲突提示刷新，失败重试复用同一请求内容的 requestId。清理文案统一经 `features/memory/cleanupPresentation.ts`：旧后端无 `cleanupProgress` 时保守回退；原文、直接事实、父任务和非空已知子清单全部有清理记录时，只显示“已完成已知内容清理，完整擦除未核实”，并明确是上次记录、召回仍暂停。此时按钮改为仅 GET 的“刷新清理进度”，不反复发送无新增证据的删除核对。
 
 ## 六、Agent 重置交互
 
@@ -51,3 +52,7 @@ pnpm build   # tsc -b && vite build，类型检查与生产构建
 - 状态查询失败时继续保护应用树，但保留手动重查及独立的原生后端连接设置入口；复用 `BackendConnectionSettings` 的保存与确认重启流程，不热切换当前后端。查询恢复不得中断正在编辑的连接草稿；浏览器环境提供开发后端排查指引。
 - 重置请求集中在 `services/agentResetService.ts`；确认绑定预览时的实际后端，重复提交复用 requestId。状态带单调 revision，忽略迟到旧状态；个人 HTTP 写入通过统一 apiFetch 携带已确认的 Agent 代次。
 - 设置页使用独立危险操作分组和确认文字；失败、等待旧写入者或正常重启时展示后端权威状态，不显示成功。仅本机 sidecar 提供原生正常重启按钮；开发或远程后端展示对应的手工正常重启说明。
+
+### Hindsight 记忆库配置
+
+- 个人上下文显示并配置 Bank ID；GET/PUT `/agent/memory/trial-connection` 增加 `bankId`。空串使用持久化空间对应的 `ra-<spaceId>`，缺省字段保留原配置，默认库 ID 原样保存须归一化为空串以保持旧指纹。自定义 ID 限 1—128 个英文字母、数字、下划线或连字符，保存于受保护连接文件并绑定接收方指纹；保存、召回、状态查询、删除统一使用同一目标。已有未 VERIFIED 的旧接收方目标时拒绝切换，不迁移或删除旧记忆，不解除暂停；连接检查不证明库存在或库权限已通过。前端遇到不返回 bankId 的旧后端只显示升级提示，禁止编辑库字段。

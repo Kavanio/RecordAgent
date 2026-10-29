@@ -19,7 +19,13 @@ import java.util.function.Function;
 
 /** 在真实 Model Call 前临时注入已组装上下文，不修改 AgentState 中的消息。 */
 @Component
+@lombok.extern.slf4j.Slf4j
 public class ContextInjectionMiddleware implements MiddlewareBase {
+
+    private butvan.agent.agents.usage.TokenCounter tokenCounter = new butvan.agent.agents.usage.ApproximateTokenCounter();
+    /** 失效过滤后沿用项目同一计数器重建信封和归因元数据。 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setTokenCounter(butvan.agent.agents.usage.TokenCounter counter) { this.tokenCounter = counter; }
 
     public static final String CONTEXT_METADATA_KEY = "butvan_managed_context";
     public static final String PROFILE_TOKENS_METADATA_KEY = "butvan_profile_tokens";
@@ -33,6 +39,11 @@ public class ContextInjectionMiddleware implements MiddlewareBase {
             Function<ModelCallInput, Flux<AgentEvent>> next
     ) {
         ContextEnvelope envelope = context == null ? null : context.get(ContextEnvelope.class);
+        if (envelope != null) {
+            envelope = revalidate(envelope);
+            // 失效后永久移出本轮信封，重新开启开关也不能复活同一份旧缓存。
+            context.put(ContextEnvelope.class, envelope);
+        }
         if (envelope == null || envelope.isEmpty() || input == null || input.messages() == null) {
             return next.apply(input);
         }
@@ -63,5 +74,21 @@ public class ContextInjectionMiddleware implements MiddlewareBase {
                     message.getMetadata().get(TokenUsageRoundContext.TURN_METADATA_KEY))) return index;
         }
         return -1;
+    }
+
+    private ContextEnvelope revalidate(ContextEnvelope envelope) {
+        try {
+            if (!envelope.stillCurrent().getAsBoolean()) return ContextEnvelope.empty();
+            var kept = envelope.blocks().stream().filter(block -> {
+                try { return block.stillCurrent().getAsBoolean(); }
+                catch (RuntimeException exception) {
+                    log.warn("上下文片段失效检查失败：errorType={}", exception.getClass().getSimpleName()); return false;
+                }
+            }).toList();
+            return kept.size() == envelope.blocks().size() ? envelope
+                    : ContextEnvelopeBuilder.build(kept, envelope.estimatedTokens(), tokenCounter, envelope.stillCurrent());
+        } catch (RuntimeException exception) {
+            log.warn("上下文有效性检查失败：errorType={}", exception.getClass().getSimpleName()); return ContextEnvelope.empty();
+        }
     }
 }

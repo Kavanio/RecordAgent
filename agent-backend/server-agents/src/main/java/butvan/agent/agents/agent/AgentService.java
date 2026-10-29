@@ -50,6 +50,12 @@ import java.util.*;
 @RequiredArgsConstructor
 public class AgentService {
 
+    private butvan.agent.agents.memory.MemoryTurnLifecycle memoryLifecycle = butvan.agent.agents.memory.MemoryTurnLifecycle.disabled();
+
+    /** 仅 agents 模块运行时保持关闭 Adapter；不改变既有构造和聊天依赖。 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setMemoryLifecycle(butvan.agent.agents.memory.MemoryTurnLifecycle lifecycle) { this.memoryLifecycle = lifecycle; }
+
     private final ModelHolder modelHolder;
     private final CurrentUserProvider currentUserProvider;
     private final SessionCatalogService sessionCatalogService;
@@ -122,7 +128,7 @@ public class AgentService {
             }
 
             // 1. 防止客户端伪造或使用已删除的会话
-            sessionCatalogService.requireActive(request.sessionId());
+            var currentSession = sessionCatalogService.requireActive(request.sessionId());
             String requestedContext = request.context() == null || request.context().isBlank()
                     ? request.content() : request.context();
             String input = requireContent(requestedContext);
@@ -133,12 +139,20 @@ public class AgentService {
             String turnId = request.turnId() == null
                     ? transcriptService.appendUserMessage(request.sessionId(), displayContent)
                     : transcriptService.appendUserMessageWithTurnId(request.sessionId(), displayContent, request.turnId());
-            ContextEnvelope contextEnvelope = contextAssembler.assemble(
-                    new ContextRequest(userId, displayContent));
+            try { memoryLifecycle.admitted(request, userId, turnId); }
+            catch (RuntimeException exception) {
+                log.warn("经历来源登记未完成，聊天继续：errorType={}", exception.getClass().getSimpleName());
+            }
             RuntimeContext context = createRuntimeContext(userId, request.sessionId());
-            context.put(ContextEnvelope.class, contextEnvelope);
             run = new AgentRun(request.sessionId(), userId, turnId, context);
             checkpointService.save(run);
+            boolean remoteEligible = currentSession != null
+                    && currentSession.kind() == butvan.agent.agents.session.dto.SessionKind.GENERAL
+                    && (currentSession.projectId() == null || currentSession.projectId().isBlank())
+                    && butvan.agent.agents.memory.MemorySourcePolicy.eligible(request);
+            ContextEnvelope contextEnvelope = contextAssembler.assemble(new ContextRequest(userId, displayContent,
+                    remoteEligible ? request.memoryChannel() : null, streamSession::isCancelled));
+            context.put(ContextEnvelope.class, contextEnvelope);
 
             // 仅新用户轮次修复进程重启遗留调用；HITL 恢复必须让 AgentScope 原样消费 ConfirmResult。
             recoverOrphanedToolCalls(userId, request.sessionId());
@@ -299,7 +313,7 @@ public class AgentService {
                 continue;
             }
 
-            AgentStreamEvent mapped = agentEventManager.map(event, run.toolArgsBuffer());
+            AgentStreamEvent mapped = agentEventManager.map(event, run.toolArgsBuffer(), run.toolResultPrefixBuffer());
             run.record(mapped);
             if (event instanceof ModelCallEndEvent) {
                 checkpointService.save(run);
@@ -558,10 +572,12 @@ public class AgentService {
 
     /** 只在此处构造 RuntimeContext，保证所有 Agent 调用都使用同一个用户身份规则。 */
     private RuntimeContext createRuntimeContext(String userId, String sessionId) {
-        return RuntimeContext.builder()
+        RuntimeContext context = RuntimeContext.builder()
                 .userId(userId)
                 .sessionId(sessionId)
                 .build();
+        butvan.agent.agents.tool.ToolSchemaSelectionMiddleware.prepareContext(context);
+        return context;
     }
 
     /** 每段 Agent 流开始时固化模型身份，兼容权限暂停期间切换模型的情况。 */

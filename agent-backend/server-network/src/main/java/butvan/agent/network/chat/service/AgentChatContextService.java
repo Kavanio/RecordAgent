@@ -37,7 +37,7 @@ public class AgentChatContextService {
         List<String> referenceIds = normalizedReferenceIds(request.recordReferenceIds());
         if (referenceIds.isEmpty()) {
             return new AgentUserCall(request.sessionId(), content, context, List.of(),
-                    request.runId(), null, images);
+                    request.runId(), null, images, butvan.agent.agents.memory.MemorySourceRegistry.Channel.DESKTOP);
         }
 
         String question = request.context() == null || request.context().isBlank()

@@ -5,6 +5,7 @@ import io.agentscope.core.agent.Agent;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.AgentEvent;
 import io.agentscope.core.middleware.ActingInput;
+import io.agentscope.core.middleware.AgentInput;
 import io.agentscope.core.middleware.MiddlewareBase;
 import io.agentscope.core.middleware.ModelCallInput;
 import io.agentscope.core.model.ToolSchema;
@@ -16,13 +17,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-/** 按本轮 Jev 决策组装模型可见的 Tool Schema，不修改共享 Toolkit。 */
+/** 按本轮 Jev 决策与只读方法卡连续性策略组装 Schema，不修改 Toolkit 激活状态。 */
 @Component
 public class ToolSchemaSelectionMiddleware implements MiddlewareBase {
 
-    /** 标记当前运行已经由主模型显式接管 Tool Group 选择。 */
-    private static final String MANUAL_OVERRIDE_KEY =
-            "butvan.tool-schema-routing.manual-override";
+    /** 共享引用跨过框架 RuntimeContext 的浅复制；只属于当前 run，不写 AgentState。 */
+    private static final class SelectionState {
+        private volatile boolean manual;
+    }
+
+    /** 在传入框架前初始化；HITL 恢复沿用原 run 的同一份选择状态。 */
+    public static void prepareContext(RuntimeContext context) {
+        if (context != null && context.get(SelectionState.class) == null)
+            context.put(SelectionState.class, new SelectionState());
+    }
+
+    @Override
+    public Flux<AgentEvent> onAgent(Agent agent, RuntimeContext context, AgentInput input,
+                                  Function<AgentInput, Flux<AgentEvent>> next) {
+        prepareContext(context);
+        return next.apply(input);
+    }
 
     /** capabilityCatalog：用于判断一个 Tool 是分组工具还是常驻兼容工具。 */
     private final ToolCapabilityCatalog capabilityCatalog;
@@ -60,7 +75,8 @@ public class ToolSchemaSelectionMiddleware implements MiddlewareBase {
                 && input.toolCalls().stream().anyMatch(toolCall ->
                         ToolCapabilityCatalog.META_TOOL_NAME.equals(toolCall.getName()));
         if (resetsEquippedTools && context != null) {
-            context.put(MANUAL_OVERRIDE_KEY, true);
+            prepareContext(context);
+            context.get(SelectionState.class).manual = true;
         }
         return next.apply(input);
     }
@@ -92,7 +108,8 @@ public class ToolSchemaSelectionMiddleware implements MiddlewareBase {
         }
 
         // 主模型调用过 reset_equipped_tools 后，AgentScope 的会话状态成为权威来源。
-        if (Boolean.TRUE.equals(context.get(MANUAL_OVERRIDE_KEY))) {
+        SelectionState selection = context.get(SelectionState.class);
+        if (selection != null && selection.manual) {
             return next.apply(input);
         }
 
@@ -100,7 +117,7 @@ public class ToolSchemaSelectionMiddleware implements MiddlewareBase {
         Map<String, ToolSchema> selectedByName = new LinkedHashMap<>();
 
         // 只保留元工具和未被能力目录分类的工具。
-        // 即使共享 Toolkit 曾被其他会话激活过，也不会把其能力组带进本轮。
+        // 其余上轮已启用的组仍按本轮决策过滤。
         if (input.tools() != null) {
             input.tools().stream()
                     .filter(this::isAlwaysVisible)
@@ -108,10 +125,15 @@ public class ToolSchemaSelectionMiddleware implements MiddlewareBase {
                     .forEach(schema -> selectedByName.put(schema.getName(), schema));
         }
 
-        // 直接读取指定组的 Schema，不调用 updateToolGroups，不修改共享状态。
+        // 原始 input.tools 来自框架当前激活组；与状态同步共用策略，避免可见与可执行不一致。
+        List<String> equipped = input.tools() == null ? List.of() : input.tools().stream()
+                .filter(schema -> schema != null)
+                .flatMap(schema -> capabilityCatalog.groupFor(schema.getName()).stream())
+                .map(ToolCapabilityCatalog.Capability::name).toList();
+        // 直接读取指定组的 Schema，不调用 updateToolGroups。
         // routedSchemas：从完整 Toolkit 只读取得的本轮已选能力组 Schema。
         List<ToolSchema> routedSchemas = agent.getToolkit()
-                .getToolSchemas(decision.selectedGroups());
+                .getToolSchemas(ToolCapabilityCatalog.groupsForTurn(decision.selectedGroups(), equipped));
         // schema：当前加入最终结果并按名称去重的路由 Tool Schema。
         routedSchemas.forEach(schema -> selectedByName.put(schema.getName(), schema));
 
