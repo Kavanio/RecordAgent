@@ -1,3 +1,5 @@
 .state { margin: 0; padding: 16px 20px; font-size: 13px; color: #6b7280; line-height: 1.7; }
 .state[role='alert'] { color: #c03636; }
 .more { display: flex; justify-content: center; padding: 16px; }
+
+.list { min-height: 0; max-height: 65vh; overflow-y: auto; }

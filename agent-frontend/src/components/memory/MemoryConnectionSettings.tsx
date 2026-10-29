@@ -60,11 +60,17 @@ export function MemoryConnectionSettings({ onChanged }: Props) {
     finally { setSaving(false); }
   };
   return <>
-    <SettingsGroup title="Hindsight 连接 · 真实聊天试用" description="只处理授权并开启后的新聊天，不补传旧记录；保存和查询可能产生供应商费用。">
-      <SettingsRow label="记忆服务" description={connection?.configured ? `${connection.endpoint}；${connection.message}` : connection?.message ?? '正在读取连接配置…'}
+    <SettingsGroup title="Hindsight 连接 · 真实聊天试用" description="连接外部服务来保存和查找经历，使用可能产生费用。">
+      <SettingsRow label="记忆服务" description={connection?.configured ? connection.endpoint : connection?.message ?? '正在读取连接配置…'}
         control={<div className={styles.actions}><Button variant="outline" disabled={loading || !connection || saving} onClick={open}>{connection?.configured ? '修改记忆服务' : '配置记忆服务'}</Button>
           <Button variant="ghost" disabled={loading || editing || saving} onClick={() => void load()}>刷新连接摘要</Button></div>} />
-      <SettingsRow label="试用限制" description="删除会立即停止引用，服务器彻底清理暂不能保证；删除未确认时，本空间召回暂停。存在远端目标时恢复出厂可能保持保护，不能当成已清空。纠正目前仅保存本机，请勿用密码或敏感资料测试。" control={<span className={styles.badge}>删除未核实</span>} />
+      <SettingsRow label="试用限制" description="删除后会停止引用，但暂时无法保证远端彻底清除。" control={<span className={styles.badge}>删除未核实</span>} />
+      <details className={styles.details}>
+        <summary>查看连接详情和试用说明</summary>
+        <p>{connection?.message}</p>
+        <p>删除未核实时会暂停查找经历；恢复出厂也可能需要等待清理，不能当作已经清空。</p>
+        <p>纠正内容目前只保存在本机，请勿用密码或敏感资料测试。</p>
+      </details>
       {error && <SettingsRow label="连接读取失败" description={<span role="alert">{error}</span>} control={<Button variant="ghost" disabled={loading} onClick={() => void load()}>重新读取连接</Button>} />}
     </SettingsGroup>
     <ConfirmDialog open={editing} title="配置真实聊天记忆试用" width={600} busy={saving} confirmText="检查并保存连接" onClose={() => { setEditing(false); setDraft(emptyDraft()); request.current = null; }} onConfirm={submit}>

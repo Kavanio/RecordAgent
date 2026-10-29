@@ -40,11 +40,11 @@ const SKIP_LABELS: Record<string, string> = {
 
 /** 长期模式只说明召回范围，不把“没有天数”说成永久准确或已删除。 */
 function authorizationSummary(settings: MemorySettings) {
-  if (!settings.authorized) return '尚无有效授权。授权只对生效后的新聊天有效，不自动开启开关。';
+  if (!settings.authorized) return '先选择允许记住哪些新聊天。';
   const purposes = `${settings.allowSave ? '保存' : ''}${settings.allowSave && settings.allowRecall ? '、' : ''}${settings.allowRecall ? '查询' : ''}`;
   const channels = settings.channels.map(c => c === 'DESKTOP' ? '桌面' : '飞书').join('、');
   const scope = settings.policyVersion >= 2
-    ? (settings.recallMode === 'ALL_AUTHORIZED' ? '长期召回（不按统一天数排除）' : `只召回最近 ${settings.retentionDays} 天`)
+    ? (settings.recallMode === 'ALL_AUTHORIZED' ? '可查找全部获准经历' : `只查找最近 ${settings.retentionDays} 天`)
     : `保留 ${settings.retentionDays} 天，每日保存 ${settings.dailyWriteLimit} 次、查询 ${settings.dailyQueryLimit} 次`;
   return `已授权：${purposes}；${channels}；${scope}。`;
 }
@@ -145,29 +145,35 @@ export function ExperienceMemorySettings() {  const { showMessage } = useMessage
   };
   return <div className={styles.content}>
     <MemoryConnectionSettings onChanged={load} />
-    <SettingsGroup title="经历记忆" description="从获准的新普通聊天持续积累经历，并为当前问题召回少量相关片段。默认关闭。">
+    <SettingsGroup title="经历记忆" description="记住你允许的新聊天，回答时参考相关经历。">
       <SettingsRow label="远端接入" description={settings?.remoteAvailable
-        ? <>接收方 <code className={styles.fingerprint}>{shortFingerprint(settings.recipientFingerprint)}</code>；还须授权并开启对应开关，不代表完整远端删除已核实。</>
-        : '当前未接入远端记忆服务，不会上传聊天；请先配置上方 Hindsight 试用连接。'}
+        ? <>接收方 <code className={styles.fingerprint}>{shortFingerprint(settings.recipientFingerprint)}</code>；授权并打开下方开关后才会使用。</>
+        : '先连接上方记忆服务，再选择允许保存和查找的内容。'}
         control={<span className={styles.badge}>{settings ? settings.remoteAvailable ? '已接入' : '未接入' : '读取中…'}</span>} />
       {error && <SettingsRow label="设置读取失败" description={<span role="alert">{error}</span>} control={<Button variant="outline" disabled={busy} onClick={() => void load()}>重试读取设置</Button>} />}
       {settings && <>
         <SettingsRow label="用途授权" description={authorizationSummary(settings)}
           control={<div className={styles.actions}><Button variant="outline" disabled={busy || !settings.remoteAvailable} onClick={() => setAuthorizing(true)}>{settings.authorized ? '重新授权' : '查看并授权'}</Button>
             <Button variant="ghost" disabled={busy || !settings.authorized} onClick={() => setRevoking(true)}>撤销授权</Button></div>} />
-        <SettingsRow label="自动保存新经历" description="仅处理授权后的普通用户文本；明确说不要记住的当轮不上传，暂停不删除既有数据。" control={<LeverSwitch aria-label="自动保存新经历" checked={settings.autoSave} disabled={busy || !settings.authorized || !settings.allowSave} label={settings.autoSave ? '已开启' : '已关闭'} onChange={(value) => toggle(value, settings.autoRecall)} />} />
-        <SettingsRow label="自动召回经历" description="还需上方“自动使用个人上下文”开启；查询与保存独立控制。" control={<LeverSwitch aria-label="自动召回经历" checked={settings.autoRecall} disabled={busy || !settings.authorized || !settings.allowRecall} label={settings.autoRecall ? '已开启' : '已关闭'} onChange={(value) => toggle(settings.autoSave, value)} />} />
-        <SettingsRow label="运行保护" description={`每批 ${settings.runtimePolicy.batchSize} 条；每日保护：保存 ${settings.runtimePolicy.dailyWriteLimit}、状态核对 ${settings.runtimePolicy.dailyStatusLimit}、召回 ${settings.runtimePolicy.dailyRecallLimit}。调整不影响授权与已积累来源，也不等于费用封顶。`}
+        <SettingsRow label="自动保存新经历" description="只保存授权后的新聊天，说“不要记住”就不上传。" control={<LeverSwitch aria-label="自动保存新经历" checked={settings.autoSave} disabled={busy || !settings.authorized || !settings.allowSave} label={settings.autoSave ? '已开启' : '已关闭'} onChange={(value) => toggle(value, settings.autoRecall)} />} />
+        <SettingsRow label="自动召回经历" description="回答时查找相关经历，需同时开启上方“自动使用个人上下文”。" control={<LeverSwitch aria-label="自动召回经历" checked={settings.autoRecall} disabled={busy || !settings.authorized || !settings.allowRecall} label={settings.autoRecall ? '已开启' : '已关闭'} onChange={(value) => toggle(settings.autoSave, value)} />} />
+        <SettingsRow label="运行保护" description="限制每天的处理次数，达到上限后会暂停，待办仍会保留。"
           control={<Button variant="outline" disabled={busy} onClick={openRuntime}>调整运行保护</Button>} />
-        <SettingsRow label="处理状态" description={status ? statusSummary(status) : (statusError || '正在读取积压与暂停原因…')}
+        <SettingsRow label="处理状态" description={<>
+          {statusError ? <span role="alert">{statusError}</span> : status ? (status.pauseReasons.length
+            ? `已暂停：${status.pauseReasons.map(reason => PAUSE_LABELS[reason] ?? reason).join('、')}。`
+            : `已登记 ${status.sourceTotal} 条来源，${status.sourceActive} 条可用。`) : '正在读取处理状态…'}
+        </>}
           control={<Button variant="ghost" disabled={busy} onClick={() => void loadStatus()}>刷新处理状态</Button>} />
-        <SettingsRow label="刷新权威状态" description="其他窗口更改或操作冲突后，可重新读取。" control={<Button variant="ghost" disabled={busy} onClick={() => void load()}>刷新记忆设置</Button>} />
+        {status && <details className={styles.details}><summary>查看详细统计</summary><p>{statusSummary(status)}</p></details>}
+        <SettingsRow label="刷新设置" description="在其他窗口改过设置后，点这里更新。" control={<Button variant="ghost" disabled={busy} onClick={() => void load()}>刷新记忆设置</Button>} />
       </>}
     </SettingsGroup>
     <MemoryDocumentManager />
     {authorizing && settings && <MemoryAuthorizationDialog settings={settings} busy={busy} onClose={() => setAuthorizing(false)} onConfirm={authorize} />}
     <ConfirmDialog open={editingRuntime} title="调整运行保护" busy={busy} confirmText="保存运行保护" onClose={() => setEditingRuntime(false)} onConfirm={saveRuntime}
-      description="只调节后台节流与每日调用保护，不改变用途、渠道、召回范围，也不会使用已有来源失效。达到保护上限时任务保留待办，不会静默丢弃。">
+      description="调整处理次数，不改变授权和已有来源，也不代表费用封顶。">
+      <p>当前每批 {settings?.runtimePolicy.batchSize} 条，达到每日上限后，剩余任务会继续等待。</p>
       <div className={styles.runtimeGrid}>
         <label htmlFor="memory-runtime-batch">每批条数<TextInput id="memory-runtime-batch" type="number" min={1} max={20} value={runtimeDraft.batchSize} disabled={busy} onChange={(e) => setRuntimeDraft({ ...runtimeDraft, batchSize: e.target.value })} /></label>
         <label htmlFor="memory-runtime-write">每日保存保护<TextInput id="memory-runtime-write" type="number" min={1} max={100000} value={runtimeDraft.write} disabled={busy} onChange={(e) => setRuntimeDraft({ ...runtimeDraft, write: e.target.value })} /></label>

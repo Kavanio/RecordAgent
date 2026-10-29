@@ -95,7 +95,9 @@ function seedSource() {
 }
 
 test('未接入时展示关闭状态及空来源，禁用授权，不发送外部写入', async () => {
-  await render(); assert.match(view.text(), /未接入/); assert.match(view.text(), /暂无经历来源/);
+  await render(); assert.match(view.text(), /未接入/);
+  assert.equal(calls.filter(c => c.path.endsWith('/documents')).length, 0);
+  await click('管理来源'); assert.match(document.body.textContent, /暂无经历来源/);
   assert.equal([...document.querySelectorAll('button')].find(b => b.textContent === '查看并授权').disabled, true);
   assert.ok([...document.querySelectorAll('[role="switch"]')].every(s => s.getAttribute('aria-checked') === 'false'));
   assert.ok(calls.every(call => call.method === 'GET'));
@@ -149,6 +151,10 @@ test('运行保护单独保存，不修改授权；状态展示积压和过滤�
     operations: { PENDING: 2, UNKNOWN: 1 }, oldestPendingAt: '2026-10-28T07:59:00Z',
     pauseReasons: ['RECALL_DISABLED'], skippedToday: { USER_OPT_OUT: 1 } };
   await render();
+  const statistics = [...document.querySelectorAll('details')].find(node => node.querySelector('summary')?.textContent === '查看详细统计');
+  assert.equal(statistics.open, false);
+  await act(async () => statistics.querySelector('summary').click());
+  assert.equal(statistics.open, true);
   assert.match(view.text(), /待处理 2、失败 0、结果未知 1/);
   assert.match(view.text(), /当前暂停：召回开关关闭/);
   assert.match(view.text(), /今日过滤：你要求不记住 1/);
@@ -158,7 +164,8 @@ test('运行保护单独保存，不修改授权；状态展示积压和过滤�
   const call = calls.find(c => c.path === '/agent/memory/runtime-policy');
   assert.equal(call.body.expectedVersion, 0); assert.equal(call.body.batchSize, 10); assert.equal(call.body.dailyRecallLimit, 400);
   assert.equal(settings.authorizationRevision, 4, '运行保护不影响授权 revision');
-  assert.match(view.text(), /每批 10 条/);
+  await click('调整运行保护');
+  assert.match(document.body.textContent, /每批 10 条/);
 });
 
 test('保存召回各自控制；撤权须确认且 DELETE 使用 JSON 和当前 revision', async () => {
@@ -173,14 +180,18 @@ test('保存召回各自控制；撤权须确认且 DELETE 使用 JSON 和当前
 });
 
 test('列表不展开正文或冒充已记住；点击详情才读取原文，取消删除不写入', async () => {
-  seedSource(); await render(); assert.match(view.text(), /等待同步/); assert.doesNotMatch(view.text(), /合成原文/);
+  seedSource(); await render();
+  assert.doesNotMatch(view.text(), /等待同步|合成原文/);
+  assert.equal(calls.filter(c => c.path.endsWith('/documents')).length, 0);
+  await click('管理来源'); assert.match(document.body.textContent, /等待同步/);
+  assert.equal(calls.filter(c => c.path.endsWith('/documents/source')).length, 0);
   await click('查看来源'); assert.match(document.body.textContent, /合成原文保持不变/);
   await click('删除记忆来源'); await click('取消', [...document.querySelectorAll('[role="dialog"]')].find(d => d.textContent.includes('确认删除记忆来源')));
   assert.equal(calls.filter(c => c.method === 'DELETE').length, 0);
 });
 
 test('纠正先确认且请求失败可复用同一幂等 ID；任务未知不显示远端删除成功', async () => {
-  seedSource(); await render(); await click('查看来源'); await change('#memory-correction', '合成纠正文本');
+  seedSource(); await render(); await click('管理来源'); await click('查看来源'); await change('#memory-correction', '合成纠正文本');
   await click('保存纠正并停用旧来源'); failCommand = true; await click('确认操作');
   const first = calls.find(c => c.path.endsWith('/corrections'));
   failCommand = false; await click('确认操作');
@@ -197,7 +208,7 @@ test('纠正先确认且请求失败可复用同一幂等 ID；任务未知不�
 test('页面重新挂载可恢复来源原任务，读取状态不重发删除', async () => {
   seedSource(); operation = { id: 'task', sourceId: 'source', kind: 'DELETE', version: 1, state: 'FAILED', retryAllowed: true, updatedAt: '2026-10-28T08:00:00Z' };
   detail.document = { ...detail.document, operationId: 'task', state: 'REVOKED', version: 1 };
-  documents = [detail.document]; await render(); await click('查看来源');
+  documents = [detail.document]; await render(); await click('管理来源'); await click('查看来源');
   assert.match(document.body.textContent, /远端删除核对失败/);
   assert.ok(calls.every(c => c.method === 'GET'));
 });
@@ -209,7 +220,7 @@ test('已清理的已知目标显示实际进度，完整擦除仍未核实；�
   documents = [detail.document];
   retryCleanupProgress = { documentDeletionRecorded: true, factsClearanceRecorded: true,
     knownChildTasks: 1, childDeletionsRecorded: 1, parentDeletionRecorded: true };
-  await render(); await click('查看来源'); await click('继续核对删除');
+  await render(); await click('管理来源'); await click('查看来源'); await click('继续核对删除');
   assert.match(document.body.textContent, /已完成已知内容清理，完整擦除未核实/);
   assert.match(document.body.textContent, /已知子任务 1\/1 已删除/);
   assert.match(document.body.textContent, /本空间召回仍暂停/);
@@ -219,7 +230,7 @@ test('已清理的已知目标显示实际进度，完整擦除仍未核实；�
   assert.equal(calls.filter(c => c.method !== 'GET').length, posts);
   assert.equal(operation.state, 'UNKNOWN', '进度展示不伪造完整删除成功');
   await view.unmount(); view = null;
-  await render(); await click('查看来源');
+  await render(); await click('管理来源'); await click('查看来源');
   assert.match(document.body.textContent, /已完成已知内容清理，完整擦除未核实/);
   assert.equal(calls.filter(c => c.method !== 'GET').length, posts);
 });
@@ -231,7 +242,7 @@ test('部分步骤或空子清单不能显示已知目标全部清理完成', as
   operation = { id: 'task', sourceId: 'source', kind: 'DELETE', version: 1, state: 'UNKNOWN', retryAllowed: true,
     updatedAt: '2026-10-28T08:00:00Z', cleanupProgress };
   detail.document = { ...detail.document, operationId: 'task', state: 'REVOKED', deletionState: 'UNKNOWN', cleanupProgress };
-  documents = [detail.document]; await render(); await click('查看来源');
+  documents = [detail.document]; await render(); await click('管理来源'); await click('查看来源');
   assert.match(document.body.textContent, /部分清理步骤已完成，仍待核实/);
   assert.match(document.body.textContent, /已知子任务 1\/2 已删除/);
   assert.doesNotMatch(document.body.textContent, /已完成已知内容清理/);
@@ -277,6 +288,19 @@ test('连接凭据不回显，失败保留草稿及原请求 ID，成功关闭�
 });
 
 test('设置加载失败提供就地重试，来源列表仍可独立使用', async () => {
-  failSettings = true; await render(); assert.match(view.text(), /设置读取失败/); assert.match(view.text(), /暂无经历来源/);
+  failSettings = true; await render(); assert.match(view.text(), /设置读取失败/); await click('管理来源'); assert.match(document.body.textContent, /暂无经历来源/);
   failSettings = false; await click('重试读取设置'); assert.doesNotMatch(view.text(), /设置读取失败/);
+});
+
+
+test('关闭来源管理后回到简洁入口，再次打开重新读取列表', async () => {
+  seedSource(); await render(); await click('管理来源');
+  const dialog = document.querySelector('[role="dialog"][aria-label="经历来源管理"]');
+  assert.ok(dialog);
+  await act(async () => dialog.querySelector('[aria-label="关闭"]').click());
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.doesNotMatch(view.text(), /等待同步/);
+  await click('管理来源');
+  assert.equal(calls.filter(c => c.path.endsWith('/documents')).length, 2);
+  assert.ok(calls.every(c => c.method === 'GET'));
 });
