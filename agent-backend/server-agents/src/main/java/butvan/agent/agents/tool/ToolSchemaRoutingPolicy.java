@@ -23,6 +23,8 @@ final class ToolSchemaRoutingPolicy {
      * @param catalog 项目唯一的 Tool 能力组目录
      */
     static void apply(Toolkit toolkit, ToolCapabilityCatalog catalog) {
+        // 框架Markdown记忆绕过应用授权、来源失效与删除屏障，必须移除可执行入口而不只隐藏Schema。
+        List.of("memory_search", "memory_get", "memory_save").forEach(toolkit::removeTool);
         // capability：当前正在创建或检查的单个能力组定义。
         for (ToolCapabilityCatalog.Capability capability : catalog.capabilities()) {
             if (toolkit.getToolGroup(capability.name()) == null) {
@@ -62,9 +64,6 @@ final class ToolSchemaRoutingPolicy {
         AgentTool tool = toolkit.getTool(toolName);
 
         if (tool == null) return;
-
-        if (("memory_search".equals(toolName) || "memory_get".equals(toolName))
-                && !(tool instanceof BoundedMemoryTool)) tool = new BoundedMemoryTool(tool);
 
         toolkit.registration()
                 .agentTool(tool)

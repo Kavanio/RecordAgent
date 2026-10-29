@@ -106,8 +106,10 @@ public class MemoryRecallAdapter implements MemoryRecallPort {
         State state = memory.state();
         if (!state.authorized() || !state.grant().recall() || !state.grant().channels().contains(request.channel()))
             return Result.empty(Status.NOT_AUTHORIZED);
+        if (repository.deletionPending(state.settings().spaceId()))
+            return new Result(Status.PAUSED, List.of(), MemoryRecallPort.Reason.DELETION_UNRESOLVED);
         if (recipient.isBlank() || !recipient.equals(state.recipientFingerprint()) || !state.settings().autoRecall()
-                || !profiles.get(request.owner()).enabled() || repository.deletionPending(state.settings().spaceId()))
+                || !profiles.get(request.owner()).enabled())
             return Result.empty(Status.PAUSED);
         var scope = new Scope(request.owner(), state, generation);
         var control = new MemoryRecallGateway.Control(deadline, () -> cancelled.get() || closed.get()

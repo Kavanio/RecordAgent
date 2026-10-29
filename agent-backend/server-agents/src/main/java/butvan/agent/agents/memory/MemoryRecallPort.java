@@ -17,8 +17,14 @@ public interface MemoryRecallPort {
         }
     }
     enum Status { SUCCESS, EMPTY, NOT_CONFIGURED, NOT_AUTHORIZED, PAUSED, CANCELLED, TIMEOUT, UNAVAILABLE, INVALID_RESULT, BUDGET_EXHAUSTED }
-    record Result(Status status, List<Fragment> fragments) {
-        public Result { fragments = fragments == null ? List.of() : List.copyOf(fragments); }
+    /** 本地权威阻断原因，不接收远端正文或自由文本。 */
+    enum Reason { NONE, DELETION_UNRESOLVED }
+    record Result(Status status, List<Fragment> fragments, Reason reason) {
+        public Result(Status status, List<Fragment> fragments) { this(status, fragments, Reason.NONE); }
+        public Result {
+            fragments = fragments == null ? List.of() : List.copyOf(fragments);
+            reason = reason == null ? Reason.NONE : reason;
+        }
         public static Result empty(Status status) { return new Result(status, List.of()); }
     }
 }

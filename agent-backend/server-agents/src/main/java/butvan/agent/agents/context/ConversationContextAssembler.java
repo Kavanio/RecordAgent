@@ -58,6 +58,15 @@ public class ConversationContextAssembler {
                 result = MemoryRecallPort.Result.empty(MemoryRecallPort.Status.UNAVAILABLE);
             }
             var seen = new HashSet<String>();
+            if (result.status() == MemoryRecallPort.Status.PAUSED) {
+                String reason = result.reason() == MemoryRecallPort.Reason.DELETION_UNRESOLVED
+                        ? "删除未核实，保护屏障仍有效" : "当前开关或范围核对条件未满足";
+                var notice = ContextEnvelopeBuilder.block(ContextKind.CONTROL, "memory-pipeline",
+                        "本轮长期经历召回已暂停：" + reason
+                                + "。本轮未注入长期经历；聊天历史与本地文件不能证明Hindsight保存或召回成功，保存进度以个人上下文处理状态为准。",
+                        Math.min(remaining, 120), tokenCounter, current);
+                if (notice != null) { blocks.add(notice); remaining -= notice.estimatedTokens(); }
+            }
             int accepted = 0;
             for (var fragment : result.fragments()) {
                 if (accepted >= request.memoryTopK() || remaining <= 0) break;

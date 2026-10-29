@@ -26,8 +26,6 @@ public class AgentSecurity {
             "grep_files",
             "glob_files",
             "list_files",
-            "memory_search",
-            "memory_get",
             "session_search",
             "session_history",
             "session_list",
@@ -49,7 +47,6 @@ public class AgentSecurity {
             "write_file",
             "edit_file",
             "web_search",
-            "memory_save",
             "agent_generate",
             "agent_spawn",
             "agent_send"

@@ -63,7 +63,11 @@ class MemoryTrialChatIntegrationTest {
                             remote, f.barrier, f.transactions, clock);
                     var document = management.documents("0", 20).items().getFirst();
                     var deletion = management.delete(document.id(), new DeleteDocument(document.version(), true, "delete"));
-                    assertTrue(assembler.assemble(query).isEmpty()); assertEquals(1, server.recalls.get(), "撤回后不再发送查询");
+                    var paused = assembler.assemble(query);
+                    assertEquals(0, paused.memoryTokens());
+                    assertTrue(paused.rendered().contains("删除未核实"));
+                    assertFalse(paused.rendered().contains(content), "只说明暂停，不泄漏已撤回的个人经历");
+                    assertEquals(1, server.recalls.get(), "撤回后不再发送查询");
                     assertTrue(envelope.blocks().stream().filter(block -> block.kind() == ContextKind.MEMORY)
                             .noneMatch(block -> block.stillCurrent().getAsBoolean()));
                     assertEquals("UNKNOWN", management.retry(deletion.id()).state(), "已知清理成功也不冒充完整擦除");

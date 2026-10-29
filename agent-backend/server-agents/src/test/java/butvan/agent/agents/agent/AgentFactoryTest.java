@@ -86,6 +86,9 @@ class AgentFactoryTest {
         );
 
         try (HarnessAgent agent = factory.currentAgent()) {
+            assertFalse(agent.getToolkit().getToolNames().stream()
+                    .anyMatch(name -> Set.of("memory_search", "memory_get", "memory_save").contains(name)),
+                    "真实Harness工具注册后也必须移除绕过应用授权与删除屏障的本地记忆入口");
             assertTrue(agent.getDelegate().getSysPrompt().contains("# 普通聊天"),
                     "普通会话需要聊天、语言与判断规则");
             assertTrue(agent.getDelegate().getSysPrompt().contains("# 语言与英语"),

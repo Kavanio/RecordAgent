@@ -20,6 +20,21 @@ class ConversationContextAssemblerTest {
     Path temporaryDirectory;
 
     @Test
+    void pausedRemoteReportsControlStatusWithoutFallingBackOrCountingItAsMemory() throws IOException {
+        Path workspace = userWorkspace();
+        Files.createDirectories(workspace.resolve("memory"));
+        Files.writeString(workspace.resolve("memory/test.md"), "小舟喜欢乌龙茶");
+        var assembler = assembler();
+        assembler.setRemoteRecall(request -> butvan.agent.agents.memory.MemoryRecallPort.Result.empty(
+                butvan.agent.agents.memory.MemoryRecallPort.Status.PAUSED));
+        var envelope = assembler.assemble(new ContextRequest("local-default", "小舟喜欢什么茶"));
+        assertTrue(envelope.rendered().contains("暂停"), "暂停不能以无上下文掩盖，导致模型误称已经记住");
+        assertEquals(0, envelope.memoryTokens(), "控制状态不是已召回的用户经历");
+        assertFalse(envelope.rendered().contains("乌龙茶"));
+        assertTrue(envelope.estimatedTokens() <= 850);
+    }
+
+    @Test
     void assemblesFallbackProfileAndRelevantMemoryWithinBudget() throws IOException {
         Path workspace = userWorkspace();
         Files.createDirectories(workspace.resolve("memory"));

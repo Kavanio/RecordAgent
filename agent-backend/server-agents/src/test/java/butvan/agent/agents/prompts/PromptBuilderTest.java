@@ -21,7 +21,7 @@ class PromptBuilderTest {
         String prompt = buildDefaultPrompt();
 
         assertTrue(prompt.contains("# 工作区上下文按需加载"));
-        assertTrue(prompt.contains("memory_search"));
+        assertTrue(prompt.contains("保存以处理状态为准"));
         assertTrue(prompt.contains("AGENTS.md"));
         assertTrue(prompt.indexOf("# 系统运行规则")
                 < prompt.indexOf("# 工作区上下文按需加载"));

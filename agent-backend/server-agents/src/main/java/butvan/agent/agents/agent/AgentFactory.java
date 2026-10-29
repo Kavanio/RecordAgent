@@ -103,6 +103,8 @@ public class AgentFactory {
                 .toolkit(toolRegistry.getToolkit())
                 .workspace(storageProperties.getWorkspaceDirectory())
                 .disableWorkspaceContext()
+                // 同时传播到框架子Agent，防止其重新注册本地Markdown记忆工具。
+                .disableMemoryTools()
                 // 自动经历仅走应用授权 seam；关闭框架整段抽取、合并与维护写入。
                 .disableMemoryHooks()
                 // 框架自动恢复发生在 ConfirmResult 消费之前，会误伤正常 HITL；遗留调用由应用层恢复。
