@@ -94,6 +94,7 @@ public class AgentFactory {
                 .name("butvan_agent")
                 .sysPrompt(systemPrompt)
                 .model(model)
+                .middleware(new butvan.agent.agents.prompts.RuntimeDateMiddleware())
                 .middleware(contextInjectionMiddleware) // 先向消息列表临时注入有界个人上下文
                 .middleware(toolSchemaSelectionMiddleware)
                 .middleware(tokenUsageMiddleware)
@@ -102,6 +103,8 @@ public class AgentFactory {
                 .toolkit(toolRegistry.getToolkit())
                 .workspace(storageProperties.getWorkspaceDirectory())
                 .disableWorkspaceContext()
+                // 自动经历仅走应用授权 seam；关闭框架整段抽取、合并与维护写入。
+                .disableMemoryHooks()
                 // 框架自动恢复发生在 ConfirmResult 消费之前，会误伤正常 HITL；遗留调用由应用层恢复。
                 .enablePendingToolRecovery(false)
                 .stateStore(agentStateStore)
@@ -109,6 +112,7 @@ public class AgentFactory {
                 .messageBus(subagentMessageBus)
                 .subagents(subagentCatalog.declarations())
                 .compaction(CompactionConfig.builder()
+                        .flushBeforeCompact(false)
                         .triggerMessages(30)    // 30 条消息触发上下文压缩
                         .keepMessages(10)       // 压缩后保留最近 10 条
                         //.triggerTokens(131072)   // 固定 token 阈值，禁用动态 contextWindowSize 探测（避免框架向 DashScope 发送非法 URL 的探测请求）

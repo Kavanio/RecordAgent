@@ -63,6 +63,9 @@ final class ToolSchemaRoutingPolicy {
 
         if (tool == null) return;
 
+        if (("memory_search".equals(toolName) || "memory_get".equals(toolName))
+                && !(tool instanceof BoundedMemoryTool)) tool = new BoundedMemoryTool(tool);
+
         toolkit.registration()
                 .agentTool(tool)
                 .group(groupName)

@@ -33,6 +33,7 @@ import reactor.core.publisher.Flux;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -96,6 +97,10 @@ class AgentFactoryTest {
                     "框架自动恢复会抢先把 HITL ConfirmResult 改写为失败结果");
             assertTrue(agent.getDelegate().getMiddlewares().stream()
                     .noneMatch(WorkspaceContextMiddleware.class::isInstance));
+            assertTrue(agent.getDelegate().getMiddlewares().stream().noneMatch(middleware ->
+                            Set.of("MemoryFlushMiddleware", "MemoryMaintenanceMiddleware")
+                                    .contains(middleware.getClass().getSimpleName())),
+                    "框架不能绕过应用记忆授权，自动抽取或合并整段历史");
             List<Class<?>> middlewareOrder = agent.getDelegate().getMiddlewares().stream()
                     .map(Object::getClass).toList();
             assertTrue(middlewareOrder.indexOf(ContextInjectionMiddleware.class)

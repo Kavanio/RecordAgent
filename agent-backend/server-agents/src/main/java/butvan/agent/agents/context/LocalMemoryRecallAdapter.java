@@ -33,6 +33,8 @@ public class LocalMemoryRecallAdapter implements MemoryRecallPort {
             String original = readSmallFile(path);
             if (original == null || original.isBlank()) continue;
             String content = path.getFileName().toString().equals(MEMORY_FILE) ? removeSection(original, "User Profile") : original;
+            // 旧框架自动摘要未经事实核对，不再当作用户经历自动注入；原文件保留供显式核查。
+            content = content.replaceAll("(?ms)^## Memory Flush[^\\r\\n]*\\R.*?(?=^## |\\z)", "");
             for (String chunk : chunks(content)) {
                 if (PersonalContextSafety.containsSensitive(chunk)) continue;
                 double value = score(chunk, request.query(), queryTerms);

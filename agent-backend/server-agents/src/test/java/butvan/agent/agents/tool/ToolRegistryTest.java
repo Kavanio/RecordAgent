@@ -23,7 +23,7 @@ class ToolRegistryTest {
             "finance_record_transaction", "finance_transfer", "glob_files", "grep_files", "library_create",
             "library_get", "library_recycle", "library_search", "library_update", "list_files",
             "load_skill_through_path", "memory_get", "memory_save", "memory_search", "method_search", "plan_enter",
-            "plan_exit", "plan_write", "read_file", "session_history", "session_list",
+            "plan_exit", "plan_write", "read_file", "session_history", "session_recent", "session_list",
             "session_search", "study_create_manual", "study_delete", "study_finish", "study_query",
             "study_start", "study_update", "task_cancel", "task_list", "task_output",
             "wait_async_results", "web_search", "write_file"

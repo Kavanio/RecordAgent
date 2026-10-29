@@ -62,6 +62,42 @@ public class TranscriptService {
     }
 
     /**
+     * 工具读取的有界尾部：最多扫描末尾 2 MiB、保留最多 24 条，不返回工具详情和思考。
+     * 超过扫描范围的历史需由用户指定会话继续核查，不以尾部空结果证明历史不存在。
+     */
+    public synchronized List<TranscriptMessageDto> recent(String sessionId, int limit) {
+        Path file = storageProperties.transcriptFile(sessionId);
+        if (!Files.isRegularFile(file) || Files.isSymbolicLink(file)) return List.of();
+        try (var channel = java.nio.channels.FileChannel.open(file, StandardOpenOption.READ)) {
+            long size = channel.size();
+            long offset = Math.max(0, size - 2_097_152);
+            var bytes = java.nio.ByteBuffer.allocate((int) (size - offset));
+            channel.position(offset);
+            while (bytes.hasRemaining() && channel.read(bytes) > 0) { /* 有界文件读取。 */ }
+            String tail = new String(bytes.array(), 0, bytes.position(), StandardCharsets.UTF_8);
+            if (offset > 0) {
+                int newline = tail.indexOf('\n');
+                tail = newline < 0 ? "" : tail.substring(newline + 1);
+            }
+            var records = new java.util.ArrayDeque<TranscriptMessageDto>();
+            for (String line : tail.split("\\R")) {
+                if (line.isBlank()) continue;
+                try {
+                    var value = objectMapper.readValue(line, TranscriptMessageDto.class);
+                    records.addLast(new TranscriptMessageDto(value.id(), value.turnId(), value.role(),
+                            value.content(), value.createdAt(), value.status(), null, List.of(), null, null));
+                    if (records.size() > Math.max(1, Math.min(24, limit))) records.removeFirst();
+                } catch (IOException exception) {
+                    log.warn("跳过有界历史中的损坏记录：sessionId={}", sessionId);
+                }
+            }
+            return List.copyOf(records);
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("读取近期聊天记录失败", exception);
+        }
+    }
+
+    /**
      * 在 Agent 前写入用户消息，并返回本轮 turnId
      * @param sessionId
      * @param content

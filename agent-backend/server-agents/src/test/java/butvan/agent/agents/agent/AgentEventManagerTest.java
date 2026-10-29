@@ -38,4 +38,19 @@ class AgentEventManagerTest {
         assertEquals(AgentStreamEvent.ToolStatus.FAILED, mapped.status());
         assertEquals("", mapped.result());
     }
+
+    @Test
+    void frameworkUnauthorizedTextCannotBeReportedAsCompletedAndBuffersArePerRun() {
+        var args = new HashMap<String, StringBuilder>();
+        var prefixes = new HashMap<String, StringBuilder>();
+        manager.map(new ToolResultTextDeltaEvent("r", "c", "method_search", "Error: Unauth"), args, prefixes);
+        manager.map(new ToolResultTextDeltaEvent("r", "c", "method_search", "orized tool call: 'method_search' is not available"), args, prefixes);
+        var mapped = assertInstanceOf(AgentStreamEvent.ToolResult.class,
+                manager.map(new ToolResultEndEvent("r", "c", "method_search", ToolResultState.SUCCESS), args, prefixes));
+        assertEquals(AgentStreamEvent.ToolStatus.FAILED, mapped.status());
+        assertEquals(0, prefixes.size());
+        var other = assertInstanceOf(AgentStreamEvent.ToolResult.class,
+                manager.map(new ToolResultEndEvent("r", "c", "method_search", ToolResultState.SUCCESS), args, new HashMap<>()));
+        assertEquals(AgentStreamEvent.ToolStatus.COMPLETED, other.status());
+    }
 }

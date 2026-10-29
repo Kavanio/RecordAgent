@@ -313,7 +313,7 @@ public class AgentService {
                 continue;
             }
 
-            AgentStreamEvent mapped = agentEventManager.map(event, run.toolArgsBuffer());
+            AgentStreamEvent mapped = agentEventManager.map(event, run.toolArgsBuffer(), run.toolResultPrefixBuffer());
             run.record(mapped);
             if (event instanceof ModelCallEndEvent) {
                 checkpointService.save(run);
@@ -572,10 +572,12 @@ public class AgentService {
 
     /** 只在此处构造 RuntimeContext，保证所有 Agent 调用都使用同一个用户身份规则。 */
     private RuntimeContext createRuntimeContext(String userId, String sessionId) {
-        return RuntimeContext.builder()
+        RuntimeContext context = RuntimeContext.builder()
                 .userId(userId)
                 .sessionId(sessionId)
                 .build();
+        butvan.agent.agents.tool.ToolSchemaSelectionMiddleware.prepareContext(context);
+        return context;
     }
 
     /** 每段 Agent 流开始时固化模型身份，兼容权限暂停期间切换模型的情况。 */

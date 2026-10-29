@@ -31,6 +31,7 @@ public class AgentSecurity {
             "session_search",
             "session_history",
             "session_list",
+            "session_recent",
             "agent_list",
             "task_output",
             "task_list",

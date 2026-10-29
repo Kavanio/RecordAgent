@@ -5,6 +5,7 @@ import io.agentscope.core.agent.Agent;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.AgentEvent;
 import io.agentscope.core.middleware.ActingInput;
+import io.agentscope.core.middleware.AgentInput;
 import io.agentscope.core.middleware.MiddlewareBase;
 import io.agentscope.core.middleware.ModelCallInput;
 import io.agentscope.core.model.ToolSchema;
@@ -20,9 +21,23 @@ import java.util.function.Function;
 @Component
 public class ToolSchemaSelectionMiddleware implements MiddlewareBase {
 
-    /** 标记当前运行已经由主模型显式接管 Tool Group 选择。 */
-    private static final String MANUAL_OVERRIDE_KEY =
-            "butvan.tool-schema-routing.manual-override";
+    /** 共享引用跨过框架 RuntimeContext 的浅复制；只属于当前 run，不写 AgentState。 */
+    private static final class SelectionState {
+        private volatile boolean manual;
+    }
+
+    /** 在传入框架前初始化；HITL 恢复沿用原 run 的同一份选择状态。 */
+    public static void prepareContext(RuntimeContext context) {
+        if (context != null && context.get(SelectionState.class) == null)
+            context.put(SelectionState.class, new SelectionState());
+    }
+
+    @Override
+    public Flux<AgentEvent> onAgent(Agent agent, RuntimeContext context, AgentInput input,
+                                  Function<AgentInput, Flux<AgentEvent>> next) {
+        prepareContext(context);
+        return next.apply(input);
+    }
 
     /** capabilityCatalog：用于判断一个 Tool 是分组工具还是常驻兼容工具。 */
     private final ToolCapabilityCatalog capabilityCatalog;
@@ -60,7 +75,8 @@ public class ToolSchemaSelectionMiddleware implements MiddlewareBase {
                 && input.toolCalls().stream().anyMatch(toolCall ->
                         ToolCapabilityCatalog.META_TOOL_NAME.equals(toolCall.getName()));
         if (resetsEquippedTools && context != null) {
-            context.put(MANUAL_OVERRIDE_KEY, true);
+            prepareContext(context);
+            context.get(SelectionState.class).manual = true;
         }
         return next.apply(input);
     }
@@ -92,7 +108,8 @@ public class ToolSchemaSelectionMiddleware implements MiddlewareBase {
         }
 
         // 主模型调用过 reset_equipped_tools 后，AgentScope 的会话状态成为权威来源。
-        if (Boolean.TRUE.equals(context.get(MANUAL_OVERRIDE_KEY))) {
+        SelectionState selection = context.get(SelectionState.class);
+        if (selection != null && selection.manual) {
             return next.apply(input);
         }
 

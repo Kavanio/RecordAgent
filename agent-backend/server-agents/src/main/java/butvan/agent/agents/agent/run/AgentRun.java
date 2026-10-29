@@ -46,6 +46,8 @@ public class AgentRun {
             new AtomicReference<>(CompletionState.READY);
     // 初始 SSE 与恢复 SSE 共用同一份工具参数和执行记录
     private final Map<String, StringBuilder> toolArgsBuffer = new ConcurrentHashMap<>();
+    /** 只保留工具结果前缀，兼容框架把技术错误标为 SUCCESS 的版本；终态即移除。 */
+    private final Map<String, StringBuilder> toolResultPrefixBuffer = new ConcurrentHashMap<>();
     private final Map<String, TranscriptMessageDto.ToolExecutionDto> toolExecutions = new LinkedHashMap<>();
 
     public AgentRun(String sessionId, String userId, String turnId, RuntimeContext runtimeContext) {
@@ -75,6 +77,7 @@ public class AgentRun {
         return thinking.toString();
     }
     public Map<String, StringBuilder> toolArgsBuffer() { return toolArgsBuffer; }
+    public Map<String, StringBuilder> toolResultPrefixBuffer() { return toolResultPrefixBuffer; }
 
     /** 创建带当前轮次标记的用户消息，供 Middleware 区分历史消息。 */
     public Msg currentUserMessage(String input) {
