@@ -24,7 +24,8 @@ class MemoryHindsightSyntheticTrialIT {
         catch (IllegalArgumentException invalid) { throw new IllegalArgumentException("试跑连接地址格式无效，请检查受保护配置"); }
         try (var trial = new MemorySyntheticTrial(root, endpoint,
                 System.getenv().getOrDefault("RECORDAGENT_MEMORY_TRIAL_TOKEN", ""), required("RECORDAGENT_MEMORY_TRIAL_PROCESSING_CHAIN"),
-                "CONFIRM_FIXED_URL_SYNTHETIC_NO_TOKEN".equals(System.getenv("RECORDAGENT_MEMORY_TRIAL_PLAINTEXT_ACK")))) {
+                "CONFIRM_FIXED_URL_SYNTHETIC_NO_TOKEN".equals(System.getenv("RECORDAGENT_MEMORY_TRIAL_PLAINTEXT_ACK")),
+                "CONFIRM_V2_SYNTHETIC_400_DAY_CLIENT_CLOCK".equals(System.getenv("RECORDAGENT_MEMORY_TRIAL_V2")))) {
             var report = trial.run(action);
             System.out.println(formatReport(report));
             assertFalse(report.remoteErasureVerified(), "本试跑从不宣告完整物理删除");

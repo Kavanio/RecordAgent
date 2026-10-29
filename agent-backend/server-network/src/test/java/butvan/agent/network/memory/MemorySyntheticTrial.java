@@ -25,7 +25,8 @@ final class MemorySyntheticTrial implements AutoCloseable {
     record Match(String source, String content) { }
     record Report(String action, String status, String bankId, boolean remoteErasureVerified, int recallUsed,
                   List<Task> operations, List<Match> matches, List<OperationResponse> deletions, boolean explicitPlaintextTrial,
-                  List<ApprovedSyntheticHindsight.Observation> transportObservations) { }
+                  List<ApprovedSyntheticHindsight.Observation> transportObservations,
+                  int policyVersion, int simulatedSourceAgeDays) { }
     private static final String SCHEMA = "recordagent-synthetic-trial-v1";
     private static final List<String> SAMPLES = SyntheticMemoryTrialData.SAMPLES;
     private static final List<String> QUERIES = SyntheticMemoryTrialData.QUERIES;
@@ -41,11 +42,19 @@ final class MemorySyntheticTrial implements AutoCloseable {
     private MemorySyncService worker;
     private MemoryManagementService management;
     private ObjectNode state;
+    /** 只改变本地合成授权与召回核对时钟，不改变远端正文或调用白名单。 */
+    private final boolean v2;
+    private boolean clockAdvanced;
 
     MemorySyntheticTrial(Path directory, URI endpoint, String token, String chain) throws Exception {
         this(directory, endpoint, token, chain, false);
     }
     MemorySyntheticTrial(Path directory, URI endpoint, String token, String chain, boolean explicitPlaintext) throws Exception {
+        this(directory, endpoint, token, chain, explicitPlaintext, false);
+    }
+    MemorySyntheticTrial(Path directory, URI endpoint, String token, String chain,
+                         boolean explicitPlaintext, boolean v2) throws Exception {
+        this.v2 = v2;
         root = directory.toAbsolutePath().normalize();
         try {
             if (!root.getFileName().toString().startsWith("recordagent-synthetic-trial-") || Files.isSymbolicLink(root))
@@ -65,6 +74,9 @@ final class MemorySyntheticTrial implements AutoCloseable {
                     throw new IllegalArgumentException("不支持的试跑记录，拒绝复用");
                 state = (ObjectNode) saved;
             } else state = mapper.createObjectNode().put("schema", SCHEMA);
+            if (existing && state.path("v2").asBoolean() != v2)
+                throw new IllegalArgumentException("不能改变已有合成空间的授权模式");
+            state.put("v2", v2);
             fixture = new MemorySyncFixture(root);
             var journal = new MemoryRemoteOperationRepository(fixture.base.jdbc, fixture.base.transactions);
             if (explicitPlaintext) {
@@ -99,8 +111,12 @@ final class MemorySyntheticTrial implements AutoCloseable {
             if (!state.path("prepared").asBoolean()) {
                 if (state.path("seedStarted").asBoolean()) throw new IllegalStateException("本地准备曾中断，请保留目录检查，不能重新生成来源");
                 state.put("seedStarted", true); save("trial.json", state);
-                fixture.base.service.authorize(new Authorization(0, gateway.recipientFingerprint(), true, true,
-                        Set.of(Channel.DESKTOP), 1, 3, 30, true, "synthetic-grant"));
+                fixture.base.service.authorize(v2
+                        ? new Authorization(0, gateway.recipientFingerprint(), true, true, Set.of(Channel.DESKTOP),
+                                0, 0, 0, 2, butvan.agent.network.memory.model.MemoryModels.RecallMode.ALL_AUTHORIZED,
+                                true, true, true, "synthetic-v2-grant")
+                        : new Authorization(0, gateway.recipientFingerprint(), true, true,
+                                Set.of(Channel.DESKTOP), 1, 3, 30, true, "synthetic-grant"));
                 fixture.base.service.saveSettings(0, true, true);
                 for (String text : SAMPLES) fixture.finish(fixture.admit(text), MessageStatus.COMPLETED, true);
                 var ids = state.putArray("sources"); worker.operations().forEach(operation -> ids.add(operation.sourceId()));
@@ -153,6 +169,11 @@ final class MemorySyntheticTrial implements AutoCloseable {
                                         new MemorySourceVerifier(fixture.transcript, fixture.sessions), profiles,
                                         fixture.base.barrier, fixture.base.user, fixture.clock, fixture.base.transactions);
                                 try {
+                                    // 仅推进独立客户端时钟；远端不伪造时间，检验V2客户端长时资格。
+                                    if (v2 && !clockAdvanced) {
+                                        fixture.clock.advance(java.time.Duration.ofDays(400));
+                                        clockAdvanced = true;
+                                    }
                                     var result = recall.recall(new MemoryRecallPort.Request(fixture.base.user.currentUserId(),
                                             QUERIES.get(index), 500, 4, Channel.DESKTOP, () -> false));
                                     status = result.status().name();
@@ -169,7 +190,8 @@ final class MemorySyntheticTrial implements AutoCloseable {
         var tasks = worker.operations().stream().map(operation -> new Task(operation.id(), operation.sourceId(),
                 operation.state(), operation.attempts(), operation.queries())).toList();
         var report = new Report(action.name(), status, state.path("bank").asText(), false, state.path("recallUsed").asInt(), tasks, matches, deletions, approvedHttp != null,
-                approvedHttp == null ? List.of() : approvedHttp.observations());
+                approvedHttp == null ? List.of() : approvedHttp.observations(), v2 ? 2 : 1,
+                clockAdvanced ? 400 : 0);
         save("latest-report.json", mapper.valueToTree(report));
         return report;
     }

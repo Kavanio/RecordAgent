@@ -12,6 +12,22 @@ import static org.junit.jupiter.api.Assertions.*;
 class MemorySyntheticTrialTest {
     @TempDir Path directory;
 
+    @Test void v2PreparationRestartsWithoutRebindingSourcesOrDowngradingAuthorization() throws Exception {
+        Path root = directory.resolve("recordagent-synthetic-trial-v2");
+        URI endpoint = URI.create("http://127.0.0.1:9/");
+        MemorySyntheticTrial.Report first;
+        try (var trial = new MemorySyntheticTrial(root, endpoint, "", "chain", false, true)) {
+            first = trial.run(MemorySyntheticTrial.Action.PREPARE);
+            assertEquals(2, first.policyVersion());
+            assertEquals(3, first.operations().size());
+        }
+        try (var trial = new MemorySyntheticTrial(root, endpoint, "", "chain", false, true)) {
+            assertEquals(first.operations(), trial.run(MemorySyntheticTrial.Action.PREPARE).operations());
+            assertEquals(first.bankId(), trial.run(MemorySyntheticTrial.Action.STATUS).bankId());
+        }
+        assertThrows(IllegalArgumentException.class, () -> new MemorySyntheticTrial(root, endpoint, "", "chain"));
+    }
+
     @Test void preparationAndReopeningKeepTheSameThreeSyntheticSourcesWithoutNetwork() throws Exception {
         var calls = new AtomicInteger();
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
