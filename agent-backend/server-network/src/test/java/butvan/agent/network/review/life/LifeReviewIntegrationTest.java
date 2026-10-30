@@ -377,6 +377,24 @@ class LifeReviewIntegrationTest {
         replies.reply("owner", "latest", "shortcut-reply-1", "免ID直接补充今日经历");
         assertEquals(2, repository.latest("owner", DAY).orElseThrow().version());
     }
+    @Test void chatContextPortRecallsRecentReviewOnlyWhenRelevantAndAuthorized() {
+        var granted = authorize(false, false);
+        when(generator.generate(any())).thenReturn(new ReviewDraft(1, "今日材料", List.of(
+                new ReviewDraft.Observation("study.try", "FACT_OBSERVATION", "你尝试了手记翻译。", List.of("journal-1"), List.of(), "首次尝试")),
+                List.of(),
+                List.of(new ReviewDraft.Action("study.try", null, "small-start-v1", "明天先翻两句手记", "降低启动门槛", List.of("journal-1"), 7, "完成两句翻译"))));
+        reviews.prepare("owner", new Prepare(DAY, 0, false));
+        reviews.tick();
+
+        assertTrue(reviews.recallRecentReview("owner", "今天天气怎么样").isEmpty());
+        var fragment = reviews.recallRecentReview("owner", "刚才复盘里那个学习建议，我下一步怎么调整？").orElseThrow();
+        assertTrue(fragment.content().contains("明天先翻两句手记"));
+        assertTrue(fragment.stillCurrent().getAsBoolean());
+
+        authorization.revoke("owner", new Consent(granted.revision(), "life-v1", true));
+        assertFalse(fragment.stillCurrent().getAsBoolean());
+        assertTrue(reviews.recallRecentReview("owner", "刚才复盘里那个学习建议").isEmpty());
+    }
     private static Path temporary() {
         try { return Files.createTempDirectory("life-review-test-"); }
         catch (Exception e) { throw new IllegalStateException(e); }

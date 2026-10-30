@@ -1,5 +1,6 @@
 package butvan.agent.network.review.life;
 
+import butvan.agent.agents.memory.MemoryRecallPort;
 import butvan.agent.agents.reset.ResetBarrier;
 import butvan.agent.agents.review.*;
 import butvan.agent.agents.usage.TokenCounter;
@@ -20,7 +21,7 @@ import java.util.*;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class LifeReviewService {
+public class LifeReviewService implements LifeReviewContextPort {
     private final LifeReviewRepository repository;
     private final LifeAuthorizationService authorization;
     private final LifeMaterialService materials;
@@ -76,6 +77,49 @@ public class LifeReviewService {
     public List<ContentView> history(String owner) { return repository.history(owner).stream().map(this::view).toList(); }
     /** 读取属于当前用户的单个不可变内容版本。 */
     public ContentView get(String owner, String id) { return view(requireContent(owner, id)); }
+
+    @Override
+    public Optional<MemoryRecallPort.Fragment> recallRecentReview(String owner, String query) {
+        if (owner == null || query == null || !mentionsReviewOrAdvice(query)) return Optional.empty();
+        try {
+            var s = authorization.require(owner);
+            long generation = barrier.state().generation();
+            return repository.history(owner).stream()
+                    .filter(c -> c.grantId().equals(s.grantId()) && c.settingsRevision() == s.revision()
+                            && LifeOutreachPolicy.isDeliverable(c))
+                    .findFirst()
+                    .map(c -> {
+                        List<String> lines = new ArrayList<>();
+                        c.draft().observations().stream().limit(2).forEach(o -> lines.add("- 回顾：" + o.text()));
+                        if (c.draft().followUps() != null) {
+                            c.draft().followUps().stream().limit(1).forEach(f -> lines.add("- 跟进：" + f.text()));
+                        }
+                        c.draft().actions().stream().limit(2).forEach(a -> lines.add("- 小步建议：" + a.text()));
+                        String summary = String.join("\n", lines);
+                        if (summary.length() > 360) summary = summary.substring(0, 360);
+                        return new MemoryRecallPort.Fragment(
+                                "生活复盘 " + c.day() + " v" + c.version(),
+                                "最近已授权生活复盘摘要（" + c.day() + "）：\n" + summary,
+                                () -> barrier.isCurrent(generation) && stillAuthorized(owner, s.grantId(), s.revision()));
+                    });
+        } catch (RuntimeException unavailable) {
+            return Optional.empty();
+        }
+    }
+
+    private boolean stillAuthorized(String owner, String grantId, int revision) {
+        try {
+            var current = authorization.require(owner);
+            return current.grantId().equals(grantId) && current.revision() == revision;
+        } catch (RuntimeException revoked) {
+            return false;
+        }
+    }
+
+    private static boolean mentionsReviewOrAdvice(String query) {
+        return List.of("复盘", "建议", "回顾", "总结", "日报", "下一步", "调整")
+                .stream().anyMatch(query::contains);
+    }
     /** 校验版本所有权，跨用户和不存在采用相同错误语义。 */
     public Content requireContent(String owner, String id) {
         return repository.content(owner, id).orElseThrow(() -> new IllegalArgumentException("复盘不存在或无权访问"));

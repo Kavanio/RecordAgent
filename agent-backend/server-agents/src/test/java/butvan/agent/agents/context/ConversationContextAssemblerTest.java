@@ -124,6 +124,28 @@ class ConversationContextAssemblerTest {
         assertTrue(envelope.isEmpty());
     }
 
+    @Test
+    void injectsAuthorizedRecentLifeReviewWithinMemoryBudgetAndHonorsRevocation() {
+        var active = new java.util.concurrent.atomic.AtomicBoolean(true);
+        ConversationContextAssembler assembler = assembler();
+        assembler.setLifeReviewContext((owner, query) -> java.util.Optional.of(
+                new butvan.agent.agents.memory.MemoryRecallPort.Fragment(
+                        "生活复盘 2026-10-30 v1",
+                        "最近已授权生活复盘摘要（2026-10-30）：\n- 小步建议：明天先翻两句手记",
+                        active::get)));
+
+        ContextEnvelope envelope = assembler.assemble(
+                new ContextRequest("local-default", "上次那个学习建议，我下一步怎么调整？"));
+
+        assertTrue(envelope.rendered().contains("明天先翻两句手记"));
+        assertTrue(envelope.memoryTokens() > 0 && envelope.estimatedTokens() <= 850);
+
+        active.set(false);
+        assertTrue(envelope.blocks().stream()
+                .filter(b -> b.kind() == ContextKind.MEMORY)
+                .noneMatch(b -> b.stillCurrent().getAsBoolean()));
+    }
+
     private ConversationContextAssembler assembler() {
         AgentStorageProperties storage = new AgentStorageProperties(temporaryDirectory);
         ApproximateTokenCounter counter = new ApproximateTokenCounter();

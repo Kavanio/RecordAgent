@@ -2,6 +2,7 @@ package butvan.agent.agents.context;
 
 import butvan.agent.agents.memory.MemoryRecallPort;
 import butvan.agent.agents.reset.ResetBarrier;
+import butvan.agent.agents.review.LifeReviewContextPort;
 import butvan.agent.agents.storage.AgentStorageProperties;
 import butvan.agent.agents.usage.TokenCounter;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.function.BooleanSupplier;
 
 /** 自动个人上下文的唯一组装 seam：画像、本地／远端检索、去重和硬预算统一收敛。 */
@@ -19,6 +21,7 @@ public class ConversationContextAssembler {
     private final PersonalContextService personalContextService;
     private final MemoryRecallPort local;
     private MemoryRecallPort remote = request -> MemoryRecallPort.Result.empty(MemoryRecallPort.Status.NOT_CONFIGURED);
+    private LifeReviewContextPort lifeReviewContext = (owner, query) -> Optional.empty();
     private ResetBarrier resetBarrier;
 
     public ConversationContextAssembler(AgentStorageProperties storage, TokenCounter tokenCounter, PersonalContextService personalContextService) {
@@ -28,6 +31,10 @@ public class ConversationContextAssembler {
     /** 网络模块缺失时继续使用原有本地检索。 */
     @Autowired(required = false)
     public void setRemoteRecall(MemoryRecallPort recall) { this.remote = recall; }
+    @Autowired(required = false)
+    public void setLifeReviewContext(LifeReviewContextPort lifeReviewContext) {
+        this.lifeReviewContext = lifeReviewContext == null ? (owner, query) -> Optional.empty() : lifeReviewContext;
+    }
     @Autowired(required = false)
     public void setResetBarrier(ResetBarrier barrier) { this.resetBarrier = barrier; }
 
@@ -68,7 +75,14 @@ public class ConversationContextAssembler {
                 if (notice != null) { blocks.add(notice); remaining -= notice.estimatedTokens(); }
             }
             int accepted = 0;
-            for (var fragment : result.fragments()) {
+            var candidates = new ArrayList<MemoryRecallPort.Fragment>();
+            try {
+                lifeReviewContext.recallRecentReview(request.userId(), request.query()).ifPresent(candidates::add);
+            } catch (RuntimeException exception) {
+                log.warn("生活复盘上下文读取降级：errorType={}", exception.getClass().getSimpleName());
+            }
+            candidates.addAll(result.fragments());
+            for (var fragment : candidates) {
                 if (accepted >= request.memoryTopK() || remaining <= 0) break;
                 if (fragment.content() == null || PersonalContextSafety.containsSensitive(fragment.content())
                         || !seen.add(fragment.content().strip().replaceAll("\\s+", " "))) continue;
