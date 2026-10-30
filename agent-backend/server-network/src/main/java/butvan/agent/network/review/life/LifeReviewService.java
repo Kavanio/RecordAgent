@@ -174,8 +174,11 @@ public class LifeReviewService {
             Content output = full ? c.finish(c.state(), c.draft(), c.message() + "；主动候选积压已达上限，此版本仅桌面留档。") : c;
             if (repository.finish(output, "RUNNING")) {
                 repository.delivery(new Delivery(UUID.randomUUID().toString(), c.owner(), c.id(), "DESKTOP", "AVAILABLE", "", "", 0, automationClock.instant()));
+                Instant now = automationClock.instant();
                 if (worthPresenting && !full) {
-                    Instant now = automationClock.instant();
+                    repository.candidate(new Candidate(UUID.randomUUID().toString(), c.owner(), "review-" + c.day(),
+                            "daily", c.id(), c.id(), "PENDING", c.availableAt(), now.plus(Duration.ofHours(36)), now, null, ""));
+                } else if (LifeOutreachPolicy.isDeliverable(c) && repository.candidateExists(c.owner(), "review-" + c.day(), "daily")) {
                     repository.candidate(new Candidate(UUID.randomUUID().toString(), c.owner(), "review-" + c.day(),
                             "daily", c.id(), c.id(), "PENDING", c.availableAt(), now.plus(Duration.ofHours(36)), now, null, ""));
                 }
@@ -214,7 +217,8 @@ public class LifeReviewService {
                 originalGrant.map(Settings::modelName).orElse(""), c.coverage(), c.message(), c.materials().stream().map(m ->
                 new MaterialView(m.id(), m.kind(), m.sourceId(), m.occurredAt(), m.text(), m.truncated())).toList(),
                 c.facts().stream().map(f -> new FactView(f.id(), f.domain(), f.metricKey(), f.value(), f.unit(), f.currency(), f.period())).toList(),
-                items, c.questions(), repository.deliveries(c.owner(), c.id()).stream().map(d ->
-                new DeliveryView(d.id(), d.channel(), d.state(), d.attempts())).toList());
+                items, c.questions(), repository.deliveries(c.owner(), c.id()).stream()
+                        .filter(d -> d.channel().equals("DESKTOP") || d.channel().equals("FEISHU"))
+                        .map(d -> new DeliveryView(d.id(), d.channel(), d.state(), d.attempts())).toList());
     }
 }

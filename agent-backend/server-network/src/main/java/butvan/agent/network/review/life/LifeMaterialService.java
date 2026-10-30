@@ -1,26 +1,49 @@
 package butvan.agent.network.review.life;
 
 import butvan.agent.agents.identity.CurrentUserProvider;
+import butvan.agent.agents.memory.MemoryRecallPort;
+import butvan.agent.agents.memory.MemorySourceRegistry;
 import butvan.agent.agents.session.*;
 import butvan.agent.agents.session.dto.*;
 import butvan.agent.agents.review.ReviewGenerationRequest.Evidence;
 import butvan.agent.network.record.service.RecordService;
 import butvan.agent.network.review.service.ReviewFactCollector;
 import butvan.agent.network.review.life.LifeReviewModels.*;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.time.*;
 import java.util.*;
 
 /** 授权之后按领域 Service 只读获取有限材料；不从记忆抽取结果重建生活。 */
 @Service
-@RequiredArgsConstructor
 public class LifeMaterialService {
     private final RecordService records;
     private final SessionCatalogService sessions;
     private final TranscriptService transcripts;
     private final CurrentUserProvider user;
     private final ReviewFactCollector facts;
+    private final MemoryRecallPort memoryRecall;
+
+    public LifeMaterialService(RecordService records, SessionCatalogService sessions,
+            TranscriptService transcripts, CurrentUserProvider user, ReviewFactCollector facts) {
+        this(records, sessions, transcripts, user, facts,
+                request -> MemoryRecallPort.Result.empty(MemoryRecallPort.Status.NOT_CONFIGURED));
+    }
+
+    @Autowired
+    public LifeMaterialService(RecordService records, SessionCatalogService sessions,
+            TranscriptService transcripts, CurrentUserProvider user, ReviewFactCollector facts,
+            MemoryRecallPort memoryRecall) {
+        this.records = records;
+        this.sessions = sessions;
+        this.transcripts = transcripts;
+        this.user = user;
+        this.facts = facts;
+        this.memoryRecall = memoryRecall == null
+                ? request -> MemoryRecallPort.Result.empty(MemoryRecallPort.Status.NOT_CONFIGURED)
+                : memoryRecall;
+    }
+
     public record Collected(List<Material> materials, List<Evidence> facts, String coverage) {}
 
     /** 发布前复核文字来源仍可引用；读取期间删除、归档或变更则丢弃迟到结果。 */
@@ -77,6 +100,7 @@ public class LifeMaterialService {
                     }
                 }
                 coverage.add("聊天：最近五个普通会话，各扫描末尾2MiB及角色筛选前24条；仅用户原文，每条六百字符，合计最多二十条；仅部分近期记录");
+                appendHistoricalMemories(settings, text, coverage);
             } catch (RuntimeException e) { coverage.add("聊天读取不可用，不能当作无互动"); }
         }
         Set<String> domains = new HashSet<>();
@@ -93,5 +117,42 @@ public class LifeMaterialService {
         }
         coverage.add("窗口=" + from + "至" + day + "；时区=" + zone + "；截止=" + cutoff + "；无记录不代表没有发生；过去的表达不代表当前观点");
         return new Collected(List.copyOf(text), List.copyOf(metrics), String.join("；", coverage));
+    }
+
+    private void appendHistoricalMemories(Settings settings, List<Material> text, List<String> coverage) {
+        if (text.isEmpty()) return;
+        StringBuilder queryBuilder = new StringBuilder();
+        for (Material m : text) {
+            if (queryBuilder.length() >= 300) break;
+            if (!queryBuilder.isEmpty()) queryBuilder.append('\n');
+            queryBuilder.append(m.text());
+        }
+        String query = queryBuilder.substring(0, Math.min(queryBuilder.length(), 300)).strip();
+        if (query.isBlank()) return;
+        var recalled = memoryRecall.recall(new MemoryRecallPort.Request(
+                settings.owner(), query, 400, 3, MemorySourceRegistry.Channel.DESKTOP, () -> false));
+        if (recalled == null || recalled.status() != MemoryRecallPort.Status.SUCCESS || recalled.fragments().isEmpty()) {
+            return;
+        }
+        int added = 0;
+        for (var fragment : recalled.fragments()) {
+            if (!fragment.stillCurrent().getAsBoolean() || added >= 3) continue;
+            String rawSource = fragment.source() == null ? "" : fragment.source().replaceFirst("^经历来源\\s+", "");
+            String[] parts = rawSource.split("@", 2);
+            String sourceId = parts[0].isBlank() ? "memory-" + (added + 1) : parts[0];
+            String occurredAt = parts.length == 2 ? parts[1] : "";
+            String content = fragment.content() == null ? "" : fragment.content();
+            text.add(new Material(
+                    "memory-" + sourceId,
+                    "HISTORICAL_MEMORY",
+                    sourceId,
+                    occurredAt,
+                    content.substring(0, Math.min(content.length(), 600)),
+                    content.length() > 600));
+            added++;
+        }
+        if (added > 0) {
+            coverage.add("长期记忆：按已授权经历召回最多三条关联历史原文");
+        }
     }
 }

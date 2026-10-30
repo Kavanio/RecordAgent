@@ -69,4 +69,22 @@ class LifeMaterialServiceTest {
         var result = service.collect(settings(Set.of("JOURNAL")), day, now);
         assertTrue(result.coverage().contains("读取不可用")); assertFalse(result.coverage().contains("private content"));
     }
+
+    @Test void chatRecallAppendsHistoricalMemoriesWhenAvailable() {
+        when(sessions.listActive()).thenReturn(List.of(session("general", SessionKind.GENERAL)));
+        when(transcripts.recent("general", 24)).thenReturn(List.of(
+                message("u", TranscriptMessageDto.MessageRole.USER, now.minusSeconds(60), "今天继续练英语口语")));
+        butvan.agent.agents.memory.MemoryRecallPort recall = request -> new butvan.agent.agents.memory.MemoryRecallPort.Result(
+                butvan.agent.agents.memory.MemoryRecallPort.Status.SUCCESS,
+                List.of(new butvan.agent.agents.memory.MemoryRecallPort.Fragment(
+                        "经历来源 src-1@2026-10-01T10:00:00Z",
+                        "历史用户原文：之前用影子跟读练口语效果不错",
+                        () -> true)));
+        var withRecall = new LifeMaterialService(records, sessions, transcripts, user, facts, recall);
+        var result = withRecall.collect(settings(Set.of("CHAT")), day, now);
+        assertEquals(2, result.materials().size());
+        assertEquals("HISTORICAL_MEMORY", result.materials().get(1).kind());
+        assertEquals("src-1", result.materials().get(1).sourceId());
+        assertTrue(result.coverage().contains("长期记忆：按已授权经历召回最多三条关联历史原文"));
+    }
 }

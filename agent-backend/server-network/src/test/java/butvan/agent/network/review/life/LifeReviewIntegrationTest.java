@@ -313,13 +313,16 @@ class LifeReviewIntegrationTest {
         assertEquals(1, outreach.candidates("owner").stream().filter(c -> c.topic().equals("学习状态")).count());
         outreach.tick("owner");
         verify(channel, times(1)).send(anyString(), anyString(), anyString());
+        assertFalse(LifeDeliveryService.render(repository.content("owner", first.id()).orElseThrow()).contains("journal-1"));
         TIME.set(NOW.plus(Duration.ofHours(25)));
         when(materials.collect(any(), any(), any())).thenReturn(new LifeMaterialService.Collected(
                 List.of(new Material("journal-1", "JOURNAL", "r1", DAY.toString(), "补充：原来的限制已经解除，学习恢复了。", false)), List.of(), "恢复来源可追溯"));
         var next = reviews.prepare("owner", new Prepare(DAY, 1, true)); reviews.tick();
+        delivery.send("owner", next.id(), false);
+        verify(channel, times(2)).send(anyString(), anyString(), anyString());
         outreach.event("owner", new EventCandidate("学习状态", next.id(), "journal-1", "RECOVERY"));
         outreach.tick("owner");
-        verify(channel, times(2)).send(anyString(), anyString(), anyString());
+        verify(channel, times(3)).send(anyString(), anyString(), anyString());
         assertEquals(1, outreach.candidates("owner").stream().filter(c -> c.eventKind().equals("RECOVERY") && c.state().equals("PRESENTED")).count());
     }
     @Test void backlogLimitAndCooldownReadFullLedgerInsteadOfUiPage() {

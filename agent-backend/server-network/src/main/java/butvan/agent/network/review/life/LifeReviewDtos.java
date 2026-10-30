@@ -14,6 +14,10 @@ public final class LifeReviewDtos {
     public record Feedback(String decision, String text) {}
     public record EventCandidate(String topic, String contentId, String evidenceId, String eventKind) {}
     public record SaveHabit(int expectedRevision, int availableHour, String source, boolean active) {}
+    public record Retry(boolean confirmed) {}
+    public record Reply(String requestId, String text) {
+        @Override public String toString() { return "Reply[正文已隐藏]"; }
+    }
     public record SettingsView(int revision, boolean enabled, Set<String> sources, String providerId,
                                String modelName, String timezone, int historyDays, int dailyLimit,
                                boolean proactive, boolean feishu, boolean authorized, String policyVersion,

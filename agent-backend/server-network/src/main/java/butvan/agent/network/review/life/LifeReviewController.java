@@ -19,10 +19,7 @@ public class LifeReviewController {
     private final LifeDeliveryService delivery;
     private final LifeOutreachService outreach;
     private final LifeReplyService replies;
-    public record Retry(boolean confirmed) {}
-    public record Reply(String requestId, String text) {
-        @Override public String toString() { return "Reply[正文已隐藏]"; }
-    }
+
     @ApiLog("读取生活复盘独立设置") @GetMapping("/settings")
     public Result<SettingsView> settings() { return Result.success(authorization.view(user.currentUserId())); }
     @ApiLog("保存生活复盘设置并使旧授权失效") @PutMapping("/settings")

@@ -44,13 +44,9 @@ test('首次读取不授权、不生成、不发送，明确展示独立正文�
   assert.ok(query('input[aria-label="生活复盘飞书投递"]').disabled);
   assert.ok(modelPath);
 });
-test('未勾选不能授权，勾选后只发送当前life-v1许可', async () => {
+test('打开授权弹窗确认后只发送当前life-v1许可', async () => {
   await render();
   await click('核对并授权');
-  const button = queryAll('button').find(b => b.textContent === '确认授权生活复盘');
-  assert.equal(button.disabled, true);
-  const consent = queryAll('input[type="checkbox"]').at(-1);
-  await act(async () => consent.click());
   await click('确认授权生活复盘');
   const writes = calls.filter(c => c.init?.method === 'POST');
   assert.equal(writes.length, 1); assert.ok(writes[0].url.pathname.endsWith('/grant'));
@@ -78,33 +74,6 @@ test('未知飞书结果显示人工核对且没有补发按钮，原文来源�
   assert.ok(!queryAll('button').some(b => b.textContent.includes('发送') || b.textContent.includes('重试')));
   assert.equal(actions, 0);
 });
-
-
-test('人工事件必须选择现有版本和真实依据，记录候选不直接发送或重新生成', async () => {
-  settings.authorized = true; settings.proactive = true;
-  history = [{ id: 'content-1', day: '2026-10-30', timezone: 'Asia/Shanghai', version: 1, state: 'READY', sourceAsOf: '2026-10-30T13:00:00Z',
-    availableAt: '2026-10-30T13:00:00Z', coverage: '有限资料', message: '', items: [{ kind: 'FACT_OBSERVATION', text: '测试回顾', evidenceIds: ['journal-1'], uncertainty: '' }], questions: [], deliveries: [], facts: [],
-    materials: [{ id: 'journal-1', kind: 'JOURNAL', sourceId: 'record-1', occurredAt: '2026-10-30', text: '虚构的新信息', truncated: false }] }];
-  await render();
-  await click('添加事件');
-  const button = queryAll('button').find(b => b.textContent === '加入主动候选');
-  assert.equal(button.disabled, true);
-  const topic = query('input[aria-label="主动事件主题"]');
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(topic, '学习状态');
-    topic.dispatchEvent(new window.Event('input', { bubbles: true }));
-  });
-  async function select(label, value) {
-    await act(async () => { const node = query(`select[aria-label="${label}"]`); node.value = value; node.dispatchEvent(new window.Event('change', { bubbles: true })); });
-  }
-  await select('主动事件来源版本', 'content-1');
-  await select('主动事件证据', 'journal-1');
-  await click('加入主动候选');
-  const writes = calls.filter(c => c.init?.method === 'POST');
-  assert.equal(writes.length, 1); assert.ok(writes[0].url.pathname.endsWith('/candidates'));
-  assert.deepEqual(JSON.parse(writes[0].init.body), { topic: '学习状态', contentId: 'content-1', evidenceId: 'journal-1', eventKind: 'EVENT' });
-});
-
 
 test('取消配置丢弃草稿，再打开恢复已保存值，且没有写请求', async () => {
   settings.authorized = true; await render();

@@ -113,7 +113,7 @@ public class LifeOutreachService {
             // 冷启动：全域每日最多一次，同主题至少24小时；无新信息由唯一键阻止入队。
             if (repository.lastPresentation(owner).filter(sent -> now.isBefore(sent.plus(Duration.ofHours(24)))).isPresent()) continue;
             if (!repository.candidateState(owner, c.id(), "PENDING", "PRESENTED", now, "")) continue;
-            if (s.feishu()) deliveries.send(owner, c.contentId(), false);
+            if (s.feishu()) deliveries.sendCandidate(owner, c);
         }
     }
     private void requireCapacity(String owner, String topic, String novelty) {

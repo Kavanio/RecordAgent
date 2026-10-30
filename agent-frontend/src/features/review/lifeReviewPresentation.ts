@@ -18,6 +18,7 @@ export interface ReferenceGroup { key: string; title: string; entries: Reference
 export function lifeReferenceGroups(content: LifeContent): ReferenceGroup[] {
   const groups: ReferenceGroup[] = [
     { key: 'CHAT', title: '聊天', entries: [] },
+    { key: 'HISTORICAL_MEMORY', title: '关联往期经历', entries: [] },
     { key: 'JOURNAL', title: '每日手记', entries: [] },
     { key: 'PERSONAL', title: '目标与反馈', entries: [] },
     { key: 'SUPPLEMENT', title: '补充经历', entries: [] },
@@ -26,7 +27,7 @@ export function lifeReferenceGroups(content: LifeContent): ReferenceGroup[] {
     { key: 'TODO', title: '待办', entries: [] },
     { key: 'OTHER', title: '其他材料', entries: [] },
   ];
-  const add = (key: string, entry: ReferenceEntry) => (groups.find(g => g.key === key) || groups[7]).entries.push(entry);
+  const add = (key: string, entry: ReferenceEntry) => (groups.find(g => g.key === key) || groups[8]).entries.push(entry);
   for (const material of content.materials) {
     const key = ['USER_GOAL', 'USER_FEEDBACK'].includes(material.kind) ? 'PERSONAL' : material.kind;
     add(key, { id: material.id, text: material.text, time: material.occurredAt, truncated: material.truncated });
