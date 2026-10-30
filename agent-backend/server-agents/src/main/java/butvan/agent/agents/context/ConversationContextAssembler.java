@@ -3,6 +3,7 @@ package butvan.agent.agents.context;
 import butvan.agent.agents.memory.MemoryRecallPort;
 import butvan.agent.agents.reset.ResetBarrier;
 import butvan.agent.agents.review.LifeReviewContextPort;
+import butvan.agent.agents.review.TaskReportContextPort;
 import butvan.agent.agents.storage.AgentStorageProperties;
 import butvan.agent.agents.usage.TokenCounter;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ public class ConversationContextAssembler {
     private final MemoryRecallPort local;
     private MemoryRecallPort remote = request -> MemoryRecallPort.Result.empty(MemoryRecallPort.Status.NOT_CONFIGURED);
     private LifeReviewContextPort lifeReviewContext = (owner, query) -> Optional.empty();
+    private TaskReportContextPort taskReportContext = (owner, query) -> Optional.empty();
     private ResetBarrier resetBarrier;
 
     public ConversationContextAssembler(AgentStorageProperties storage, TokenCounter tokenCounter, PersonalContextService personalContextService) {
@@ -38,6 +40,14 @@ public class ConversationContextAssembler {
         this.lifeReviewContext = (owner, query) -> {
             LifeReviewContextPort context = provider.getIfAvailable();
             return context == null ? Optional.empty() : context.recallRecentReview(owner, query);
+        };
+    }
+    /** 仅在实际召回时解析可选报告邮件上下文服务，避免与飞书投递端口形成初始化循环。 */
+    @Autowired
+    public void setTaskReportContext(ObjectProvider<TaskReportContextPort> provider) {
+        this.taskReportContext = (owner, query) -> {
+            TaskReportContextPort context = provider.getIfAvailable();
+            return context == null ? Optional.empty() : context.recallRecentReport(owner, query);
         };
     }
     @Autowired(required = false)
@@ -85,6 +95,11 @@ public class ConversationContextAssembler {
                 lifeReviewContext.recallRecentReview(request.userId(), request.query()).ifPresent(candidates::add);
             } catch (RuntimeException exception) {
                 log.warn("生活复盘上下文读取降级：errorType={}", exception.getClass().getSimpleName());
+            }
+            try {
+                taskReportContext.recallRecentReport(request.userId(), request.query()).ifPresent(candidates::add);
+            } catch (RuntimeException exception) {
+                log.warn("任务报告邮件上下文读取降级：errorType={}", exception.getClass().getSimpleName());
             }
             candidates.addAll(result.fragments());
             for (var fragment : candidates) {

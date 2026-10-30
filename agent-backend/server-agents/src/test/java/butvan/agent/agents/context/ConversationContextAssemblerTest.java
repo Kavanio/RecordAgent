@@ -2,6 +2,7 @@ package butvan.agent.agents.context;
 
 import butvan.agent.agents.storage.AgentStorageProperties;
 import butvan.agent.agents.review.LifeReviewContextPort;
+import butvan.agent.agents.review.TaskReportContextPort;
 import butvan.agent.agents.usage.TokenCounter;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -148,6 +149,32 @@ class ConversationContextAssemblerTest {
         assertTrue(envelope.memoryTokens() > 0 && envelope.estimatedTokens() <= 850);
 
         active.set(false);
+        assertTrue(envelope.blocks().stream()
+                .filter(b -> b.kind() == ContextKind.MEMORY)
+                .noneMatch(b -> b.stillCurrent().getAsBoolean()));
+    }
+
+    @Test
+    void injectsRecentTaskReportMailContextWithinBudgetAndHonorsValidity() {
+        var valid = new java.util.concurrent.atomic.AtomicBoolean(true);
+        ConversationContextAssembler assembler = assembler();
+        TaskReportContextPort reportContext = (owner, query) -> java.util.Optional.of(
+                new butvan.agent.agents.memory.MemoryRecallPort.Fragment(
+                        "任务邮件 每日日报",
+                        "最近已发送的任务邮件提醒（标题：每日日报，发送时间：2026-10-30 20:30，已同步发送飞书消息提醒）：\n待办进度\n应办：3 项，已完成：2 项",
+                        valid::get));
+        var beans = new StaticListableBeanFactory(
+                java.util.Map.of("taskReportContext", reportContext));
+        assembler.setTaskReportContext(beans.getBeanProvider(TaskReportContextPort.class));
+
+        ContextEnvelope envelope = assembler.assemble(
+                new ContextRequest("local-default", "刚才发的日报邮件里待办完成了几项？"));
+
+        assertTrue(envelope.rendered().contains("最近已发送的任务邮件提醒"));
+        assertTrue(envelope.rendered().contains("已完成：2 项"));
+        assertTrue(envelope.memoryTokens() > 0 && envelope.estimatedTokens() <= 850);
+
+        valid.set(false);
         assertTrue(envelope.blocks().stream()
                 .filter(b -> b.kind() == ContextKind.MEMORY)
                 .noneMatch(b -> b.stillCurrent().getAsBoolean()));
