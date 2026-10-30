@@ -15,6 +15,38 @@ docker build -t butvan-agent:local agent-backend
 
 容器默认以 UID/GID `10001:10001` 运行。已有数据目录使用其他属主时，通过运行参数 `--user <UID>:<GID>` 匹配目录权限；不得通过将数据目录开放给所有用户解决权限问题。容器以 Java 21 启动内置 JAR，保留基础镜像的 CA 证书入口脚本；部署参数可覆盖默认 HTTP 端口。
 
+## 容器时区
+
+镜像默认设置 `TZ=Asia/Shanghai`（北京时间）。入口脚本将同一个 `TZ` 传给 Java 的 `-Duser.timezone`，让容器内命令与后端 JVM 使用一致的时区；未设置或传入空值时，后端启动进程回退到北京时间。本机 IDEA、Maven 和桌面 sidecar 的启动方式不变，不强制修改其时区。
+
+需要覆盖时，使用有效的 IANA 时区名，例如 `UTC` 或 `America/New_York`。`docker run` 可添加 `-e TZ=UTC`；Compose 在**现有** `backend` 服务中合并以下配置，保留原来的安全设置、数据挂载与其他环境变量：
+
+```yaml
+services:
+  backend:
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+```
+
+这样可在部署目录的 `.env` 中设置 `TZ=UTC`。仅在 `.env` 中写入变量、但未在 Compose 的 `environment` / `env_file` 中传给容器，不会覆盖镜像默认值。不要另外设置冲突的 `-Duser.timezone`；统一通过 `TZ` 覆盖。
+
+新默认值需要构建并发布新镜像，再按下文流程备份、拉取并重新创建容器；只重启旧镜像不会获得此修复。环境变量变化也需要重新创建容器。此变更不调整宿主机时钟、不处理 NTP 同步，也不改写历史数据。
+
+部署后可在原部署目录使用相同的 Compose 文件列表核对容器时间：
+
+```sh
+docker compose -f compose.yaml -f compose.acr.yaml exec backend date '+%Y-%m-%d %H:%M:%S %Z %z'
+```
+
+北京时间的偏移应为 `+0800`。不要只用 `java -version` 判断正在运行的后端时区；本项目的 JVM 时区参数由入口脚本传入。
+
+本地回归检查（需要 Python 3 和 Java 21 JDK，不启动业务后端、不依赖 Docker）：
+
+```sh
+sh -n agent-backend/docker-entrypoint.sh
+python3 agent-backend/scripts/test-docker-timezone.py
+```
+
 ## GitHub Actions 自动发布到阿里云 ACR
 
 工作流：`.github/workflows/backend-image.yml`。发布目标：
