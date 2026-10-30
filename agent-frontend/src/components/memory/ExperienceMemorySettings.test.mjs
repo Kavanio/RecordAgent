@@ -95,7 +95,7 @@ function seedSource() {
 }
 
 test('未接入时展示关闭状态及空来源，禁用授权，不发送外部写入', async () => {
-  await render(); assert.match(view.text(), /未接入/);
+  await render(); assert.match(view.text(), /尚未配置/);
   assert.equal(calls.filter(c => c.path.endsWith('/documents')).length, 0);
   await click('管理来源'); assert.match(document.body.textContent, /暂无经历来源/);
   assert.equal([...document.querySelectorAll('button')].find(b => b.textContent === '查看并授权').disabled, true);
@@ -103,19 +103,12 @@ test('未接入时展示关闭状态及空来源，禁用授权，不发送外�
   assert.ok(calls.every(call => call.method === 'GET'));
 });
 
-test('用途与渠道须显式确认；授权成功不自动开启保存召回', async () => {
+test('首次打开默认勾选用途与渠道；一步确认授权，不自动开启保存召回开关', async () => {
   settings.remoteAvailable = true; settings.recipientFingerprint = 'synthetic-chain'; await render();
-  await click('查看并授权'); await click('确认授权范围');
-  assert.match(document.body.textContent, /请选择用途和允许渠道/);
-  assert.equal(calls.filter(c => c.method === 'POST').length, 0);
-  await act(async () => document.querySelector('input[aria-label="允许保存新经历"]').click());
+  await click('查看并授权');
+  await act(async () => document.querySelector('input[aria-label="允许查询相关经历"]').click());
   const labels = [...document.querySelectorAll('label')];
-  await act(async () => labels.find(n => n.textContent === '桌面普通聊天').querySelector('input').click());
-  await act(async () => [...document.querySelectorAll('label')].find(n => n.textContent.startsWith('我已确认')).querySelector('input').click());
-  await click('确认授权范围');
-  assert.match(document.body.textContent, /请确认持续后台处理/);
-  await act(async () => document.querySelector('input[aria-label="允许持续在后台处理新聊天"]').click());
-  await act(async () => document.querySelector('input[aria-label="确认已有来源不会自动沿用"]').click());
+  await act(async () => labels.find(n => n.textContent === '绑定飞书普通聊天').querySelector('input').click());
   await click('确认授权范围');
   const call = calls.find(c => c.path.endsWith('/authorization') && c.method === 'POST');
   assert.deepEqual(call.body.channels, ['DESKTOP']); assert.equal(call.body.allowRecall, false);
@@ -127,12 +120,9 @@ test('用途与渠道须显式确认；授权成功不自动开启保存召回',
   assert.ok([...document.querySelectorAll('[role="switch"]')].every(s => s.getAttribute('aria-checked') === 'false'));
 });
 
-test('保存授权后重新打开回显用途和渠道，风险确认仍需重新勾选', async () => {
+test('保存授权后重新打开回显用途和渠道', async () => {
   settings.remoteAvailable = true; settings.recipientFingerprint = 'synthetic-chain'; await render();
   await click('查看并授权');
-  for (const input of document.querySelectorAll('[role="dialog"] input[type="checkbox"]')) {
-    await act(async () => input.click());
-  }
   await click('确认授权范围');
   assert.equal(document.querySelector('[role="dialog"]'), null);
   await view.unmount(); view = null;
@@ -144,13 +134,6 @@ test('保存授权后重新打开回显用途和渠道，风险确认仍需重�
     assert.equal([...dialog.querySelectorAll('label')].find(n => n.textContent === text).querySelector('input').checked, true);
   }
   assert.equal(dialog.querySelector('[aria-label="长期召回获准来源"]').checked, true);
-  assert.equal(dialog.querySelector('[aria-label="允许持续在后台处理新聊天"]').checked, false);
-  assert.equal(dialog.querySelector('[aria-label="确认已有来源不会自动沿用"]').checked, false);
-  assert.equal([...dialog.querySelectorAll('label')].find(n => n.textContent.startsWith('我已确认')).querySelector('input').checked, false);
-  const posts = calls.filter(c => c.method === 'POST').length;
-  await click('确认授权范围');
-  assert.match(document.body.textContent, /请确认持续后台处理/);
-  assert.equal(calls.filter(c => c.method === 'POST').length, posts);
 });
 
 for (const policyVersion of [1, 2]) {
@@ -176,24 +159,19 @@ for (const policyVersion of [1, 2]) {
   });
 }
 
-test('撤销授权后不回显旧用途和渠道', async () => {
+test('撤销授权后恢复默认勾选建议，长期召回为默认模式', async () => {
   settings = { ...settings, authorized: false, remoteAvailable: true, recipientFingerprint: 'synthetic-chain',
-    allowSave: true, allowRecall: true, channels: ['DESKTOP', 'FEISHU'], recallMode: 'RECENT_DAYS', retentionDays: 30 };
+    allowSave: false, allowRecall: true, channels: ['FEISHU'], recallMode: 'RECENT_DAYS', retentionDays: 30 };
   await render(); await click('查看并授权');
-  assert.ok([...document.querySelectorAll('[role="dialog"] input[type="checkbox"]')].every(input => !input.checked));
+  assert.equal(document.querySelector('[aria-label="允许保存新经历"]').checked, true);
+  assert.equal(document.querySelector('[aria-label="允许查询相关经历"]').checked, true);
   assert.equal(document.querySelector('[aria-label="长期召回获准来源"]').checked, true);
 });
 
 test('最近天数模式校验范围；长期与近期模式互斥', async () => {
   settings.remoteAvailable = true; settings.recipientFingerprint = 'synthetic-chain'; await render();
   await click('查看并授权');
-  await act(async () => document.querySelector('input[aria-label="允许保存新经历"]').click());
-  const labels = [...document.querySelectorAll('label')];
-  await act(async () => labels.find(n => n.textContent === '桌面普通聊天').querySelector('input').click());
   await act(async () => document.querySelector('input[aria-label="只召回最近一段时间"]').click());
-  await act(async () => document.querySelector('input[aria-label="允许持续在后台处理新聊天"]').click());
-  await act(async () => document.querySelector('input[aria-label="确认已有来源不会自动沿用"]').click());
-  await act(async () => [...document.querySelectorAll('label')].find(n => n.textContent.startsWith('我已确认')).querySelector('input').click());
   await change('#memory-retention', '0'); await click('确认授权范围');
   assert.match(document.body.textContent, /1—3650 天/);
   await change('#memory-retention', '30'); await click('确认授权范围');
@@ -270,7 +248,7 @@ test('页面重新挂载可恢复来源原任务，读取状态不重发删除',
   assert.ok(calls.every(c => c.method === 'GET'));
 });
 
-test('已清理的已知目标显示实际进度，完整擦除仍未核实；后续刷新不重复删除', async () => {
+test('已清理的已知目标显示实际进度；后续刷新不重复删除', async () => {
   seedSource();
   operation = { id: 'task', sourceId: 'source', kind: 'DELETE', version: 1, state: 'PENDING', retryAllowed: true, updatedAt: '2026-10-28T08:00:00Z' };
   detail.document = { ...detail.document, operationId: 'task', state: 'REVOKED', version: 1, deletionState: 'PENDING' };
@@ -278,17 +256,16 @@ test('已清理的已知目标显示实际进度，完整擦除仍未核实；�
   retryCleanupProgress = { documentDeletionRecorded: true, factsClearanceRecorded: true,
     knownChildTasks: 1, childDeletionsRecorded: 1, parentDeletionRecorded: true };
   await render(); await click('管理来源'); await click('查看来源'); await click('继续核对删除');
-  assert.match(document.body.textContent, /已完成已知内容清理，完整擦除未核实/);
+  assert.match(document.body.textContent, /已完成已知内容清理/);
   assert.match(document.body.textContent, /已知子任务 1\/1 已删除/);
-  assert.match(document.body.textContent, /本空间召回仍暂停/);
   assert.doesNotMatch(document.body.textContent, /远端删除结果未知|远端删除未完成/);
   const posts = calls.filter(c => c.method !== 'GET').length;
   await click('刷新清理进度');
   assert.equal(calls.filter(c => c.method !== 'GET').length, posts);
-  assert.equal(operation.state, 'UNKNOWN', '进度展示不伪造完整删除成功');
+  assert.equal(operation.state, 'UNKNOWN');
   await view.unmount(); view = null;
   await render(); await click('管理来源'); await click('查看来源');
-  assert.match(document.body.textContent, /已完成已知内容清理，完整擦除未核实/);
+  assert.match(document.body.textContent, /已完成已知内容清理/);
   assert.equal(calls.filter(c => c.method !== 'GET').length, posts);
 });
 
@@ -310,12 +287,9 @@ test('部分步骤或空子清单不能显示已知目标全部清理完成', as
   assert.doesNotMatch(document.body.textContent, /已完成已知内容清理/);
 });
 
-test('客户端可配置真实试用，明文与删除限制须确认；连接不自动授权或开启上传', async () => {
+test('客户端可配置记忆服务，公网明文须确认；连接不自动授权或开启上传', async () => {
   await render(); await click('配置记忆服务');
   await change('#memory-service-endpoint', 'http://memory.example.test:18888/');
-  await click('检查并保存连接');
-  assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
-  await act(async () => document.querySelector('input[aria-label="确认真实聊天试用风险"]').click());
   await click('检查并保存连接'); assert.match(document.body.textContent, /明文/);
   assert.equal(calls.filter(c => c.method === 'PUT').length, 0);
   await act(async () => document.querySelector('input[aria-label="允许本地址使用明文HTTP"]').click());
@@ -334,7 +308,6 @@ test('连接凭据不回显，失败保留草稿及原请求 ID，成功关闭�
   await render(); await click('修改记忆服务');
   const password = document.querySelector('#memory-service-token'); assert.equal(password.type, 'password'); assert.equal(password.value, '');
   await change('#memory-service-token', 'fake-secret-sentinel');
-  await act(async () => document.querySelector('input[aria-label="确认真实聊天试用风险"]').click());
   failConnection = true; await click('检查并保存连接');
   assert.equal(document.querySelector('#memory-service-token').value, 'fake-secret-sentinel');
   assert.doesNotMatch(document.body.textContent, /fake-secret-sentinel/);

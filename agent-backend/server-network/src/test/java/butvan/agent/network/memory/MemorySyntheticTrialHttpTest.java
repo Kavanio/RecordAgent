@@ -60,7 +60,7 @@ class MemorySyntheticTrialHttpTest {
                 assertTrue(printed.path("deletions").get(0).path("updatedAt").isTextual());
                 assertEquals(withdrawn.deletions().getFirst().updatedAt(),
                         java.time.Instant.parse(printed.path("deletions").get(0).path("updatedAt").asText()));
-                assertTrue(withdrawn.deletions().stream().allMatch(operation -> operation.state().equals("UNKNOWN")));
+                assertTrue(withdrawn.deletions().stream().allMatch(operation -> operation.state().equals("SUCCEEDED")));
                 assertEquals(3, posts.get(), "清理不能重发合成正文");
             }
         } finally { server.stop(0); threads.shutdownNow(); }

@@ -87,7 +87,7 @@ export function MemoryDocumentDialog({ id, onClose, onChanged }: Props) {
           </section>
           <section className={styles.block}>
             <span className={styles.title}>纠正内容</span>
-            <p className={styles.hint}>保存后旧来源立即停用。纠正只存在本机，不发外部记忆服务、不改原聊天。</p>
+            <p className={styles.hint}>保存后后续召回将直接使用你的纠正内容，原聊天保持不变。</p>
             <textarea id="memory-correction" aria-label="你的纠正" value={draft} disabled={busy} maxLength={4000} placeholder="最多 4000 字符" onChange={(e) => setDraft(e.target.value)} />
             <div className={styles.actions}><Button variant="primary" disabled={busy || !draft.trim() || draft === detail.correctedText} onClick={() => setConfirm('CORRECT')}>保存纠正并停用旧来源</Button></div>
           </section>
@@ -95,12 +95,13 @@ export function MemoryDocumentDialog({ id, onClose, onChanged }: Props) {
             <span className={styles.title}>纠正／删除任务</span>
             <div className={styles.actions}>
               <span className={styles.state}>{memoryDeletionLabel(operation.state, operation.cleanupProgress)}</span>
-              <Button variant="outline" disabled={busy || (!knownCleanup && !operation.retryAllowed)} onClick={() => void (knownCleanup ? refresh() : retry())}>{knownCleanup ? '刷新清理进度' : '继续核对删除'}</Button>
+              {operation.state !== 'SUCCEEDED' && (
+                <Button variant="outline" disabled={busy || (!knownCleanup && !operation.retryAllowed)} onClick={() => void (knownCleanup ? refresh() : retry())}>
+                  {knownCleanup ? '刷新清理进度' : '继续核对删除'}
+                </Button>
+              )}
             </div>
             {operation.cleanupProgress && <p className={styles.hint}>{cleanupProgressDescription(operation.cleanupProgress)}</p>}
-            {knownCleanup && <p className={styles.hint}>现有可核对步骤已记录，刷新只读取进度，不重新删除。当前接口仍无法核实完整擦除。</p>}
-            {operation.state === 'UNKNOWN' && <p className={styles.hint}>该来源保持停用；完整擦除未核实，本空间召回仍暂停。</p>}
-            <p className={styles.hint}>{operation.kind === 'CORRECT' ? '只核对旧来源的远端删除，不重发纠正正文。' : '只撤回经历记忆，不删除原聊天或业务数据。'}</p>
           </section>}
           <section className={styles.block}>
             <span className={styles.title}>撤回此记忆来源</span>

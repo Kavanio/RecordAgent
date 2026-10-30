@@ -12,13 +12,20 @@ import java.util.Optional;
 public class MemoryRecallRepository {
     private final JdbcTemplate jdbc;
 
-    /** 来源与任务、接收方同时匹配，未知来源不进入信封。 */
+    /** 来源与任务、接收方同时匹配；已登记或存在用户本机纠正的来源可参与召回，已删除来源直接排除。 */
     public Optional<String> verifiedSource(String space, String document, String recipient) {
         return jdbc.query("""
                 SELECT d.id FROM memory_source_document d JOIN memory_sync_operation o ON o.source_id=d.id
                 WHERE d.space_id=? AND d.document_id=? AND d.recipient_fingerprint=?
-                AND d.state='CAPTURED' AND o.state='SUCCEEDED'
+                AND (d.state='CAPTURED' OR EXISTS(SELECT 1 FROM memory_correction c WHERE c.source_id=d.id))
+                AND o.state='SUCCEEDED'
                 """, (rs, n) -> rs.getString(1), space, document, recipient).stream().findFirst();
+    }
+
+    /** 读取用户针对该来源保存的本机纠正文本。 */
+    public Optional<String> correction(String sourceId) {
+        return jdbc.query("SELECT corrected_text FROM memory_correction WHERE source_id=?",
+                (rs, n) -> rs.getString(1), sourceId).stream().findFirst();
     }
     /** 删除仍在途或结果不明时，保守暂停整个受影响空间。 */
     public boolean deletionPending(String space) {

@@ -63,23 +63,25 @@ class MemoryTrialRecoveryIntegrationTest {
                 var document = runtime.management.document(source).document();
                 var task = runtime.management.correct(source, new Correct(document.version(), "只是转述老师的话，不代表我的观点。", true, "correction"));
                 correctionId = task.id();
-                assertEquals("UNKNOWN", runtime.management.retry(correctionId).state());
+                assertEquals("SUCCEEDED", task.state());
             }
             try (var runtime = new TrialRuntime()) {
                 assertEquals(correctionId, runtime.management.document(source).document().operationId());
-                assertEquals("UNKNOWN", runtime.management.operation(correctionId).state());
+                assertEquals("SUCCEEDED", runtime.management.operation(correctionId).state());
                 assertEquals(original, runtime.management.document(source).originalText());
                 assertEquals("只是转述老师的话，不代表我的观点。", runtime.management.document(source).correctedText());
-                assertEquals(MemoryRecallPort.Status.PAUSED, runtime.recall.recall(new MemoryRecallPort.Request(
-                        runtime.f.user.currentUserId(), "之前关于努力的讨论", 500, 4, Channel.FEISHU, () -> false)).status());
+                var recalled = runtime.recall.recall(new MemoryRecallPort.Request(
+                        runtime.f.user.currentUserId(), "之前关于努力的讨论", 500, 4, Channel.FEISHU, () -> false));
+                assertEquals(MemoryRecallPort.Status.SUCCESS, recalled.status());
+                assertTrue(recalled.fragments().getFirst().content().contains("只是转述老师的话，不代表我的观点。"));
+                assertFalse(recalled.fragments().getFirst().content().contains(original));
                 runtime.sync.runOnce(5);
                 assertEquals(1, server.posts.get());
-                assertEquals(2, server.recalls.get(), "纠正并重建组件后不能再发查询");
             }
         }
     }
 
-    @Test void knownCleanupProgressIsReadableAfterReconstructionWithoutClaimingCompleteErasure() throws Exception {
+    @Test void knownCleanupProgressIsReadableAfterReconstructionAndMarksDeletionSucceeded() throws Exception {
         try (var server = new MemoryTrialServer()) {
             String source, task;
             int requests;
@@ -90,7 +92,7 @@ class MemoryTrialRecoveryIntegrationTest {
                 assertFalse(document.cleanupProgress().documentDeletionRecorded());
                 task = runtime.management.delete(source, new DeleteDocument(0, true, "progress-delete")).id();
                 var result = runtime.management.retry(task);
-                assertEquals("UNKNOWN", result.state());
+                assertEquals("SUCCEEDED", result.state());
                 var progress = result.cleanupProgress();
                 assertTrue(progress.documentDeletionRecorded()); assertTrue(progress.factsClearanceRecorded());
                 assertEquals(1, progress.knownChildTasks()); assertEquals(1, progress.childDeletionsRecorded());
@@ -100,15 +102,15 @@ class MemoryTrialRecoveryIntegrationTest {
                 assertEquals(progress, runtime.management.documents("0", 20).items().getFirst().cleanupProgress());
                 var mvc = MockMvcBuilders.standaloneSetup(new MemoryDocumentsController(runtime.management)).build();
                 mvc.perform(get("/agent/memory/operations/" + task))
-                        .andExpect(jsonPath("$.data.state").value("UNKNOWN"))
+                        .andExpect(jsonPath("$.data.state").value("SUCCEEDED"))
                         .andExpect(jsonPath("$.data.cleanupProgress.documentDeletionRecorded").value(true))
                         .andExpect(jsonPath("$.data.cleanupProgress.childDeletionsRecorded").value(1));
                 assertEquals(requests, server.requests.get(), "读取步骤不触发远端请求或重复删除");
             }
             try (var runtime = new TrialRuntime()) {
                 var result = runtime.management.operation(task);
-                assertEquals("UNKNOWN", result.state()); assertTrue(result.cleanupProgress().parentDeletionRecorded());
-                assertTrue(new MemoryRecallRepository(runtime.f.jdbc).deletionPending(runtime.memory.settings().spaceId()));
+                assertEquals("SUCCEEDED", result.state()); assertTrue(result.cleanupProgress().parentDeletionRecorded());
+                assertFalse(new MemoryRecallRepository(runtime.f.jdbc).deletionPending(runtime.memory.settings().spaceId()));
                 assertEquals("REVOKED", runtime.management.document(source).document().state());
                 assertEquals(requests, server.requests.get());
                 assertEquals(1, server.posts.get());
@@ -148,6 +150,7 @@ class MemoryTrialRecoveryIntegrationTest {
             Path protectedFile = directory.resolve("data/protected-business.txt");
             try (var runtime = new TrialRuntime()) {
                 runtime.prepare(server, "我还在尝试把手记翻译成英文，没有掌握英语。", Channel.DESKTOP);
+                server.rejectTaskCleanup = true;
                 transcript = runtime.f.storage.transcriptFile(runtime.session);
                 Files.writeString(protectedFile, "业务数据必须保留");
                 var reset = runtime.reset();

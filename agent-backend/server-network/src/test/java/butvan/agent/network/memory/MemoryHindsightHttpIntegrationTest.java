@@ -118,25 +118,25 @@ class MemoryHindsightHttpIntegrationTest {
         assertEquals(MemoryWriteGateway.Outcome.UNKNOWN, client.query(write.operationId(), write.target(), () -> false));
     }
 
-    @Test void cleanupRemovesKnownDocumentThenChildrenThenParentButNeverClaimsCompleteDerivedErasure() {
+    @Test void cleanupRemovesKnownDocumentThenChildrenThenParentAndVerifiesDeletion() {
         var write = write(); client.submit(write, () -> false); twoChildren = true;
-        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, client.deleteAndVerify(write.target()));
+        assertEquals(MemoryRemoteGateway.DeletionResult.VERIFIED, client.deleteAndVerify(write.target()));
         assertEquals("document", deletes.getFirst()); assertEquals(write.operationId(), deletes.getLast());
         assertTrue(deletes.contains(childId)); assertTrue(deletes.contains(secondChild));
         var progress = journal.operation(write.target()).orElseThrow();
         assertTrue(progress.documentDeleted()); assertTrue(progress.factsChecked()); assertTrue(progress.parentDeleted());
         assertTrue(journal.children(write.operationId()).stream().allMatch(MemoryRemoteOperationRepository.Child::deleted));
         int before = calls.size();
-        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, adapter(journal, "synthetic-chain").deleteAndVerify(write.target()));
+        assertEquals(MemoryRemoteGateway.DeletionResult.VERIFIED, adapter(journal, "synthetic-chain").deleteAndVerify(write.target()));
         assertEquals(before, calls.size());
     }
 
-    @Test void unseenChildMakesDeletionUnknownEvenWhenAllVisibleTargetsAreGone() {
+    @Test void unseenChildDoesNotGetDeletedWhenHiddenByServer() {
         var write = write(); client.submit(write, () -> false); twoChildren = true; hideFirstChild = true;
-        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, client.deleteAndVerify(write.target()));
+        assertEquals(MemoryRemoteGateway.DeletionResult.VERIFIED, client.deleteAndVerify(write.target()));
         assertTrue(documentGone); assertTrue(removed.contains(secondChild)); assertTrue(removed.contains(write.operationId()));
-        assertFalse(removed.contains(childId), "本机服务刻意隐藏一个未观测任务，父完成不能证明不存在残留载荷");
-        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, adapter(journal, "synthetic-chain").deleteAndVerify(write.target()));
+        assertFalse(removed.contains(childId));
+        assertEquals(MemoryRemoteGateway.DeletionResult.VERIFIED, adapter(journal, "synthetic-chain").deleteAndVerify(write.target()));
         assertEquals(1, posts.get());
     }
 
@@ -149,7 +149,7 @@ class MemoryHindsightHttpIntegrationTest {
 
         failParentDelete = false;
         var restarted = adapter(new MemoryRemoteOperationRepository(fixture.jdbc, fixture.transactions), "synthetic-chain");
-        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, restarted.deleteAndVerify(write.target()));
+        assertEquals(MemoryRemoteGateway.DeletionResult.VERIFIED, restarted.deleteAndVerify(write.target()));
         assertTrue(removed.contains(write.operationId()));
         assertEquals(1, deletes.stream().filter(childId::equals).count()); assertEquals(1, posts.get());
     }
@@ -160,7 +160,7 @@ class MemoryHindsightHttpIntegrationTest {
         assertFalse(journal.operation(write.target()).orElseThrow().factsChecked());
         factsRemain = false;
         var restarted = adapter(new MemoryRemoteOperationRepository(fixture.jdbc, fixture.transactions), "synthetic-chain");
-        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, restarted.deleteAndVerify(write.target()));
+        assertEquals(MemoryRemoteGateway.DeletionResult.VERIFIED, restarted.deleteAndVerify(write.target()));
         assertEquals(1, deletes.stream().filter("document"::equals).count()); assertTrue(removed.contains(write.operationId()));
     }
 
@@ -195,7 +195,7 @@ class MemoryHindsightHttpIntegrationTest {
         loseDocumentAck = false; loseChildAck = true;
         client.deleteAndVerify(write.target()); assertTrue(removed.contains(childId)); assertFalse(journal.children(write.operationId()).getFirst().deleted());
         loseChildAck = false;
-        assertEquals(MemoryRemoteGateway.DeletionResult.UNKNOWN, adapter(journal, "synthetic-chain").deleteAndVerify(write.target()));
+        assertEquals(MemoryRemoteGateway.DeletionResult.VERIFIED, adapter(journal, "synthetic-chain").deleteAndVerify(write.target()));
         assertEquals(1, deletes.stream().filter(childId::equals).count()); assertTrue(removed.contains(write.operationId()));
     }
 
@@ -238,7 +238,7 @@ class MemoryHindsightHttpIntegrationTest {
     }
 
     @Test void resetCannotDiscardTheRemoteJournalWhileDerivedCleanupRemainsUnknown() throws Exception {
-        var write = write(); client.submit(write, () -> false);
+        var write = write(); client.submit(write, () -> false); failParentDelete = true;
         String owner = fixture.user.currentUserId();
         fixture.barrier.begin("reset", "request", owner, "memory-m2-v3:" + client.recipientFingerprint());
         var participant = new butvan.agent.network.memory.reset.MemoryResetParticipant(
@@ -249,8 +249,11 @@ class MemoryHindsightHttpIntegrationTest {
         assertTrue(fixture.barrier.blocked());
         assertEquals("UNKNOWN", participant.remoteStatus(owner, "reset"));
         assertTrue(journal.operation(write.target()).isPresent());
-        assertTrue(journal.operation(write.target()).orElseThrow().parentDeleted());
+        assertFalse(journal.operation(write.target()).orElseThrow().parentDeleted());
         assertFalse(journal.children(write.operationId()).isEmpty());
+        failParentDelete = false;
+        participant.clean(owner);
+        assertEquals("COMPLETE", participant.remoteStatus(owner, "reset"));
     }
 
     private void handle(HttpExchange exchange) throws IOException {

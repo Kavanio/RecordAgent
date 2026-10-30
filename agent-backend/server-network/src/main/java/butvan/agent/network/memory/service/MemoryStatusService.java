@@ -50,12 +50,11 @@ public class MemoryStatusService {
                 policy.dailyStatusLimit(), policy.dailyRecallLimit());
     }
 
-    /** V1 只有合并查询上限，不拆成推测性的召回／核对比例。 */
+    /** V1 只有合并查询上限，不拆成推测性的召回／核对比例；单条来源删除不再连坐暂停整个空间的召回。 */
     private List<String> pauseReasons(boolean authorized, boolean autoSave, boolean autoRecall, String space,
                                       boolean legacyMeter, int writeLimit, int statusLimit, int recallLimit,
                                       MemoryStatusRepository.Usage usage) {
         var pauses = new ArrayList<String>();
-        if (recall.deletionPending(space)) pauses.add("DELETION_UNRESOLVED");
         if (!authorized) { pauses.add("NOT_AUTHORIZED"); return pauses; }
         if (!autoSave) pauses.add("SAVE_DISABLED");
         if (!autoRecall) pauses.add("RECALL_DISABLED");
