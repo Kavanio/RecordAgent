@@ -1,12 +1,14 @@
 package butvan.agent.network.review.service;
 
 import butvan.agent.agents.review.ReviewDraft;
+import butvan.agent.network.automation.event.TasksChanged;
 import butvan.agent.network.review.model.ReviewModels.Delivery;
 import butvan.agent.network.review.model.ReviewModels.Job;
 import butvan.agent.network.review.repository.ReviewCoachRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -30,6 +32,7 @@ public class ReviewDeliveryService {
     private final JdbcTemplate jdbc;
     private final Clock automationClock;
     private final ObjectMapper mapper;
+    private final ApplicationEventPublisher events;
 
     /** 登记等待中的邮件副本；AI 未开启时调用方不登记，直接使用基础报告。 */
     public void register(String owner, String runId, String reviewId, String baseText, String baseHtml, int seconds) {
@@ -62,10 +65,11 @@ public class ReviewDeliveryService {
                         + escape(section) + "</pre></body>") : delivery.baseHtml();
         Instant now = automationClock.instant();
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
-            if (!repository.freeze(delivery.runId(), text, html, true, now)) return;
-            jdbc.update("UPDATE automation_run SET content=?,email_html=?,email_status='PENDING',email_queued_at=?,error=? "
+            if (!repository.freeze(delivery.runId(), text, html, ai, now)) return;
+            int updated = jdbc.update("UPDATE automation_run SET content=?,email_html=?,email_status='PENDING',email_queued_at=?,error=? "
                             + "WHERE id=? AND email_status='WAITING'",
                     text, html, now.toEpochMilli(), ai ? "" : "AI 复盘未就绪，已发送基础报告", delivery.runId());
+            if (updated > 0) events.publishEvent(new TasksChanged(delivery.owner()));
         });
     }
 

@@ -23,7 +23,8 @@ function ChannelIcon({ icon, label, status, highlighted }: {
   status: string;
   highlighted: boolean;
 }) {
-  const description = `${label}：${runStatus[status] ?? status}`;
+  const statusText = label === '邮件' && status === 'WAITING' ? '等待复盘生成' : (runStatus[status] ?? status);
+  const description = `${label}：${statusText}`;
   return <span
     className={`${styles.channel} ${highlighted ? styles.channelSuccess : ''} ${status === 'FAILED' ? styles.channelFailed : ''}`}
     role="img"

@@ -40,6 +40,9 @@ public final class RecordModels {
                               Instant createdAt, Instant updatedAt) {
     }
 
+    /** 有界纯文本片段；按资料归属日标记，更新时间不冒充经历发生时间。 */
+    public record JournalFragment(String id, LocalDate recordDate, String text, Instant updatedAt, boolean truncated) {}
+
     /** 某日轻量聚合数据。 */
     public record DaySummary(LocalDate date, int count, boolean weeklyReviewCompleted) {
     }

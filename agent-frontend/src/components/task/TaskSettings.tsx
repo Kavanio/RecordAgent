@@ -17,6 +17,7 @@ import { EmailBindingModal } from '../account/EmailBindingModal';
 import { TaskMailConfigModal } from './TaskMailConfigModal';
 import styles from './TaskSettings.module.css';
 import { TaskReminderSettings } from './TaskReminderSettings';
+import { ReportReviewSettings } from '../review/ReportReviewSettings';
 
 export function TaskSettings() {
   const [form, setForm] = useState<SaveTaskMailSettings | null>(null);
@@ -210,6 +211,8 @@ export function TaskSettings() {
             />
           </SettingsGroup>
         )}
+
+        <ReportReviewSettings />
 
         {error && (
           <p role="alert" className={styles.error}>

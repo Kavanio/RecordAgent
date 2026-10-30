@@ -1,6 +1,11 @@
 package butvan.agent.agents.context;
 
 import butvan.agent.agents.storage.AgentStorageProperties;
+import butvan.agent.agents.review.LifeReviewContextPort;
+import butvan.agent.agents.review.TaskReportContextPort;
+import butvan.agent.agents.usage.TokenCounter;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import butvan.agent.agents.usage.ApproximateTokenCounter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -122,6 +127,95 @@ class ConversationContextAssemblerTest {
                 new ContextRequest("local-default", "我的 API Key 是什么", 150, 0, 120, 3));
 
         assertTrue(envelope.isEmpty());
+    }
+
+    @Test
+    void injectsAuthorizedRecentLifeReviewWithinMemoryBudgetAndHonorsRevocation() {
+        var active = new java.util.concurrent.atomic.AtomicBoolean(true);
+        ConversationContextAssembler assembler = assembler();
+        LifeReviewContextPort review = (owner, query) -> java.util.Optional.of(
+                new butvan.agent.agents.memory.MemoryRecallPort.Fragment(
+                        "生活复盘 2026-10-30 v1",
+                        "最近已授权生活复盘摘要（2026-10-30）：\n- 小步建议：明天先翻两句手记",
+                        active::get));
+        var beans = new StaticListableBeanFactory(
+                java.util.Map.of("lifeReviewContext", review));
+        assembler.setLifeReviewContext(beans.getBeanProvider(LifeReviewContextPort.class));
+
+        ContextEnvelope envelope = assembler.assemble(
+                new ContextRequest("local-default", "上次那个学习建议，我下一步怎么调整？"));
+
+        assertTrue(envelope.rendered().contains("明天先翻两句手记"));
+        assertTrue(envelope.memoryTokens() > 0 && envelope.estimatedTokens() <= 850);
+
+        active.set(false);
+        assertTrue(envelope.blocks().stream()
+                .filter(b -> b.kind() == ContextKind.MEMORY)
+                .noneMatch(b -> b.stillCurrent().getAsBoolean()));
+    }
+
+    @Test
+    void injectsRecentTaskReportMailContextWithinBudgetAndHonorsValidity() {
+        var valid = new java.util.concurrent.atomic.AtomicBoolean(true);
+        ConversationContextAssembler assembler = assembler();
+        TaskReportContextPort reportContext = (owner, query) -> java.util.Optional.of(
+                new butvan.agent.agents.memory.MemoryRecallPort.Fragment(
+                        "任务邮件 每日日报",
+                        "最近已发送的任务邮件提醒（标题：每日日报，发送时间：2026-10-30 20:30，已同步发送飞书消息提醒）：\n待办进度\n应办：3 项，已完成：2 项",
+                        valid::get));
+        var beans = new StaticListableBeanFactory(
+                java.util.Map.of("taskReportContext", reportContext));
+        assembler.setTaskReportContext(beans.getBeanProvider(TaskReportContextPort.class));
+
+        ContextEnvelope envelope = assembler.assemble(
+                new ContextRequest("local-default", "刚才发的日报邮件里待办完成了几项？"));
+
+        assertTrue(envelope.rendered().contains("最近已发送的任务邮件提醒"));
+        assertTrue(envelope.rendered().contains("已完成：2 项"));
+        assertTrue(envelope.memoryTokens() > 0 && envelope.estimatedTokens() <= 850);
+
+        valid.set(false);
+        assertTrue(envelope.blocks().stream()
+                .filter(b -> b.kind() == ContextKind.MEMORY)
+                .noneMatch(b -> b.stillCurrent().getAsBoolean()));
+    }
+
+    /** 模拟复盘服务经渠道反向依赖上下文组装器，禁止 Spring 提前暴露循环 Bean。 */
+    @Test
+    void startsWithReviewDependingOnAssemblerAndResolvesReviewAtRecallTime() {
+        try (var context = springContext()) {
+            context.registerBean("lifeReviewContext", LifeReviewContextPort.class, () -> {
+                context.getBean(ConversationContextAssembler.class);
+                return (owner, query) -> java.util.Optional.of(
+                        new butvan.agent.agents.memory.MemoryRecallPort.Fragment(
+                                "生活复盘", "先翻两句虚构手记", () -> true));
+            });
+            context.refresh();
+
+            var envelope = context.getBean(ConversationContextAssembler.class)
+                    .assemble(new ContextRequest("local-default", "上次复盘建议是什么"));
+            assertTrue(envelope.rendered().contains("先翻两句虚构手记"));
+        }
+    }
+
+    @Test
+    void startsAndAssemblesWithoutOptionalReviewModule() {
+        try (var context = springContext()) {
+            context.refresh();
+            var envelope = context.getBean(ConversationContextAssembler.class)
+                    .assemble(new ContextRequest("local-default", "上次复盘建议是什么"));
+            assertTrue(envelope.isEmpty());
+        }
+    }
+
+    private AnnotationConfigApplicationContext springContext() {
+        var context = new AnnotationConfigApplicationContext();
+        context.setAllowCircularReferences(false);
+        context.registerBean(AgentStorageProperties.class, () -> new AgentStorageProperties(temporaryDirectory));
+        context.registerBean(TokenCounter.class, () -> new ApproximateTokenCounter());
+        context.registerBean(ObjectMapper.class, () -> new ObjectMapper());
+        context.register(PersonalContextService.class, ConversationContextAssembler.class);
+        return context;
     }
 
     private ConversationContextAssembler assembler() {

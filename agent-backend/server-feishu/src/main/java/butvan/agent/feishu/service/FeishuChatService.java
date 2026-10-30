@@ -30,7 +30,7 @@ import static butvan.agent.feishu.service.FeishuTaskStore.*;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class FeishuChatService implements AutoCloseable {
+public class FeishuChatService implements AutoCloseable, butvan.agent.agents.review.PersonalDeliveryPort {
     private final FeishuAgentRunner runner;
     private final SessionCatalogService sessions;
     private final TranscriptService transcripts;
@@ -39,6 +39,9 @@ public class FeishuChatService implements AutoCloseable {
     private final Map<String, Running> running = new LinkedHashMap<>();
     /** 待执行图片的平台键；只在内存保留，重启后对应任务直接标记中断，不重下载也不重执行。 */
     private final Map<String, String> pendingImages = new ConcurrentHashMap<>();
+    private FeishuMessageSender personalSender;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.beans.factory.ObjectProvider<butvan.agent.agents.review.LifeReviewReplyPort> reviewReplies;
     private FeishuImageFetcher imageFetcher;
     private FeishuConfigData config;
     private FeishuTaskStore store;
@@ -66,6 +69,7 @@ public class FeishuChatService implements AutoCloseable {
     synchronized void open(FeishuConfigData config, FeishuMessageSender sender, FeishuImageFetcher imageFetcher,
                            FeishuTaskStore store, Clock clock, LongSupplier nanoTime, boolean automaticTicks) {
         requireClosed();
+        this.personalSender = sender;
         this.config = config; this.store = store; this.clock = clock; this.nanoTime = nanoTime;
         this.imageFetcher = imageFetcher;
         delivery = new FeishuDeliveryService(store, sender, clock);
@@ -185,12 +189,68 @@ public class FeishuChatService implements AutoCloseable {
                 .map(ResourceDescriptor::getFileKey).findFirst().orElse(null);
     }
 
+    /** 只暴露脱敏本人身份指纹；渠道未打开或故障时不允许授权主动发送。 */
+    @Override
+    public synchronized butvan.agent.agents.review.PersonalDeliveryPort.Target target() {
+        boolean known = config != null && config.isReady();
+        boolean ready = known && !closed && !faulted;
+        return new butvan.agent.agents.review.PersonalDeliveryPort.Target(ready,
+                known ? stableId(config.appId() + ":" + config.allowedSenderIds().getFirst()) : "",
+                ready ? "已配置的本人飞书私聊" : "本人飞书暂不可用或未连接");
+    }
+
+    /** 调用方已持有重置租约并记录意图；多段复盘按自然对话逐条发送，网络等待不占受理锁。 */
+    @Override
+    public butvan.agent.agents.review.PersonalDeliveryPort.Attempt send(String expected, String deliveryId, String text) {
+        FeishuMessageSender sender;
+        String recipient;
+        boolean pauseBetweenSegments;
+        synchronized (this) {
+            var target = target();
+            if (!target.available() || !target.fingerprint().equals(expected)
+                    || (resetBarrier != null && resetBarrier.blocked()))
+                return new butvan.agent.agents.review.PersonalDeliveryPort.Attempt("FAILED", "");
+            sender = personalSender;
+            recipient = config.allowedSenderIds().getFirst();
+            pauseBetweenSegments = scheduler != null;
+        }
+        List<String> segments = text == null ? List.of()
+                : Arrays.stream(text.split("\\n\\n+")).map(String::strip).filter(s -> !s.isEmpty()).toList();
+        if (segments.isEmpty()) segments = List.of(text == null ? "" : text);
+        String lastMessageId = "";
+        for (int i = 0; i < segments.size(); i++) {
+            if (i > 0 && pauseBetweenSegments) {
+                try { Thread.sleep(350); }
+                catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+            }
+            String partId = i == 0 ? deliveryId : stableId(deliveryId + ":" + i);
+            var result = sender.sendToOwner(recipient, partId, segments.get(i));
+            if (result.status() != FeishuMessageSender.Status.SENT) {
+                return new butvan.agent.agents.review.PersonalDeliveryPort.Attempt(
+                        result.status() == FeishuMessageSender.Status.UNKNOWN || i > 0 ? "UNKNOWN" : "FAILED",
+                        lastMessageId);
+            }
+            lastMessageId = result.messageId() == null ? "" : result.messageId();
+        }
+        return new butvan.agent.agents.review.PersonalDeliveryPort.Attempt("SENT", lastMessageId);
+    }
+
     private boolean isCommand(String text) {
-        return Set.of("/stop", "/clear", "/new").contains(text)
+        return text.matches("(?s)/review(?: [a-f0-9-]{36})? .{1,1000}")
+                || Set.of("/stop", "/clear", "/new").contains(text)
                 || text.matches("/(retry|resend|ack) [a-f0-9-]{36}");
     }
 
     private String control(Task command, String text) {
+        if (text.startsWith("/review ")) {
+            if (reviewReplies == null || reviewReplies.getIfUnique() == null) return "当前后端不支持生活复盘补充，请到桌面查看。";
+            String rest = text.substring("/review ".length()).strip();
+            if (rest.matches("(?s)[a-f0-9-]{36} .+")) {
+                String[] parts = rest.split(" ", 2);
+                return reviewReplies.getIfUnique().reply(currentUser.currentUserId(), parts[0], command.id(), parts[1]);
+            }
+            return reviewReplies.getIfUnique().reply(currentUser.currentUserId(), "latest", command.id(), rest);
+        }
         List<Task> tasks = store.snapshot().tasks().stream().filter(t -> t.conversation().equals(command.conversation())
                 && !t.id().equals(command.id())).toList();
         if (text.equals("/stop")) {

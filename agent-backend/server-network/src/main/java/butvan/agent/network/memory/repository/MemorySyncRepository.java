@@ -14,14 +14,14 @@ import java.util.*;
 @RequiredArgsConstructor
 public class MemorySyncRepository {
     private final JdbcTemplate jdbc;
-    public record SourceRow(long ordinal, String id, String space, long generation, long revision, String session,
+    public record SourceRow(long ordinal, String id, String space, long version, long generation, long revision, String session,
                             String turn, String message, Instant occurredAt, Channel channel, String hash,
                             String document, String recipient) {
         public Receipt receipt() { return new Receipt(id, space, revision, generation); }
     }
     public record Operation(String id, String sourceId, String state, int attempts, int queries, String token) { }
     private static final RowMapper<SourceRow> SOURCE = (rs, n) -> new SourceRow(rs.getLong("ordinal"), rs.getString("id"),
-            rs.getString("space_id"), rs.getLong("generation"), rs.getLong("authorization_revision"),
+            rs.getString("space_id"), rs.getLong("version"), rs.getLong("generation"), rs.getLong("authorization_revision"),
             rs.getString("session_id"), rs.getString("turn_id"), rs.getString("message_id"), Instant.parse(rs.getString("occurred_at")),
             Channel.valueOf(rs.getString("channel")), rs.getString("content_hash"), rs.getString("document_id"), rs.getString("recipient_fingerprint"));
     private static final RowMapper<Operation> OPERATION = (rs, n) -> new Operation(rs.getString("id"), rs.getString("source_id"),
@@ -39,6 +39,13 @@ public class MemorySyncRepository {
     public Optional<SourceRow> source(String sourceId) {
         return jdbc.query("SELECT rowid AS ordinal,* FROM memory_source_document WHERE id=? AND state='CAPTURED'",
                 SOURCE, sourceId).stream().findFirst();
+    }
+    /** 召回允许读取仍有效或已被用户本机纠正的来源。 */
+    public Optional<SourceRow> sourceForRecall(String sourceId) {
+        return jdbc.query("""
+                SELECT rowid AS ordinal,* FROM memory_source_document
+                WHERE id=? AND (state='CAPTURED' OR EXISTS(SELECT 1 FROM memory_correction c WHERE c.source_id=memory_source_document.id))
+                """, SOURCE, sourceId).stream().findFirst();
     }
     /** 管理查看包含停用来源，必须另校验空间，不赋予重新发送资格。 */
     public Optional<SourceRow> sourceForManagement(String space, String sourceId) {

@@ -204,6 +204,7 @@ class ReviewCoachIntegrationTest {
         deliveries.freezeReady();
         assertEquals("PENDING", jdbc.queryForObject("SELECT email_status FROM automation_run WHERE id='run-1'", String.class));
         assertEquals("基础报告", jdbc.queryForObject("SELECT content FROM automation_run WHERE id='run-1'", String.class));
+        assertNull(jdbc.queryForObject("SELECT final_text FROM automation_review_delivery WHERE run_id='run-1'", String.class));
         assertTrue(jdbc.queryForObject("SELECT error FROM automation_run WHERE id='run-1'", String.class).contains("基础报告"));
     }
 
@@ -216,7 +217,8 @@ class ReviewCoachIntegrationTest {
         authorization.revoke(owner, grant.id(), new RevokeRequest(grant.revision()));
         assertEquals("DISABLED", jdbc.queryForObject("SELECT state FROM automation_review_delivery WHERE run_id='run-2'", String.class));
         deliveries.freezeReady();
-        assertEquals("WAITING", jdbc.queryForObject("SELECT email_status FROM automation_run WHERE id='run-2'", String.class));
+        assertEquals("PENDING", jdbc.queryForObject("SELECT email_status FROM automation_run WHERE id='run-2'", String.class));
+        assertEquals("基础", jdbc.queryForObject("SELECT content FROM automation_run WHERE id='run-2'", String.class));
     }
 
     @Test void factoryResetErasesDerivedMemoryButPreservesManualGoalsAndFrozenBusinessReports() {

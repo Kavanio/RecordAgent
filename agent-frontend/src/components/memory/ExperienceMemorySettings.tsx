@@ -15,11 +15,6 @@ import { MemoryDocumentManager } from './MemoryDocumentManager';
 import { MemoryConnectionSettings } from './MemoryConnectionSettings';
 import styles from './ExperienceMemorySettings.module.css';
 
-/** 接收方指纹很长，页面上只展示可辨认的头尾，避免撑满整行。 */
-function shortFingerprint(value: string) {
-  return value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value;
-}
-
 const PAUSE_LABELS: Record<string, string> = {
   DELETION_UNRESOLVED: '删除未核实，召回暂停',
   NOT_AUTHORIZED: '未授权',
@@ -146,27 +141,21 @@ export function ExperienceMemorySettings() {  const { showMessage } = useMessage
   return <div className={styles.content}>
     <MemoryConnectionSettings onChanged={load} />
     <SettingsGroup title="经历记忆" description="记住你允许的新聊天，回答时参考相关经历。">
-      <SettingsRow label="远端接入" description={settings?.remoteAvailable
-        ? <>接收方 <code className={styles.fingerprint}>{shortFingerprint(settings.recipientFingerprint)}</code>；授权并打开下方开关后才会使用。</>
-        : '先连接上方记忆服务，再选择允许保存和查找的内容。'}
-        control={<span className={styles.badge}>{settings ? settings.remoteAvailable ? '已接入' : '未接入' : '读取中…'}</span>} />
       {error && <SettingsRow label="设置读取失败" description={<span role="alert">{error}</span>} control={<Button variant="outline" disabled={busy} onClick={() => void load()}>重试读取设置</Button>} />}
       {settings && <>
         <SettingsRow label="用途授权" description={authorizationSummary(settings)}
           control={<div className={styles.actions}><Button variant="outline" disabled={busy || !settings.remoteAvailable} onClick={() => setAuthorizing(true)}>{settings.authorized ? '重新授权' : '查看并授权'}</Button>
-            <Button variant="ghost" disabled={busy || !settings.authorized} onClick={() => setRevoking(true)}>撤销授权</Button></div>} />
+            {settings.authorized && <Button variant="ghost" disabled={busy} onClick={() => setRevoking(true)}>撤销授权</Button>}</div>} />
         <SettingsRow label="自动保存新经历" description="只保存授权后的新聊天，说“不要记住”就不上传。" control={<LeverSwitch aria-label="自动保存新经历" checked={settings.autoSave} disabled={busy || !settings.authorized || !settings.allowSave} label={settings.autoSave ? '已开启' : '已关闭'} onChange={(value) => toggle(value, settings.autoRecall)} />} />
         <SettingsRow label="自动召回经历" description="回答时查找相关经历，需同时开启上方“自动使用个人上下文”。" control={<LeverSwitch aria-label="自动召回经历" checked={settings.autoRecall} disabled={busy || !settings.authorized || !settings.allowRecall} label={settings.autoRecall ? '已开启' : '已关闭'} onChange={(value) => toggle(settings.autoSave, value)} />} />
-        <SettingsRow label="运行保护" description="限制每天的处理次数，达到上限后会暂停，待办仍会保留。"
-          control={<Button variant="outline" disabled={busy} onClick={openRuntime}>调整运行保护</Button>} />
-        <SettingsRow label="处理状态" description={<>
+        <SettingsRow label="处理状态与运行保护" description={<>
           {statusError ? <span role="alert">{statusError}</span> : status ? (status.pauseReasons.length
             ? `已暂停：${status.pauseReasons.map(reason => PAUSE_LABELS[reason] ?? reason).join('、')}。`
             : `已登记 ${status.sourceTotal} 条来源，${status.sourceActive} 条可用。`) : '正在读取处理状态…'}
         </>}
-          control={<Button variant="ghost" disabled={busy} onClick={() => void loadStatus()}>刷新处理状态</Button>} />
+          control={<div className={styles.actions}><Button variant="outline" disabled={busy} onClick={openRuntime}>调整运行保护</Button>
+            <Button variant="ghost" disabled={busy} onClick={() => void loadStatus()}>刷新状态</Button></div>} />
         {status && <details className={styles.details}><summary>查看详细统计</summary><p>{statusSummary(status)}</p></details>}
-        <SettingsRow label="刷新设置" description="在其他窗口改过设置后，点这里更新。" control={<Button variant="ghost" disabled={busy} onClick={() => void load()}>刷新记忆设置</Button>} />
       </>}
     </SettingsGroup>
     <MemoryDocumentManager />

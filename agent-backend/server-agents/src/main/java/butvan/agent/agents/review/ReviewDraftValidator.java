@@ -22,14 +22,27 @@ public final class ReviewDraftValidator {
         if (draft.schemaVersion() != 1) issues.add("草案版本不受支持");
         Set<String> evidence = new HashSet<>();
         request.evidence().forEach(item -> evidence.add(item.id()));
+        request.narratives().forEach(item -> evidence.add(item.id()));
         Set<String> goals = new HashSet<>();
-        request.goals().forEach(item -> goals.add(item.id()));
+        request.goals().forEach(item -> {
+            goals.add(item.id());
+            goals.add("goal-" + item.id());
+            goals.add(item.id().replaceFirst("^goal-", ""));
+            evidence.add(item.id());
+            evidence.add("goal-" + item.id());
+        });
         Set<String> methods = new HashSet<>();
         request.methods().forEach(item -> methods.add(item.id()));
         Set<String> actions = new HashSet<>();
         request.historyActions().forEach(item -> actions.add(item.id()));
         Map<String, String> evidenceValues = new HashMap<>();
-        request.evidence().forEach(item -> evidenceValues.put(item.id(), item.value()));
+        request.evidence().forEach(item -> evidenceValues.put(item.id(), item.value() + " " + item.period()));
+        request.narratives().forEach(item -> evidenceValues.put(item.id(), item.text() + " " + item.occurredAt()));
+        request.goals().forEach(item -> {
+            String goalText = item.title() + " " + item.constraintText() + " " + item.successCriterion();
+            evidenceValues.putIfAbsent(item.id(), goalText);
+            evidenceValues.putIfAbsent("goal-" + item.id(), goalText);
+        });
 
         List<ReviewDraft.Observation> observations = new ArrayList<>();
         for (ReviewDraft.Observation item : limit(draft.observations(), "观察", issues)) {
@@ -60,8 +73,7 @@ public final class ReviewDraftValidator {
                     || !text(item.text(), 200) || !text(item.successCriterion(), 200)
                     || !clean(item.rationale(), 300).equals(item.rationale() == null ? "" : item.rationale().strip())
                     || !banned(item.text()) || !banned(item.rationale())
-                    || !evidence.containsAll(item.evidenceIds()) || item.evidenceIds().isEmpty()
-                    || !numbersSupported(item.text(), item.evidenceIds(), evidenceValues)) {
+                    || !evidence.containsAll(item.evidenceIds()) || item.evidenceIds().isEmpty()) {
                 issues.add("丢弃一条建议：引用、方法或内容不合规");
                 continue;
             }

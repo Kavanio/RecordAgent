@@ -118,7 +118,13 @@ public class AutomationRepository {
     public void withdraw(String taskId) {
         jdbc.update("UPDATE automation_run SET confirmation=CASE WHEN confirmation='WAITING' THEN 'WITHDRAWN' ELSE confirmation END, "
                 + "desktop_status=CASE WHEN desktop_status='PENDING' THEN 'SKIPPED' ELSE desktop_status END, "
-                + "email_status=CASE WHEN email_status='PENDING' THEN 'SKIPPED' ELSE email_status END WHERE task_id=?", taskId);
+                + "email_status=CASE WHEN email_status IN ('PENDING','WAITING') THEN 'SKIPPED' ELSE email_status END WHERE task_id=?", taskId);
+        jdbc.update("UPDATE automation_review_delivery SET state='DISABLED' WHERE state='WAITING' AND run_id IN (SELECT id FROM automation_run WHERE task_id=?)", taskId);
+    }
+    /** 查询当前用户最近一次已成功提交的邮件执行记录，供聊天按需召回报告摘要。 */
+    public Optional<TaskRun> latestSubmittedMail(String owner) {
+        return jdbc.query("SELECT * FROM automation_run WHERE owner_id=? AND email_status='SUBMITTED' ORDER BY email_queued_at DESC, created_at DESC LIMIT 1",
+                RUN, owner).stream().findFirst();
     }
     /** 原子领取桌面投递，只有一窗口可获得执行权。 */
     public boolean claimDesktop(String owner, String id) {

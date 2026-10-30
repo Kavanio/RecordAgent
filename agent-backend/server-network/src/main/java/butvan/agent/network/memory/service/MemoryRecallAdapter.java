@@ -106,8 +106,6 @@ public class MemoryRecallAdapter implements MemoryRecallPort {
         State state = memory.state();
         if (!state.authorized() || !state.grant().recall() || !state.grant().channels().contains(request.channel()))
             return Result.empty(Status.NOT_AUTHORIZED);
-        if (repository.deletionPending(state.settings().spaceId()))
-            return new Result(Status.PAUSED, List.of(), MemoryRecallPort.Reason.DELETION_UNRESOLVED);
         if (recipient.isBlank() || !recipient.equals(state.recipientFingerprint()) || !state.settings().autoRecall()
                 || !profiles.get(request.owner()).enabled())
             return Result.empty(Status.PAUSED);
@@ -140,8 +138,11 @@ public class MemoryRecallAdapter implements MemoryRecallPort {
                 if (fragments.size() >= Math.min(4, request.topK()) || control.isCancelled()) break;
                 var row = item.source();
                 if (!seen.add(row.id())) continue;
+                String prefix = item.corrected()
+                        ? "用户已纠正的经历说明（以纠正内容为准）：\n"
+                        : "历史用户原文（可能含转述、尝试或当时想法，不等于当前立场）：\n";
                 fragments.add(new Fragment("经历来源 " + row.id() + "@" + row.occurredAt(),
-                        "历史用户原文（可能含转述、尝试或当时想法，不等于当前立场）：\n" + item.text(),
+                        prefix + item.text(),
                         () -> validScope(scope) && verifiedOriginal(row, scope) != null));
             }
         }
@@ -159,23 +160,27 @@ public class MemoryRecallAdapter implements MemoryRecallPort {
         for (String document : new LinkedHashSet<>(candidate.documentIds())) {
             var id = repository.verifiedSource(scope.state.settings().spaceId(), document, scope.state.recipientFingerprint());
             if (id.isEmpty()) return List.of();
-            var row = sources.source(id.get());
+            var row = sources.sourceForRecall(id.get());
             if (row.isEmpty()) return List.of();
             String original = verifiedOriginal(row.get(), scope);
             if (original == null) return List.of();
-            rows.add(new Evidence(row.get(), original));
+            boolean corrected = repository.correction(row.get().id()).isPresent();
+            rows.add(new Evidence(row.get(), original, corrected));
         }
         return List.copyOf(rows);
     }
-    /** 同一次权威读取返回原文，避免先核对哈希、再从另一次读取拼出未核对正文。 */
+    /** 同一次权威读取返回纠正文本或原文；版本变化时使本轮已缓存的旧片段立即失效。 */
     private String verifiedOriginal(SourceRow source, Scope scope) {
         try {
             var grant = scope.state.grant();
-            // 长期模式只取消统一年龄上限；来源仍必须属于当前 revision 且远端写入已核对成功。
             boolean aged = !grant.longTermRecall()
                     && source.occurredAt().plus(Duration.ofDays(grant.retentionDays())).isBefore(clock.instant());
             if (source.generation() != scope.generation || source.revision() != grant.revision() || aged
                     || repository.verifiedSource(scope.state.settings().spaceId(), source.document(), scope.state.recipientFingerprint()).isEmpty()) return null;
+            var current = sources.sourceForRecall(source.id());
+            if (current.isEmpty() || current.get().version() != source.version()) return null;
+            var corrected = repository.correction(source.id());
+            if (corrected.isPresent()) return corrected.get();
             var turn = verifier.read(source);
             return turn != null && turn.assistant() != null && turn.assistant().status() == MessageStatus.COMPLETED
                     ? turn.user().content() : null;
@@ -191,15 +196,14 @@ public class MemoryRecallAdapter implements MemoryRecallPort {
                     && state.settings().spaceId().equals(scope.state.settings().spaceId())
                     && state.settings().version() == scope.state.settings().version()
                     && state.grant().revision() == scope.state.grant().revision()
-                    && state.recipientFingerprint().equals(gateway.recipientFingerprint())
-                    && !repository.deletionPending(state.settings().spaceId());
+                    && state.recipientFingerprint().equals(gateway.recipientFingerprint());
         } catch (RuntimeException exception) {
             log.debug("召回授权已不可读取：errorType={}", exception.getClass().getSimpleName()); return false;
         }
     }
     @PreDestroy public void close() { closed.set(true); workers.forEach(Thread::interrupt); }
     /** 原文只留在本轮内存，禁止默认 toString 暴露正文。 */
-    private record Evidence(SourceRow source, String text) {
+    private record Evidence(SourceRow source, String text, boolean corrected) {
         @Override public String toString() { return "MemoryRecallEvidence{REDACTED}"; }
     }
     private record Scope(String owner, State state, long generation) { }

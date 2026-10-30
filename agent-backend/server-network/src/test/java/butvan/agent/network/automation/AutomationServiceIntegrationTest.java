@@ -50,6 +50,7 @@ class AutomationServiceIntegrationTest {
     @MockitoBean TaskMailService mail;
     @MockitoBean butvan.agent.network.review.service.ReviewCoachService reviews;
     @MockitoBean butvan.agent.network.review.service.ReviewDeliveryService reviewDeliveries;
+    @MockitoBean butvan.agent.agents.review.PersonalDeliveryPort personalDelivery;
 
     private Spec reminder(String trigger, boolean confirm) {
         return new Spec("喝水提醒", "起来喝水", "REMINDER", trigger, "Asia/Shanghai", "18:01", "2026-09-23T10:01:00Z",
@@ -224,6 +225,55 @@ class AutomationServiceIntegrationTest {
         service.mailResult(retry, new TaskMailService.Outcome("SUBMITTED", ""));
         assertEquals("SUBMITTED", service.history("owner-retry-day", task.id()).getFirst().emailStatus());
         verify(reports, times(2)).build(anyString(), any(TaskSpec.class), any(Instant.class), any(Instant.class));
+    }
+
+    @Test void dailyReportSchedulesYesterdayReviewAndPauseWithdrawsWaitingEmailAndSubmittedNotifiesFeishuAndAgentContext() {
+        TIME.set(Instant.parse("2026-09-23T10:00:00Z").toEpochMilli());
+        when(mail.settings()).thenReturn(new TaskMailDtos.Settings("smtp.example.test", 587, "sender", "sender@example.test",
+                true, true, true, true, "t***@example.test", true));
+        when(mail.recipient()).thenReturn("test@example.test");
+        when(reports.build(anyString(), any(TaskSpec.class), any(Instant.class), any(Instant.class)))
+                .thenReturn(new TaskReportBuilder.Report(
+                        "日报 · 2026-09-23\n对比上期：2026-09-22\n\n资产与收支\n账户余额：1000.00 CNY\n\n待办进度\n已完成 3 项", false));
+        when(reviews.schedule(eq("owner-feishu-report"), eq("DAILY_REPORT"),
+                eq(LocalDate.of(2026, 9, 22)), eq(LocalDate.of(2026, 9, 22)), eq("Asia/Shanghai")))
+                .thenReturn(java.util.Optional.of("review-job-1"));
+        var spec = new Spec("每日日报", "", "DAILY_REPORT", "DAILY", "Asia/Shanghai", "20:30", null,
+                127, 45, 5, "00:00", "00:00", false, true, false, false, true, true, false);
+        var task = service.save("owner-feishu-report", null, new SaveRequest(spec, true, 0));
+        var waitingRun = service.runNow("owner-feishu-report", task.id());
+        assertEquals("WAITING", waitingRun.emailStatus());
+        verify(reviews).schedule("owner-feishu-report", "DAILY_REPORT",
+                LocalDate.of(2026, 9, 22), LocalDate.of(2026, 9, 22), "Asia/Shanghai");
+
+        // 暂停任务时必须同步撤回处于 WAITING 状态的邮件
+        var paused = service.state("owner-feishu-report", task.id(), new StateRequest(false, task.version()));
+        assertEquals("SKIPPED", service.history("owner-feishu-report", task.id()).getFirst().emailStatus());
+
+        // 重新启用并直接发送邮件后，验证飞书提醒与 Agent 上下文召回（且过滤掉敏感财务字段）
+        when(reviews.schedule(anyString(), anyString(), any(), any(), any())).thenReturn(java.util.Optional.empty());
+        when(personalDelivery.target()).thenReturn(
+                new butvan.agent.agents.review.PersonalDeliveryPort.Target(true, "feishu-fp-1", "本人飞书"));
+        when(personalDelivery.send(anyString(), anyString(), anyString())).thenReturn(
+                new butvan.agent.agents.review.PersonalDeliveryPort.Attempt("SENT", "msg-1"));
+        service.state("owner-feishu-report", task.id(), new StateRequest(true, paused.version()));
+        TIME.addAndGet(1_000);
+        var directRun = service.runNow("owner-feishu-report", task.id());
+        assertEquals("PENDING", directRun.emailStatus());
+        var claimed = service.claimMail();
+        assertNotNull(claimed);
+        service.mailResult(claimed, new TaskMailService.Outcome("SUBMITTED", ""));
+
+        verify(personalDelivery).send(eq("feishu-fp-1"), anyString(), argThat(body ->
+                body.contains("📬 邮件已发送：【每日日报】") && body.contains("已完成 3 项") && !body.contains("账户余额")));
+
+        var fragment = service.recallRecentReport("owner-feishu-report", "刚才发的日报邮件里待办完成了多少？");
+        assertTrue(fragment.isPresent());
+        assertTrue(fragment.get().content().contains("每日日报"));
+        assertTrue(fragment.get().content().contains("已完成 3 项"));
+        assertTrue(fragment.get().content().contains("已同步发送飞书消息提醒"));
+        assertFalse(fragment.get().content().contains("账户余额"));
+        assertTrue(fragment.get().stillCurrent().getAsBoolean());
     }
 
 }

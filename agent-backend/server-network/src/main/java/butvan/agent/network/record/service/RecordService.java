@@ -27,6 +27,15 @@ public class RecordService {
     private final RecordTabService tabService;
     private final DailyEventService dailyEventService;
 
+    /** 独立授权的生活复盘只读手记片段；单次最多七日、八条，每条六百字符。 */
+    public List<butvan.agent.network.record.model.RecordModels.JournalFragment> journalFragments(
+            String owner, LocalDate from, LocalDate to) {
+        requireRange(from, to);
+        if (java.time.temporal.ChronoUnit.DAYS.between(from, to) > 6)
+            throw new IllegalArgumentException("手记片段最多读取七日");
+        return repository.journalFragments(owner, from, to);
+    }
+
     /** 查询记录列表。 */
     public List<RecordEntry> search(String ownerId, LocalDate from, LocalDate to,
                                     String type, String tag, String query, String tabId) {

@@ -23,6 +23,7 @@ public class ResetOperationAspect {
             + "execution(public * butvan.agent.agents.context.*Service.*(..)) || "
             + "execution(public * butvan.agent.agents.subagent.SubagentTaskService.*(..)) || "
             + "execution(public * butvan.agent.network.review.service.*Service.*(..)) || "
+            + "execution(public * butvan.agent.network.review.life.*Service.*(..)) || "
             + "execution(public * butvan.agent.network.usage.service.TokenUsageIndexService.*(..)) || "
             + "execution(public * butvan.agent.network.memory.service.MemoryService.*(..)) || "
             + "execution(public * butvan.agent.network.memory.service.MemoryManagementService.*(..)) || "
