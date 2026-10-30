@@ -243,8 +243,8 @@ export function LifeReviewSettings() {
                 <div className={styles.choices}>
                   <Button size="sm" variant="primary" disabled={disabled || state.generating} onClick={() => {
                     const day = today();
-                    const readyToday = state.history.find(c => c.day === day && c.state === 'READY');
-                    void act(() => lifeReviewApi.prepare(day, readyToday ? readyToday.version : 0, Boolean(readyToday)), '已开始后台生成今日复盘，请稍候…');
+                    const readyToday = state.history.some(c => c.day === day && c.state === 'READY');
+                    void act(() => lifeReviewApi.prepare(day, 0, false), readyToday ? '今日复盘已就绪；如需追加内容请点卡片下方「补充经历」' : '已开始后台生成今日复盘，请稍候…');
                   }}>
                     {state.generating ? '正在生成复盘…' : '准备今天的复盘'}
                   </Button>

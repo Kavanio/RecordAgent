@@ -210,3 +210,19 @@ test('支持在我的复盘直接设置每日自动生成时间且备注可选',
   assert.equal(writes.length, 1);
   assert.deepEqual(JSON.parse(writes[0].init.body), { expectedRevision: 0, availableHour: 20, source: '', active: true });
 });
+
+test('当日已有就绪复盘时再次点击准备今天保持supplement=false复用既有版本', async () => {
+  settings.authorized = true;
+  const todayParts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const today = ['year', 'month', 'day'].map(t => todayParts.find(p => p.type === t)?.value || '').join('-');
+  history = [{ id: 'ready-1', day: today, timezone: 'Asia/Shanghai', version: 1, state: 'READY',
+    sourceAsOf: '2026-10-30T13:00:00Z', availableAt: '2026-10-30T13:00:00Z', coverage: '', message: '',
+    materials: [], facts: [], items: [{ kind: 'FACT_OBSERVATION', text: '已有今日复盘', evidenceIds: ['e1'], uncertainty: '' }], questions: [], deliveries: [] }];
+  await render();
+  await click('准备今天的复盘');
+  const prepares = calls.filter(c => c.url.pathname.endsWith('/prepare') && c.init?.method === 'POST');
+  assert.equal(prepares.length, 1);
+  assert.deepEqual(JSON.parse(prepares[0].init.body), { day: today, expectedVersion: 0, supplement: false });
+});
