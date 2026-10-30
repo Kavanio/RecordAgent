@@ -67,6 +67,8 @@ class FeishuPersonalDeliveryTest {
         String id = "00000000-0000-0000-0000-000000000001";
         chat.handle(message("reply", "/review " + id + " 今天补充的虚构经历"));
         verify(port).reply(eq("owner"), eq(id), anyString(), eq("今天补充的虚构经历"));
+        chat.handle(message("reply-latest", "/review 免UUID直接补充今日复盘"));
+        verify(port).reply(eq("owner"), eq("latest"), anyString(), eq("免UUID直接补充今日复盘"));
         verifyNoInteractions(runner);
     }
 }

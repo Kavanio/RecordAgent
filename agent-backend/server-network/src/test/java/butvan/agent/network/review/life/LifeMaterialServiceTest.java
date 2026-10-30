@@ -87,4 +87,21 @@ class LifeMaterialServiceTest {
         assertEquals("src-1", result.materials().get(1).sourceId());
         assertTrue(result.coverage().contains("长期记忆：按已授权经历召回最多三条关联历史原文"));
     }
+
+    @Test void journalOnlySelectionAlsoRecallsHistoricalMemoriesWhenAvailable() {
+        when(records.journalFragments("owner", day.minusDays(2), day)).thenReturn(List.of(
+                new JournalFragment("r1", day, "今天写手记回顾英语学习", now, false)));
+        butvan.agent.agents.memory.MemoryRecallPort recall = request -> new butvan.agent.agents.memory.MemoryRecallPort.Result(
+                butvan.agent.agents.memory.MemoryRecallPort.Status.SUCCESS,
+                List.of(new butvan.agent.agents.memory.MemoryRecallPort.Fragment(
+                        "经历来源 src-journal@2026-10-05T10:00:00Z",
+                        "历史用户原文：之前尝试过把每日手记翻成英文",
+                        () -> true)));
+        var withRecall = new LifeMaterialService(records, sessions, transcripts, user, facts, recall);
+        var result = withRecall.collect(settings(Set.of("JOURNAL")), day, now);
+        assertEquals(2, result.materials().size());
+        assertEquals("HISTORICAL_MEMORY", result.materials().get(1).kind());
+        assertEquals("src-journal", result.materials().get(1).sourceId());
+        verifyNoInteractions(sessions, transcripts);
+    }
 }

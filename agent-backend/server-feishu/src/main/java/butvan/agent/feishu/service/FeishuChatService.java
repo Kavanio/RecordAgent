@@ -236,7 +236,7 @@ public class FeishuChatService implements AutoCloseable, butvan.agent.agents.rev
     }
 
     private boolean isCommand(String text) {
-        return text.matches("(?s)/review [a-f0-9-]{36} .{1,1000}")
+        return text.matches("(?s)/review(?: [a-f0-9-]{36})? .{1,1000}")
                 || Set.of("/stop", "/clear", "/new").contains(text)
                 || text.matches("/(retry|resend|ack) [a-f0-9-]{36}");
     }
@@ -244,8 +244,12 @@ public class FeishuChatService implements AutoCloseable, butvan.agent.agents.rev
     private String control(Task command, String text) {
         if (text.startsWith("/review ")) {
             if (reviewReplies == null || reviewReplies.getIfUnique() == null) return "当前后端不支持生活复盘补充，请到桌面查看。";
-            String[] parts = text.split(" ", 3);
-            return reviewReplies.getIfUnique().reply(currentUser.currentUserId(), parts[1], command.id(), parts[2]);
+            String rest = text.substring("/review ".length()).strip();
+            if (rest.matches("(?s)[a-f0-9-]{36} .+")) {
+                String[] parts = rest.split(" ", 2);
+                return reviewReplies.getIfUnique().reply(currentUser.currentUserId(), parts[0], command.id(), parts[1]);
+            }
+            return reviewReplies.getIfUnique().reply(currentUser.currentUserId(), "latest", command.id(), rest);
         }
         List<Task> tasks = store.snapshot().tasks().stream().filter(t -> t.conversation().equals(command.conversation())
                 && !t.id().equals(command.id())).toList();

@@ -346,6 +346,37 @@ class LifeReviewIntegrationTest {
         outreach.tick("owner");
         verify(channel, times(1)).send(anyString(), anyString(), anyString());
     }
+    @Test void priorDayObservationsAndActionsArePassedToNextDayAndShortcutReplyTargetsLatest() {
+        authorize(false, false);
+        when(generator.generate(any())).thenReturn(new ReviewDraft(1, "首日材料", List.of(
+                new ReviewDraft.Observation("study.try", "FACT_OBSERVATION", "你尝试了手记翻译。", List.of("journal-1"), List.of(), "首次尝试")),
+                List.of(),
+                List.of(new ReviewDraft.Action("study.try", null, "small-start-v1", "明天先翻两句手记", "降低启动门槛", List.of("journal-1"), 7, "完成两句翻译"))));
+        var prev = reviews.prepare("owner", new Prepare(DAY.minusDays(1), 0, false));
+        reviews.tick();
+        assertEquals("READY", reviews.get("owner", prev.id()).state());
+
+        var captor = org.mockito.ArgumentCaptor.forClass(ReviewGenerationRequest.class);
+        reset(generator);
+        when(generator.generate(captor.capture())).thenAnswer(inv -> {
+            ReviewGenerationRequest req = inv.getArgument(0);
+            String actId = req.historyActions().getFirst().id();
+            return new ReviewDraft(1, "次日材料",
+                    List.of(new ReviewDraft.Observation("study.try", "FACT_OBSERVATION", "今天继续了手记翻译。", List.of("journal-1"), List.of(), "连续两天")),
+                    List.of(new ReviewDraft.FollowUp(actId, "已跟进昨天的两句翻译建议。", List.of("journal-1"))),
+                    List.of());
+        });
+        var today = reviews.prepare("owner", new Prepare(DAY, 0, false));
+        reviews.tick();
+        assertEquals(1, captor.getValue().historyActions().size());
+        assertEquals("明天先翻两句手记", captor.getValue().historyActions().getFirst().title());
+        assertEquals(1, captor.getValue().observations().size());
+        var todayView = reviews.get("owner", today.id());
+        assertTrue(todayView.items().stream().anyMatch(i -> "FOLLOW_UP".equals(i.kind()) && i.text().contains("已跟进昨天")));
+
+        replies.reply("owner", "latest", "shortcut-reply-1", "免ID直接补充今日经历");
+        assertEquals(2, repository.latest("owner", DAY).orElseThrow().version());
+    }
     private static Path temporary() {
         try { return Files.createTempDirectory("life-review-test-"); }
         catch (Exception e) { throw new IllegalStateException(e); }

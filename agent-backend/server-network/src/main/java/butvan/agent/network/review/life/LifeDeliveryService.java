@@ -85,6 +85,11 @@ public class LifeDeliveryService {
             for (var o : c.draft().observations()) {
                 if (o.text() != null && !o.text().isBlank()) segments.add(o.text().strip());
             }
+            if (c.draft().followUps() != null) {
+                for (var f : c.draft().followUps()) {
+                    if (f.text() != null && !f.text().isBlank()) segments.add(f.text().strip());
+                }
+            }
             List<String> actions = c.draft().actions() == null ? List.of() : c.draft().actions().stream()
                     .map(a -> a.text() == null ? "" : a.text().strip().replaceFirst("^建议[：:]\\s*", ""))
                     .filter(t -> !t.isEmpty()).toList();

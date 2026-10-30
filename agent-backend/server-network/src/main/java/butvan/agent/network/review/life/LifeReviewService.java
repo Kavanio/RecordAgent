@@ -111,11 +111,15 @@ public class LifeReviewService {
                 kept.addAll(personal.collect(s, c.sourceAsOf()));
                 kept.addAll(sources.materials());
                 String coverage = sources.coverage() + (s.sources().contains("GOALS") ? "；目标/反馈为用户明确表达，预算分别300/500估算Token；未反馈保持未知" : "");
-                ReviewGenerationRequest request = request(c, s, kept, sources.facts(), coverage);
+                PriorContext prior = priorContext(c, s);
+                ReviewGenerationRequest request = request(c, s, kept, sources.facts(), coverage, prior);
                 while (!kept.isEmpty() && counter.count(json(request)) > 4000) {
                     kept.removeLast();
                     coverage = sources.coverage() + "；输入预算截断，未覆盖全部材料";
-                    request = request(c, s, kept, sources.facts(), coverage);
+                    request = request(c, s, kept, sources.facts(), coverage, prior);
+                }
+                if (counter.count(json(request)) > 4000) {
+                    request = request(c, s, kept, sources.facts(), coverage, new PriorContext(List.of(), List.of()));
                 }
                 if (counter.count(json(request)) > 4000) throw new IllegalArgumentException("输入超过生活复盘预算");
                 var questions = kept.size() < 2 ? List.of("今天还有哪件事或感受值得留下？可以稍后补充，也可以跳过。") : List.<String>of();
@@ -137,7 +141,7 @@ public class LifeReviewService {
                     barrier.markRuntimeUsed();
                     var result = ReviewDraftValidator.validate(request, generator.generate(request));
                     draft = result.draft();
-                    if (draft.observations().isEmpty() && draft.actions().isEmpty()) {
+                    if (draft.observations().isEmpty() && draft.followUps().isEmpty() && draft.actions().isEmpty()) {
                         state = "DEGRADED"; message = "生成内容未通过证据校验，以下保留已读取材料。";
                     }
                 }
@@ -194,12 +198,55 @@ public class LifeReviewService {
             throw new IllegalArgumentException("复盘授权或重置代次已变化");
         return s;
     }
+    private record PriorContext(
+            List<ReviewGenerationRequest.HistoryAction> actions,
+            List<ReviewGenerationRequest.Observation> observations) {}
+
+    private PriorContext priorContext(Content current, Settings s) {
+        LocalDate earliest = current.day().minusDays(Math.max(1, s.historyDays()));
+        Set<LocalDate> seenDays = new HashSet<>();
+        List<ReviewGenerationRequest.HistoryAction> actions = new ArrayList<>();
+        List<ReviewGenerationRequest.Observation> observations = new ArrayList<>();
+        for (var item : repository.history(current.owner())) {
+            if (item.id().equals(current.id()) || !"READY".equals(item.state()) || item.draft() == null) continue;
+            if (item.day().isAfter(current.day()) || item.day().isBefore(earliest) || !seenDays.add(item.day())) continue;
+            if (item.draft().actions() != null) {
+                for (int i = 0; i < item.draft().actions().size() && actions.size() < 3; i++) {
+                    var a = item.draft().actions().get(i);
+                    int checkDays = a.checkAfterDays() == null ? 7 : a.checkAfterDays();
+                    actions.add(new ReviewGenerationRequest.HistoryAction(
+                            "act-" + item.day() + "-" + (i + 1),
+                            a.topicKey(),
+                            a.text(),
+                            "SUGGESTED",
+                            item.day().plusDays(checkDays).toString(),
+                            "往期建议，未反馈不视为失败"));
+                }
+            }
+            if (item.draft().observations() != null) {
+                for (int i = 0; i < item.draft().observations().size() && observations.size() < 3; i++) {
+                    var o = item.draft().observations().get(i);
+                    observations.add(new ReviewGenerationRequest.Observation(
+                            "obs-" + item.day() + "-" + (i + 1),
+                            o.topicKey(),
+                            o.text(),
+                            o.uncertainty()));
+                }
+            }
+            if (actions.size() >= 3 && observations.size() >= 3) break;
+        }
+        return new PriorContext(List.copyOf(actions), List.copyOf(observations));
+    }
+
     private ReviewGenerationRequest request(Content c, Settings s, List<Material> text,
-            List<ReviewGenerationRequest.Evidence> facts, String coverage) {
+            List<ReviewGenerationRequest.Evidence> facts, String coverage, PriorContext prior) {
+        List<String> topics = new ArrayList<>(List.of("study"));
+        if (s.sources().contains("BUSINESS")) topics.add("todo");
+        if (s.sources().contains("FINANCE")) topics.add("finance");
         return new ReviewGenerationRequest("LIFE_DAILY", c.day() + " 生活复盘 v" + c.version(), coverage, facts,
                 text.stream().filter(m -> m.kind().equals("USER_GOAL")).map(m ->
                     new ReviewGenerationRequest.Goal(m.sourceId(), m.text(), "用户原始约束已包含在目标文本中", "参照原始目标文本")).toList(),
-                List.of(), List.of(), ReviewMethodCards.select("DAILY_REPORT", List.of("study")),
+                prior.actions(), prior.observations(), ReviewMethodCards.select("DAILY_REPORT", topics),
                 5000, 3000, 60000, s.providerId(), s.modelName(), text.stream().map(m ->
                 new ReviewGenerationRequest.Narrative(m.id(), m.kind(), m.sourceId(), m.occurredAt(),
                     m.text(), m.truncated())).toList(), s.fingerprint());
@@ -212,6 +259,9 @@ public class LifeReviewService {
         List<ItemView> items = new ArrayList<>();
         if (c.draft() != null) {
             c.draft().observations().forEach(o -> items.add(new ItemView(o.kind(), o.text(), o.evidenceIds(), o.uncertainty())));
+            if (c.draft().followUps() != null) {
+                c.draft().followUps().forEach(f -> items.add(new ItemView("FOLLOW_UP", f.text(), f.evidenceIds(), "")));
+            }
             c.draft().actions().forEach(a -> items.add(new ItemView("ACTION", a.text(), a.evidenceIds(), a.rationale())));
         }
         var originalGrant = repository.grantSettings(c.owner(), c.grantId());

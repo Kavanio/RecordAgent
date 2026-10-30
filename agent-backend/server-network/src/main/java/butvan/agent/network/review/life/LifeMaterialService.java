@@ -100,8 +100,11 @@ public class LifeMaterialService {
                     }
                 }
                 coverage.add("聊天：最近五个普通会话，各扫描末尾2MiB及角色筛选前24条；仅用户原文，每条六百字符，合计最多二十条；仅部分近期记录");
-                appendHistoricalMemories(settings, text, coverage);
             } catch (RuntimeException e) { coverage.add("聊天读取不可用，不能当作无互动"); }
+        }
+        if (settings.sources().contains("JOURNAL") || settings.sources().contains("CHAT")) {
+            try { appendHistoricalMemories(settings, text, coverage); }
+            catch (RuntimeException e) { coverage.add("长期记忆召回暂不可用，不影响近期原文读取"); }
         }
         Set<String> domains = new HashSet<>();
         if (settings.sources().contains("BUSINESS")) domains.addAll(Set.of("TODO", "STUDY"));
