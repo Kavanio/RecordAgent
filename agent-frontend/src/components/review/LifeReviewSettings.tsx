@@ -1,4 +1,3 @@
-import { ReviewGuide } from './ReviewGuide';
 import { ReviewDisclosure } from './ReviewDisclosure';
 import { ReviewEmptyState } from './ReviewEmptyState';
 import { ReviewFormModal } from './ReviewFormModal';
@@ -39,7 +38,6 @@ export function LifeReviewSettings() {
   return <SettingsPageLayout title="生活复盘" description="回顾近期经历，在一份复盘里阅读和补充。" loading={state.loading} loadingLabel="正在读取生活复盘">
     {state.error && <p role="alert" className={styles.error}>{state.error}<Button size="sm" onClick={() => void state.load()}>重新读取</Button></p>}
     {s && <>
-      <ReviewGuide enabled={s.enabled} authorized={s.authorized} />
       <SettingsGroup title="复盘设置" description="查看已保存的范围与运行状态，需要调整时再打开配置。">
         <SettingsRow label={s.enabled ? '生活复盘已启用' : '生活复盘未启用'} description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'}`}
           control={<Button size="sm" disabled={busy} onClick={() => setEditor('settings')}>配置复盘</Button>} />

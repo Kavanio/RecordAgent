@@ -1,4 +1,3 @@
-import { ReviewGuide } from './ReviewGuide';
 import { ReviewDisclosure } from './ReviewDisclosure';
 import { ReviewEmptyState } from './ReviewEmptyState';
 import { STATE_TEXT, requestId, yesterday } from '../../features/review/statisticsReviewPresentation';
@@ -207,7 +206,6 @@ export function ReviewSettings() {
       {error && <p className={styles.error} role="alert">{error}</p>}
       {settings && (
         <>
-          <ReviewGuide enabled={settings.enabled} authorized={settings.authorized} statistics />
           <SettingsGroup title="统计复盘配置" description="使用独立的统计摘要授权，按需调整周期、数据范围与固定模型。">
             <SettingsRow label={settings.enabled ? '统计复盘已启用' : '统计复盘未启用'} description={`${settings.modelName || '尚未选择模型'} · 回看${settings.historyDays}天 · 每日上限${settings.dailyLimit}次`}
               control={<Button size="sm" disabled={busy} onClick={() => { setSavedDraft(settings); setConfigOpen(true); }}>配置统计复盘</Button>} />
