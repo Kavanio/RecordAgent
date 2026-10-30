@@ -28,5 +28,13 @@ public class MemorySyncScheduler implements AutoCloseable {
         }, delay.toMillis(), delay.toMillis(), TimeUnit.MILLISECONDS);
     }
     /** 中断由原有 HTTP／租约传播，真实生产者停稳前不伪造释放保护。 */
-    @PreDestroy public void close() { executor.shutdownNow(); }
+    @PreDestroy
+    public void close() {
+        executor.shutdownNow();
+        try {
+            executor.awaitTermination(500, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+    }
 }

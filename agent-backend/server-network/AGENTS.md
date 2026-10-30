@@ -164,27 +164,11 @@
 - 合成试跑入口 `MemoryHindsightSyntheticTrialIT` 位于测试源码，普通 Maven test 不发现 IT；显式指定仍须完整 opt-in，并将测试 JVM user.home 指向独立试跑目录的 process-home。每个目录绑定接收方和随机 bank，文件锁禁止并发；固定 3 个虚构来源与 3 个问题，复用真实同步／召回／管理逻辑，无自由文本、已有 bank 或后台定时入口。试跑目录、来源、原操作及调用额度持久化；写入最多 3 项，状态查询每项最多 8 次，召回总共最多 3 次（失败也消耗），显式撤回最多 3 批。撤回先停用本地来源，再做远端核对；源正文缺失不阻止撤回，全部清理报告仍不宣告完整删除。凭据仅来自受保护环境，不写账本或报告。正常 Adapter 构造仍拒绝公网 HTTP；用户另行确认风险后，测试源码中的固定地址例外需额外 opt-in、空 Token、固定三个虚构来源及完整字段白名单，并在报告标明 explicitPlaintextTrial。合成入口不产生真实聊天授权；客户端真实试用仅走下述独立连接确认，不复用测试入口的权限。
 - `HindsightHttpTransport` 显式使用 HTTP/1.1，避免部分部署与明文 h2c 升级不兼容而忽略 POST／PUT 正文；保留原有共享期限、512 KiB 实际流上限、取消和禁止重定向，不以替换整个 HTTP 栈或放宽预算修复兼容问题。
 - 真实聊天试用通过 `GET/PUT /agent/memory/trial-connection` 配置：读取只返回安全摘要；PUT 携带 `X-Agent-Generation`，必须确认试用风险与当前处理配置，先完成 version／ready／OpenAPI 只读检查再落盘。合法公网明文 HTTP 必须另行确认且 Token 为空；正常 `HindsightHttpAdapter` 构造仍只接受 HTTPS 或字面 loopback，测试与试跑的固定地址例外不变成生产默认。
-- 连接与凭据存于 `AgentStorageProperties.hindsightConnectionFile`（`hindsight-connection.json`，仅属主可读写、拒绝符号链接），不写 SQLite、日志或响应；恢复出厂保留。文件损坏或未经风险确认时保持关闭且不覆盖原文件。接收方变更前必须先替换连接文件再切换运行时，否则旧目标仍指向旧地址；存在接收方不符且未 VERIFIED 的 `memory_deletion` 时拒绝更换并保留原凭据。
-- `HindsightTrialService` 同时装配写入／召回／删除三个 Gateway；读取不探测网络，运行时按稳定指纹对外提供，数据库短事务内不读取连接摘要以避免与来源登记互锁。调用期间更换连接会短暂返回未提交／未知，不得当成成功。
-- 真实试用下写入前先持久化原目标与摘要，再为本应用随机空间做一次元数据 PUT；返回 `bank_id` 不符或初始化失败时只查询原操作，不重发正文。`MemorySyncScheduler` 是独立单线程后台消费者，两秒一次、每次最多五项，未配置、未授权、暂停或重置保护时不读取聊天。
-- V29 的 `memory_remote_operation`／`memory_remote_child` 只保存来源目标、请求哈希、父／子 ID、观测终态、删除意图与逐步核对标志，不保存原文、响应正文或 task_payload。外部写入前必须已有 `memory_deletion` 目标，首次发送先落摘要；重复调用、超时、5xx 或受理结构异常均只查询原 UUID，不改正文重发。每响应实际流读取最多 512 KiB、禁止重定向，写入／状态／已知清理每次最多 5 秒；召回继承现有 1500ms 期限与取消信号。
-- 父操作只接受匹配的 batch_retain，子列表最多 32、ID 唯一且合法；只有父完成和全部已观测子任务完成才能发布写入成功。取消、缺项、无故丢失既有子项或终态倒退保留 UNKNOWN，不能用旧终态替代当前查询。召回只发送单份有界 query、world／experience、low、最多 500 Token，不接 observation；最多检查 16 个结果、返回 4 项直接 document_id，仍由上层核对本空间原始来源。
-- HTTP 清理先保存子清单与终态观测，再记录文档删除意图、核对文档缺失和直接事实 total=0；逐一清理已知终态子操作载荷并核对，父操作最后。意图在副作用前落盘，响应丢失后按原指针续做，已核对项不重复删除；未知任务不盲目取消或重放。父历史尚未发起删除时，每次续做重新核对当前父／子状态，不能借文档步骤完成沿用旧终态；只有全部已知子历史均有删除意图时，清理可接受父响应的空子清单，普通写入查询仍拒绝空清单。清理任务载荷前重新核对文档缺失，事实为空或历史删除标志不能掩盖文档重现；这些检查是当前快照，不是不会再次写入的保证。当前未证明原始子清单完整性及其他派生范围，HTTP 删除始终 UNKNOWN，不设置目标 VERIFIED；完整重置只能由具备完整证据的必需参与方收尾后清理本域账本，子行随父级联删除。scopeVersion 已升级 memory-m2-v3 并明示远端操作账本。
-- 来源管理为 `GET /agent/memory/documents?cursor=0&limit=20`（稳定 rowid 游标，limit 1—50）、`GET /documents/{id}`；响应使用独立 DTO，只按当前用户空间定位。列表仅返回版本、时间／渠道、同步／删除／纠正状态、最新管理任务 ID 及无正文的清理进度；详情按需从权威 transcript 核对原文，原文不可取得和远端不可用分别表达。
-- `POST /documents/{id}/corrections` 接收 expectedVersion、correctedText、confirmed、requestId；`DELETE /documents/{id}` 的 JSON 接收 expectedVersion、confirmed、requestId。纠正文本为最多 4000 字符的普通文本，沿用敏感／代码排除；独立存于 `memory_correction` 并受重置清理，当前只保存本机。两类命令均在短事务内 CAS 版本、停用原来源、取消同步、建立删除标记并持久化无正文任务；版本冲突 409、无效参数 400、跨空间／不存在 404，重置代次按统一 428／423 处理。原聊天与业务数据保持原样。
-- `GET /agent/memory/operations/{id}` 仅读取本用户原任务；`POST /operations/{id}/retry` 显式继续删除核对，不重发保存。管理请求与其他写入一样携带 Agent 代次；刷新不自动重试。来源列表／详情及管理任务响应增加可空 `cleanupProgress`：`documentDeletionRecorded`、`factsClearanceRecorded`、`knownChildTasks`、`childDeletionsRecorded`、`parentDeletionRecorded`，仅从现有 V29 账本按空间、来源、原操作与接收方完整匹配后投影；无匹配账本返回 null。它记录历史步骤，不联网、不回显内部目标／凭据、不证明当前远端快照或完整擦除，也不改变原 state、retryAllowed、召回暂停及重置屏障。无远端目标时本地撤回即可完成；有目标则先保持 PENDING，进程内发送与删除共用固定 256 条带锁，未停稳返回 WAITING_REMOTE。远端调用持有重置租约但不持有数据库事务；FAILED／UNKNOWN 保留目标并暂停受影响空间召回。生产 Gateway 的 VERIFIED 必须同时核对异步 operationId 已终结及派生结果已删除；重启后的未知写入不能仅凭本机空闲宣称完成。
-- `memory_management_operation` 的 requestId 在空间内唯一，保存请求摘要、结果版本和状态，不保存正文；重放相同命令恢复原结果，复用 ID 改来源／版本／正文返回 409。`memory_correction` 与管理任务随来源在重置清理时级联删除；`memory_deletion` 最小目标墓碑保留。新增正文存储同步更新重置范围版本与预览。
-- 聊天 HTTP Adapter 仅给普通请求标注 DESKTOP；业务展开、资料引用、未知旧调用、项目会话、图片、命令和筛选出的敏感／代码文本不进入经历保存。原文必须与 transcript 的用户 ID／时间／哈希一致，单源文本最多 4000 字符，单次会话核对最多读取 8 MiB；超限／损坏失败保护，不回退到模型 context。
-- `MemorySyncService` 显式批次入口最多检查／消费各 20 项，补偿使用持久化循环游标，仅从已登记凭据发现成功终态；每源唯一任务，活动积压上限 1000。短事务 CAS 与 30 秒领取租约控制并发，租约过期或写入未知只查询原操作；仅明确未提交可最多写入尝试 3 次，查询最多 8 次，未知不得盲目重放。每日 UTC 调用计数按授权版本分开：V1 继续共用原 `query_calls`，V2 把 `write_calls`／`status_calls`／`recall_calls` 分别原子预占并以运行保护为上限，状态核对不得挤占召回额度。计数不冒充供应商用量，也不因重置退还；额度用尽保留待办并展示暂停原因。
-- Worker 在数据库事务外调用写入 Adapter，整个调用持有重置租约，并在发送及发布前复核授权、代次和来源；撤权／重置取消未结束任务，过期 claimToken 的迟到结果不可发布。任务只保存来源引用与稳定操作 ID，正文仅在当前 Adapter 调用内存中存在。
-- 本地删除账本仍有PENDING／FAILED／UNKNOWN时，召回返回PAUSED及DELETION_UNRESOLVED原因，不访问远端、不预占召回额度；原因只用于本轮有界CONTROL提示，不能注入已撤回正文或改变清理状态。旧Markdown记忆工具由主Agent构造禁用并向子Agent传播，最终Toolkit再次移除，不以工具权限或历史检索绕过这一边界。
-- `MemoryRecallAdapter` 是只读召回 seam 的网络实现，默认无远端配置，可接隔离假 Gateway 或已确认的 Hindsight 试用 Gateway；查询需独立 recall 许可、开关、可信渠道和个人上下文启用状态。查询最多取 1000 个 Unicode 码点，预占既有 UTC 查询额度，不保存查询正文；默认未接入返回本地检索，有远端参与时未授权、暂停、空结果、超时或失败均不回落本地。
-- 召回单轮一次，权限读取、外部等待和来源核对共用 1500ms 期限；显式取消中断底层任务，最多同时两个真实生产者。生产者无视中断时继续占用租约及名额，重置等待真实停稳，不能只停止等待便释放保护。
-- 远端片段只接受完整且全部可映射的来源：同空间、当前代次／授权、写入已确认成功、原文指针／时间／哈希仍有效且未超保留期。未知／跨空间／混合不完整来源排除；删除未完成时暂停受影响空间。远端抽取只定位来源，不直接作为模型参考正文：在同一次权威读取中核对原文哈希与成功终态后，按来源分别投影历史用户原文及本地发生时间，保留转述、尝试与当时立场，不把远端补充的日期、频率或观点当作用户事实。同一来源在本轮只投影一次，整组来源不完整则整组跳过；最终仍由唯一信封组装器转义、去重和硬裁剪。该保护不等于真实模型的相关性与归因效果已验收。
-- 远端片段有效性回调仅读取本地权威状态，不再外查；工具循环及审批恢复复用本轮信封，每次注入前检查原授权与设置版本、画像暂停、重置和来源；失效后从该轮缓存移除，重新授权／开启不能使已移除片段复活。原文核对与增量 Worker 共用 `MemorySourceVerifier`。
-- 远端操作开始前必须登记稳定操作 ID 与无正文目标；`memory_deletion` 和 `memory_reset` 持久化删除目标与重置结果。撤权不删除远端目标，重置参与方先冻结资格再核对清理；缺凭据、接收方变化、失败或未知结果保留目标和保护屏障，重试原任务。新授权不得复活旧代次来源。
-
-- 合成试跑的可选V2模式仅通过 `RECORDAGENT_MEMORY_TRIAL_V2=CONFIRM_V2_SYNTHETIC_400_DAY_CLIENT_CLOCK` 显式启用，目录记录模式且拒绝原地切换；使用隔离V2长期授权和召回时客户端400天模拟时钟。原3来源／3问题白名单与调用上限不变，不伪造远端数据年龄、不操作真实用户授权，报告区分策略版本与客户端模拟年龄。
+- 连接与凭据存于 `AgentStorageProperties.hindsightConnectionFile`（`hindsight-connection.json`，仅属主可读写、拒绝符号链接），支持可选自定义 `bankId`（空串使用 `ra-<spaceId>`），不写 SQLite、日志或响应；恢复出厂保留。接收方变更前先替换连接文件再切换运行时，切换接收方会使旧授权自动失效。
+- `HindsightTrialService` 同时装配写入／召回／删除三个 Gateway；`MemorySyncScheduler` 独立单线程每两秒消费最多五项。V29 的 `memory_remote_operation`／`memory_remote_child` 只保存来源目标、请求哈希、父／子 ID、观测终态、删除意图与核对标志，不保存原文或 `task_payload`。
+- HTTP 清理依次核对文档缺失（404）、直接事实 `total=0`、已知终态子任务删除及父操作删除；全部核对通过后返回 `VERIFIED`，解除对应删除目标。
+- 来源管理为 `GET /agent/memory/documents?cursor=0&limit=20`、`GET /documents/{id}`、`POST /documents/{id}/corrections`、`DELETE /documents/{id}` 与 `GET/POST /agent/memory/operations/{id}[/retry]`。纠正文本独立存于 `memory_correction`，本地纠正在召回时直接替代原文本并使同轮缓存旧片段失效，不创建远端删除阻塞；删除命令停用来源并核对远端目标清理。
+- `MemoryRecallAdapter` 是只读召回 seam 的网络实现，单轮共用 1500ms 期限；远端抽取仅定位来源，在同一次权威读取中核对来源版本后投影用户纠正文本或历史用户原文及本地时间，不阻塞整空间召回。
 
 ## Agent 恢复出厂设置
 
@@ -193,8 +177,4 @@
 - 屏障先持久化，再取消并等候旧操作收尾；已使用的 SDK 或渠道运行时进入 `WAITING_RESTART`，正常重启后先恢复屏障再续做，禁止先恢复旧 checkpoint 或渠道投递。未知工作区、归属不明渠道、符号链接或清理失败均保持屏障，重试复用原 resetId。
 - `memory-caches` 完成前必须把 `SubagentCatalog` 恢复为内置定义；每次续做都执行内存失效，不能因文件步骤已完成而跳过。缓存清理失败继续保持屏障，不重新读取旧工作区定义。
 - 出厂重置清除聊天 Token 投影和复盘派生理解，保留系统用量、人工目标、普通任务与已冻结报告副本。未来 Hindsight Adapter 必须成为必需参与方；M1 的 `LOCAL_COMPLETE / NOT_INTEGRATED` 只表示本地完成。
-- 经历记忆基础参与方 `experience-memory` 已必需注册，真实聊天试用经 HindsightTrialService 复用同一远端删除 Gateway；重置 scopeVersion 绑定参与方与接收方，确认凭证绑定同一范围，该范围随重置日志持久化。remoteStatus 动态区分未接入、无目标、待处理、处理中、失败、未知和已核对完成；旧 M1 日志不能追认为已删除远端数据，缺失范围却存在远端目标时保持失败保护。已知的远端接收方缺失、范围未确认、调用失败或删除证据未知必须通过固定、脱敏的 ResetScopeException 提示其真实原因，不得误报为本地磁盘权限问题；该提示不解除屏障，也不把重试或重启当成删除证据。
-
-### Hindsight 记忆库配置
-
-- 个人上下文显示并配置 Bank ID；GET/PUT `/agent/memory/trial-connection` 增加 `bankId`。空串使用持久化空间对应的 `ra-<spaceId>`，缺省字段保留原配置，默认库 ID 原样保存须归一化为空串以保持旧指纹。自定义 ID 限 1—128 个英文字母、数字、下划线或连字符，保存于受保护连接文件并绑定接收方指纹；保存、召回、状态查询、删除统一使用同一目标。已有未 VERIFIED 的旧接收方目标时拒绝切换，不迁移或删除旧记忆，不解除暂停；连接检查不证明库存在或库权限已通过。前端遇到不返回 bankId 的旧后端只显示升级提示，禁止编辑库字段。
+- 经历记忆基础参与方 `experience-memory` 已必需注册，真实聊天试用经 HindsightTrialService 复用同一远端删除 Gateway；重置 scopeVersion 绑定参与方与接收方，确认凭证绑定同一范围，该范围随重置日志持久化。remoteStatus 动态区分未接入、无目标、待处理、处理中、失败、未知和已核对完成；已知的远端接收方缺失、范围未确认、调用失败或删除证据未知必须通过固定、脱敏的 ResetScopeException 提示其真实原因，不得误报为本地磁盘权限问题。

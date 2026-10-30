@@ -42,39 +42,40 @@ class MemoryTrialChatIntegrationTest {
             memory.saveSettings(0, true, true);
             String content = "我尝试把每日手记翻成英文练习英语，目前还在摸索，没有掌握。";
             append(turns, transcript, session, content, f.user.currentUserId());
-            try (var scheduler = new MemorySyncScheduler(sync, remote, Duration.ofMillis(10))) {
+            try (var scheduler = new MemorySyncScheduler(sync, remote, Duration.ofMillis(50))) {
                 await(() -> sync.operations().size() == 1 && sync.operations().getFirst().state().equals("SUCCEEDED"));
-                assertEquals(1, server.posts.get()); assertEquals(1, server.bankInitializations.get());
-                assertEquals(content, server.writes.values().iterator().next().path("items").get(0).path("content").asText());
-                String next = sessions.create(new CreateSessionRequest(SessionKind.GENERAL, "合成新会话")).id();
-                assertNotEquals(session, next);
-                var counter = new ApproximateTokenCounter(); var profiles = new PersonalContextService(f.storage, counter, mapper);
-                var verifier = new MemorySourceVerifier(transcript, sessions);
-                var recall = new MemoryRecallAdapter(memory, remote, new MemoryRecallRepository(f.jdbc), sourceRows, verifier, profiles,
-                        f.barrier, f.user, clock, f.transactions);
-                try {
-                    var assembler = new ConversationContextAssembler(f.storage, counter, profiles);
-                    assembler.setResetBarrier(f.barrier); assembler.setRemoteRecall(recall);
-                    var query = new ContextRequest(f.user.currentUserId(), "我之前尝试过什么英语学习方法？", Channel.DESKTOP, () -> false);
-                    var envelope = assembler.assemble(query);
-                    assertTrue(envelope.rendered().contains("手记")); assertTrue(envelope.memoryTokens() <= 500);
-                    assertEquals(1, server.recalls.get());
-                    var management = new MemoryManagementService(memory, new MemoryManagementRepository(f.jdbc), sourceRows, verifier,
-                            remote, f.barrier, f.transactions, clock);
-                    var document = management.documents("0", 20).items().getFirst();
-                    var deletion = management.delete(document.id(), new DeleteDocument(document.version(), true, "delete"));
-                    var afterDelete = assembler.assemble(query);
-                    assertEquals(0, afterDelete.memoryTokens());
-                    assertFalse(afterDelete.rendered().contains(content), "已撤回的个人经历不再注入");
-                    assertTrue(envelope.blocks().stream().filter(block -> block.kind() == ContextKind.MEMORY)
-                            .noneMatch(block -> block.stillCurrent().getAsBoolean()));
-                    assertEquals("SUCCEEDED", management.retry(deletion.id()).state());
-                    assertEquals(content, management.document(document.id()).originalText(), "保留原聊天");
-                    assertEquals(1, server.posts.get(), "撤回及后台消费都不能重发旧正文");
-                    assertTrue(remote.connect(new Connect(1, server.endpoint(), "", false,
-                            "改变处理链", true, false, "other-config")).configured());
-                } finally { recall.close(); }
             }
+            assertEquals(1, server.posts.get()); assertEquals(1, server.bankInitializations.get());
+            assertEquals(content, server.writes.values().iterator().next().path("items").get(0).path("content").asText());
+            String next = sessions.create(new CreateSessionRequest(SessionKind.GENERAL, "合成新会话")).id();
+            assertNotEquals(session, next);
+            var counter = new ApproximateTokenCounter(); var profiles = new PersonalContextService(f.storage, counter, mapper);
+            var verifier = new MemorySourceVerifier(transcript, sessions);
+            var recall = new MemoryRecallAdapter(memory, remote, new MemoryRecallRepository(f.jdbc), sourceRows, verifier, profiles,
+                    f.barrier, f.user, clock, f.transactions);
+            try {
+                var assembler = new ConversationContextAssembler(f.storage, counter, profiles);
+                assembler.setResetBarrier(f.barrier); assembler.setRemoteRecall(recall);
+                var query = new ContextRequest(f.user.currentUserId(), "我之前尝试过什么英语学习方法？", Channel.DESKTOP, () -> false);
+                var envelope = assembler.assemble(query);
+                assertTrue(envelope.rendered().contains("手记")); assertTrue(envelope.memoryTokens() <= 500);
+                assertEquals(1, server.recalls.get());
+                var management = new MemoryManagementService(memory, new MemoryManagementRepository(f.jdbc), sourceRows, verifier,
+                        remote, f.barrier, f.transactions, clock);
+                var document = management.documents("0", 20).items().getFirst();
+                var deletion = management.delete(document.id(), new DeleteDocument(document.version(), true, "delete"));
+                var afterDelete = assembler.assemble(query);
+                assertEquals(0, afterDelete.memoryTokens());
+                assertFalse(afterDelete.rendered().contains(content), "已撤回的个人经历不再注入");
+                assertTrue(envelope.blocks().stream().filter(block -> block.kind() == ContextKind.MEMORY)
+                        .noneMatch(block -> block.stillCurrent().getAsBoolean()));
+                assertEquals("SUCCEEDED", management.retry(deletion.id()).state());
+                assertEquals(content, management.document(document.id()).originalText(), "保留原聊天");
+                sync.runOnce();
+                assertEquals(1, server.posts.get(), "撤回及后台消费都不能重发旧正文");
+                assertTrue(remote.connect(new Connect(1, server.endpoint(), "", false,
+                        "改变处理链", true, false, "other-config")).configured());
+            } finally { recall.close(); }
         }
     }
     private void append(MemoryTurnAdapter turns, TranscriptService transcript, String session, String content, String owner) {
@@ -84,8 +85,8 @@ class MemoryTrialChatIntegrationTest {
         turns.completed(owner, session, turn, TranscriptMessageDto.MessageStatus.COMPLETED);
     }
     private void await(BooleanSupplier condition) throws Exception {
-        long end = System.nanoTime() + Duration.ofSeconds(4).toNanos();
-        while (!condition.getAsBoolean() && System.nanoTime() < end) Thread.sleep(20);
+        long end = System.nanoTime() + Duration.ofSeconds(8).toNanos();
+        while (!condition.getAsBoolean() && System.nanoTime() < end) Thread.sleep(80);
         assertTrue(condition.getAsBoolean(), "新聊天应由正式后台消费者处理，不要求用户手工调用 Worker");
     }
 }

@@ -225,11 +225,18 @@ public class LifeReviewRepository {
         jdbc.update("DELETE FROM life_review_settings WHERE owner_id=?", owner);
     }
     private String json(Object value) {
-        try { return mapper.writeValueAsString(value); }
-        catch (Exception e) { throw new IllegalStateException("生活复盘持久化失败"); }
+        try {
+            return mapper.writeValueAsString(value);
+        } catch (Exception e) {
+            throw new IllegalStateException("生活复盘持久化失败");
+        }
     }
+
     private <T> T read(String value, Class<T> type) {
-        try { return mapper.readValue(value, type); }
-        catch (Exception e) { throw new IllegalStateException("生活复盘记录不可读取"); }
+        try {
+            return mapper.readValue(value, type);
+        } catch (Exception e) {
+            throw new IllegalStateException("生活复盘记录不可读取");
+        }
     }
 }
