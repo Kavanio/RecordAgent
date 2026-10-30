@@ -41,6 +41,14 @@ class FeishuPersonalDeliveryTest {
         assertEquals("SENT", chat.send(target.fingerprint(), "delivery", "虚构复盘").state());
         verify(sender).sendToOwner(eq(config().allowedSenderIds().getFirst()), eq("delivery"), eq("虚构复盘"));
     }
+    @Test void multiParagraphReviewSendsSegmentsOneByOneInOrder() {
+        var target = chat.target();
+        assertEquals("SENT", chat.send(target.fingerprint(), "seg-delivery", "第一句开场\n\n第二句回顾\n\n第三句建议").state());
+        var order = inOrder(sender);
+        order.verify(sender).sendToOwner(eq(config().allowedSenderIds().getFirst()), eq("seg-delivery"), eq("第一句开场"));
+        order.verify(sender).sendToOwner(eq(config().allowedSenderIds().getFirst()), anyString(), eq("第二句回顾"));
+        order.verify(sender).sendToOwner(eq(config().allowedSenderIds().getFirst()), anyString(), eq("第三句建议"));
+    }
     @Test void unknownStatePropagatesAndClosedChannelKeepsKnownIdentityWithoutSending() throws Exception {
         var target = chat.target();
         when(sender.sendToOwner(anyString(), anyString(), anyString())).thenReturn(FeishuMessageSender.Attempt.failed(FeishuMessageSender.Status.UNKNOWN, "timeout"));

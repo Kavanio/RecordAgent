@@ -199,11 +199,12 @@ public class FeishuChatService implements AutoCloseable, butvan.agent.agents.rev
                 ready ? "已配置的本人飞书私聊" : "本人飞书暂不可用或未连接");
     }
 
-    /** 调用方已持有重置租约并记录意图；网络等待不占受理锁。 */
+    /** 调用方已持有重置租约并记录意图；多段复盘按自然对话逐条发送，网络等待不占受理锁。 */
     @Override
     public butvan.agent.agents.review.PersonalDeliveryPort.Attempt send(String expected, String deliveryId, String text) {
         FeishuMessageSender sender;
         String recipient;
+        boolean pauseBetweenSegments;
         synchronized (this) {
             var target = target();
             if (!target.available() || !target.fingerprint().equals(expected)
@@ -211,11 +212,27 @@ public class FeishuChatService implements AutoCloseable, butvan.agent.agents.rev
                 return new butvan.agent.agents.review.PersonalDeliveryPort.Attempt("FAILED", "");
             sender = personalSender;
             recipient = config.allowedSenderIds().getFirst();
+            pauseBetweenSegments = scheduler != null;
         }
-        var result = sender.sendToOwner(recipient, deliveryId, text);
-        return new butvan.agent.agents.review.PersonalDeliveryPort.Attempt(
-                result.status() == FeishuMessageSender.Status.SENT ? "SENT"
-                        : result.status() == FeishuMessageSender.Status.UNKNOWN ? "UNKNOWN" : "FAILED", result.messageId());
+        List<String> segments = text == null ? List.of()
+                : Arrays.stream(text.split("\\n\\n+")).map(String::strip).filter(s -> !s.isEmpty()).toList();
+        if (segments.isEmpty()) segments = List.of(text == null ? "" : text);
+        String lastMessageId = "";
+        for (int i = 0; i < segments.size(); i++) {
+            if (i > 0 && pauseBetweenSegments) {
+                try { Thread.sleep(350); }
+                catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
+            }
+            String partId = i == 0 ? deliveryId : stableId(deliveryId + ":" + i);
+            var result = sender.sendToOwner(recipient, partId, segments.get(i));
+            if (result.status() != FeishuMessageSender.Status.SENT) {
+                return new butvan.agent.agents.review.PersonalDeliveryPort.Attempt(
+                        result.status() == FeishuMessageSender.Status.UNKNOWN || i > 0 ? "UNKNOWN" : "FAILED",
+                        lastMessageId);
+            }
+            lastMessageId = result.messageId() == null ? "" : result.messageId();
+        }
+        return new butvan.agent.agents.review.PersonalDeliveryPort.Attempt("SENT", lastMessageId);
     }
 
     private boolean isCommand(String text) {

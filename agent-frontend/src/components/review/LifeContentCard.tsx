@@ -27,6 +27,8 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
   const generating = c.state === 'PENDING' || c.state === 'RUNNING';
   const ready = ['READY', 'DEGRADED'].includes(c.state);
   const hasReport = c.state === 'READY' && c.items.length > 0;
+  const observations = c.items.filter(item => item.kind !== 'ACTION');
+  const actions = c.items.filter(item => item.kind === 'ACTION');
   function supplement() {
     if (replyKey.current.text !== text || !replyKey.current.id)
       replyKey.current = { text, id: crypto.randomUUID() };
@@ -43,11 +45,25 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
     {!hasReport && ready && <div className={styles.notice} role="status"><strong>本次没有生成复盘正文</strong><p>{c.message}</p>
       <p>已保存参考资料，尚未形成回顾或建议。可点击上方“准备今天的复盘”重新生成，或点击下方“补充经历”准备新版本。</p>
     </div>}
-    {c.items.map((item, i) => <div key={i}>
-      <p>{item.kind === 'ACTION' ? '建议：' : ''}{item.text}</p>
-      <p className={styles.muted}>{item.uncertainty}</p>
-    </div>)}
-    {c.questions.map(q => <p key={q}>{q}</p>)}
+    {observations.length > 0 && <div className={styles.section}>
+      <div className={styles.sectionTitle}>今日回顾</div>
+      <div className={styles.itemList}>
+        {observations.map((item, i) => <div key={i} className={styles.item}>
+          <p className={styles.itemText}>{item.text}</p>
+          {item.uncertainty && <p className={styles.muted}>{item.uncertainty}</p>}
+        </div>)}
+      </div>
+    </div>}
+    {actions.length > 0 && <div className={styles.section}>
+      <div className={styles.sectionTitle}>小步建议</div>
+      <div className={styles.itemList}>
+        {actions.map((item, i) => <div key={i} className={styles.actionItem}>
+          <p className={styles.itemText}>{item.text.replace(/^建议[：:]\s*/, '')}</p>
+          {item.uncertainty && <p className={styles.muted}>{item.uncertainty}</p>}
+        </div>)}
+      </div>
+    </div>}
+    {c.questions.map(q => <p key={q} className={styles.question}>{q}</p>)}
     <div className={styles.details}>
       <Button size="sm" variant="ghost" aria-haspopup="dialog" onClick={() => setDetails('references')}>参考记录</Button>
       <Button size="sm" variant="ghost" aria-haspopup="dialog" onClick={() => setDetails('version')}>版本信息</Button>

@@ -77,17 +77,26 @@ public class LifeDeliveryService {
         }
     }
 
-    /** 只渲染持久化版本，材料不得在发送时重新采集，也不向外部输出内部证据编号。 */
+    /** 只渲染持久化版本，材料不得在发送时重新采集，也不向外部输出内部证据编号与技术覆盖串。 */
     public static String render(Content c) {
-        StringBuilder text = new StringBuilder(c.day() + " 生活复盘 · v" + c.version() + "\n");
-        text.append(c.coverage()).append("\n");
+        List<String> segments = new ArrayList<>();
+        segments.add("跟你顺手理一下今天的复盘（" + c.day() + "）：");
         if (c.draft() != null) {
-            c.draft().observations().forEach(o -> text.append("\n").append(o.text()));
-            c.draft().actions().forEach(a -> text.append("\n建议：").append(a.text()));
+            for (var o : c.draft().observations()) {
+                if (o.text() != null && !o.text().isBlank()) segments.add(o.text().strip());
+            }
+            List<String> actions = c.draft().actions() == null ? List.of() : c.draft().actions().stream()
+                    .map(a -> a.text() == null ? "" : a.text().strip().replaceFirst("^建议[：:]\\s*", ""))
+                    .filter(t -> !t.isEmpty()).toList();
+            for (int i = 0; i < actions.size(); i++) {
+                String lead = i == 0 ? "给你留个小建议：" : i == 1 ? "另外可以顺手试试：" : "还有一点：";
+                segments.add(lead + actions.get(i));
+            }
         }
-        c.questions().forEach(q -> text.append("\n").append(q));
-        if (!c.message().isBlank()) text.append("\n").append(c.message());
-        text.append("\n补充可发送 /review ").append(c.id()).append(" 补充内容；无需立即回复。");
-        return text.toString();
+        for (String q : c.questions()) {
+            if (q != null && !q.isBlank()) segments.add(q.strip());
+        }
+        if (c.draft() == null && !c.message().isBlank()) segments.add(c.message().strip());
+        return String.join("\n\n", segments);
     }
 }

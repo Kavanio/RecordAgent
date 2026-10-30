@@ -241,7 +241,11 @@ export function LifeReviewSettings() {
               description={state.generating ? '正在后台调用模型生成复盘，预计需要 5～15 秒，完成后会自动刷新…' : '使用当前已授权来源，后台调用固定模型；受当日调用上限保护。'}
               control={
                 <div className={styles.choices}>
-                  <Button size="sm" variant="primary" disabled={disabled || state.generating} onClick={() => void act(() => lifeReviewApi.prepare(today()), '已开始后台生成今日复盘，请稍候…')}>
+                  <Button size="sm" variant="primary" disabled={disabled || state.generating} onClick={() => {
+                    const day = today();
+                    const readyToday = state.history.find(c => c.day === day && c.state === 'READY');
+                    void act(() => lifeReviewApi.prepare(day, readyToday ? readyToday.version : 0, Boolean(readyToday)), '已开始后台生成今日复盘，请稍候…');
+                  }}>
                     {state.generating ? '正在生成复盘…' : '准备今天的复盘'}
                   </Button>
                   <Button size="sm" disabled={busy || state.dirty} onClick={() => void state.load()}>
