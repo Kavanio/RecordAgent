@@ -73,7 +73,7 @@ test('未知飞书结果显示人工核对且没有补发按钮，原文来源�
   let actions = 0;
   view = await mount(React.createElement(Card, { content: c, timezone: 'Asia/Shanghai', busy: false, authorized: true, feishu: true,
     act: async () => { actions++; } }));
-  assert.match(document.body.textContent, /v1/); assert.match(document.body.textContent, /record-1/); assert.match(document.body.textContent, /不会自动重发/);
+  assert.match(document.body.textContent, /v1/); assert.doesNotMatch(document.body.textContent, /record-1/); assert.match(document.body.textContent, /不会自动重发/);
   assert.ok(!queryAll('button').some(b => b.textContent.includes('发送') || b.textContent.includes('重试')));
   assert.equal(actions, 0);
 });
@@ -180,11 +180,16 @@ test('失败版本明确显示未生成，诊断默认折叠且不提供飞书�
     items: [], questions: [], deliveries: [] };
   view = await mount(React.createElement(Card, { content, timezone: 'Asia/Shanghai', busy: false, authorized: true, feishu: true, act: async () => {} }));
   assert.match(document.body.textContent, /本次没有生成复盘正文/);
-  assert.match(document.body.textContent, /450\.76 元/);
+  assert.doesNotMatch(document.body.textContent, /450\.76 元/);
+  await click('参考记录');
+  assert.match(query('[role="dialog"]').textContent, /450\.76 元/);
+  await act(async () => query('button[aria-label="关闭抽屉"]').click());
+  await click('版本信息');
   assert.ok(!queryAll('button').some(b => b.textContent.includes('发送')));
-  const diagnostics = queryAll('details').find(d => d.querySelector('summary').textContent.includes('诊断'));
+  const diagnostics = queryAll('details').find(d => d.querySelector('summary').textContent.includes('技术排查'));
   assert.equal(diagnostics.open, false);
   assert.match(diagnostics.textContent, /technical-budget/);
+  assert.match(query('[role="dialog"]').textContent, /模型请求超时/);
 });
 
 test('统计预览降级只提示未生成，不弹生成成功消息', async () => {
@@ -201,4 +206,35 @@ test('统计预览降级只提示未生成，不弹生成成功消息', async ()
   assert.match(document.body.textContent, /模型不可用，本次未生成/);
   assert.doesNotMatch(document.body.textContent, /AI 复盘预览已生成/);
   assert.match(document.body.textContent, /已授权 日报/);
+});
+
+test('参考记录仅在抽屉读取快照，分类过滤并兼容Java日期；关闭回焦且不调用接口', async () => {
+  const content = { id: 'snapshot', day: '2026-10-30', timezone: 'Asia/Shanghai', version: 2, state: 'READY',
+    sourceAsOf: '2026-10-30T02:42:59.938483Z', availableAt: '2026-10-30T04:00:00Z',
+    coverage: '窗口=2026-10-24至2026-10-30', message: '', facts: [], items: [], questions: [], deliveries: [],
+    materials: [
+      { id: 'chat-1', kind: 'CHAT', sourceId: 'private-id', occurredAt: '2026-10-30T10:42:59.938483+08:00[Asia/Shanghai]', text: '聊天测试原文', truncated: true },
+      { id: 'journal-1', kind: 'JOURNAL', sourceId: 'journal-id', occurredAt: '2026-10-29', text: '手记测试原文', truncated: false },
+      { id: 'goal-1', kind: 'USER_GOAL', sourceId: 'goal-id', occurredAt: 'invalid', text: '目标测试原文', truncated: false },
+    ] };
+  view = await mount(React.createElement(Card, { content, timezone: 'UTC', busy: false, authorized: false, feishu: false, act: async () => {} }));
+  assert.doesNotMatch(document.body.textContent, /聊天测试原文|private-id/);
+  const trigger = queryAll('button').find(b => b.textContent === '参考记录');
+  trigger.focus(); await click('参考记录');
+  const dialog = query('[role="dialog"]');
+  assert.match(dialog.textContent, /2026-10-24 至 2026-10-30/);
+  assert.match(dialog.textContent, /10:42:59/);
+  assert.match(dialog.textContent, /时间未记录/);
+  assert.doesNotMatch(dialog.textContent, /Invalid Date|private-id/);
+  assert.match(dialog.textContent, /不是完整聊天记录/);
+  await click('聊天 · 1');
+  assert.match(dialog.textContent, /聊天测试原文/);
+  assert.match(dialog.textContent, /原文未完整读取/);
+  assert.doesNotMatch(dialog.textContent, /手记测试原文|目标测试原文/);
+  await act(async () => window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' })));
+  assert.equal(query('[role="dialog"]'), null);
+  assert.equal(document.activeElement, trigger);
+  await click('参考记录');
+  assert.match(query('[role="dialog"]').textContent, /手记测试原文/);
+  assert.equal(calls.length, 0);
 });
