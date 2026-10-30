@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
+import java.util.Optional;
 import java.util.UUID;
 
 /** 复盘配置与独立授权入口；当前阶段只提供本地基础能力，不触发模型或自动任务。 */
@@ -82,15 +83,22 @@ public class ReviewAuthorizationService {
         return GrantView.from(repository.grant(owner, id).orElseThrow(() -> new IllegalArgumentException("授权不存在")));
     }
 
-    /** 采集开始及落盘前均需调用，防止采集期间撤销后仍写入。 */
-    @Transactional(readOnly = true)
-    public Authorization requireEnabled(String owner) {
+    /** 非抛异常读取当前可用授权，供后台调度与短事务复核使用，不污染外层事务回滚标记。 */
+    @Transactional(readOnly = true, noRollbackFor = RuntimeException.class)
+    public Optional<Authorization> findEnabled(String owner) {
         ReviewPolicy.requireOwner(owner);
         Settings settings = repository.settings(owner);
         Grant grant = repository.activeGrant(owner).orElse(null);
         if (!settings.enabled() || !ReviewPolicy.covers(grant, settings, currentFingerprint(settings)))
-            throw new IllegalArgumentException("自动复盘未开启、授权失效或模型接收方已变化");
-        return new Authorization(settings, grant);
+            return Optional.empty();
+        return Optional.of(new Authorization(settings, grant));
+    }
+
+    /** 采集开始及落盘前均需调用，防止采集期间撤销后仍写入；未启用时不标记外层事务回滚。 */
+    @Transactional(readOnly = true, noRollbackFor = RuntimeException.class)
+    public Authorization requireEnabled(String owner) {
+        return findEnabled(owner)
+                .orElseThrow(() -> new IllegalArgumentException("自动复盘未开启、授权失效或模型接收方已变化"));
     }
 
     private SettingsView view(Settings settings) {

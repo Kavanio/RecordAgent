@@ -134,7 +134,9 @@ public class AutomationService implements TaskReportContextPort {
         var task = require(owner, id);
         if (!"ENABLED".equals(task.status())) throw new IllegalArgumentException("请先启用任务");
         if (repository.waiting(id)) throw new IllegalArgumentException("已有待确认提醒，请先处理");
-        return transaction(owner, () -> RunView.from(execute(task, automationClock.millis(), "MANUAL")));
+        long planned = automationClock.millis();
+        PreparedReport prepared = buildReport(task, planned, automationClock.instant());
+        return transaction(owner, () -> RunView.from(execute(task, planned, "MANUAL", prepared)));
     }
     /** 返回任务最近 50 次历史，已删除任务也可读取。 */
     public synchronized List<RunView> history(String owner, String id) {
@@ -145,32 +147,43 @@ public class AutomationService implements TaskReportContextPort {
         var now = automationClock.instant();
         for (var task : repository.enabled()) {
             if (task.nextAt() == null || task.nextAt() > now.toEpochMilli()) continue;
+            long planned = task.nextAt();
+            boolean due = now.toEpochMilli() - planned <= 60_000;
+            if (task.spec().isReport()) {
+                Long latest = TaskSchedule.next(task.spec(), now.atZone(ZoneId.of(task.spec().timezone())).toLocalDate().atStartOfDay(ZoneId.of(task.spec().timezone())).toInstant().minusNanos(1));
+                if (latest != null && latest <= now.toEpochMilli()) planned = latest;
+                due = Instant.ofEpochMilli(planned).atZone(ZoneId.of(task.spec().timezone())).toLocalDate()
+                        .equals(now.atZone(ZoneId.of(task.spec().timezone())).toLocalDate());
+            }
+            boolean shouldExecute = due && task.spec().activeAt(now) && !repository.waiting(task.id());
+            PreparedReport prepared = shouldExecute ? buildReport(task, planned, now) : null;
+            long finalPlanned = planned;
             transaction(task.ownerId(), () -> {
-                long planned = task.nextAt();
-                boolean due = now.toEpochMilli() - planned <= 60_000;
-                if (task.spec().isReport()) {
-                    Long latest = TaskSchedule.next(task.spec(), now.atZone(ZoneId.of(task.spec().timezone())).toLocalDate().atStartOfDay(ZoneId.of(task.spec().timezone())).toInstant().minusNanos(1));
-                    if (latest != null && latest <= now.toEpochMilli()) planned = latest;
-                    due = Instant.ofEpochMilli(planned).atZone(ZoneId.of(task.spec().timezone())).toLocalDate()
-                            .equals(now.atZone(ZoneId.of(task.spec().timezone())).toLocalDate());
-                }
-                if (due && task.spec().activeAt(now) && !repository.waiting(task.id())) execute(task, planned, "SCHEDULED");
-                else skipped(task, planned, "已错过生效时间或存在待确认提醒");
+                if (shouldExecute && !repository.waiting(task.id())) execute(task, finalPlanned, "SCHEDULED", prepared);
+                else skipped(task, finalPlanned, "已错过生效时间或存在待确认提醒");
                 Long next = TaskSchedule.next(task.spec(), now);
                 repository.progress(task.id(), next, task.activeSeconds(), "ONCE".equals(task.spec().trigger()) ? "FINISHED" : "ENABLED");
                 return null;
             });
         }
     }
-    private TaskRun execute(AutomationTask task, long planned, String source) {
-        var s = task.spec(); var now = automationClock.instant();
-        String text, status, error = "", html = "";
+    private record PreparedReport(String text, String html, String status, String error) {}
+
+    /** 在写事务外组装报告正文与邮件模板，防止数据源异常将落库事务标记为 rollbackOnly。 */
+    private PreparedReport buildReport(AutomationTask task, long planned, Instant now) {
+        var s = task.spec();
         try {
             var report = reports.build(task.ownerId(), s, Instant.ofEpochMilli(planned), now);
-            text = report.text(); html = TaskMailTemplateRenderer.render(s, report); status = report.partial() ? "PARTIAL" : "SUCCESS";
+            return new PreparedReport(report.text(), TaskMailTemplateRenderer.render(s, report),
+                    report.partial() ? "PARTIAL" : "SUCCESS", "");
         } catch (RuntimeException e) {
-            text = ""; status = "FAILED"; error = "任务内容生成失败，请检查数据来源后重试";
+            return new PreparedReport("", "", "FAILED", "任务内容生成失败，请检查数据来源后重试");
         }
+    }
+
+    private TaskRun execute(AutomationTask task, long planned, String source, PreparedReport prepared) {
+        var s = task.spec(); var now = automationClock.instant();
+        String text = prepared.text(), status = prepared.status(), error = prepared.error(), html = prepared.html();
         String recipient = s.email() ? mail.recipient() : null;
         boolean failed = "FAILED".equals(status);
         // 只有成功生成且启用邮件的报告才进入 AI 等待；失败、非报告或未授权时保持原流程。
@@ -191,7 +204,7 @@ public class AutomationService implements TaskReportContextPort {
         var run = new TaskRun(UUID.randomUUID().toString(), task.id(), task.ownerId(), s.title(), text,
                 planned, now.toEpochMilli(), source, status, s.desktop() && !failed ? "PENDING" : "SKIPPED",
                 s.email() && !failed && recipient != null ? (waiting ? "WAITING" : "PENDING") : "SKIPPED", recipient,
-                s.confirm() && !failed ? "WAITING" : "NONE", s.sound(), reviewError, html, now.toEpochMilli());
+                s.confirm() && !failed ? "WAITING" : "NONE", s.sound(), failed ? error : reviewError, html, now.toEpochMilli());
         repository.insertRun(run);
         if (waiting) reviewDeliveries.register(task.ownerId(), run.id(), reviewId, text, html,
                 "DAILY_REPORT".equals(s.kind()) ? 90 : "WEEKLY_REPORT".equals(s.kind()) ? 120 : 150);
@@ -215,9 +228,10 @@ public class AutomationService implements TaskReportContextPort {
             // 首次采样、长间隔及非活动状态只暂停；不能据此推算遗漏时间或清除已保存进度。
             long seconds = task.activeSeconds() + (activelyUsed && delta > 0 && delta <= 15 ? delta : 0);
             boolean executeNow = seconds >= spec.minutes()*60L;
+            PreparedReport prepared = executeNow ? buildReport(task, now.toEpochMilli(), now) : null;
             transaction(owner, !executeNow, () -> {
                 repository.progress(task.id(), null, seconds, task.status());
-                if (executeNow) execute(task, now.toEpochMilli(), "ACTIVITY");
+                if (executeNow) execute(task, now.toEpochMilli(), "ACTIVITY", prepared);
                 return null;
             });
         }
