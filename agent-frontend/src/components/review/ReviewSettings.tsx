@@ -303,11 +303,11 @@ export function ReviewSettings() {
             <SettingsRow label="生成一次预览" description="使用昨天的已结束自然日，明确确认后才调用模型。"
               control={<Button variant="primary" size="sm" icon={<Sparkles size={14} />} disabled={busy || waiting}
                 onClick={() => setPreviewOpen(true)}>生成预览</Button>} />
+          </SettingsGroup>
             <ReviewDisclosure title="数据维护" description="手动采集用于排查；日常使用无需操作。清除会删除复盘数据。"><SettingsRow label="采集事实摘要" description="只读取已授权统计范围，不调用模型。"
               control={<Button variant="outline" size="sm" icon={<Download size={14} />} disabled={busy || waiting} onClick={capture}>采集昨天</Button>} />
             <SettingsRow label="清除复盘数据" description="撤销授权并删除本机复盘摘要、目标和建议；聊天与账本不受影响。"
               control={<Button variant="danger" size="sm" icon={<Trash2 size={14} />} disabled={busy} onClick={() => setEraseOpen(true)}>清除</Button>} /></ReviewDisclosure>
-          </SettingsGroup>
           <SettingsGroup title="复盘历史" description="点击查看依据；历史不会自动重新调用模型。">
             {history.length === 0 && <ReviewEmptyState title="还没有生成过复盘" description="生成后的统计复盘和对应依据会保留在这里。" />}
             {history.map(item => (

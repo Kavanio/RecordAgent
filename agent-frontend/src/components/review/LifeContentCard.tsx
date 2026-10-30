@@ -47,7 +47,7 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
       <p className={styles.muted}>{item.uncertainty}</p>
     </div>)}
     {c.questions.map(q => <p key={q}>{q}</p>)}
-    <ReviewDisclosure title="参考记录" description="仅为本版读取的资料，不代表已确认事实或完整的一天。">
+    <ReviewDisclosure variant="inline" title="参考记录" description="仅为本版读取的资料，不代表已确认事实或完整的一天。">
       {c.facts?.map(f => <p key={f.id} className={styles.source}>{lifeFactLabel(f)} · {f.period}</p>)}
       {c.materials.length === 0 && <p className={styles.muted}>没有读取到文字材料；不代表当天没有发生其他事情。</p>}
       {c.materials.map(m => <div className={styles.source} key={m.id}>
@@ -55,7 +55,7 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
         <span className={styles.muted}>来源：{m.sourceId}{m.truncated ? ' · 已截断' : ''}</span>
       </div>)}
     </ReviewDisclosure>
-    <ReviewDisclosure title="版本与诊断信息" description="查看读取范围、模型和内部来源编号。">
+    <ReviewDisclosure variant="inline" title="版本与诊断信息" description="查看读取范围、模型和内部来源编号。">
       <p className={styles.muted}>可呈现：{time(c.availableAt)}（{timezone}） · 固定模型：{c.providerId} / {c.modelName}</p>
       <p className={styles.muted}>{c.coverage}</p>
       {c.materials.map(m => <p key={m.id} className={styles.muted}>{m.id} → {m.sourceId}</p>)}

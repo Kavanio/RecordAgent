@@ -267,4 +267,4 @@
 | ReviewInteractionModals | `agent-frontend/src/components/review/ReviewInteractionModals.tsx` | 同名 CSS Module、ReviewFormModal、Button | 统计复盘详情、反馈和纠正展示 | `detail`、`feedbackDecision`、`correctionOpen`、`busy`、文本受控值及关闭／提交回调；只展示不发请求 | 详情、反馈、纠正／否定 |
 | ReviewEmptyState | `agent-frontend/src/components/review/ReviewEmptyState.tsx` | 同名 CSS Module、lucide Inbox | 设置卡片内统一空状态，留白、居中图标、主次文案与窄屏适配 | `title`、`description?`；静态展示不触发请求或使用加载态语义 | 无历史、无主动候选、无建议 |
 | ReviewGuide | `agent-frontend/src/components/review/ReviewGuide.tsx` | 同名 CSS Module | 根据启用／授权状态说明下一步与两类复盘用途 | `enabled`、`authorized`、`statistics?`；只读，不执行生成或授权 | 首次使用、待授权、已启用 |
-| ReviewDisclosure | `agent-frontend/src/components/review/ReviewDisclosure.tsx` | 同名 CSS Module、原生details/summary | 统一二级内容展开与键盘焦点样式 | `title`、`description?`、`children`；默认收起，不触发请求 | 高级参数、历史、参考记录、诊断、主动联系、维护 |
+| ReviewDisclosure | `agent-frontend/src/components/review/ReviewDisclosure.tsx` | 同名 CSS Module、原生details/summary | 统一二级内容展开与键盘焦点样式 | `title`、`description?`、`children`、`variant?: card / inline`；默认收起；卡片内部用inline分隔线，独立维护区用card；标题、说明、箭头独立对齐，不触发请求 | 高级参数、历史、参考记录、诊断、主动联系、维护 |
