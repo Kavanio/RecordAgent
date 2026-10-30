@@ -64,7 +64,6 @@ interface ModelSettingsPageProps {
   onBack: () => void;
   initialTab?: string;
 }
-
 const VENDOR_DEFAULT_URLS: Record<string, string> = {
   dashscope: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
@@ -501,7 +500,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
           {[
             { id: 'calendar', label: '日历', icon: CalendarDays },
             { id: 'task', label: '任务', icon: Bell },
-            { id: 'review', label: '长期复盘', icon: Sparkles },
+            { id: 'review', label: '生活复盘', icon: Sparkles }, { id: 'review-statistics', label: '统计复盘', icon: ChartNoAxesColumnIncreasing },
             { id: 'finance', label: '财务', icon: WalletCards },
             { id: 'library', label: '资料', icon: Library },
             { id: 'record', label: '记录', icon: NotebookPen },
@@ -1094,7 +1093,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
 
         {activeTab === 'task' && <TaskSettings />}
 
-        {activeTab === 'review' && <ReviewWorkspace />}
+        {(activeTab === 'review' || activeTab === 'review-statistics') && <ReviewWorkspace kind={activeTab === 'review-statistics' ? 'statistics' : 'life'} />}
 
         {activeTab === 'backend' && <BackendConnectionSettings />}
 

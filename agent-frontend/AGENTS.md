@@ -59,8 +59,10 @@ pnpm build   # tsc -b && vite build，类型检查与生产构建
 
 ## 生活复盘入口
 
-- 复盘设置通过 `components/review/ReviewWorkspace` 分开生活正文用途与既有统计摘要用途；生活复盘 HTTP 统一经 `services/lifeReviewApi`。保存设置不授予权限，有未保存变更时不得授权或生成。
+- 复盘设置从设置侧栏的“生活复盘”和“统计复盘”分别进入，由 `components/review/ReviewWorkspace` 的 kind 属性选择内容，不在内容顶部叠加 Tab 栏；生活复盘 HTTP 统一经 `services/lifeReviewApi`。保存设置不授予权限，有未保存变更时不得授权或生成。
 - 版本卡片展示原始时区、归属日、覆盖截止点、来源与各渠道状态；打开历史只读，补充单独创建版本。飞书 UNKNOWN 仅显示人工核对说明，不提供自动或隐式重发。
 - 作息是用户明确提供的有期限候选；未回复不生成负反馈。前端不按本机日期推断后端时区的复盘归属日。
 
 - 生活／统计复盘首页以状态摘要、历史内容与操作入口为主。配置、授权确认、目标、作息、事件和补充表单按需打开 `components/review/ReviewFormModal`，统一字号、字段边界及响应式宽度；取消配置恢复已保存快照，保存失败保留编辑内容，保存成功不自动重授权。
+
+- 复盘历史、主动记录及建议的空状态统一使用 `components/review/ReviewEmptyState`，由组件提供卡片内留白和文字层级，不在 SettingsGroup 内直接放单行提示压缩卡片。

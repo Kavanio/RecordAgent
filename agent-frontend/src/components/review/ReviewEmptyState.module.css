@@ -1,0 +1,5 @@
+.empty { box-sizing: border-box; display: flex; min-height: 144px; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px 20px; text-align: center; overflow-wrap: anywhere; }
+.icon { display: grid; place-items: center; width: 34px; height: 34px; margin-bottom: 3px; border-radius: 10px; background: var(--bg-secondary, #f6f7f9); color: var(--text-secondary); }
+.empty .title { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.6; color: var(--text-primary); }
+.empty .description { max-width: 420px; margin: 0; font-size: 12px; line-height: 1.6; color: var(--text-secondary); }
+@media(max-width: 640px) { .empty { min-height: 132px; padding: 20px 16px; } }

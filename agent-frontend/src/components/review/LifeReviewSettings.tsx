@@ -1,3 +1,4 @@
+import { ReviewEmptyState } from './ReviewEmptyState';
 import { ReviewFormModal } from './ReviewFormModal';
 import { useState } from 'react';
 import { lifeReviewApi } from '../../services/lifeReviewApi';
@@ -94,7 +95,7 @@ export function LifeReviewSettings() {
           control={<div className={styles.choices}><Button size="sm" variant="primary" disabled={disabled}
             onClick={() => void act(() => lifeReviewApi.prepare(today()), '已安排后台准备；已有版本会直接复用')}>准备今天的复盘</Button>
             <Button size="sm" disabled={busy || state.dirty} onClick={() => void state.load()}>刷新内容与状态</Button></div>} />
-        {state.history.length === 0 && <p className={styles.muted}>还没有生活复盘。记录少也可以先留下已有材料。</p>}
+        {state.history.length === 0 && <ReviewEmptyState title="还没有生活复盘" description="准备一份当天复盘后，内容和历史版本会保留在这里。" />}
         {state.history.map(c => <LifeContentCard key={c.id} content={c} timezone={c.timezone || s.timezone} busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />)}
         {state.archives.map((a, i) => <details key={i}><summary>重置前的只读外发副本 {i + 1}</summary><p className={styles.archive}>{a}</p></details>)}
       </SettingsGroup>
@@ -114,7 +115,7 @@ export function LifeReviewSettings() {
       </SettingsGroup>
       <LifeEventCandidateEditor busy={busy} history={state.history} disabled={disabled || !s.proactive} act={act} />
       <SettingsGroup title="主动记录与反馈" description="等待、过期、取消与已呈现分别记录。未回复不会被判为失败，也不会触发追问。">
-        {state.candidates.length === 0 && <p className={styles.muted}>暂无主动候选。</p>}
+        {state.candidates.length === 0 && <ReviewEmptyState title="暂无主动候选" description="有值得呈现的新信息时，候选和后续反馈会记录在这里。" />}
         {state.candidates.map(c => <SettingsRow key={c.id} label={c.topic} description={`${CANDIDATE_STATES[c.state] || c.state} · 最早${c.dueAt} · 到期${c.expiresAt}${c.feedback ? ` · ${c.feedback}` : ''}`}
           control={<div className={styles.choices}>{(c.state === 'PENDING' ? ['CANCEL'] : ['HELPFUL', 'NOT_RELEVANT']).map(decision =>
             <Button key={decision} size="sm" disabled={busy} onClick={() => void act(() => lifeReviewApi.feedback(c.id, decision), '反馈已记录')}>

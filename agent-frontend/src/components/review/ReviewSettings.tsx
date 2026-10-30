@@ -1,3 +1,4 @@
+import { ReviewEmptyState } from './ReviewEmptyState';
 import { STATE_TEXT, requestId, yesterday } from '../../features/review/statisticsReviewPresentation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Plus, RefreshCw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
@@ -22,7 +23,6 @@ import { ReviewFormModal } from './ReviewFormModal';
 import { ReviewInteractionModals } from './ReviewInteractionModals';
 import { useMessage } from '../common/Message';
 import styles from './ReviewSettings.module.css';
-
 const PERIODS: { id: ReviewPeriod; label: string }[] = [
   { id: 'DAILY_REPORT', label: '日报' },
   { id: 'WEEKLY_REPORT', label: '周报' },
@@ -215,7 +215,7 @@ export function ReviewSettings() {
 
   return (
     <SettingsPageLayout
-      title="长期复盘"
+      title="统计复盘"
       description="结合历史统计、你的目标与以往建议，在每个报告周期给出有依据的下一步；默认关闭。"
       loading={loading}
       actions={<Button variant="outline" size="sm" icon={<RefreshCw size={14} />} disabled={busy} onClick={() => void load()}>刷新</Button>}
@@ -327,7 +327,7 @@ export function ReviewSettings() {
           </SettingsGroup>
 
           <SettingsGroup title="复盘历史" description="点击查看依据；历史不会自动重新调用模型。">
-            {history.length === 0 && <p className={styles.muted}>还没有生成过复盘。</p>}
+            {history.length === 0 && <ReviewEmptyState title="还没有生成过复盘" description="生成后的统计复盘和对应依据会保留在这里。" />}
             {history.map(item => (
               <SettingsRow key={item.id} label={`${PERIODS.find(period => period.id === item.period)?.label ?? item.period} · ${item.from}${item.to !== item.from ? ` — ${item.to}` : ''}`}
                 description={`${STATE_TEXT[item.state] ?? item.state}${item.message ? ` · ${item.message}` : ''}${item.preview ? ' · 预览' : ''}`}
@@ -336,7 +336,7 @@ export function ReviewSettings() {
           </SettingsGroup>
 
           <SettingsGroup title="建议与观察" description="反馈由你提交；未反馈不会被判定为失败。">
-            {memory.actions.length === 0 && memory.observations.length === 0 && <p className={styles.muted}>还没有建议。</p>}
+            {memory.actions.length === 0 && memory.observations.length === 0 && <ReviewEmptyState title="还没有建议" description="复盘产生建议或观察后，可以在这里查看并反馈。" />}
             {memory.actions.map(action => (
               <div key={action.id} className={styles.card}>
                 <div className={styles.cardHead}>

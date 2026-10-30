@@ -260,10 +260,12 @@
 
 | 组件 | 源码路径 | 样式与依赖 | 核心职责 | 接口契约 | 状态与应用场景 |
 | --- | --- | --- | --- | --- | --- |
-| ReviewWorkspace | `agent-frontend/src/components/review/ReviewWorkspace.tsx` | 同名 CSS Module、Button、LifeReviewSettings、ReviewSettings | 切换生活正文用途与既有统计用途的独立入口 | 无 Props；默认生活复盘，切换卸载旧面板 | 生活、统计；模型设置中的复盘页 |
+| ReviewWorkspace | `agent-frontend/src/components/review/ReviewWorkspace.tsx` | 同名 CSS Module、LifeReviewSettings、ReviewSettings | 承载设置侧栏选择的生活／统计内容，不叠加顶部导航 | `kind?: life / statistics`；默认生活复盘，由侧栏切换并卸载旧面板 | 生活、统计；模型设置中的复盘页 |
 | LifeReviewSettings | `agent-frontend/src/components/review/LifeReviewSettings.tsx` | 同名 CSS Module、useLifeReview、SettingsPageLayout、SettingsGroup/SettingsRow、Select、TextInput、Button、Message | 状态摘要、独立范围配置／授权／作息弹窗、版本留档与主动候选 | 无 Props；保存使旧授权失效，勾选确认后授权；脏草稿禁用授权与生成；按配置时区计算当天 | 加载、失败重试、未授权、已授权、未保存、准备中、无材料、只读存档 |
 | LifeContentCard | `agent-frontend/src/components/review/LifeContentCard.tsx` | 同名 CSS Module、lifeReviewApi、Button、ConfirmDialog | 展示一个不可变版本、依据、补问、原始材料和渠道状态 | `content`、`timezone`、`busy`、`authorized`、`feishu`、`act(work,message)`；补充输入按需弹窗，取消不提交，使用稳定 requestId；发送须确认；UNKNOWN 不提供重试 | 排队、生成、已备好、降级、跳过、未知、投递失败；桌面留档 |
 | LifeEventCandidateEditor | `agent-frontend/src/components/review/LifeEventCandidateEditor.tsx` | 同名 CSS Module、SettingsGroup/SettingsRow、Select、TextInput、Button、lifeReviewApi | 从已授权版本选择真实证据，建立人工新信息或恢复候选 | `history`、`disabled`、`act(work,message)`；首页只显示添加入口，字段在弹窗中填写；主题与证据必选；恢复须关联已呈现同主题事件；只记录候选，不直接生成或发送 | 无来源、选择版本与证据、新事件、恢复、忙碌禁用；生活复盘主动策略页 |
 
 | ReviewFormModal | `agent-frontend/src/components/review/ReviewFormModal.tsx` | 同名 CSS Module、公共Modal | 复盘领域统一编辑弹窗，约束字号、换行、字段宽度和窄屏边界 | `open`、`title`、`busy?`、`onClose`、`children`；忙碌不可关闭，复用公共焦点管理 | 配置、授权、作息、事件、目标、补充及反馈 |
 | ReviewInteractionModals | `agent-frontend/src/components/review/ReviewInteractionModals.tsx` | 同名 CSS Module、ReviewFormModal、Button | 统计复盘详情、反馈和纠正展示 | `detail`、`feedbackDecision`、`correctionOpen`、`busy`、文本受控值及关闭／提交回调；只展示不发请求 | 详情、反馈、纠正／否定 |
+
+| ReviewEmptyState | `agent-frontend/src/components/review/ReviewEmptyState.tsx` | 同名 CSS Module、lucide Inbox | 设置卡片内统一空状态，留白、居中图标、主次文案与窄屏适配 | `title`、`description?`；静态展示不触发请求或使用加载态语义 | 无历史、无主动候选、无建议 |
