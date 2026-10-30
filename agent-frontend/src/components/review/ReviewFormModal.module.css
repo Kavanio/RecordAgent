@@ -1,4 +1,5 @@
 .panel { max-width: calc(100vw - 40px); max-height: min(680px, 100%); }
+.scrollArea { scrollbar-gutter: stable; padding: 2px 4px 16px 0; scroll-padding-block: 12px; }
 .body { min-width: 0; font-size: 13px; line-height: 1.6; color: var(--text-primary); overflow-wrap: anywhere; }
 .body p, .body label, .body span { font-size: 13px; line-height: 1.6; }
 .body h2 { font-size: 14px; }
@@ -11,6 +12,10 @@
 /* 弹框内沿用设置行结构，采用紧凑密度，整页设置不受影响。 */
 .body [data-settings-row] { min-height: 0; padding: 12px 16px; gap: 16px; }
 .body [data-settings-row]::before { left: 16px; right: 16px; }
+.body details { margin: 12px 16px; border-radius: 10px; }
+.body details > summary { padding: 12px 14px; }
+.body details > div { padding: 0 0 8px; }
+.body > :last-child { margin-bottom: 0; }
 @media (max-width: 720px) {
   .body [data-settings-row] { gap: 10px; }
 }
