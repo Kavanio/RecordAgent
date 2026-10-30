@@ -33,6 +33,19 @@ class LarkMessageSenderTest {
         assertEquals(markdown, element.get("content"));
     }
 
+    @Test void proactiveCopyUsesOwnerOpenIdAndStableUuid() throws Exception {
+        CreateMessageResp response = mock(CreateMessageResp.class, RETURNS_DEEP_STUBS);
+        when(response.success()).thenReturn(true);
+        when(response.getData().getMessageId()).thenReturn("outbound-id");
+        when(client.im().message().create(any(CreateMessageReq.class))).thenReturn(response);
+        assertEquals(FeishuMessageSender.Status.SENT, new LarkMessageSender(client).sendToOwner("owner-open-id", "stable-copy", "虚构复盘").status());
+        var request = ArgumentCaptor.forClass(CreateMessageReq.class);
+        verify(client.im().message()).create(request.capture());
+        assertEquals("open_id", request.getValue().getReceiveIdType());
+        assertEquals("owner-open-id", request.getValue().getCreateMessageReqBody().getReceiveId());
+        assertEquals("stable-copy", request.getValue().getCreateMessageReqBody().getUuid());
+    }
+
     @Test void receiptNoticeStaysPlainText() throws Exception {
         ReplyMessageResp response = mock(ReplyMessageResp.class, RETURNS_DEEP_STUBS);
         when(response.success()).thenReturn(true);

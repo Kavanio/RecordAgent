@@ -68,19 +68,23 @@ public class MemoryManagementRepository {
         return new Operation(rs.getString("id"), rs.getString("source_id"), rs.getString("kind"), rs.getString("payload_hash"),
                 rs.getLong("result_version"), rs.getString("state"), Instant.parse(rs.getString("updated_at")));
     }
-    /** 同一事务内停用来源、取消任务、建立删除标记并保存独立纠正。 */
+    /** 同一事务内更新来源版本、保存独立纠正或建立删除标记。 */
     public Operation mutate(String space, String id, long version, String kind, String text, String request, String hash, Instant now) {
         if (jdbc.update("UPDATE memory_source_document SET state='REVOKED',version=version+1 WHERE space_id=? AND id=? AND version=?", space, id, version) != 1)
             throw new MemoryRequestException(409, "记忆来源已变化，请刷新后重试");
-        jdbc.update("UPDATE memory_sync_operation SET state='CANCELLED',error_code='SOURCE_WITHDRAWN' WHERE source_id=?", id);
-        jdbc.update("""
-                UPDATE memory_deletion SET state='PENDING' WHERE space_id=? AND document_id=
-                (SELECT document_id FROM memory_source_document WHERE id=?) AND state<>'VERIFIED'
-                """, space, id);
+        if (kind.equals("DELETE")) {
+            jdbc.update("UPDATE memory_sync_operation SET state='CANCELLED',error_code='SOURCE_WITHDRAWN' WHERE source_id=?", id);
+            jdbc.update("""
+                    UPDATE memory_deletion SET state='PENDING' WHERE space_id=? AND document_id=
+                    (SELECT document_id FROM memory_source_document WHERE id=?) AND state<>'VERIFIED'
+                    """, space, id);
+        } else {
+            jdbc.update("UPDATE memory_sync_operation SET state='CANCELLED',error_code='SOURCE_WITHDRAWN' WHERE source_id=? AND state<>'SUCCEEDED'", id);
+        }
         jdbc.update("DELETE FROM memory_correction WHERE source_id=?", id);
         if (kind.equals("CORRECT")) jdbc.update("INSERT INTO memory_correction VALUES(?,?,?,?)", id, version + 1, text, now.toString());
         String task = UUID.randomUUID().toString();
-        boolean pending = target(space, id).isPresent();
+        boolean pending = kind.equals("DELETE") && target(space, id).isPresent();
         jdbc.update("INSERT INTO memory_management_operation VALUES(?,?,?,?,?,?,?,?,?)", task, space, id, request, kind, hash,
                 version + 1, pending ? "PENDING" : "SUCCEEDED", now.toString());
         return operation(space, task);

@@ -1,0 +1,7 @@
+.stack { display: flex; flex-direction: column; gap: 12px; width: 100%; min-width: 0; font-size: 13px; }
+.choices { display: flex; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.choices label { padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: 8px; }
+.muted { color: var(--text-secondary); font-size: 12px; line-height: 1.6; margin: 8px 0; overflow-wrap: anywhere; }
+.error { color: #b42318; font-size: 13px; }
+.archive { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.7; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }

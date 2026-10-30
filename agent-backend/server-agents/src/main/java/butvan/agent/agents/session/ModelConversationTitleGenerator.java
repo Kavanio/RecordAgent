@@ -30,6 +30,7 @@ public class ModelConversationTitleGenerator implements ConversationTitleGenerat
                 .stream(false)
                 .temperature(0.2)
                 .maxTokens(32)
+                .additionalBodyParam("thinking", java.util.Map.of("type", "disabled"))
                 .build();
         var model = modelHolder.getModel();
         List<ChatResponse> responses;

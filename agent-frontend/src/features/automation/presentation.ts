@@ -3,7 +3,7 @@ export function newAutomation(kind: AutomationSpec['kind'] = 'REMINDER'): Automa
   return { title: kind === 'DAILY_REPORT' ? '每日日报' : kind === 'WEEKLY_REPORT' ? '每周周报' : kind === 'MONTHLY_REPORT' ? '每月月报' : kind === 'SEDENTARY' ? '久坐提醒' : '',
     content: kind === 'SEDENTARY' ? '已经连续使用电脑 45 分钟，起来活动一下吧。' : '', kind,
     trigger: kind === 'SEDENTARY' ? 'ACTIVITY' : kind === 'WEEKLY_REPORT' ? 'WEEKLY' : kind === 'MONTHLY_REPORT' ? 'MONTHLY' : 'DAILY', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    atTime: kind.endsWith('_REPORT') ? '08:30' : '20:30', onceAt: null, weekdays: kind === 'WEEKLY_REPORT' ? 1 : 127, minutes: 45, breakMinutes: 5,
+    atTime: kind === 'WEEKLY_REPORT' || kind === 'MONTHLY_REPORT' ? '08:30' : '20:30', onceAt: null, weekdays: kind === 'WEEKLY_REPORT' ? 1 : 127, minutes: 45, breakMinutes: 5,
     windowStart: '00:00', windowEnd: '00:00', desktop: true, email: false, confirm: kind === 'SEDENTARY',
     sound: true, expense: true, todo: true, study: false, mailTemplate: { style: 'DIGEST' } };
 }

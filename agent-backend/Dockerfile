@@ -7,6 +7,8 @@ WORKDIR /app
 RUN groupadd --system --gid 10001 butvanagent \
     && useradd --system --uid 10001 --gid butvanagent --home-dir /home/butvanagent --create-home butvanagent
 ENV HOME=/home/butvanagent
+# 仅容器默认使用北京时间；部署时可通过 TZ 覆盖。
+ENV TZ=Asia/Shanghai
 
 COPY --chown=butvanagent:butvanagent \
     server-network/target/server-network-0.0.1-SNAPSHOT.jar /app/app.jar

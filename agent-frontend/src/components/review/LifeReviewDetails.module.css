@@ -1,0 +1,17 @@
+.body { padding: 20px 24px 32px; overflow-y: auto; scrollbar-gutter: stable; color: var(--text-primary); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.note { color: var(--text-secondary); font-size: 12px; margin: 0 0 16px; }
+.metadata { margin: 0 0 20px; }
+.metadata > div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border-subtle); }
+.metadata dt { color: var(--text-secondary); }
+.metadata dd { margin: 0; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 18px; }
+.filters button[aria-pressed='true'] { outline: 1px solid var(--border-medium); }
+.group { margin-bottom: 24px; }
+.group h3 { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; margin: 0 0 6px; }
+.group h3 span { color: var(--text-secondary); font-size: 12px; font-weight: 400; }
+.entry { border-bottom: 1px solid var(--border-subtle); padding: 12px 0; }
+.entry p { margin: 4px 0; white-space: pre-wrap; }
+.date { color: var(--text-secondary); font-size: 12px; }
+.raw { white-space: pre-wrap; font-size: 12px; color: var(--text-secondary); }
+.empty { text-align: center; padding: 32px 12px; color: var(--text-secondary); }
+@media (max-width: 480px) { .body { padding: 16px; } .metadata > div { grid-template-columns: 94px minmax(0, 1fr); gap: 10px; } }

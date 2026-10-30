@@ -39,7 +39,7 @@ export function SettingsRow({ label, description, control, labelFor, layout = 'i
   );
 
   return (
-    <div className={`${styles.row} ${layout === 'stacked' ? styles.stacked : ''}`}>
+    <div data-settings-row className={`${styles.row} ${layout === 'stacked' ? styles.stacked : ''}`}>
       {labelFor ? <label className={styles.copy} htmlFor={labelFor}>{copy}</label> : <div className={styles.copy}>{copy}</div>}
       <div className={styles.control}>{control}</div>
     </div>

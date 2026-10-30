@@ -119,9 +119,13 @@ public class ReviewCoachRepository {
                 r.getString("content"),r.getString("uncertainty"),r.getString("state"),r.getInt("revision"),
                 r.getString("correction"),Instant.parse(r.getString("created_at")),Instant.parse(r.getString("expires_at"))),owner,now.toString());
     }
-    /** 运行前撤销全部未冻结 AI 副本，避免撤销后仍发送。 */
+    /** 运行前撤销全部未冻结 AI 副本，避免撤销后仍发送 AI 内容；同时将等待中的基础报告邮件释放为待发送。 */
     public int disableUnfrozenDeliveries(String owner) {
-        return jdbc.update("UPDATE automation_review_delivery SET state='DISABLED',privacy_disabled=1 WHERE owner_id=? AND state='WAITING'",owner);
+        int count = jdbc.update("UPDATE automation_review_delivery SET state='DISABLED',privacy_disabled=1 WHERE owner_id=? AND state='WAITING'",owner);
+        if (count > 0) {
+            jdbc.update("UPDATE automation_run SET email_status='PENDING',error='AI 复盘已停用，已发送基础报告' WHERE owner_id=? AND email_status='WAITING'", owner);
+        }
+        return count;
     }
     /** 出厂重置专用：保护人工目标及已冻结邮件副本，只清理个人化派生正文。 */
     public void resetPersonalization(String owner) {

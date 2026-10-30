@@ -6,6 +6,11 @@ public interface FeishuMessageSender {
     /** 使用指定幂等标识发送一条消息，返回确定成功、可重试、失败或未知送达。 */
     Attempt send(String chatId, String replyTo, String deliveryId, String body, Format format);
 
+    /** 主动内容只向已核实的本人 open_id 投递；不支持的假渠道默认拒绝。 */
+    default Attempt sendToOwner(String openId, String deliveryId, String body) {
+        return Attempt.failed(Status.FAILED, "unsupported");
+    }
+
     /** 回复正文按 Markdown 渲染；回执、进度与控制反馈保持普通文本，不制造卡片噪音。 */
     enum Format { TEXT, MARKDOWN }
 

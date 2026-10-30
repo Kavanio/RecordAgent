@@ -155,7 +155,7 @@ class MemoryManagementIntegrationTest {
         assertEquals(0, f.base.jdbc.queryForObject("SELECT COUNT(*) FROM memory_management_operation", Integer.class));
     }
 
-    @Test void managementCorrectionInvalidatesAlreadyCachedContextBeforeTheNextModelCall() {
+    @Test void managementCorrectionInvalidatesAlreadyCachedContextAndRecallsCorrectedTextNextTurn() {
         try (var f = new MemoryRecallFixture(directory)) {
             f.prepared();
             var context = f.context(f.assembler.assemble(f.request("英语学习")));
@@ -163,10 +163,11 @@ class MemoryManagementIntegrationTest {
             var service = manager(f.sync);
             String id = service.documents("0", 20).items().getFirst().id();
             var task = service.correct(id, new Correct(0, "合成纠正：这次尝试没有继续", true, "correct-cached"));
+            assertEquals("SUCCEEDED", task.state());
             assertEquals(2, f.inject(context).size());
-            service.retry(task.id());
-            assertEquals(2, f.inject(context).size());
-            assertTrue(f.assembler.assemble(f.request("英语学习")).isEmpty());
+            var updated = f.assembler.assemble(f.request("英语学习"));
+            assertFalse(updated.isEmpty());
+            assertTrue(updated.rendered().contains("合成纠正：这次尝试没有继续"));
             assertEquals(2, f.gateway.calls.get());
         }
     }

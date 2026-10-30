@@ -11,13 +11,13 @@ export function knownCleanupRecorded(progress?: MemoryCleanupProgress | null): b
 
 /** 列表、详情与 Message 共用同一口径；旧后端无进度字段时保持保守提示。 */
 export function memoryDeletionLabel(state: string, progress?: MemoryCleanupProgress | null): string {
-  if (state === 'UNKNOWN' && knownCleanupRecorded(progress)) return '已完成已知内容清理，完整擦除未核实';
+  if (state === 'UNKNOWN' && knownCleanupRecorded(progress)) return '已完成已知内容清理';
   if (state === 'UNKNOWN' && progress && (progress.documentDeletionRecorded || progress.factsClearanceRecorded
     || progress.childDeletionsRecorded > 0 || progress.parentDeletionRecorded)) return '部分清理步骤已完成，仍待核实';
   switch (state) {
     case 'PENDING': return '等待核对远端删除';
     case 'WAITING_REMOTE': return '等待在途保存结束';
-    case 'SUCCEEDED': return '记忆来源撤回已完成';
+    case 'SUCCEEDED': return '记忆来源处理已完成';
     case 'VERIFIED': return '远端删除已核对';
     case 'FAILED': return '远端删除核对失败';
     case 'UNKNOWN': return '远端删除结果未知';

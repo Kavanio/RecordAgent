@@ -45,11 +45,6 @@ public class ReviewModelCatalog {
         catch (IllegalArgumentException exception) { throw new IllegalArgumentException("复盘模型类型不受支持"); }
         String protocol = "custom".equals(type) ? ModelEndpoint.protocol(provider.getProtocol())
                 : switch (type) { case "deepseek", "openai" -> "openai"; default -> type; };
-        String endpoint = ModelEndpoint.normalize(provider.getBaseUrl());
-        if ("custom".equals(type) && endpoint == null) throw new IllegalArgumentException("自定义模型缺少 API 地址");
-        if ("anthropic".equals(protocol) && endpoint != null) endpoint = ModelEndpoint.anthropicBaseUrl(endpoint);
-        String identity = providerId + "\n" + modelName + "\n" + type + "\n" + protocol + "\n"
-                + (endpoint == null ? "sdk-default" : endpoint);
-        return new ModelIdentity(providerId, modelName, protocol, ReviewPolicy.fingerprint(identity));
+        return new ModelIdentity(providerId, modelName, protocol, butvan.agent.agents.review.ReviewConnectionIdentity.fingerprint(providerId, modelName, type, provider.getProtocol(), provider.getBaseUrl()));
     }
 }

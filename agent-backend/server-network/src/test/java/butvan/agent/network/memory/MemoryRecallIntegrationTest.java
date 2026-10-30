@@ -17,23 +17,19 @@ import static org.junit.jupiter.api.Assertions.*;
 class MemoryRecallIntegrationTest {
     @TempDir Path directory;
 
-    @Test void unresolvedDeletionReportsThePauseWithoutAQueryOrMemoryFallback() {
+    @Test void unresolvedDeletionDoesNotPauseOtherValidSourcesWhileRevokedSourceIsExcluded() {
         try (var f = new MemoryRecallFixture(directory)) {
             f.prepared();
             assertEquals(1, f.sync.base.jdbc.update("UPDATE memory_deletion SET state='UNKNOWN' WHERE space_id=?",
                     f.sync.base.service.settings().spaceId()));
             var result = f.adapter.recall(f.portRequest(() -> false));
-            assertEquals(Status.PAUSED, result.status());
-            assertEquals(butvan.agent.agents.memory.MemoryRecallPort.Reason.DELETION_UNRESOLVED, result.reason());
-            var envelope = f.assembler.assemble(f.request("英语学习"));
-            assertTrue(envelope.rendered().contains("删除未核实"));
-            assertEquals(0, envelope.memoryTokens());
-            assertEquals(0, f.gateway.calls.get());
-            var context = f.context(envelope);
-            assertEquals(3, f.inject(context).size(), "真实模型输入携带有界控制提示");
-            assertEquals(0, context.get(ContextEnvelope.class).memoryTokens());
-            f.profiles.setEnabled("local-default", false);
-            assertEquals(2, f.inject(context).size(), "关闭个人上下文后状态提示也不可残留");
+            assertEquals(Status.SUCCESS, result.status());
+            assertEquals(1, result.fragments().size());
+            f.sync.base.jdbc.update("UPDATE memory_source_document SET state='REVOKED' WHERE space_id=?",
+                    f.sync.base.service.settings().spaceId());
+            var afterRevoke = f.adapter.recall(f.portRequest(() -> false));
+            assertEquals(Status.INVALID_RESULT, afterRevoke.status());
+            assertTrue(afterRevoke.fragments().isEmpty());
         }
     }
 

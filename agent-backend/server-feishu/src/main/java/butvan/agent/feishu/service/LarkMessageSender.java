@@ -16,6 +16,15 @@ public final class LarkMessageSender implements FeishuMessageSender {
 
     @Override
     public Attempt send(String chatId, String replyTo, String deliveryId, String body, Format format) {
+        return sendInternal(chatId, replyTo, deliveryId, body, format, "chat_id");
+    }
+
+    @Override
+    public Attempt sendToOwner(String openId, String deliveryId, String body) {
+        return sendInternal(openId, null, deliveryId, body, Format.TEXT, "open_id");
+    }
+
+    private Attempt sendInternal(String chatId, String replyTo, String deliveryId, String body, Format format, String receiveIdType) {
         try {
             boolean markdown = format == Format.MARKDOWN;
             String msgType = markdown ? "interactive" : "text";
@@ -29,7 +38,7 @@ public final class LarkMessageSender implements FeishuMessageSender {
                         ? response.getData().getMessageId() : null);
             }
             CreateMessageResp response = client.im().message().create(CreateMessageReq.newBuilder()
-                    .receiveIdType("chat_id")
+                    .receiveIdType(receiveIdType)
                     .createMessageReqBody(CreateMessageReqBody.newBuilder().receiveId(chatId).msgType(msgType)
                             .content(content).uuid(deliveryId).build()).build());
             return classify(response, response != null && response.getData() != null

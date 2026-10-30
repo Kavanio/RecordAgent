@@ -17,12 +17,8 @@ public class MemoryConnectionRepository {
     }
     public <T> T change(String recipient, Supplier<T> action) {
         return transaction.execute(status -> {
-            // 即使尚无设置行也先取得 SQLite 写保留锁，避免核对和文件替换之间登记旧目标。
+            // 取得 SQLite 写保留锁，避免核对和文件替换之间并发登记旧目标；切换接收方后由 MemoryService 自动撤销旧授权。
             jdbc.update("UPDATE memory_settings SET version=version");
-            boolean pinned = Boolean.TRUE.equals(jdbc.queryForObject("""
-                    SELECT EXISTS(SELECT 1 FROM memory_deletion WHERE state<>'VERIFIED' AND recipient_fingerprint<>?)
-                    """, Boolean.class, recipient));
-            if (pinned) throw new MemoryRequestException(409, "旧接收方仍有未核实的远端目标，不能更换记忆库、地址、凭据或处理链；请保留原连接继续清理");
             return action.get();
         });
     }

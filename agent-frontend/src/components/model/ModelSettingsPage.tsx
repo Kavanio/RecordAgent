@@ -21,7 +21,7 @@ import { SlashCommandSettingsPage } from '../settings/SlashCommandSettingsPage';
 import { DailyContextSettingsPage } from '../settings/DailyContextSettingsPage';
 import { BackendConnectionSettings } from '../settings/BackendConnectionSettings';
 import { TaskSettings } from '../task/TaskSettings';
-import { ReviewSettings } from '../review/ReviewSettings';
+import { LifeReviewSettings } from '../review/LifeReviewSettings';
 import {
   getFeaturePreferences,
   setCalendarPreference,
@@ -60,12 +60,10 @@ import {
   Network,
 } from 'lucide-react';
 import styles from './ModelSettingsPage.module.css';
-
 interface ModelSettingsPageProps {
   onBack: () => void;
   initialTab?: string;
 }
-
 const VENDOR_DEFAULT_URLS: Record<string, string> = {
   dashscope: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
@@ -502,7 +500,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
           {[
             { id: 'calendar', label: '日历', icon: CalendarDays },
             { id: 'task', label: '任务', icon: Bell },
-            { id: 'review', label: '长期复盘', icon: Sparkles },
+            { id: 'review', label: '生活复盘', icon: Sparkles },
             { id: 'finance', label: '财务', icon: WalletCards },
             { id: 'library', label: '资料', icon: Library },
             { id: 'record', label: '记录', icon: NotebookPen },
@@ -1095,7 +1093,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
 
         {activeTab === 'task' && <TaskSettings />}
 
-        {activeTab === 'review' && <ReviewSettings />}
+        {activeTab === 'review' && <LifeReviewSettings />}
 
         {activeTab === 'backend' && <BackendConnectionSettings />}
 

@@ -1,5 +1,9 @@
 package butvan.agent.network.automation.service;
 
+import butvan.agent.agents.memory.MemoryRecallPort;
+import butvan.agent.agents.reset.ResetBarrier;
+import butvan.agent.agents.review.PersonalDeliveryPort;
+import butvan.agent.agents.review.TaskReportContextPort;
 import butvan.agent.network.automation.model.*;
 import butvan.agent.network.automation.repository.AutomationRepository;
 import butvan.agent.network.automation.dto.AutomationDtos.*;
@@ -7,18 +11,25 @@ import butvan.agent.network.automation.event.TasksChanged;
 import butvan.agent.network.review.service.ReviewCoachService;
 import butvan.agent.network.review.service.ReviewDeliveryService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import java.nio.charset.StandardCharsets;
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Supplier;
 
 /** 自动任务唯一写入入口；本机串行操作与 SQLite 事务共同保护领取、暂停和确认。 */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-public class AutomationService {
+public class AutomationService implements TaskReportContextPort {
+    private static final Set<String> FINANCIAL_TITLES = Set.of("资产与收支", "支出概览", "收入概览", "收支结余", "资产变化");
     private final AutomationRepository repository;
     private final TaskReportBuilder reports;
     private final TaskMailService mail;
@@ -27,6 +38,10 @@ public class AutomationService {
     private final Clock automationClock;
     private final ReviewCoachService reviews;
     private final ReviewDeliveryService reviewDeliveries;
+    @Autowired(required = false)
+    private ObjectProvider<PersonalDeliveryPort> personalDeliveries;
+    @Autowired(required = false)
+    private ResetBarrier resetBarrier;
     /** 仅保存最后一次原生采样时间，无法观察的间隙绝不推算为使用时长。 */
     private final Map<String, Instant> samples = new HashMap<>();
     /** 同步读取时分配序号，跨 REST/SSE 传输可比较；重启更换来源，不持久化运行态序号。 */
@@ -166,7 +181,8 @@ public class AutomationService {
                 var period = ReportPeriod.completed(s.kind(), Instant.ofEpochMilli(planned), ZoneId.of(s.timezone()));
                 // 日报的事实必须是已结束自然日，因此复盘昨天；周报／月报使用已结束周期。
                 var reviewFrom = "DAILY_REPORT".equals(s.kind()) ? period.from().minusDays(1) : period.from();
-                reviewId = reviews.schedule(task.ownerId(), s.kind(), reviewFrom, period.to(), s.timezone()).orElse(null);
+                var reviewTo = "DAILY_REPORT".equals(s.kind()) ? period.to().minusDays(1) : period.to();
+                reviewId = reviews.schedule(task.ownerId(), s.kind(), reviewFrom, reviewTo, s.timezone()).orElse(null);
             } catch (RuntimeException exception) {
                 reviewError = "AI 复盘未启用，已发送基础报告";
             }
@@ -262,8 +278,96 @@ public class AutomationService {
         }
         return null;
     }
-    /** 保存一次邮件投递结果并通知界面。 */
-    public synchronized void mailResult(TaskRun run, TaskMailService.Outcome outcome) {
-        transaction(run.ownerId(), () -> { repository.mailResult(run.id(), outcome.status(), outcome.message()); return null; });
+    /** 保存一次邮件投递结果并通知界面；发送成功时向已就绪的本人飞书渠道推送消息提醒。 */
+    public void mailResult(TaskRun run, TaskMailService.Outcome outcome) {
+        synchronized (this) {
+            transaction(run.ownerId(), () -> { repository.mailResult(run.id(), outcome.status(), outcome.message()); return null; });
+        }
+        if ("SUBMITTED".equals(outcome.status())) {
+            notifyFeishuAfterMail(run);
+        }
+    }
+
+    private void notifyFeishuAfterMail(TaskRun run) {
+        if (personalDeliveries == null || (resetBarrier != null && resetBarrier.blocked())) return;
+        try {
+            for (PersonalDeliveryPort channel : personalDeliveries.orderedStream().toList()) {
+                PersonalDeliveryPort.Target target = channel.target();
+                if (target == null || !target.available()) continue;
+                String deliveryId = UUID.nameUUIDFromBytes(
+                        ("automation-mail-feishu:" + run.id() + ":" + run.emailQueuedAt()).getBytes(StandardCharsets.UTF_8)).toString();
+                String summary = summarizeNonSensitiveReport(run.content());
+                String body = "📬 邮件已发送：【" + run.title() + "】"
+                        + (summary.isBlank() ? "" : "\n" + summary)
+                        + "\n\n完整报告已发送至你的绑定邮箱，如需围绕本次报告继续讨论，可直接在这里告诉我。";
+                channel.send(target.fingerprint(), deliveryId, body);
+            }
+        } catch (RuntimeException exception) {
+            log.warn("任务邮件发送后飞书提醒降级：runId={}, type={}", run.id(), exception.getClass().getSimpleName());
+        }
+    }
+
+    @Override
+    public Optional<MemoryRecallPort.Fragment> recallRecentReport(String owner, String query) {
+        if (owner == null || query == null || !mentionsReportOrMail(query)) return Optional.empty();
+        if (resetBarrier != null && resetBarrier.blocked()) return Optional.empty();
+        try {
+            long generation = resetBarrier == null ? -1 : resetBarrier.state().generation();
+            return repository.latestSubmittedMail(owner)
+                    .filter(run -> repository.find(owner, run.taskId()).filter(t -> !"DELETED".equals(t.status())).isPresent())
+                    .map(run -> {
+                        boolean feishuReady = personalDeliveries != null
+                                && personalDeliveries.orderedStream().anyMatch(p -> {
+                                    var target = p.target();
+                                    return target != null && target.available();
+                                });
+                        long sentMillis = run.emailQueuedAt() > 0 ? run.emailQueuedAt() : run.createdAt();
+                        String sentAt = Instant.ofEpochMilli(sentMillis)
+                                .atZone(automationClock.getZone())
+                                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                        String summary = summarizeNonSensitiveReport(run.content());
+                        String text = "最近已发送的任务邮件提醒（标题：" + run.title() + "，发送时间：" + sentAt
+                                + (feishuReady ? "，已同步发送飞书消息提醒" : "") + "）：\n"
+                                + (summary.isBlank() ? "邮件已成功发送。" : summary);
+                        if (text.length() > 360) text = text.substring(0, 360);
+                        return new MemoryRecallPort.Fragment(
+                                "任务邮件 " + run.title(),
+                                text,
+                                () -> (resetBarrier == null || resetBarrier.isCurrent(generation))
+                                        && repository.latestSubmittedMail(owner).map(r -> r.id().equals(run.id())).orElse(false));
+                    });
+        } catch (RuntimeException unavailable) {
+            return Optional.empty();
+        }
+    }
+
+    private static boolean mentionsReportOrMail(String query) {
+        return List.of("日报", "周报", "月报", "报告", "邮件", "提醒", "复盘", "总结", "刚发", "刚才", "待办", "学习")
+                .stream().anyMatch(query::contains);
+    }
+
+    /** 提取不含财务敏感词与账户余额明细的报告摘要，供飞书提醒与上下文按需召回共享。 */
+    static String summarizeNonSensitiveReport(String content) {
+        if (content == null || content.isBlank()) return "";
+        String[] blocks = content.strip().split("\\n\\n+");
+        List<String> kept = new ArrayList<>();
+        boolean hasFinancialSection = false;
+        for (String block : blocks) {
+            String trimmed = block.strip();
+            if (trimmed.isEmpty()) continue;
+            String firstLine = trimmed.lines().findFirst().orElse("").strip();
+            if (FINANCIAL_TITLES.contains(firstLine)) {
+                hasFinancialSection = true;
+                continue;
+            }
+            List<String> safeLines = trimmed.lines()
+                    .filter(line -> !line.contains("账户余额") && !line.contains("银行卡"))
+                    .limit(4)
+                    .toList();
+            if (!safeLines.isEmpty()) kept.add(String.join("\n", safeLines));
+        }
+        if (hasFinancialSection) kept.add("财务与资产：已包含在邮件正文中。");
+        String joined = String.join("\n", kept).strip();
+        return joined.length() > 260 ? joined.substring(0, 260) + "…" : joined;
     }
 }
