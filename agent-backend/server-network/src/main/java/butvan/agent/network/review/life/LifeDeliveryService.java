@@ -28,7 +28,7 @@ public class LifeDeliveryService {
             var s = authorization.require(owner);
             if (!s.feishu() || channels.size() != 1 || !content.grantId().equals(s.grantId())
                     || content.settingsRevision() != s.revision() || !barrier.isCurrent(content.generation())
-                    || !Set.of("READY", "DEGRADED").contains(content.state()))
+                    || !LifeOutreachPolicy.isDeliverable(content))
                 throw new IllegalArgumentException("此版本不在当前飞书投递授权内");
             if (automationClock.instant().isBefore(content.availableAt())) throw new IllegalArgumentException("复盘已顺延，尚未到呈现时间");
             Delivery d = new TransactionTemplate(transactions).execute(tx -> {
@@ -59,8 +59,6 @@ public class LifeDeliveryService {
         if (c.draft() != null) {
             c.draft().observations().forEach(o -> text.append("\n").append(o.text()).append("\n依据：").append(String.join("、", o.evidenceIds())));
             c.draft().actions().forEach(a -> text.append("\n建议：").append(a.text()).append("\n依据：").append(String.join("、", a.evidenceIds())));
-        } else {
-            c.materials().stream().limit(3).forEach(m -> text.append("\n原始记录：").append(m.text()).append("（").append(m.occurredAt()).append("）"));
         }
         c.questions().forEach(q -> text.append("\n").append(q));
         if (!c.message().isBlank()) text.append("\n").append(c.message());

@@ -56,7 +56,7 @@ public class LifeOutreachService {
     public void propose(String owner, String contentId) {
         var s = authorization.require(owner);
         var content = repository.content(owner, contentId).orElseThrow(() -> new IllegalArgumentException("来源内容不存在"));
-        if (!s.proactive() || !s.grantId().equals(content.grantId()) || !Set.of("READY", "DEGRADED").contains(content.state()))
+        if (!s.proactive() || !s.grantId().equals(content.grantId()) || !LifeOutreachPolicy.isDeliverable(content))
             throw new IllegalArgumentException("请先授权主动呈现并完成复盘");
         Instant now = automationClock.instant();
         requireCapacity(owner, "review-" + content.day(), "daily");
@@ -73,7 +73,7 @@ public class LifeOutreachService {
             throw new IllegalArgumentException("请填写有效主题、来源和事件类型");
         var c = repository.content(owner, input.contentId()).orElseThrow(() -> new IllegalArgumentException("来源复盘不存在"));
         if (!c.grantId().equals(s.grantId()) || c.settingsRevision() != s.revision()
-                || !Set.of("READY", "DEGRADED").contains(c.state())) throw new IllegalArgumentException("来源不在当前授权范围内");
+                || !LifeOutreachPolicy.isDeliverable(c)) throw new IllegalArgumentException("来源不在当前授权范围内");
         String source = c.materials().stream().filter(m -> m.id().equals(input.evidenceId()))
                 .map(m -> m.kind() + ":" + m.sourceId() + ":" + m.text()).findFirst().orElseGet(() ->
                     c.facts().stream().filter(f -> f.id().equals(input.evidenceId())).map(f ->
@@ -104,6 +104,10 @@ public class LifeOutreachService {
             if (!c.state().equals("PENDING")) continue;
             if (!now.isBefore(c.expiresAt())) {
                 repository.candidateState(owner, c.id(), "PENDING", "EXPIRED", null, ""); continue;
+            }
+            var content = repository.content(owner, c.contentId());
+            if (content.isEmpty() || !LifeOutreachPolicy.isDeliverable(content.get())) {
+                repository.candidateState(owner, c.id(), "PENDING", "CANCELLED", null, ""); continue;
             }
             if (now.isBefore(due(c))) continue;
             // 冷启动：全域每日最多一次，同主题至少24小时；无新信息由唯一键阻止入队。

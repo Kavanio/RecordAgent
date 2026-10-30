@@ -37,13 +37,13 @@ async function click(label) {
 }
 test('生活与统计复盘从设置侧栏切换，页面顶部不再叠加Tab栏', async () => {
   await render();
-  assert.equal(view.query('h1').textContent, '生活复盘与主动联系');
+  assert.equal(view.query('h1').textContent, '生活复盘');
   assert.equal(view.query('[aria-label="复盘类型"]'), null);
   await click('统计复盘');
   assert.equal(view.query('h1').textContent, '统计复盘');
   assert.equal(view.queryAll('h1').length, 1);
   await click('生活复盘');
-  assert.equal(view.query('h1').textContent, '生活复盘与主动联系');
+  assert.equal(view.query('h1').textContent, '生活复盘');
   assert.ok(calls.every(c => !c.init?.method || c.init.method === 'GET'));
 });
 test('两类复盘都显示完整空状态说明，已有统计入口可直接进入', async () => {

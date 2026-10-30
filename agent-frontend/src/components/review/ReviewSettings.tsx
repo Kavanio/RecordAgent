@@ -1,3 +1,5 @@
+import { ReviewGuide } from './ReviewGuide';
+import { ReviewDisclosure } from './ReviewDisclosure';
 import { ReviewEmptyState } from './ReviewEmptyState';
 import { STATE_TEXT, requestId, yesterday } from '../../features/review/statisticsReviewPresentation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -97,13 +99,12 @@ export function ReviewSettings() {
     () => (activeProvider?.models ?? []).filter(model => model.name && model.providerId !== '__none__'),
     [activeProvider],
   );
-
-  async function act(work: () => Promise<unknown>, success: string) {
+  async function act(work: () => Promise<unknown>, success?: string) {
     if (busy) return;
     setBusy(true);
     try {
       await work();
-      showMessage('success', success);
+      if (success) showMessage('success', success);
       await load();
     } catch (cause) {
       showMessage('error', cause instanceof Error ? cause.message : '操作失败');
@@ -111,15 +112,12 @@ export function ReviewSettings() {
       setBusy(false);
     }
   }
-
   function patch(next: Partial<ReviewSettings>) {
     setSettings(current => (current ? { ...current, ...next } : current));
   }
-
   function toggle<T extends string>(values: T[], value: T): T[] {
     return values.includes(value) ? values.filter(item => item !== value) : [...values, value];
   }
-
   function save() {
     if (!settings) return;
     void act(async () => { await saveReviewSettings({
@@ -133,7 +131,6 @@ export function ReviewSettings() {
       modelName: settings.modelName,
     }); setConfigOpen(false); }, '长期复盘设置已保存；修改范围后需要重新授权');
   }
-
   function grant() {
     if (!settings || !consent) return;
     void act(async () => {
@@ -141,12 +138,10 @@ export function ReviewSettings() {
       setConsent(false); setConsentOpen(false);
     }, '已按当前范围授予自动复盘权限');
   }
-
   function revoke() {
     if (!settings?.grant) return;
     void act(() => revokeReviewConsent(settings.grant!.id, settings.grant!.revision), '已撤销授权，未发送的 AI 邮件将改用基础报告');
   }
-
   function addGoal() {
     if (!goalTitle.trim()) return;
     void act(async () => {
@@ -155,13 +150,11 @@ export function ReviewSettings() {
       setGoalTitle(''); setGoalCriterion(''); setGoalConstraint(''); setGoalOpen(false);
     }, '目标已保存');
   }
-
   function archiveGoal(goal: ReviewGoal) {
     void act(() => saveReviewGoal({ expectedRevision: goal.revision, title: goal.title,
       constraintText: goal.constraintText, successCriterion: goal.successCriterion, state: 'ARCHIVED' }, goal.id),
       '目标已归档');
   }
-
   function runPreview() {
     if (!settings) return;
     setPreviewOpen(false);
@@ -170,19 +163,16 @@ export function ReviewSettings() {
       const result = await previewReview({ requestId: requestId('preview'), period: 'DAILY_REPORT',
         from: day, to: day, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, confirmedPaidCall: true });
       setDetail(result);
-      if (result.state !== 'SUCCEEDED') showMessage('info', result.message || '本次 AI 复盘未生成，数据不受影响');
-    }, 'AI 复盘预览已生成，不会发送邮件');
+      showMessage(result.state === 'SUCCEEDED' ? 'success' : 'info', result.state === 'SUCCEEDED' ? 'AI 复盘预览已生成，不会发送邮件' : result.message || '本次 AI 复盘未生成，数据不受影响');
+    });
   }
-
   function capture() {
     const day = yesterday();
     void act(() => captureReviewFacts(day, day, Intl.DateTimeFormat().resolvedOptions().timeZone), '已采集最近一天的事实摘要');
   }
-
   function openDetail(id: string) {
-    void act(async () => setDetail(await fetchReviewDetail(id)), '复盘详情已读取');
+    void act(async () => setDetail(await fetchReviewDetail(id)));
   }
-
   function feedback() {
     if (!feedbackTarget) return;
     const { action, decision } = feedbackTarget;
@@ -196,7 +186,6 @@ export function ReviewSettings() {
       setFeedbackTarget(null); setFeedbackText('');
     }, '反馈已保存');
   }
-
   function correct() {
     if (!correctionTarget) return;
     void act(async () => {
@@ -207,9 +196,7 @@ export function ReviewSettings() {
       setCorrectionTarget(null); setCorrectionText('');
     }, '观察已处理，后续不会再作为自动召回证据');
   }
-
-  const waiting = settings ? !settings.authorized : true;
-
+  const waiting = settings ? !settings.enabled || !settings.authorized : true;
   return (
     <SettingsPageLayout
       title="统计复盘"
@@ -218,9 +205,9 @@ export function ReviewSettings() {
       actions={<Button variant="outline" size="sm" icon={<RefreshCw size={14} />} disabled={busy} onClick={() => void load()}>刷新</Button>}
     >
       {error && <p className={styles.error} role="alert">{error}</p>}
-
       {settings && (
         <>
+          <ReviewGuide enabled={settings.enabled} authorized={settings.authorized} statistics />
           <SettingsGroup title="统计复盘配置" description="使用独立的统计摘要授权，按需调整周期、数据范围与固定模型。">
             <SettingsRow label={settings.enabled ? '统计复盘已启用' : '统计复盘未启用'} description={`${settings.modelName || '尚未选择模型'} · 回看${settings.historyDays}天 · 每日上限${settings.dailyLimit}次`}
               control={<Button size="sm" disabled={busy} onClick={() => { setSavedDraft(settings); setConfigOpen(true); }}>配置统计复盘</Button>} />
@@ -245,13 +232,13 @@ export function ReviewSettings() {
                   <input type="checkbox" checked={settings.domains.includes(item.id)} disabled={busy}
                     onChange={() => patch({ domains: toggle(settings.domains, item.id) })} />{item.label}
                 </label>))}</div>} />
-            <SettingsRow label="最多回看" description="事实摘要只采集已结束自然日，最大 180 天。"
+            <ReviewDisclosure title="高级设置" description="调整统计读取范围与模型费用保护。"><SettingsRow label="最多回看" description="事实摘要只采集已结束自然日，最大 180 天。"
               control={<TextInput className={styles.number} aria-label="最多回看天数" type="number" min={1} max={180} value={settings.historyDays}
                 disabled={busy} onChange={event => patch({ historyDays: Number(event.target.value) })} />} />
             <SettingsRow label="每天自动生成上限" description="用于限制付费调用；失败不会自动重试。"
               control={<TextInput className={styles.number} aria-label="每天自动生成上限" type="number" min={1} max={3} value={settings.dailyLimit}
                 disabled={busy} onChange={event => patch({ dailyLimit: Number(event.target.value) })} />} />
-            <SettingsRow label="复盘模型" layout="stacked" description="固定使用所选模型，不跟随聊天默认模型切换。"
+            </ReviewDisclosure><SettingsRow label="复盘模型" layout="stacked" description="固定使用所选模型，不跟随聊天默认模型切换。"
               control={<div className={styles.selects}>
                 <Select label="模型连接" placeholder="请选择模型连接" fieldSize="md" fullWidth
                   value={settings.providerId} disabled={busy}
@@ -268,11 +255,10 @@ export function ReviewSettings() {
                   onChange={event => patch({ modelName: event.target.value })} />
               </div>} />
           </SettingsGroup>
-
           </ReviewFormModal>
           <SettingsGroup title="授权" description="长期复盘需要单独授权，不会复用聊天中的逐次确认。">
             <SettingsRow label="当前状态" description={settings.authorized
-              ? `已授权 ${settings.grant?.periods.join('、')}；撤销后不再采集或生成。`
+              ? `已授权 ${settings.grant?.periods.map(id => PERIODS.find(p => p.id === id)?.label || id).join('、')}；撤销后不再采集或生成。`
               : '尚未授权，或配置范围已扩大、模型接收方已变化。'}
               control={<span className={settings.authorized ? styles.ok : styles.warn}>{settings.authorized ? '已授权' : '未授权'}</span>} />
             {!settings.authorized && <SettingsRow label="确认范围" description="核对已保存的范围与固定模型后再授权。" control={<Button size="sm" disabled={busy} onClick={() => { setConsent(false); setConsentOpen(true); }}>查看统计授权</Button>} />}
@@ -292,7 +278,6 @@ export function ReviewSettings() {
                 control={<Button variant="outline" size="sm" disabled={busy} onClick={revoke}>撤销</Button>} />
             )}
           </SettingsGroup>
-
           <SettingsGroup title="我的目标" description="目标只由你维护，模型只能引用，不能改写。最多 3 个有效目标。">
             {goals.map(goal => (
               <SettingsRow key={goal.id} label={goal.title} description={`${goal.constraintText || '无额外约束'} · ${goal.successCriterion || '未填写衡量方式'} · ${STATE_TEXT[goal.state] ?? goal.state}`}
@@ -314,17 +299,15 @@ export function ReviewSettings() {
               </div>} />
             </ReviewFormModal>
           </SettingsGroup>
-
-          <SettingsGroup title="预览与数据" description="预览会真实调用模型并产生费用，不发送邮件，也不写入长期建议。">
+          <SettingsGroup title="先看一份预览" description="预览会真实调用模型并产生费用，不发送邮件，也不写入长期建议。">
             <SettingsRow label="生成一次预览" description="使用昨天的已结束自然日，明确确认后才调用模型。"
               control={<Button variant="primary" size="sm" icon={<Sparkles size={14} />} disabled={busy || waiting}
                 onClick={() => setPreviewOpen(true)}>生成预览</Button>} />
-            <SettingsRow label="采集事实摘要" description="只读取已授权统计范围，不调用模型。"
+            <ReviewDisclosure title="数据维护" description="手动采集用于排查；日常使用无需操作。清除会删除复盘数据。"><SettingsRow label="采集事实摘要" description="只读取已授权统计范围，不调用模型。"
               control={<Button variant="outline" size="sm" icon={<Download size={14} />} disabled={busy || waiting} onClick={capture}>采集昨天</Button>} />
             <SettingsRow label="清除复盘数据" description="撤销授权并删除本机复盘摘要、目标和建议；聊天与账本不受影响。"
-              control={<Button variant="danger" size="sm" icon={<Trash2 size={14} />} disabled={busy} onClick={() => setEraseOpen(true)}>清除</Button>} />
+              control={<Button variant="danger" size="sm" icon={<Trash2 size={14} />} disabled={busy} onClick={() => setEraseOpen(true)}>清除</Button>} /></ReviewDisclosure>
           </SettingsGroup>
-
           <SettingsGroup title="复盘历史" description="点击查看依据；历史不会自动重新调用模型。">
             {history.length === 0 && <ReviewEmptyState title="还没有生成过复盘" description="生成后的统计复盘和对应依据会保留在这里。" />}
             {history.map(item => (
@@ -333,7 +316,6 @@ export function ReviewSettings() {
                 control={<Button variant="ghost" size="sm" disabled={busy} onClick={() => openDetail(item.id)}>查看</Button>} />
             ))}
           </SettingsGroup>
-
           <SettingsGroup title="建议与观察" description="反馈由你提交；未反馈不会被判定为失败。">
             {memory.actions.length === 0 && memory.observations.length === 0 && <ReviewEmptyState title="还没有建议" description="复盘产生建议或观察后，可以在这里查看并反馈。" />}
             {memory.actions.map(action => (
@@ -350,7 +332,7 @@ export function ReviewSettings() {
                     <Button key={item.id} variant="outline" size="sm" disabled={busy}
                       onClick={() => { setFeedbackTarget({ action, decision: item.id }); setFeedbackText(''); }}>{item.label}</Button>
                   ))}
-                  {['ACCEPTED', 'DEFERRED', 'COMPLETED', 'PARTIAL', 'NOT_DONE', 'UNKNOWN'].includes(action.state) && RESULTS.map(item => (
+                  {['ACCEPTED', 'COMPLETED', 'PARTIAL', 'NOT_DONE', 'UNKNOWN'].includes(action.state) && RESULTS.map(item => (
                     <Button key={item.id} variant="ghost" size="sm" disabled={busy}
                       onClick={() => { setFeedbackTarget({ action, decision: item.id }); setFeedbackText(''); }}>{item.label}</Button>
                   ))}
@@ -376,7 +358,6 @@ export function ReviewSettings() {
           </SettingsGroup>
         </>
       )}
-
       <ConfirmDialog open={previewOpen} title="生成 AI 复盘预览" tone="info" confirmText="确认生成"
         description="将调用你选择的模型一次，可能产生费用；只生成预览，不发送邮件，也不会保存为长期建议。"
         onClose={() => setPreviewOpen(false)} onConfirm={runPreview} />
@@ -389,7 +370,6 @@ export function ReviewSettings() {
             await eraseReviewData(settings.revision, true); setEraseOpen(false);
           }, '长期复盘数据已清除');
         }} />
-
       <ReviewInteractionModals detail={detail} feedbackDecision={feedbackTarget ? STATE_TEXT[feedbackTarget.decision] || feedbackTarget.decision : null}
         correctionOpen={Boolean(correctionTarget)} busy={busy} feedbackText={feedbackText} correctionText={correctionText}
         setFeedbackText={setFeedbackText} setCorrectionText={setCorrectionText} closeFeedback={() => setFeedbackTarget(null)}

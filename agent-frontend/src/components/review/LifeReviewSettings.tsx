@@ -1,3 +1,5 @@
+import { ReviewGuide } from './ReviewGuide';
+import { ReviewDisclosure } from './ReviewDisclosure';
 import { ReviewEmptyState } from './ReviewEmptyState';
 import { ReviewFormModal } from './ReviewFormModal';
 import { useState } from 'react';
@@ -28,15 +30,16 @@ export function LifeReviewSettings() {
   const [consent, setConsent] = useState(false);
   const [hour, setHour] = useState(12);
   const [habitSource, setHabitSource] = useState('');
-  const disabled = busy || state.dirty || !s?.authorized;
+  const disabled = busy || state.dirty || !s?.enabled || !s.authorized;
   const provider = state.providers.find(p => p.id === s?.providerId);
   function today() {
     const parts = new Intl.DateTimeFormat('en', { timeZone: s?.timezone || 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
     return ['year', 'month', 'day'].map(type => parts.find(part => part.type === type)?.value || '').join('-');
   }
-  return <SettingsPageLayout title="生活复盘与主动联系" description="先备好内容，再选择时机；没有回复也不会连着催。" loading={state.loading} loadingLabel="正在读取生活复盘">
+  return <SettingsPageLayout title="生活复盘" description="回顾近期经历，在一份复盘里阅读和补充。" loading={state.loading} loadingLabel="正在读取生活复盘">
     {state.error && <p role="alert" className={styles.error}>{state.error}<Button size="sm" onClick={() => void state.load()}>重新读取</Button></p>}
     {s && <>
+      <ReviewGuide enabled={s.enabled} authorized={s.authorized} />
       <SettingsGroup title="复盘设置" description="查看已保存的范围与运行状态，需要调整时再打开配置。">
         <SettingsRow label={s.enabled ? '生活复盘已启用' : '生活复盘未启用'} description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'}`}
           control={<Button size="sm" disabled={busy} onClick={() => setEditor('settings')}>配置复盘</Button>} />
@@ -61,11 +64,13 @@ export function LifeReviewSettings() {
         <SettingsRow label="固定模型" control={<Select aria-label="生活复盘固定模型" value={s.modelName} disabled={busy}
           options={[{ value: '', label: '请选择模型' }, ...(provider?.models || []).map(m => ({ value: m.name, label: m.name }))]}
           onChange={e => patch({ modelName: e.target.value })} />} />
+        <ReviewDisclosure title="高级设置" description="近期原文范围、时区与费用保护；不是长期记忆的保存期限。">
         <SettingsRow label="时区" control={<TextInput aria-label="生活复盘时区" value={s.timezone} disabled={busy} onChange={e => patch({ timezone: e.target.value })} />} />
-        <SettingsRow label="回看窗口（含复盘当天）" control={<TextInput aria-label="生活复盘回看天数" type="number" min={1} max={7}
+        <SettingsRow label="近期原文范围（含当天）" description="每次最多读取最近7天；更早经历尚未自动接入。" control={<TextInput aria-label="生活复盘回看天数" type="number" min={1} max={7}
           value={s.historyDays} disabled={busy} onChange={e => patch({ historyDays: Number(e.target.value) })} />} />
         <SettingsRow label="每日模型调用上限" description="失败调用同样占用额度；打开历史不会重新生成。" control={<TextInput aria-label="生活复盘每日上限"
           type="number" min={1} max={3} value={s.dailyLimit} disabled={busy} onChange={e => patch({ dailyLimit: Number(e.target.value) })} />} />
+        </ReviewDisclosure>
         <SettingsRow label="主动呈现" description="冷启动每天最多一次；同主题无新信息不重复，23:30后顺延到次日中午。"
           control={<input aria-label="主动呈现生活复盘" type="checkbox" checked={s.proactive} disabled={busy} onChange={e => patch({ proactive: e.target.checked })} />} />
         <SettingsRow label="投递到本人飞书" description={`${s.channelLabel}；目标只取已配置的本人白名单。飞书已读状态未知。`}
@@ -91,15 +96,19 @@ export function LifeReviewSettings() {
         {s.authorized && <SettingsRow label="撤销" control={<Button size="sm" disabled={busy || state.dirty}
           onClick={() => void act(() => lifeReviewApi.consent(s, false), '授权已撤销，未呈现候选已取消')}>撤销生活复盘授权</Button>} />}
       </SettingsGroup>
-      <SettingsGroup title="内容留档" description="每份内容标明归属日、覆盖截止点与版本。补充产生新版本，保留已发送副本；准备中可稍后刷新。">
+      <SettingsGroup title="我的复盘" description="每份内容标明归属日、覆盖截止点与版本。补充产生新版本，保留已发送副本；准备中可稍后刷新。">
         <SettingsRow label="准备今天" description="使用当前已授权来源，后台调用固定模型；受当日调用上限保护。"
           control={<div className={styles.choices}><Button size="sm" variant="primary" disabled={disabled}
             onClick={() => void act(() => lifeReviewApi.prepare(today()), '已安排后台准备；已有版本会直接复用')}>准备今天的复盘</Button>
             <Button size="sm" disabled={busy || state.dirty} onClick={() => void state.load()}>刷新内容与状态</Button></div>} />
         {state.history.length === 0 && <ReviewEmptyState title="还没有生活复盘" description="准备一份当天复盘后，内容和历史版本会保留在这里。" />}
-        {state.history.map(c => <LifeContentCard key={c.id} content={c} timezone={c.timezone || s.timezone} busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />)}
+        {state.history.slice(0, 1).map(c => <LifeContentCard key={c.id} content={c} timezone={c.timezone || s.timezone} busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />)}
+        {state.history.length > 1 && <ReviewDisclosure title={`历史版本（${state.history.length - 1}）`} description="旧版保留原内容；展开查看，不会重新生成。">
+          {state.history.slice(1).map(c => <LifeContentCard key={c.id} content={c} timezone={c.timezone || s.timezone} busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />)}
+        </ReviewDisclosure>}
         {state.archives.map((a, i) => <details key={i}><summary>重置前的只读外发副本 {i + 1}</summary><p className={styles.archive}>{a}</p></details>)}
       </SettingsGroup>
+      <ReviewDisclosure title="主动联系（可选）" description="不影响阅读复盘。展开后管理联系时间、事件和发送记录。">
       <SettingsGroup title="作息候选与纠正" description="只在你明确提供后使用，30天后失效；没有互动不代表没起床或身体异常。">
         <SettingsRow label="当前候选" description={state.habit ? `${state.habit.active ? "生效中" : "已停用"} · ${state.habit.availableHour}点后 · ${state.habit.source} · ${state.habit.uncertainty} · 有效至${state.habit.expiresAt}` : '尚未形成作息候选，采用保守规则。'}
           control={state.habit && <Button size="sm" disabled={disabled || !state.habit.active} onClick={() => void act(() => lifeReviewApi.saveHabit(
@@ -117,11 +126,12 @@ export function LifeReviewSettings() {
       <LifeEventCandidateEditor busy={busy} history={state.history} disabled={disabled || !s.proactive} act={act} />
       <SettingsGroup title="主动记录与反馈" description="等待、过期、取消与已呈现分别记录。未回复不会被判为失败，也不会触发追问。">
         {state.candidates.length === 0 && <ReviewEmptyState title="暂无主动候选" description="有值得呈现的新信息时，候选和后续反馈会记录在这里。" />}
-        {state.candidates.map(c => <SettingsRow key={c.id} label={c.topic} description={`${CANDIDATE_STATES[c.state] || c.state} · 最早${c.dueAt} · 到期${c.expiresAt}${c.feedback ? ` · ${c.feedback}` : ''}`}
+        {state.candidates.map(c => <SettingsRow key={c.id} label={c.topic.startsWith('review-') ? `${c.topic.slice(7)} 生活复盘` : c.topic} description={`${CANDIDATE_STATES[c.state] || c.state} · 最早${new Date(c.dueAt).toLocaleString('zh-CN', { timeZone: s.timezone })} · 到期${new Date(c.expiresAt).toLocaleString('zh-CN', { timeZone: s.timezone })}${c.feedback ? ` · ${c.feedback}` : ''}`}
           control={<div className={styles.choices}>{(c.state === 'PENDING' ? ['CANCEL'] : ['HELPFUL', 'NOT_RELEVANT']).map(decision =>
             <Button key={decision} size="sm" disabled={busy} onClick={() => void act(() => lifeReviewApi.feedback(c.id, decision), '反馈已记录')}>
               {decision === 'CANCEL' ? '取消候选' : decision === 'HELPFUL' ? '有帮助' : '不相关'}</Button>)}</div>} />)}
       </SettingsGroup>
+      </ReviewDisclosure>
     </>}
   </SettingsPageLayout>;
 }

@@ -82,7 +82,7 @@ test('未知飞书结果显示人工核对且没有补发按钮，原文来源�
 test('人工事件必须选择现有版本和真实依据，记录候选不直接发送或重新生成', async () => {
   settings.authorized = true; settings.proactive = true;
   history = [{ id: 'content-1', day: '2026-10-30', timezone: 'Asia/Shanghai', version: 1, state: 'READY', sourceAsOf: '2026-10-30T13:00:00Z',
-    availableAt: '2026-10-30T13:00:00Z', coverage: '有限资料', message: '', items: [], questions: [], deliveries: [], facts: [],
+    availableAt: '2026-10-30T13:00:00Z', coverage: '有限资料', message: '', items: [{ kind: 'FACT_OBSERVATION', text: '测试回顾', evidenceIds: ['journal-1'], uncertainty: '' }], questions: [], deliveries: [], facts: [],
     materials: [{ id: 'journal-1', kind: 'JOURNAL', sourceId: 'record-1', occurredAt: '2026-10-30', text: '虚构的新信息', truncated: false }] }];
   await render();
   await click('添加事件');
@@ -171,4 +171,34 @@ test('补充输入仅在弹窗打开后出现，关闭不生成新版本', async
   assert.ok(query('[role="dialog"] textarea'));
   await act(async () => query('button[aria-label="关闭"]').click());
   assert.equal(query('textarea'), null); assert.equal(actions, 0);
+});
+
+test('失败版本明确显示未生成，诊断默认折叠且不提供飞书发送', async () => {
+  const content = { id: 'failed', day: '2026-10-30', version: 1, state: 'DEGRADED', sourceAsOf: '2026-10-30T13:00:00Z',
+    availableAt: '2026-10-30T13:00:00Z', providerId: 'internal-provider', modelName: 'test-model', coverage: 'technical-budget',
+    message: '模型请求超时', materials: [], facts: [{ id: 'f1', metric: 'asset_balance_book_reconstruction', value: '45076', unit: 'MONEY_MINOR', currency: 'CNY', period: '2026-10-30' }],
+    items: [], questions: [], deliveries: [] };
+  view = await mount(React.createElement(Card, { content, timezone: 'Asia/Shanghai', busy: false, authorized: true, feishu: true, act: async () => {} }));
+  assert.match(document.body.textContent, /本次没有生成复盘正文/);
+  assert.match(document.body.textContent, /450\.76 元/);
+  assert.ok(!queryAll('button').some(b => b.textContent.includes('发送')));
+  const diagnostics = queryAll('details').find(d => d.querySelector('summary').textContent.includes('诊断'));
+  assert.equal(diagnostics.open, false);
+  assert.match(diagnostics.textContent, /technical-budget/);
+});
+
+test('统计预览降级只提示未生成，不弹生成成功消息', async () => {
+  const { ReviewSettings } = await loadModule('/src/components/review/ReviewSettings.tsx');
+  stub.respond((url) => {
+    if (url.pathname.endsWith('/settings')) return jsonResponse({ ...settings, authorized: true, periods: ['DAILY_REPORT'], domains: ['STUDY'], grant: { periods: ['DAILY_REPORT'] } });
+    if (url.pathname.endsWith('/memory')) return jsonResponse({ actions: [], observations: [] });
+    if (url.pathname.endsWith('/preview')) return jsonResponse({ state: 'DEGRADED', message: '模型不可用，本次未生成', observations: [], actions: [], followUps: [] });
+    if (url.pathname.includes('/agent/reviews')) return jsonResponse([]);
+    return jsonResponse({ providers: [] });
+  });
+  view = await mount(React.createElement(MessageProvider, null, React.createElement(ReviewSettings)));
+  await click('生成预览'); await click('确认生成');
+  assert.match(document.body.textContent, /模型不可用，本次未生成/);
+  assert.doesNotMatch(document.body.textContent, /AI 复盘预览已生成/);
+  assert.match(document.body.textContent, /已授权 日报/);
 });

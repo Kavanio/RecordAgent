@@ -148,7 +148,13 @@ public class LifeReviewService {
                     var current = valid(c);
                     materials.verify(current, c.materials());
                     personal.verify(current, c.materials());
-                    publish(c.finish("DEGRADED", null, "本次生成不可用，未自动重试；现有材料不代表完整一天。"));
+                    String reason = e instanceof ReviewGenerator.ReviewGenerationException failure ? switch (failure.kind()) {
+                        case TIMEOUT -> "模型请求超时";
+                        case INVALID -> "模型输入或返回格式不符合复盘要求";
+                        case UNAVAILABLE -> "模型连接或服务不可用";
+                        case CANCELLED -> "模型生成已取消";
+                    } : "生成过程未完成";
+                    publish(c.finish("DEGRADED", null, reason + "；未自动重试，参考资料仅在桌面保留。"));
                 }
                 catch (RuntimeException invalid) {
                     repository.finish(original.finish("SKIPPED", null, "授权、期限或代次已失效，结果已丢弃"), "RUNNING");

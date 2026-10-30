@@ -21,7 +21,7 @@ export function LifeEventCandidateEditor({ history, disabled, busy, act }: Props
   const [contentId, setContentId] = useState('');
   const [evidence, setEvidence] = useState('');
   const [kind, setKind] = useState<'EVENT' | 'RECOVERY'>('EVENT');
-  const options = history.filter(c => ['READY', 'DEGRADED'].includes(c.state));
+  const options = history.filter(c => c.state === 'READY' && c.items.length > 0);
   const content = options.find(c => c.id === contentId);
   const sources = [
     ...(content?.materials || []).map(m => ({ value: m.id, label: `${m.occurredAt} · ${m.text.slice(0, 40)}` })),

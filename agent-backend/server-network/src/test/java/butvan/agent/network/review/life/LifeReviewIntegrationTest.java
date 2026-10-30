@@ -234,6 +234,10 @@ class LifeReviewIntegrationTest {
         ready(true, true);
         when(materials.collect(any(), eq(DAY.minusDays(1)), any())).thenReturn(new LifeMaterialService.Collected(
                 List.of(new Material("journal-yesterday", "JOURNAL", "r2", DAY.minusDays(1).toString(), "昨天的另一件虚构经历", false)), List.of(), "昨天有限材料"));
+        // 第二份复盘也须引用自身证据，不能依赖降级原文投递来验证冷却。
+        when(generator.generate(any())).thenReturn(new ReviewDraft(1, "昨天有限材料", List.of(
+                new ReviewDraft.Observation("life.other", "FACT_OBSERVATION", "昨天记录了另一件经历。",
+                        List.of("journal-yesterday"), List.of(), "有限材料")), List.of(), List.of()));
         reviews.prepare("owner", new Prepare(DAY.minusDays(1), 0, false)); reviews.tick();
         outreach.tick("owner"); outreach.tick("owner");
         verify(channel, times(1)).send(anyString(), anyString(), anyString());
@@ -268,6 +272,25 @@ class LifeReviewIntegrationTest {
         ready(true, true); outreach.tick("owner");
         assertTrue(outreach.candidates("owner").isEmpty());
         verify(channel, never()).send(anyString(), anyString(), anyString());
+    }
+    @Test void failedGenerationKeepsMaterialsLocallyAndCannotDeliverRawRecords() {
+        when(generator.generate(any())).thenThrow(new ReviewGenerator.ReviewGenerationException(
+                ReviewGenerator.ReviewGenerationException.Kind.TIMEOUT, "secret-provider-response"));
+        var c = ready(true, true);
+        assertEquals("DEGRADED", c.state());
+        assertFalse(c.materials().isEmpty());
+        assertTrue(c.message().contains("超时"));
+        assertFalse(c.message().contains("secret-provider-response"));
+        assertTrue(outreach.candidates("owner").isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> delivery.send("owner", c.id(), false));
+        assertThrows(IllegalArgumentException.class, () -> outreach.event("owner",
+                new EventCandidate("失败事件", c.id(), "journal-1", "EVENT")));
+        repository.candidate(new Candidate("legacy-failed", "owner", "旧失败版本", "legacy", c.id(), c.id(),
+                "PENDING", NOW, NOW.plusSeconds(3600), NOW, null, ""));
+        outreach.tick("owner");
+        assertTrue(outreach.candidates("owner").stream().anyMatch(v -> v.id().equals("legacy-failed") && v.state().equals("CANCELLED")));
+        verify(channel, never()).send(anyString(), anyString(), anyString());
+        assertFalse(LifeDeliveryService.render(repository.latest("owner", DAY).orElseThrow()).contains("原始记录："));
     }
     @Test void httpWritesRequireObservedResetGenerationBeforePreparingContent() throws Exception {
         authorize(false, false);

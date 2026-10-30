@@ -2,6 +2,7 @@
 .card p { margin: 8px 0; font-size: 13px; }
 .header { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
 .header strong { font-size: 14px; font-weight: 600; }
+.notice { background: var(--bg-secondary, #f5f7fa); padding: 14px 16px; border-radius: 10px; margin: 14px 0; }
 .header > span { font-size: 12px; color: var(--text-secondary); background: var(--bg-secondary, #f5f6f8); padding: 3px 8px; border-radius: 6px; }
 .card .muted { color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-top: 16px; }

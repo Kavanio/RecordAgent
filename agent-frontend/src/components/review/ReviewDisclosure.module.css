@@ -1,0 +1,5 @@
+.section { border: 1px solid var(--border-subtle); border-radius: 14px; margin: 20px 0; }
+.section > summary { cursor: pointer; padding: 16px 20px; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.section > summary span { display: block; font-size: 12px; font-weight: 400; color: var(--text-secondary); margin-top: 6px; line-height: 1.6; }
+.content { padding: 0 20px 16px; }
+.section > summary:focus-visible { outline: 2px solid var(--accent-color, #6098e8); outline-offset: 3px; border-radius: 14px; }
