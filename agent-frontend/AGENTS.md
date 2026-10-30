@@ -60,7 +60,8 @@ pnpm build   # tsc -b && vite build，类型检查与生产构建
 ## 生活复盘入口
 
 - 模型设置侧栏只保留“生活复盘”一个复盘入口，直接渲染 `components/review/LifeReviewSettings`，不在内容顶部叠加 Tab 栏；生活复盘 HTTP 统一经 `services/lifeReviewApi`。保存设置不授予权限，有未保存变更时不得授权或生成。
-- 统计复盘（`components/review/ReviewSettings` 与 `/agent/reviews`）**当前暂不挂设置入口**。组件、接口与测试全部保留，恢复只需在侧栏加回一项；不得因为隐藏而删除后端授权、冻结副本或清除能力。隐藏期间不新增统计复盘前端改动，除非是为了随本次恢复一起交付。
+- 统计复盘不再作为设置页签，改名为“报告邮件 AI 点评”，由 `components/review/ReportReviewSettings` 嵌入自动任务设置（`TaskSettings`）。它不自已定时：只有报告类任务开启邮件并成功生成后，才会轮到它在 `AutomationService` 里排队并向邮件追加正文。后端 `/agent/reviews` 接口与数据结构不变，不得因前端换位置而修改授权、冻结副本或清除语义。点评正文在任务执行历史（`TaskHistoryDrawer` 的“生成内容”）里看，不再单独提供统计复盘历史页。
+- 个人目标维护位于生活复盘页（`components/review/LifeGoalSettings`），因为生活复盘的 `GOALS` 来源与主动候选都引用它；后端使用同一组 `/agent/reviews/goals` 接口，不得另建目标表或让模型静默写入。
 - 版本卡片展示原始时区、归属日、覆盖截止点、来源与各渠道状态；打开历史只读，补充单独创建版本。飞书 UNKNOWN 仅显示人工核对说明，不提供自动或隐式重发。
 - 作息是用户明确提供的有期限候选；未回复不生成负反馈。前端不按本机日期推断后端时区的复盘归属日。
 

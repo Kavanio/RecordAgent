@@ -6,6 +6,7 @@ import { lifeReviewApi } from '../../services/lifeReviewApi';
 import type { LifeSource } from '../../types/lifeReview';
 import { useLifeReview } from './useLifeReview';
 import { LifeContentCard } from './LifeContentCard';
+import { LifeGoalSettings } from './LifeGoalSettings';
 import { LifeEventCandidateEditor } from './LifeEventCandidateEditor';
 import { SettingsPageLayout } from '../settings/SettingsPageLayout';
 import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
@@ -94,6 +95,7 @@ export function LifeReviewSettings() {
         </div>} />}
         </ReviewFormModal>
       </SettingsGroup>
+      <LifeGoalSettings />
       <SettingsGroup title="我的复盘" description="每份内容标明归属日、覆盖截止点与版本。补充产生新版本，保留已发送副本；准备中可稍后刷新。">
         <SettingsRow label="准备今天" description="使用当前已授权来源，后台调用固定模型；受当日调用上限保护。"
           control={<div className={styles.choices}><Button size="sm" variant="primary" disabled={disabled}

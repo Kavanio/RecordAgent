@@ -20,6 +20,7 @@ beforeEach(() => {
     else if (path.endsWith('/settings')) data = { revision: 1, enabled: false, authorized: false, sources: [], providerId: '', modelName: '',
       timezone: 'Asia/Shanghai', historyDays: 7, dailyLimit: 1, proactive: false, feishu: false, channelAvailable: false };
     else if (path.endsWith('/habit')) data = null;
+    else if (path.endsWith('/goals')) data = [];
     else if (path.includes('/life-reviews')) data = [];
     return jsonResponse(data);
   });

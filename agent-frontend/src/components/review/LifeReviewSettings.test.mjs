@@ -22,6 +22,7 @@ beforeEach(() => {
     }
     if (path.endsWith('/grant')) { settings = { ...settings, authorized: true }; return jsonResponse(settings); }
     if (path.endsWith('/habit')) return jsonResponse(null);
+    if (path.endsWith('/goals')) return jsonResponse([]);
     if (path.endsWith('/candidates') || path.endsWith('/archives')) return jsonResponse([]);
     if (path.endsWith('/life-reviews')) return jsonResponse(history);
     modelPath = path;
@@ -126,22 +127,10 @@ test('保存失败保留配置弹窗与用户输入，不隐式授权', async ()
   assert.equal(calls.filter(c => c.url.pathname.endsWith('/grant')).length, 0);
 });
 
-test('统计复盘首页不铺开配置与目标输入，取消编辑不写入', async () => {
-  const { ReviewSettings } = await loadModule('/src/components/review/ReviewSettings.tsx');
-  const stat = { ...settings, periods: ['DAILY_REPORT'], domains: ['STUDY'], authorized: false, grant: null };
-  stub.respond((url, init) => {
-    calls.push({ url, init });
-    if (url.pathname.endsWith('/settings')) return jsonResponse(stat);
-    if (url.pathname.endsWith('/memory')) return jsonResponse({ actions: [], observations: [] });
-    if (url.pathname.includes('/agent/reviews')) return jsonResponse([]);
-    return jsonResponse({ providers: [] });
-  });
-  view = await mount(React.createElement(MessageProvider, null, React.createElement(ReviewSettings)));
-  assert.equal(query('input[aria-label="最多回看天数"]'), null);
+test('目标维护在生活复盘内，新增表单只在弹窗出现', async () => {
+  await render();
   assert.equal(query('input[aria-label="目标名称"]'), null);
-  await click('配置统计复盘');
-  assert.ok(query('input[aria-label="最多回看天数"]'));
-  await act(async () => query('button[aria-label="关闭"]').click());
+  assert.match(document.body.textContent, /还没有设定目标/);
   await click('新增目标');
   assert.ok(query('input[aria-label="目标名称"]'));
   assert.ok(calls.every(c => !c.init?.method || c.init.method === 'GET'));
@@ -192,21 +181,6 @@ test('失败版本明确显示未生成，诊断默认折叠且不提供飞书�
   assert.match(query('[role="dialog"]').textContent, /模型请求超时/);
 });
 
-test('统计预览降级只提示未生成，不弹生成成功消息', async () => {
-  const { ReviewSettings } = await loadModule('/src/components/review/ReviewSettings.tsx');
-  stub.respond((url) => {
-    if (url.pathname.endsWith('/settings')) return jsonResponse({ ...settings, authorized: true, periods: ['DAILY_REPORT'], domains: ['STUDY'], grant: { periods: ['DAILY_REPORT'] } });
-    if (url.pathname.endsWith('/memory')) return jsonResponse({ actions: [], observations: [] });
-    if (url.pathname.endsWith('/preview')) return jsonResponse({ state: 'DEGRADED', message: '模型不可用，本次未生成', observations: [], actions: [], followUps: [] });
-    if (url.pathname.includes('/agent/reviews')) return jsonResponse([]);
-    return jsonResponse({ providers: [] });
-  });
-  view = await mount(React.createElement(MessageProvider, null, React.createElement(ReviewSettings)));
-  await click('生成预览'); await click('确认生成');
-  assert.match(document.body.textContent, /模型不可用，本次未生成/);
-  assert.doesNotMatch(document.body.textContent, /AI 复盘预览已生成/);
-  assert.match(document.body.textContent, /已授权 日报/);
-});
 
 test('参考记录仅在抽屉读取快照，分类过滤并兼容Java日期；关闭回焦且不调用接口', async () => {
   const content = { id: 'snapshot', day: '2026-10-30', timezone: 'Asia/Shanghai', version: 2, state: 'READY',
