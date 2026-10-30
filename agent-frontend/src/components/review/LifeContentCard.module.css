@@ -1,0 +1,6 @@
+.card { padding: 16px; border: 1px solid var(--color-border, #e4e7ec); border-radius: 12px; margin: 12px 0; }
+.header { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.muted { color: var(--color-text-secondary, #667085); font-size: 13px; line-height: 1.6; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.source { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; padding: 8px 0; }
+.input { width: 100%; box-sizing: border-box; border: 1px solid var(--color-border, #e4e7ec); border-radius: 8px; padding: 10px; resize: vertical; font: inherit; }

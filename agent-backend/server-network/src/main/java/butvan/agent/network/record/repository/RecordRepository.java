@@ -38,6 +38,18 @@ public class RecordRepository {
                 safe(type), safe(type), safe(tabId), safe(tabId), safe(tag), safe(tag), like, like, like);
     }
 
+    /** 生活复盘专用有界手记投影：数据库先限行与截断，排除回收及归档。 */
+    public List<butvan.agent.network.record.model.RecordModels.JournalFragment> journalFragments(
+            String owner, LocalDate from, LocalDate to) {
+        return jdbcTemplate.query("""
+                SELECT id,record_date,substr(content_text,1,600) AS fragment,updated_at,length(content_text)>600 AS truncated
+                FROM record_entry WHERE owner_id=? AND record_type='journal' AND archived=0 AND trashed_at IS NULL
+                  AND record_date>=? AND record_date<=? ORDER BY record_date DESC,updated_at DESC,id LIMIT 8
+                """, (r, n) -> new butvan.agent.network.record.model.RecordModels.JournalFragment(
+                    r.getString("id"), LocalDate.parse(r.getString("record_date")), r.getString("fragment"),
+                    Instant.parse(r.getString("updated_at")), r.getBoolean("truncated")), owner, from.toString(), to.toString());
+    }
+
     /** 查询资料引用候选，只读取选择器需要的轻量字段。 */
     public List<RecordReference> searchReferences(String ownerId, String query, int limit, int offset) {
         String normalized = query == null ? "" : query.trim();

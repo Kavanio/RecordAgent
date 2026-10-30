@@ -158,6 +158,8 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 - 提交结果必须说明：修改了什么、为何修改、验证结果、遗留风险以及需要用户决策的事项。
 - 每次代码修改完成并通过必要验证后，必须将本次修改提交到当前分支；提交前应确认范围并保留用户已有改动。不得自行创建分支、推送、发布或写入外部系统，除非用户明确要求。
 
+- 生活复盘与主动呈现位于 `agent-backend/server-network/src/main/java/butvan/agent/network/review/life/`，采用独立 `life-v1` 用途授权、文字材料、当天草稿及不可变版本，不继承统计复盘或经历记忆许可；修改来源、时机、投递或重置时须读取该目录 `AGENTS.md`。
+
 - 长期复盘默认关闭且保存配置不等于授权；只有用户显式确认范围、周期、回看窗口和固定模型连接后才可生成。模型选择固定为该连接，不跟随聊天默认模型；撤销授权立即生效并禁用未冻结的 AI 邮件副本，已经发送的邮件无法撤回。复盘生成在独立线程与短事务中运行，不阻塞原任务调度，失败、超时或超预算一律降级为基础报告且不自动重试；同一周期数据补录默认复用既有结果。复盘反馈只由用户提交，未反馈不得判为失败。
 
 ## 六、子级 DOX 索引
@@ -168,6 +170,7 @@ iOS 业务后端位于 `RecordAgent APP/IOS APP/backend/`，规划为独立 Spri
 - 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/RecordAgent/`（原生 iOS 技术栈、API 数据边界与工程约束）。
 - 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/backend/`（独立多用户业务后端、PostgreSQL 与 API 约束）。
 - 已建立子级 `AGENTS.md`：`agent-backend/server-network/src/main/java/butvan/agent/network/review/`（长期复盘授权、事实与记忆持久化契约）。
+- 已建立子级 `AGENTS.md`：`agent-backend/server-network/src/main/java/butvan/agent/network/review/life/`（生活复盘独立正文授权、版本、主动策略与渠道投递）。
 - 自动任务的细节约束见 `agent-backend/server-network/AGENTS.md` 的“自动任务”节；产品行为见 `docs/任务模块产品需求与操作说明.md`。
 - 根目录负责项目级工程规范、目录边界、架构契约与根文档。
 - 当 `agent-frontend/` 或 `agent-backend/` 出现独立且稳定的局部规则时，应分别建立中文 `AGENTS.md`，并在本节登记其职责范围。

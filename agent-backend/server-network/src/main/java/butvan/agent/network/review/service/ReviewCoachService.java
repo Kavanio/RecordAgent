@@ -121,6 +121,12 @@ public class ReviewCoachService {
     private String ownerOf(Job job) { return job.owner(); }
 
     private Job runOne(Job job) {
+        try (var lease = ReviewGenerationGate.tryEnter(job.owner())) {
+            return lease == null ? null : runClaimed(job);
+        }
+    }
+
+    private Job runClaimed(Job job) {
         try {
             var allowed = authorization.requireEnabled(job.owner());
             if (!allowed.grant().id().equals(job.grantId()) || allowed.settings().revision() != job.settingsRevision()) {
@@ -214,7 +220,7 @@ public class ReviewCoachService {
                 value.id(), value.domain(), value.metricKey(), display(value), value.unit(), value.currency(),
                 job.from() + "~" + job.to(), evidence.coverage(), job.createdAt().toString())).toList(),
                 memory.goals(), memory.actions(), memory.observations(), methods, limits.inputTokens(), limits.outputTokens(),
-                limits.requestSeconds() * 1_000L, allowed.settings().providerId(), allowed.settings().modelName());
+                limits.requestSeconds() * 1_000L, allowed.settings().providerId(), allowed.settings().modelName(), List.of(), allowed.settings().fingerprint());
     }
 
     /** 金额以元展示，其他单位保持原值；只由程序格式化，模型不参与计算。 */

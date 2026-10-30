@@ -129,9 +129,10 @@
 
 ## 长期复盘
 
-- `review/` 的局部契约位于 `src/main/java/butvan/agent/network/review/AGENTS.md`。长期复盘使用当前后端的 SQLite 保存用户级授权、事实摘要与目标，默认关闭；当前只建设基础能力，不能把保存授权视为已启用自动模型调用。
+- `review/` 的局部契约位于 `src/main/java/butvan/agent/network/review/AGENTS.md`。长期复盘使用当前后端的 SQLite 保存用户级授权、事实摘要与目标，默认关闭；统计复盘已提供有界后台生成；生活复盘扩展独立放在 `review/life/`，不能把保存设置视为已授权模型调用。
 - 后续自动报告复盘仅能使用独立、版本化、可撤销且绑定模型接收方与数据范围的授权；聊天／Slash Command 的财务分析继续逐次确认。长期授权不得被这些命令复用，真实模型调用接入前必须再次审核授权与执行状态机。
 - 事实经领域 Service 读取，金额按币种与分值保存；历史账本回溯不等于历史快照。事实、用户确认目标与 AI 推测必须分开；个人上下文仍须接入既有唯一 seam，禁止独立无限注入历史。
+- 生活复盘及主动策略扩展前读取 `src/main/java/butvan/agent/network/review/life/AGENTS.md`；同用户统计与生活复盘共享 `ReviewGenerationGate`，生成前、材料发布前及渠道发送前分别复核授权和重置准入。
 - 子级契约索引：`src/main/java/butvan/agent/network/review/AGENTS.md`（授权、模型连接指纹、摘要与目标）；实施规划见根目录 `docs/自动长期记忆复盘教练实施方案.md`。
 
 ## 模型配置

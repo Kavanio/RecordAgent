@@ -21,7 +21,7 @@ import { SlashCommandSettingsPage } from '../settings/SlashCommandSettingsPage';
 import { DailyContextSettingsPage } from '../settings/DailyContextSettingsPage';
 import { BackendConnectionSettings } from '../settings/BackendConnectionSettings';
 import { TaskSettings } from '../task/TaskSettings';
-import { ReviewSettings } from '../review/ReviewSettings';
+import { ReviewWorkspace } from '../review/ReviewWorkspace';
 import {
   getFeaturePreferences,
   setCalendarPreference,
@@ -60,7 +60,6 @@ import {
   Network,
 } from 'lucide-react';
 import styles from './ModelSettingsPage.module.css';
-
 interface ModelSettingsPageProps {
   onBack: () => void;
   initialTab?: string;
@@ -1095,7 +1094,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
 
         {activeTab === 'task' && <TaskSettings />}
 
-        {activeTab === 'review' && <ReviewSettings />}
+        {activeTab === 'review' && <ReviewWorkspace />}
 
         {activeTab === 'backend' && <BackendConnectionSettings />}
 

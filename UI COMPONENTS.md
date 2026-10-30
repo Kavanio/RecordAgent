@@ -255,3 +255,12 @@
 | FinanceCategoryPicker / FinanceCategoryCatalog | `Features/Finance/FinanceCategoryPicker.swift`、`FinanceCategoryCatalog.swift` | SwiftUI、SF Symbols、FinanceVisualStyle | 12 支出/6 收入预设分类、具体图标与自定义分类 | type、category Binding；symbol(category:type:) | 选中态、收支切换清除不适用预设；财务及日历记账共用；未知分类通用标签 |
 
 财务图表手机适配更新：通过模拟器构建、相关单元测试及 320/390 点屏宽与英文辅助字号的 SwiftUI 渲染检查；尚未进行真机验收。
+
+### 生活复盘与主动呈现
+
+| 组件 | 源码路径 | 样式与依赖 | 核心职责 | 接口契约 | 状态与应用场景 |
+| --- | --- | --- | --- | --- | --- |
+| ReviewWorkspace | `agent-frontend/src/components/review/ReviewWorkspace.tsx` | 同名 CSS Module、Button、LifeReviewSettings、ReviewSettings | 切换生活正文用途与既有统计用途的独立入口 | 无 Props；默认生活复盘，切换卸载旧面板 | 生活、统计；模型设置中的复盘页 |
+| LifeReviewSettings | `agent-frontend/src/components/review/LifeReviewSettings.tsx` | 同名 CSS Module、useLifeReview、SettingsPageLayout、SettingsGroup/SettingsRow、Select、TextInput、Button、Message | 独立范围、固定模型、版本留档、主动候选和作息纠正 | 无 Props；保存使旧授权失效，勾选确认后授权；脏草稿禁用授权与生成；按配置时区计算当天 | 加载、失败重试、未授权、已授权、未保存、准备中、无材料、只读存档 |
+| LifeContentCard | `agent-frontend/src/components/review/LifeContentCard.tsx` | 同名 CSS Module、lifeReviewApi、Button、ConfirmDialog | 展示一个不可变版本、依据、补问、原始材料和渠道状态 | `content`、`timezone`、`busy`、`authorized`、`feishu`、`act(work,message)`；补充使用稳定 requestId；发送须确认；UNKNOWN 不提供重试 | 排队、生成、已备好、降级、跳过、未知、投递失败；桌面留档 |
+| LifeEventCandidateEditor | `agent-frontend/src/components/review/LifeEventCandidateEditor.tsx` | 同名 CSS Module、SettingsGroup/SettingsRow、Select、TextInput、Button、lifeReviewApi | 从已授权版本选择真实证据，建立人工新信息或恢复候选 | `history`、`disabled`、`act(work,message)`；主题与证据必选；恢复须关联已呈现同主题事件；只记录候选，不直接生成或发送 | 无来源、选择版本与证据、新事件、恢复、忙碌禁用；生活复盘主动策略页 |

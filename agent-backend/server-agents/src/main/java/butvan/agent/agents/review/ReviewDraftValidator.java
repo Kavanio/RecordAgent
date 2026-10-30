@@ -22,6 +22,7 @@ public final class ReviewDraftValidator {
         if (draft.schemaVersion() != 1) issues.add("草案版本不受支持");
         Set<String> evidence = new HashSet<>();
         request.evidence().forEach(item -> evidence.add(item.id()));
+        request.narratives().forEach(item -> evidence.add(item.id()));
         Set<String> goals = new HashSet<>();
         request.goals().forEach(item -> goals.add(item.id()));
         Set<String> methods = new HashSet<>();
@@ -30,6 +31,7 @@ public final class ReviewDraftValidator {
         request.historyActions().forEach(item -> actions.add(item.id()));
         Map<String, String> evidenceValues = new HashMap<>();
         request.evidence().forEach(item -> evidenceValues.put(item.id(), item.value()));
+        request.narratives().forEach(item -> evidenceValues.put(item.id(), item.text()));
 
         List<ReviewDraft.Observation> observations = new ArrayList<>();
         for (ReviewDraft.Observation item : limit(draft.observations(), "观察", issues)) {

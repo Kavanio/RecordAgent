@@ -1,0 +1,5 @@
+.stack { display: flex; flex-direction: column; gap: 10px; max-width: 560px; width: 100%; }
+.choices { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.muted { color: var(--color-text-secondary, #667085); font-size: 13px; line-height: 1.7; }
+.error { color: #b42318; }
+.archive { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
