@@ -17,6 +17,7 @@ import type { FullModelConfig } from '../../types/model';
 import { SettingsPageLayout } from '../settings/SettingsPageLayout';
 import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
 import { Button } from '../common/Button';
+import { FormField } from '../common/FormField';
 import { Select } from '../common/Select';
 import { TextInput } from '../common/TextInput';
 import { ConfirmDialog } from '../common/ConfirmDialog';
@@ -220,13 +221,13 @@ export function ReviewSettings() {
                 onChange={event => patch({ enabled: event.target.checked })} aria-label="启用长期复盘" />} />
             <SettingsRow label="报告周期" layout="stacked" description="仅对勾选的报告类型生成 AI 复盘。"
               control={<div className={styles.chips}>{PERIODS.map(item => (
-                <label key={item.id} className={styles.chip}>
+                <label key={item.id} className={`${styles.chip} ${settings.periods.includes(item.id) ? styles.chipSelected : ''}`}>
                   <input type="checkbox" checked={settings.periods.includes(item.id)} disabled={busy}
                     onChange={() => patch({ periods: toggle(settings.periods, item.id) })} />{item.label}
                 </label>))}</div>} />
             <SettingsRow label="数据范围" layout="stacked" description="只读取统计摘要，不读取订单备注、资料或聊天正文。"
               control={<div className={styles.chips}>{DOMAINS.map(item => (
-                <label key={item.id} className={styles.chip}>
+                <label key={item.id} className={`${styles.chip} ${settings.domains.includes(item.id) ? styles.chipSelected : ''}`}>
                   <input type="checkbox" checked={settings.domains.includes(item.id)} disabled={busy}
                     onChange={() => patch({ domains: toggle(settings.domains, item.id) })} />{item.label}
                 </label>))}</div>} />
@@ -285,16 +286,21 @@ export function ReviewSettings() {
             ))}
             <SettingsRow label="添加目标" description="由你明确填写目标与约束，不由模型自动创建。" control={<Button size="sm" disabled={busy} onClick={() => { setGoalTitle(''); setGoalConstraint(''); setGoalCriterion(''); setGoalOpen(true); }}>新增目标</Button>} />
             <ReviewFormModal open={goalOpen} title="新增复盘目标" busy={busy} onClose={() => setGoalOpen(false)}>
-            <SettingsRow label="新增目标" layout="stacked"
-              control={<div className={styles.stack}>
-                <TextInput aria-label="目标名称" value={goalTitle} maxLength={200} placeholder="例如：每周完成三次学习" disabled={busy}
-                  onChange={event => setGoalTitle(event.target.value)} />
-                <TextInput aria-label="目标约束" value={goalConstraint} maxLength={500} placeholder="约束，例如：不牺牲睡眠" disabled={busy}
-                  onChange={event => setGoalConstraint(event.target.value)} />
-                <TextInput aria-label="目标衡量方式" value={goalCriterion} maxLength={300} placeholder="怎样算有进展" disabled={busy}
-                  onChange={event => setGoalCriterion(event.target.value)} />
-                <Button variant="outline" size="sm" icon={<Plus size={14} />} disabled={busy || !goalTitle.trim()} onClick={addGoal}>添加目标</Button>
-              </div>} />
+              <div className={styles.goalFields}>
+                <FormField label="目标内容" htmlFor="review-goal-title" required>
+                  <TextInput id="review-goal-title" aria-label="目标名称" value={goalTitle} maxLength={200} placeholder="例如：每周完成三次学习" disabled={busy}
+                    onChange={event => setGoalTitle(event.target.value)} />
+                </FormField>
+                <FormField label="执行约束" htmlFor="review-goal-constraint" hint="可留空，例如不牺牲睡眠。">
+                  <TextInput id="review-goal-constraint" aria-label="目标约束" value={goalConstraint} maxLength={500} placeholder="填写你希望遵守的边界" disabled={busy}
+                    onChange={event => setGoalConstraint(event.target.value)} />
+                </FormField>
+                <FormField label="进展标准" htmlFor="review-goal-criterion" hint="可留空，帮助复盘时判断是否有进展。">
+                  <TextInput id="review-goal-criterion" aria-label="目标衡量方式" value={goalCriterion} maxLength={300} placeholder="例如：每周至少读书 3 次" disabled={busy}
+                    onChange={event => setGoalCriterion(event.target.value)} />
+                </FormField>
+                <Button className={styles.addGoalButton} variant="primary" size="sm" icon={<Plus size={14} />} disabled={busy || !goalTitle.trim()} onClick={addGoal}>添加目标</Button>
+              </div>
             </ReviewFormModal>
           </SettingsGroup>
           <SettingsGroup title="先看一份预览" description="预览会真实调用模型并产生费用，不发送邮件，也不写入长期建议。">

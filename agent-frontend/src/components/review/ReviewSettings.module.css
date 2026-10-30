@@ -1,7 +1,13 @@
-.stack { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 420px; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--color-border, #e2e2e2); border-radius: 999px; font-size: 12px; cursor: pointer; }
-.chip input { margin: 0; }
+.stack { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; }
+.chips .chip { display: flex; min-width: 0; min-height: 40px; box-sizing: border-box; align-items: center; gap: 9px; padding: 8px 12px; border: 1px solid var(--border-subtle, #e2e2e2); border-radius: 10px; background: var(--bg-primary, #fff); color: var(--text-secondary, #475467); font-size: 13px; line-height: 1.35; cursor: pointer; transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease; }
+.chipSelected { border-color: color-mix(in srgb, var(--accent-color, #3b82f6) 42%, white); background: color-mix(in srgb, var(--accent-color, #3b82f6) 7%, white); color: var(--text-primary, #1f2937); }
+.chips .chip:hover { border-color: var(--border-focus, #93c5fd); }
+.chips .chip input { width: 16px; height: 16px; margin: 0; flex: none; }
+.goalFields { display: grid; gap: 16px; width: 100%; padding: 4px 0 2px; }
+.goalFields > div { width: 100%; }
+.goalFields > div > label { display: flex; align-items: center; }
+.addGoalButton { justify-self: end; min-width: 120px; }
 .textarea {
   border: 1px solid var(--color-border, #e2e2e2); border-radius: 8px; padding: 6px 10px;
   font: inherit; font-size: 13px; background: var(--color-surface, #fff); color: inherit;
@@ -12,6 +18,7 @@
 .textarea { width: 100%; resize: vertical; box-sizing: border-box; }
 @media (max-width: 640px) {
   .selects { grid-template-columns: minmax(0, 1fr); }
+  .chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .error { color: #b42318; font-size: 13px; margin: 0 0 12px; }
 .ok { color: #067647; font-size: 13px; }
