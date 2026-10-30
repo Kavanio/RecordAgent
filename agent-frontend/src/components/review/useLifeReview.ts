@@ -37,6 +37,12 @@ export function useLifeReview() {
     } finally { if (live.current && seq === sequence.current) setLoading(false); }
   }, []);
   useEffect(() => { live.current = true; void load(); return () => { live.current = false; }; }, [load]);
+  const generating = history.some(item => item.state === 'PENDING' || item.state === 'RUNNING');
+  useEffect(() => {
+    if (!generating) return;
+    const timer = window.setInterval(() => { if (live.current) void load(); }, 2000);
+    return () => window.clearInterval(timer);
+  }, [generating, load]);
   async function act(work: () => Promise<unknown>, message: string) {
     if (busy) return;
     setBusy(true);
@@ -46,5 +52,5 @@ export function useLifeReview() {
   }
   function patch(next: Partial<LifeSettings>) { setSettings(s => s ? { ...s, ...next } : s); setDirty(true); }
   function discard() { setSettings(saved.current); setDirty(false); }
-  return { discard, settings, history, candidates, habit, archives, providers, busy, loading, error, dirty, patch, load, act };
+  return { discard, settings, history, candidates, habit, archives, providers, busy, loading, generating, error, dirty, patch, load, act };
 }

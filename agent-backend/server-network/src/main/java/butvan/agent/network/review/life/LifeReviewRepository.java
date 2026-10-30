@@ -87,8 +87,16 @@ public class LifeReviewRepository {
         jdbc.update("UPDATE life_review_delivery SET state='UNKNOWN' WHERE state='SENDING'");
     }
     public boolean reserve(String owner, LocalDate day, int limit) {
-        return jdbc.update("INSERT INTO life_review_budget VALUES(?,?,1) ON CONFLICT(owner_id,usage_day) DO UPDATE SET calls=calls+1 WHERE calls<?",
-                owner, day.toString(), limit) == 1;
+        return jdbc.update("""
+                INSERT INTO life_review_budget VALUES(?,?,1)
+                ON CONFLICT(owner_id,usage_day) DO UPDATE SET calls=calls+1
+                WHERE calls<? OR (
+                    calls < 10 AND (
+                        SELECT COUNT(*) FROM life_review_content
+                        WHERE owner_id=? AND review_day=? AND state='READY'
+                    ) < ?
+                )
+                """, owner, day.toString(), limit, owner, day.toString(), limit) == 1;
     }
     /** 按用户和内容身份读取各渠道独立状态。 */
     public List<Delivery> deliveries(String owner, String contentId) {

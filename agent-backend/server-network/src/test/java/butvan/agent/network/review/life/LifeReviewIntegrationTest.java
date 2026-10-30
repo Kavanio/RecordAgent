@@ -291,6 +291,15 @@ class LifeReviewIntegrationTest {
         assertTrue(outreach.candidates("owner").stream().anyMatch(v -> v.id().equals("legacy-failed") && v.state().equals("CANCELLED")));
         verify(channel, never()).send(anyString(), anyString(), anyString());
         assertFalse(LifeDeliveryService.render(repository.latest("owner", DAY).orElseThrow()).contains("原始记录："));
+        reset(generator);
+        when(generator.generate(any())).thenReturn(new ReviewDraft(1, "重试成功", List.of(
+                new ReviewDraft.Observation("life.retry", "FACT_OBSERVATION", "重试后成功生成手记回顾。",
+                        List.of("journal-1"), List.of(), "单次记录")), List.of(), List.of()));
+        var retried = reviews.prepare("owner", new Prepare(DAY, 0, false));
+        assertEquals(2, retried.version());
+        assertEquals("PENDING", retried.state());
+        reviews.tick();
+        assertEquals("READY", reviews.get("owner", retried.id()).state());
     }
     @Test void httpWritesRequireObservedResetGenerationBeforePreparingContent() throws Exception {
         authorize(false, false);

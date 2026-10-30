@@ -181,3 +181,16 @@ test('参考记录仅在抽屉读取快照，分类过滤并兼容Java日期；�
   assert.match(query('[role="dialog"]').textContent, /手记测试原文/);
   assert.equal(calls.length, 0);
 });
+
+test('准备中版本显示等待生成提示并禁用重复点击', async () => {
+  settings.authorized = true;
+  history = [{ id: 'pending-1', day: '2026-10-30', timezone: 'Asia/Shanghai', version: 4, state: 'PENDING',
+    sourceAsOf: '2026-10-30T13:00:00Z', availableAt: '2026-10-30T13:00:00Z', coverage: '', message: '',
+    materials: [], facts: [], items: [], questions: [], deliveries: [] }];
+  await render();
+  assert.match(document.body.textContent, /正在生成复盘正文/);
+  assert.match(document.body.textContent, /完成后会自动刷新/);
+  const prepare = queryAll('button').find(b => b.textContent.includes('正在生成复盘'));
+  assert.ok(prepare);
+  assert.equal(prepare.disabled, true);
+});

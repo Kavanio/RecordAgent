@@ -238,11 +238,11 @@ export function LifeReviewSettings() {
           <SettingsGroup title="我的复盘" description="每份内容标明归属日、覆盖截止点与版本。补充产生新版本，保留已发送副本；准备中可稍后刷新。">
             <SettingsRow
               label="准备今天"
-              description="使用当前已授权来源，后台调用固定模型；受当日调用上限保护。"
+              description={state.generating ? '正在后台调用模型生成复盘，预计需要 5～15 秒，完成后会自动刷新…' : '使用当前已授权来源，后台调用固定模型；受当日调用上限保护。'}
               control={
                 <div className={styles.choices}>
-                  <Button size="sm" variant="primary" disabled={disabled} onClick={() => void act(() => lifeReviewApi.prepare(today()), '已安排后台准备；已有版本会直接复用')}>
-                    准备今天的复盘
+                  <Button size="sm" variant="primary" disabled={disabled || state.generating} onClick={() => void act(() => lifeReviewApi.prepare(today()), '已开始后台生成今日复盘，请稍候…')}>
+                    {state.generating ? '正在生成复盘…' : '准备今天的复盘'}
                   </Button>
                   <Button size="sm" disabled={busy || state.dirty} onClick={() => void state.load()}>
                     刷新内容与状态

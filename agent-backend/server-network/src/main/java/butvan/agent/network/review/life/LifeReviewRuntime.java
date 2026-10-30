@@ -27,7 +27,7 @@ public class LifeReviewRuntime {
     /** 迁移就绪后恢复未知状态，再启动有界后台循环。 */
     public void start() {
         if (!barrier.blocked()) repository.recover();
-        worker.scheduleWithFixedDelay(this::tick, 10, 30, TimeUnit.SECONDS);
+        worker.scheduleWithFixedDelay(this::tick, 2, 2, TimeUnit.SECONDS);
     }
     /** 按授权准备每日内容和到期候选，重置保护期间跳过。 */
     public void tick() {

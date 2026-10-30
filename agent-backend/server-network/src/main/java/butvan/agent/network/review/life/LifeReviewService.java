@@ -43,9 +43,12 @@ public class LifeReviewService {
                     throw new IllegalArgumentException("复盘日期超出已授权窗口");
                 var old = repository.latest(owner, input.day());
                 boolean currentGrant = old.isPresent() && old.get().grantId().equals(s.grantId());
-                if (currentGrant && (!input.supplement() || old.get().version() == input.expectedVersion() + 1))
+                boolean reusable = currentGrant && Set.of("READY", "PENDING", "RUNNING").contains(old.get().state());
+                if ((reusable && !input.supplement())
+                        || (currentGrant && input.supplement() && old.get().version() == input.expectedVersion() + 1))
                     return view(old.get());
-                int expected = !currentGrant && !input.supplement() ? old.map(Content::version).orElse(0) : input.expectedVersion();
+                int expected = (!currentGrant || !reusable) && !input.supplement()
+                        ? old.map(Content::version).orElse(0) : input.expectedVersion();
                 if (expected != old.map(Content::version).orElse(0))
                     throw new IllegalArgumentException("复盘版本已变化，请刷新");
                 if (currentGrant && Set.of("PENDING", "RUNNING").contains(old.get().state()))
@@ -197,9 +200,9 @@ public class LifeReviewService {
                 text.stream().filter(m -> m.kind().equals("USER_GOAL")).map(m ->
                     new ReviewGenerationRequest.Goal(m.sourceId(), m.text(), "用户原始约束已包含在目标文本中", "参照原始目标文本")).toList(),
                 List.of(), List.of(), ReviewMethodCards.select("DAILY_REPORT", List.of("study")),
-                5000, 1200, 60000, s.providerId(), s.modelName(), text.stream().map(m ->
+                5000, 3000, 60000, s.providerId(), s.modelName(), text.stream().map(m ->
                 new ReviewGenerationRequest.Narrative(m.id(), m.kind(), m.sourceId(), m.occurredAt(),
-                    m.kind().equals("USER_GOAL") ? "用户明确目标见goals中的同一sourceId" : m.text(), m.truncated())).toList(), s.fingerprint());
+                    m.text(), m.truncated())).toList(), s.fingerprint());
     }
     private String json(Object value) {
         try { return mapper.writeValueAsString(value); }

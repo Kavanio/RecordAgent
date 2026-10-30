@@ -24,21 +24,24 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
   const [details, setDetails] = useState<'references' | 'version' | null>(null);
   const replyKey = useRef({ text: '', id: '' });
   const delivery = c.deliveries.find(d => d.channel === 'FEISHU');
+  const generating = c.state === 'PENDING' || c.state === 'RUNNING';
   const ready = ['READY', 'DEGRADED'].includes(c.state);
   const hasReport = c.state === 'READY' && c.items.length > 0;
   function supplement() {
     if (replyKey.current.text !== text || !replyKey.current.id)
       replyKey.current = { text, id: crypto.randomUUID() };
-    void act(async () => { await lifeReviewApi.reply(c.id, replyKey.current.id, text); setText(''); setReplyOpen(false); }, '补充已记录，新版本在后台准备；已发副本保留');
+    void act(async () => { await lifeReviewApi.reply(c.id, replyKey.current.id, text); setText(''); setReplyOpen(false); }, '补充已记录，正在后台生成新版本，请稍候…');
   }
   const zone = c.timezone || timezone;
   const time = (value: string) => lifeReviewTime(value, zone);
   return <article className={styles.card} aria-label={`${c.day} 生活复盘版本${c.version}`}>
     <div className={styles.header}><strong>{c.day} · v{c.version}</strong><span>{lifeState(c.state)}</span></div>
     <p className={styles.muted}>资料截至 {time(c.sourceAsOf)}（{zone}） · 第{c.version}版</p>
+    {generating && <div className={styles.notice} role="status"><strong>正在生成复盘正文…</strong>
+      <p>正在后台按已授权范围采集资料并调用模型，预计需要 5～15 秒，完成后会自动刷新展示。</p>
+    </div>}
     {!hasReport && ready && <div className={styles.notice} role="status"><strong>本次没有生成复盘正文</strong><p>{c.message}</p>
-      <p>已保存参考资料，尚未形成回顾或建议。重复点击“准备今天”会复用此版，不会重新生成。</p>
-      <p>可以检查模型配置；如需补充资料并准备新版本，点击下方“补充经历”，可能占用一次调用额度。</p>
+      <p>已保存参考资料，尚未形成回顾或建议。可点击上方“准备今天的复盘”重新生成，或点击下方“补充经历”准备新版本。</p>
     </div>}
     {c.items.map((item, i) => <div key={i}>
       <p>{item.kind === 'ACTION' ? '建议：' : ''}{item.text}</p>
