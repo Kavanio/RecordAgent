@@ -69,8 +69,8 @@ public class ReviewCoachService {
         return runNow(job);
     }
 
-    /** 自动报告入口：去重后排队，立即返回；不阻塞原任务调度线程。 */
-    @Transactional
+    /** 自动报告入口：去重后排队，立即返回；不阻塞原任务调度线程，未启用时不污染外层事务。 */
+    @Transactional(noRollbackFor = RuntimeException.class)
     public Optional<String> schedule(String owner, String period, LocalDate from, LocalDate to, String timezone) {
         ReviewPolicy.requireOwner(owner);
         var allowed = authorization.requireEnabled(owner);
@@ -176,8 +176,9 @@ public class ReviewCoachService {
         String json = json(draft);
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
             // 外部生成期间可能撤销或清除；提交前在同一事务内复核，禁止迟到结果恢复记忆。
-            var current = authorization.requireEnabled(job.owner());
-            if (!current.grant().id().equals(job.grantId())
+            var current = authorization.findEnabled(job.owner()).orElse(null);
+            if (current == null
+                    || !current.grant().id().equals(job.grantId())
                     || current.grant().revision() != job.grantRevision()
                     || current.settings().revision() != job.settingsRevision()
                     || !current.settings().fingerprint().equals(job.fingerprint())

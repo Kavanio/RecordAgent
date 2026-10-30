@@ -79,6 +79,7 @@ class ReviewCoachIntegrationTest {
     @jakarta.annotation.Resource JdbcTemplate jdbc;
     @jakarta.annotation.Resource ReviewResetParticipant reset;
     @jakarta.annotation.Resource ReviewGoalService goals;
+    @jakarta.annotation.Resource org.springframework.transaction.PlatformTransactionManager transactions;
     private String owner;
 
     @BeforeEach void setup() {
@@ -249,6 +250,22 @@ class ReviewCoachIntegrationTest {
         assertEquals(frozen, jdbc.queryForObject("SELECT content FROM automation_run WHERE id='run-reset-frozen'", String.class));
         assertEquals("FROZEN", jdbc.queryForObject("SELECT state FROM automation_review_delivery WHERE run_id='run-reset-frozen'", String.class));
         assertEquals("ENABLED", jdbc.queryForObject("SELECT status FROM automation_task WHERE id=?", String.class, taskId()));
+    }
+
+    @Test void scheduleInsideOuterTransactionDoesNotMarkRollbackOnlyWhenReviewDisabled() {
+        taskRow();
+        assertDoesNotThrow(() -> new org.springframework.transaction.support.TransactionTemplate(transactions)
+                .executeWithoutResult(status -> {
+                    String error = "";
+                    try {
+                        coach.schedule(owner, "DAILY_REPORT", DAY, DAY, "UTC");
+                    } catch (RuntimeException exception) {
+                        error = "AI 复盘未启用，已发送基础报告";
+                    }
+                    assertEquals("AI 复盘未启用，已发送基础报告", error);
+                    runRow("run-unconfigured-review", "基础报告", "<html></html>", 9);
+                }));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM automation_run WHERE id='run-unconfigured-review'", Integer.class));
     }
 
     private String generateAutomatic() {
