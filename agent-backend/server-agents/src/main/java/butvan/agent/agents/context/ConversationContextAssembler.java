@@ -7,6 +7,7 @@ import butvan.agent.agents.storage.AgentStorageProperties;
 import butvan.agent.agents.usage.TokenCounter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -31,9 +32,13 @@ public class ConversationContextAssembler {
     /** 网络模块缺失时继续使用原有本地检索。 */
     @Autowired(required = false)
     public void setRemoteRecall(MemoryRecallPort recall) { this.remote = recall; }
-    @Autowired(required = false)
-    public void setLifeReviewContext(LifeReviewContextPort lifeReviewContext) {
-        this.lifeReviewContext = lifeReviewContext == null ? (owner, query) -> Optional.empty() : lifeReviewContext;
+    /** 仅在实际召回时解析可选复盘服务，避免经飞书渠道反向初始化 AgentService。 */
+    @Autowired
+    public void setLifeReviewContext(ObjectProvider<LifeReviewContextPort> provider) {
+        this.lifeReviewContext = (owner, query) -> {
+            LifeReviewContextPort context = provider.getIfAvailable();
+            return context == null ? Optional.empty() : context.recallRecentReview(owner, query);
+        };
     }
     @Autowired(required = false)
     public void setResetBarrier(ResetBarrier barrier) { this.resetBarrier = barrier; }
