@@ -42,7 +42,11 @@ export function LifeReviewSettings() {
           control={<Button size="sm" disabled={busy} onClick={() => setEditor('settings')}>配置复盘</Button>} />
         <SettingsRow control={null} label="呈现方式" description={`${s.timezone} · 回看${s.historyDays}日 · 每日最多${s.dailyLimit}次 · ${s.proactive ? '主动呈现' : '仅桌面留档'} · ${s.feishu ? '投递本人飞书' : '飞书未开启'}`} />
       </SettingsGroup>
-      <ReviewFormModal open={editor === 'settings'} title="配置生活复盘" busy={busy} onClose={closeEditor}>
+      <ReviewFormModal open={editor === 'settings'} title="配置生活复盘" busy={busy} onClose={closeEditor} footer={<>
+        <Button size="sm" onClick={closeEditor}>取消</Button>
+        <Button size="sm" variant="primary" disabled={busy || !s.sources.length || !s.modelName}
+          onClick={() => { setConsent(false); void act(async () => { await lifeReviewApi.save(s); setEditor(null); }, '设置已保存，请确认新的授权范围'); }}>保存生活复盘设置</Button>
+      </>}>
       <SettingsGroup title="范围与固定模型" description="默认关闭。每日21点后可后台准备，按下方额度计费；扩大或修改设置后需要重新授权。">
         <SettingsRow label="启用生活复盘" control={<input aria-label="启用生活复盘" type="checkbox" checked={s.enabled} disabled={busy}
           onChange={e => patch({ enabled: e.target.checked })} />} />
@@ -67,11 +71,8 @@ export function LifeReviewSettings() {
         <SettingsRow label="投递到本人飞书" description={`${s.channelLabel}；目标只取已配置的本人白名单。飞书已读状态未知。`}
           control={<input aria-label="生活复盘飞书投递" type="checkbox" checked={s.feishu} disabled={busy || !s.channelAvailable}
             onChange={e => patch({ feishu: e.target.checked })} />} />
-        <SettingsRow label="保存" description={state.dirty ? '有未保存更改；保存后再确认授权。' : '配置保存与授权分别执行。'}
-          control={<Button size="sm" variant="primary" disabled={busy || !s.sources.length || !s.modelName}
-            onClick={() => { setConsent(false); void act(async () => { await lifeReviewApi.save(s); setEditor(null); }, '设置已保存，请确认新的授权范围'); }}>保存生活复盘设置</Button>} />
       </SettingsGroup>
-        <div className={styles.actions}><Button size="sm" onClick={closeEditor}>取消</Button></div>
+        <p className={styles.muted}>{state.dirty ? '有未保存更改；保存后再确认授权。' : '配置保存与授权分别执行。'}</p>
       </ReviewFormModal>
       <SettingsGroup title="独立用途授权" description="生成会把选择的来源材料发送给上述固定模型。改变范围或接收方需重新授权；撤权停止后续读取与生成，已发内容无法撤回。">
         <SettingsRow label="当前状态" description={s.authorized ? '当前保存版本已授权。' : '尚未授权。'}

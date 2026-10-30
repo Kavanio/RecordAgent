@@ -1,4 +1,4 @@
-.panel { max-width: calc(100vw - 32px); }
+.panel { max-width: calc(100vw - 40px); max-height: min(680px, 100%); }
 .body { min-width: 0; font-size: 13px; line-height: 1.6; color: var(--text-primary); overflow-wrap: anywhere; }
 .body p, .body label, .body span { font-size: 13px; line-height: 1.6; }
 .body h2 { font-size: 14px; }
@@ -7,3 +7,10 @@
 .body label { display: inline-flex; align-items: flex-start; gap: 8px; }
 .body textarea { display: block; width: 100%; min-height: 100px; padding: 10px 12px; font-family: inherit; color: inherit; line-height: 1.6; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-primary, #fff); resize: vertical; }
 .body label:has(textarea) { display: flex; flex-direction: column; align-items: stretch; width: 100%; }
+
+/* 弹框内沿用设置行结构，采用紧凑密度，整页设置不受影响。 */
+.body [data-settings-row] { min-height: 0; padding: 12px 16px; gap: 16px; }
+.body [data-settings-row]::before { left: 16px; right: 16px; }
+@media (max-width: 720px) {
+  .body [data-settings-row] { gap: 10px; }
+}

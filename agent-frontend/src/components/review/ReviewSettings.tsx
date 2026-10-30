@@ -70,7 +70,6 @@ export function ReviewSettings() {
   const [correctionTarget, setCorrectionTarget] = useState<ReviewObservation | null>(null);
   const [correctionText, setCorrectionText] = useState('');
   const { showMessage } = useMessage();
-
   const load = useCallback(async () => {
     setError('');
     try {
@@ -89,9 +88,7 @@ export function ReviewSettings() {
       setLoading(false);
     }
   }, []);
-
   useEffect(() => { void load(); }, [load]);
-
   const activeProvider = useMemo(
     () => providers.find(provider => provider.id === settings?.providerId),
     [providers, settings?.providerId],
@@ -228,7 +225,10 @@ export function ReviewSettings() {
             <SettingsRow label={settings.enabled ? '统计复盘已启用' : '统计复盘未启用'} description={`${settings.modelName || '尚未选择模型'} · 回看${settings.historyDays}天 · 每日上限${settings.dailyLimit}次`}
               control={<Button size="sm" disabled={busy} onClick={() => { setSavedDraft(settings); setConfigOpen(true); }}>配置统计复盘</Button>} />
           </SettingsGroup>
-          <ReviewFormModal open={configOpen} title="配置统计复盘" busy={busy} onClose={() => { setSettings(savedDraft); setConfigOpen(false); }}>
+          <ReviewFormModal open={configOpen} title="配置统计复盘" busy={busy} onClose={() => { setSettings(savedDraft); setConfigOpen(false); }} footer={<>
+            <Button size="sm" onClick={() => { setSettings(savedDraft); setConfigOpen(false); }}>取消</Button>
+            <Button variant="primary" size="sm" disabled={busy} onClick={save}>保存设置</Button>
+          </>}>
           <SettingsGroup title="生成范围" description="保存配置不会调用模型；扩大范围后需要重新授权。">
             <SettingsRow label="启用长期复盘" description="关闭后不再排队生成，也不发送 AI 内容；已有数据保留。"
               control={<input type="checkbox" checked={settings.enabled} disabled={busy}
@@ -267,7 +267,6 @@ export function ReviewSettings() {
                   options={models.map(model => ({ value: model.name || model.id, label: model.name || model.id }))}
                   onChange={event => patch({ modelName: event.target.value })} />
               </div>} />
-            <SettingsRow label="" control={<Button variant="primary" size="sm" disabled={busy} onClick={save}>保存设置</Button>} />
           </SettingsGroup>
 
           </ReviewFormModal>

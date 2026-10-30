@@ -9,6 +9,8 @@ export interface ModalProps {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  /** 固定在滚动内容之外的底部操作区。 */
+  footer?: React.ReactNode;
   /** 弹框宽度，默认 520px */
   width?: number | string;
   /** 是否在应用窗口中垂直居中；默认保持顶部对齐 */
@@ -35,6 +37,7 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   onClose,
   children,
+  footer,
   width = 520,
   centered = false,
   className = '',
@@ -132,6 +135,7 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         <div className={styles.body} inert={busy}>{children}</div>
+        {footer && <div className={styles.footer} inert={busy}>{footer}</div>}
         <LoadingOverlay active={busy} label={busyLabel} />
       </div>
     </div>,
