@@ -45,7 +45,7 @@ test('首次读取不授权、不生成、不发送，明确展示独立正文�
 });
 test('未勾选不能授权，勾选后只发送当前life-v1许可', async () => {
   await render();
-  await click('查看并授权');
+  await click('核对并授权');
   const button = queryAll('button').find(b => b.textContent === '确认授权生活复盘');
   assert.equal(button.disabled, true);
   const consent = queryAll('input[type="checkbox"]').at(-1);

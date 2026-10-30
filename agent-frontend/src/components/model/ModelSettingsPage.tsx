@@ -21,7 +21,7 @@ import { SlashCommandSettingsPage } from '../settings/SlashCommandSettingsPage';
 import { DailyContextSettingsPage } from '../settings/DailyContextSettingsPage';
 import { BackendConnectionSettings } from '../settings/BackendConnectionSettings';
 import { TaskSettings } from '../task/TaskSettings';
-import { ReviewWorkspace } from '../review/ReviewWorkspace';
+import { LifeReviewSettings } from '../review/LifeReviewSettings';
 import {
   getFeaturePreferences,
   setCalendarPreference,
@@ -500,7 +500,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
           {[
             { id: 'calendar', label: '日历', icon: CalendarDays },
             { id: 'task', label: '任务', icon: Bell },
-            { id: 'review', label: '生活复盘', icon: Sparkles }, { id: 'review-statistics', label: '统计复盘', icon: ChartNoAxesColumnIncreasing },
+            { id: 'review', label: '生活复盘', icon: Sparkles },
             { id: 'finance', label: '财务', icon: WalletCards },
             { id: 'library', label: '资料', icon: Library },
             { id: 'record', label: '记录', icon: NotebookPen },
@@ -1093,7 +1093,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
 
         {activeTab === 'task' && <TaskSettings />}
 
-        {(activeTab === 'review' || activeTab === 'review-statistics') && <ReviewWorkspace kind={activeTab === 'review-statistics' ? 'statistics' : 'life'} />}
+        {activeTab === 'review' && <LifeReviewSettings />}
 
         {activeTab === 'backend' && <BackendConnectionSettings />}
 

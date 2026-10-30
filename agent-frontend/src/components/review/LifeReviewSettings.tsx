@@ -39,9 +39,9 @@ export function LifeReviewSettings() {
     {state.error && <p role="alert" className={styles.error}>{state.error}<Button size="sm" onClick={() => void state.load()}>重新读取</Button></p>}
     {s && <>
       <SettingsGroup title="复盘设置" description="查看已保存的范围与运行状态，需要调整时再打开配置。">
-        <SettingsRow label={s.enabled ? '生活复盘已启用' : '生活复盘未启用'} description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'}`}
+        <SettingsRow label={s.enabled ? '生活复盘已启用' : '生活复盘未启用'}
+          description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'} · 回看${s.historyDays}日 · 每日≤${s.dailyLimit}次 · ${s.proactive ? '主动呈现' : '仅桌面留档'}${s.feishu ? ' · 飞书' : ''}`}
           control={<Button size="sm" disabled={busy} onClick={() => setEditor('settings')}>配置复盘</Button>} />
-        <SettingsRow control={null} label="呈现方式" description={`${s.timezone} · 回看${s.historyDays}日 · 每日最多${s.dailyLimit}次 · ${s.proactive ? '主动呈现' : '仅桌面留档'} · ${s.feishu ? '投递本人飞书' : '飞书未开启'}`} />
       </SettingsGroup>
       <ReviewFormModal open={editor === 'settings'} title="配置生活复盘" busy={busy} onClose={closeEditor} footer={<>
         <Button size="sm" onClick={closeEditor}>取消</Button>
@@ -77,10 +77,12 @@ export function LifeReviewSettings() {
       </SettingsGroup>
         <p className={styles.muted}>{state.dirty ? '有未保存更改；保存后再确认授权。' : '配置保存与授权分别执行。'}</p>
       </ReviewFormModal>
-      <SettingsGroup title="独立用途授权" description="生成会把选择的来源材料发送给上述固定模型。改变范围或接收方需重新授权；撤权停止后续读取与生成，已发内容无法撤回。">
-        <SettingsRow label="当前状态" description={s.authorized ? '当前保存版本已授权。' : '尚未授权。'}
-          control={<span>{state.dirty ? '存在未保存更改' : s.authorized ? '已授权' : '未授权'}</span>} />
-        {!s.authorized && <SettingsRow label="核对授权范围" description="确认来源、固定模型与投递范围后，再明确授权。" control={<Button size="sm" disabled={busy || !s.enabled || !s.revision} onClick={() => setEditor('consent')}>查看并授权</Button>} />}
+      <SettingsGroup title="用途授权" description="生成会把所选来源发送给上方固定模型；改变范围需重新授权，撤权不能撤回已发内容。">
+        <SettingsRow label="当前状态" description={s.authorized ? '当前保存版本已授权。' : '尚未授权，不会读取材料或调用模型。'}
+          control={s.authorized
+            ? <Button size="sm" disabled={busy || state.dirty}
+              onClick={() => void act(() => lifeReviewApi.consent(s, false), '授权已撤销，未呈现候选已取消')}>撤销授权</Button>
+            : <Button size="sm" disabled={busy || !s.enabled || !s.revision} onClick={() => setEditor('consent')}>核对并授权</Button>} />
         <ReviewFormModal open={editor === 'consent'} title="确认生活复盘授权" busy={busy} onClose={closeEditor}>
           <p className={styles.muted}>固定模型：{s.providerId} / {s.modelName}；来源：{s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、')}。保存设置不会自动授权。</p>
         {!s.authorized && <SettingsRow label="明确确认" layout="stacked" control={<div className={styles.stack}>
@@ -91,8 +93,6 @@ export function LifeReviewSettings() {
             onClick={() => { setConsent(false); void act(async () => { await lifeReviewApi.consent(s, true); setEditor(null); }, '当前范围已单独授权'); }}>确认授权生活复盘</Button>
         </div>} />}
         </ReviewFormModal>
-        {s.authorized && <SettingsRow label="撤销" control={<Button size="sm" disabled={busy || state.dirty}
-          onClick={() => void act(() => lifeReviewApi.consent(s, false), '授权已撤销，未呈现候选已取消')}>撤销生活复盘授权</Button>} />}
       </SettingsGroup>
       <SettingsGroup title="我的复盘" description="每份内容标明归属日、覆盖截止点与版本。补充产生新版本，保留已发送副本；准备中可稍后刷新。">
         <SettingsRow label="准备今天" description="使用当前已授权来源，后台调用固定模型；受当日调用上限保护。"
