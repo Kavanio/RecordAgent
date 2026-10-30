@@ -158,7 +158,7 @@ export function LifeReviewSettings() {
                   />
                 }
               />
-              <ReviewDisclosure title="高级设置" description="近期原文范围、时区与费用保护；不是长期记忆的保存期限。">
+              <ReviewDisclosure variant="inline" title="高级设置" description="近期原文范围、时区与费用保护；不是长期记忆的保存期限。">
                 <SettingsRow
                   label="时区"
                   control={<TextInput aria-label="生活复盘时区" value={s.timezone} disabled={busy} onChange={e => patch({ timezone: e.target.value })} />}
@@ -257,7 +257,7 @@ export function LifeReviewSettings() {
               <LifeContentCard key={c.id} content={c} timezone={c.timezone || s.timezone} busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />
             ))}
             {state.history.length > 1 && (
-              <ReviewDisclosure title={`历史版本（${state.history.length - 1}）`} description="旧版保留原内容；展开查看，不会重新生成。">
+              <ReviewDisclosure variant="inline" title={`历史版本（${state.history.length - 1}）`} description="旧版保留原内容；展开查看，不会重新生成。">
                 {state.history.slice(1).map(c => (
                   <LifeContentCard key={c.id} content={c} timezone={c.timezone || s.timezone} busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />
                 ))}

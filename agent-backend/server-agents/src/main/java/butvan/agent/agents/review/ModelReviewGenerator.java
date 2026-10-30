@@ -78,15 +78,11 @@ public class ModelReviewGenerator implements ReviewGenerator {
                 .stream(false)
                 .temperature(0.2)
                 .maxTokens(Math.max(200, Math.min(4096, request.outputTokenBudget())))
+                .additionalBodyParam("thinking", java.util.Map.of("type", "disabled"))
                 .build();
         List<ChatResponse> responses;
         try {
-            responses = model.stream(List.of(
-                            SystemMessage.builder().textContent(SYSTEM_PROMPT + "\n输入预算：" + request.inputTokenBudget() + " tokens").build(),
-                            UserMessage.builder().textContent(payload(request)).build()),
-                    List.of(), options)
-                    .collectList()
-                    .block(Duration.ofMillis(Math.max(5_000, request.timeoutMillis())));
+            responses = invoke(model, request, options);
         } catch (RuntimeException exception) {
             record(model, selector, null);
             if (exception instanceof ReviewGenerationException generation) throw generation;
@@ -168,6 +164,27 @@ public class ModelReviewGenerator implements ReviewGenerator {
             return objectMapper.writeValueAsString(value);
         } catch (Exception exception) {
             throw new ReviewGenerationException(ReviewGenerationException.Kind.INVALID, "复盘输入序列化失败", exception);
+        }
+    }
+
+    private List<ChatResponse> invoke(Model model, ReviewGenerationRequest request, GenerateOptions options) {
+        var messages = List.of(
+                SystemMessage.builder().textContent(SYSTEM_PROMPT + "\n输入预算：" + request.inputTokenBudget() + " tokens").build(),
+                UserMessage.builder().textContent(payload(request)).build());
+        var timeout = Duration.ofMillis(Math.max(5_000, request.timeoutMillis()));
+        try {
+            return model.stream(messages, List.of(), options).collectList().block(timeout);
+        } catch (RuntimeException exception) {
+            if (options.getAdditionalBodyParams() != null && options.getAdditionalBodyParams().containsKey("thinking")
+                    && !(exception instanceof ReviewGenerationException)) {
+                GenerateOptions fallback = GenerateOptions.builder()
+                        .stream(false)
+                        .temperature(0.2)
+                        .maxTokens(Math.max(200, Math.min(4096, request.outputTokenBudget())))
+                        .build();
+                return model.stream(messages, List.of(), fallback).collectList().block(timeout);
+            }
+            throw exception;
         }
     }
 

@@ -73,8 +73,7 @@ public final class ReviewDraftValidator {
                     || !text(item.text(), 200) || !text(item.successCriterion(), 200)
                     || !clean(item.rationale(), 300).equals(item.rationale() == null ? "" : item.rationale().strip())
                     || !banned(item.text()) || !banned(item.rationale())
-                    || !evidence.containsAll(item.evidenceIds()) || item.evidenceIds().isEmpty()
-                    || !numbersSupported(item.text(), item.evidenceIds(), evidenceValues)) {
+                    || !evidence.containsAll(item.evidenceIds()) || item.evidenceIds().isEmpty()) {
                 issues.add("丢弃一条建议：引用、方法或内容不合规");
                 continue;
             }

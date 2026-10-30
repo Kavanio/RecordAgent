@@ -47,6 +47,7 @@ public class ModelProfileProposalGenerator implements ProfileProposalGenerator {
                 .stream(false)
                 .temperature(0.1)
                 .maxTokens(900)
+                .additionalBodyParam("thinking", java.util.Map.of("type", "disabled"))
                 .build();
         List<ChatResponse> responses;
         try {
