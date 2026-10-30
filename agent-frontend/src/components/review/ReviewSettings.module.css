@@ -22,3 +22,5 @@
 .badge { flex: none; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--color-surface-muted, #f2f4f7); color: var(--color-text-secondary, #667085); }
 .modalActions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .detail { display: flex; flex-direction: column; gap: 4px; }
+.card { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.cardHead strong { font-size: 13px; font-weight: 600; }

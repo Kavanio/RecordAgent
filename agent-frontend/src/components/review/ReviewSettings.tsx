@@ -1,3 +1,4 @@
+import { STATE_TEXT, requestId, yesterday } from '../../features/review/statisticsReviewPresentation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Plus, RefreshCw, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
 import { fetchFullModelConfig } from '../../services/api';
@@ -17,7 +18,8 @@ import { Button } from '../common/Button';
 import { Select } from '../common/Select';
 import { TextInput } from '../common/TextInput';
 import { ConfirmDialog } from '../common/ConfirmDialog';
-import { Modal } from '../common/Modal';
+import { ReviewFormModal } from './ReviewFormModal';
+import { ReviewInteractionModals } from './ReviewInteractionModals';
 import { useMessage } from '../common/Message';
 import styles from './ReviewSettings.module.css';
 
@@ -42,22 +44,6 @@ const RESULTS: { id: 'COMPLETED' | 'PARTIAL' | 'NOT_DONE' | 'UNKNOWN'; label: st
   { id: 'NOT_DONE', label: '未完成' },
   { id: 'UNKNOWN', label: '无法判断' },
 ];
-const STATE_TEXT: Record<string, string> = {
-  PENDING: '排队中', RUNNING: '生成中', SUCCEEDED: '已完成', DEGRADED: '已降级',
-  SKIPPED: '已跳过', UNKNOWN: '结果未知', PROPOSED: '待决定', ACCEPTED: '已采纳',
-  DECLINED: '不适合', DEFERRED: '暂不决定', COMPLETED: '已完成', PARTIAL: '部分完成',
-  NOT_DONE: '未完成', ARCHIVED: '已归档', CANDIDATE: '候选观察', CORRECTED: '已纠正', REJECTED: '已否定',
-};
-
-function requestId(prefix: string) {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-function yesterday(): string {
-  const value = new Date();
-  value.setDate(value.getDate() - 1);
-  return value.toISOString().slice(0, 10);
-}
-
 /** 长期复盘设置、授权、预览、历史与反馈；默认关闭，保存不等于授权。 */
 export function ReviewSettings() {
   const [settings, setSettings] = useState<ReviewSettings | null>(null);
@@ -68,6 +54,10 @@ export function ReviewSettings() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [goalOpen, setGoalOpen] = useState(false);
+  const [savedDraft, setSavedDraft] = useState<ReviewSettings | null>(null);
   const [goalTitle, setGoalTitle] = useState('');
   const [goalCriterion, setGoalCriterion] = useState('');
   const [goalConstraint, setGoalConstraint] = useState('');
@@ -135,7 +125,7 @@ export function ReviewSettings() {
 
   function save() {
     if (!settings) return;
-    void act(() => saveReviewSettings({
+    void act(async () => { await saveReviewSettings({
       expectedRevision: settings.revision,
       enabled: settings.enabled,
       periods: settings.periods,
@@ -144,14 +134,14 @@ export function ReviewSettings() {
       dailyLimit: settings.dailyLimit,
       providerId: settings.providerId,
       modelName: settings.modelName,
-    }), '长期复盘设置已保存；修改范围后需要重新授权');
+    }); setConfigOpen(false); }, '长期复盘设置已保存；修改范围后需要重新授权');
   }
 
   function grant() {
     if (!settings || !consent) return;
     void act(async () => {
       await grantReviewConsent(settings.revision, settings.policyVersion, true);
-      setConsent(false);
+      setConsent(false); setConsentOpen(false);
     }, '已按当前范围授予自动复盘权限');
   }
 
@@ -165,7 +155,7 @@ export function ReviewSettings() {
     void act(async () => {
       await saveReviewGoal({ expectedRevision: 0, title: goalTitle.trim(), constraintText: goalConstraint.trim(),
         successCriterion: goalCriterion.trim(), state: 'ACTIVE' });
-      setGoalTitle(''); setGoalCriterion(''); setGoalConstraint('');
+      setGoalTitle(''); setGoalCriterion(''); setGoalConstraint(''); setGoalOpen(false);
     }, '目标已保存');
   }
 
@@ -234,6 +224,11 @@ export function ReviewSettings() {
 
       {settings && (
         <>
+          <SettingsGroup title="统计复盘配置" description="使用独立的统计摘要授权，按需调整周期、数据范围与固定模型。">
+            <SettingsRow label={settings.enabled ? '统计复盘已启用' : '统计复盘未启用'} description={`${settings.modelName || '尚未选择模型'} · 回看${settings.historyDays}天 · 每日上限${settings.dailyLimit}次`}
+              control={<Button size="sm" disabled={busy} onClick={() => { setSavedDraft(settings); setConfigOpen(true); }}>配置统计复盘</Button>} />
+          </SettingsGroup>
+          <ReviewFormModal open={configOpen} title="配置统计复盘" busy={busy} onClose={() => { setSettings(savedDraft); setConfigOpen(false); }}>
           <SettingsGroup title="生成范围" description="保存配置不会调用模型；扩大范围后需要重新授权。">
             <SettingsRow label="启用长期复盘" description="关闭后不再排队生成，也不发送 AI 内容；已有数据保留。"
               control={<input type="checkbox" checked={settings.enabled} disabled={busy}
@@ -275,11 +270,15 @@ export function ReviewSettings() {
             <SettingsRow label="" control={<Button variant="primary" size="sm" disabled={busy} onClick={save}>保存设置</Button>} />
           </SettingsGroup>
 
+          </ReviewFormModal>
           <SettingsGroup title="授权" description="长期复盘需要单独授权，不会复用聊天中的逐次确认。">
             <SettingsRow label="当前状态" description={settings.authorized
               ? `已授权 ${settings.grant?.periods.join('、')}；撤销后不再采集或生成。`
               : '尚未授权，或配置范围已扩大、模型接收方已变化。'}
               control={<span className={settings.authorized ? styles.ok : styles.warn}>{settings.authorized ? '已授权' : '未授权'}</span>} />
+            {!settings.authorized && <SettingsRow label="确认范围" description="核对已保存的范围与固定模型后再授权。" control={<Button size="sm" disabled={busy} onClick={() => { setConsent(false); setConsentOpen(true); }}>查看统计授权</Button>} />}
+            <ReviewFormModal open={consentOpen} title="确认统计复盘授权" busy={busy} onClose={() => { setConsent(false); setConsentOpen(false); }}>
+              <p className={styles.muted}>固定模型：{settings.providerId} / {settings.modelName} · 回看{settings.historyDays}天 · 每日上限{settings.dailyLimit}次</p>
             {!settings.authorized && (
               <SettingsRow label="确认授权" layout="stacked" description="我确认上述数据范围、周期、回看窗口和固定模型接收方，并了解生成会把统计摘要发送给该模型。"
                 control={<div className={styles.stack}>
@@ -288,6 +287,7 @@ export function ReviewSettings() {
                   <Button variant="primary" size="sm" disabled={busy || !consent} icon={<ShieldCheck size={14} />} onClick={grant}>授权</Button>
                 </div>} />
             )}
+            </ReviewFormModal>
             {settings.authorized && (
               <SettingsRow label="撤销授权" description="撤销立即生效；已发送的邮件无法撤回。"
                 control={<Button variant="outline" size="sm" disabled={busy} onClick={revoke}>撤销</Button>} />
@@ -301,6 +301,8 @@ export function ReviewSettings() {
                   ? <Button variant="ghost" size="sm" disabled={busy} onClick={() => archiveGoal(goal)}>归档</Button>
                   : <span className={styles.muted}>已归档</span>} />
             ))}
+            <SettingsRow label="添加目标" description="由你明确填写目标与约束，不由模型自动创建。" control={<Button size="sm" disabled={busy} onClick={() => { setGoalTitle(''); setGoalConstraint(''); setGoalCriterion(''); setGoalOpen(true); }}>新增目标</Button>} />
+            <ReviewFormModal open={goalOpen} title="新增复盘目标" busy={busy} onClose={() => setGoalOpen(false)}>
             <SettingsRow label="新增目标" layout="stacked"
               control={<div className={styles.stack}>
                 <TextInput aria-label="目标名称" value={goalTitle} maxLength={200} placeholder="例如：每周完成三次学习" disabled={busy}
@@ -311,6 +313,7 @@ export function ReviewSettings() {
                   onChange={event => setGoalCriterion(event.target.value)} />
                 <Button variant="outline" size="sm" icon={<Plus size={14} />} disabled={busy || !goalTitle.trim()} onClick={addGoal}>添加目标</Button>
               </div>} />
+            </ReviewFormModal>
           </SettingsGroup>
 
           <SettingsGroup title="预览与数据" description="预览会真实调用模型并产生费用，不发送邮件，也不写入长期建议。">
@@ -388,42 +391,10 @@ export function ReviewSettings() {
           }, '长期复盘数据已清除');
         }} />
 
-      <Modal open={Boolean(feedbackTarget)} title="提交反馈" onClose={() => setFeedbackTarget(null)} width={460}>
-        <p className={styles.muted}>决策：{STATE_TEXT[feedbackTarget?.decision ?? ''] ?? ''}</p>
-        <textarea className={styles.textarea} aria-label="反馈说明" value={feedbackText} maxLength={500} rows={3} placeholder="可选：补充原因或调整后的做法，不要填写敏感信息。"
-          onChange={event => setFeedbackText(event.target.value)} />
-        <div className={styles.modalActions}>
-          <Button variant="ghost" size="sm" onClick={() => setFeedbackTarget(null)}>取消</Button>
-          <Button variant="primary" size="sm" disabled={busy} onClick={feedback}>保存反馈</Button>
-        </div>
-      </Modal>
-
-      <Modal open={Boolean(correctionTarget)} title="纠正或否定观察" onClose={() => setCorrectionTarget(null)} width={460}>
-        <p className={styles.muted}>填写说明即为纠正；留空提交则否定了这条观察。被纠正或否定的观察不再作为召回证据。</p>
-        <textarea className={styles.textarea} aria-label="观察纠正说明" value={correctionText} maxLength={500} rows={3} placeholder="例如：那段时间在出差，不能说明习惯变化。"
-          onChange={event => setCorrectionText(event.target.value)} />
-        <div className={styles.modalActions}>
-          <Button variant="ghost" size="sm" onClick={() => setCorrectionTarget(null)}>取消</Button>
-          <Button variant="outline" size="sm" disabled={busy} onClick={correct}>提交</Button>
-        </div>
-      </Modal>
-
-      <Modal open={Boolean(detail)} title="复盘详情" onClose={() => setDetail(null)} width={720}>
-        {detail && (
-          <div className={styles.detail}>
-            <p className={styles.muted}>{detail.coverageNote || detail.message || '没有可展示的内容。'}</p>
-            {[...detail.observations, ...detail.followUps, ...detail.actions].map(item => (
-              <article key={`${item.kind}-${item.topicKey}-${item.text}`} className={styles.card}>
-                <div className={styles.cardHead}><strong>{item.text}</strong><span className={styles.badge}>{item.kind === 'ACTION' ? '建议' : item.kind === 'FOLLOW_UP' ? '跟进' : '观察'}</span></div>
-                {item.rationale && <p className={styles.muted}>理由：{item.rationale}</p>}
-                {item.criterion && <p className={styles.muted}>检查：{item.criterion}</p>}
-                {item.uncertainty && <p className={styles.muted}>不确定：{item.uncertainty}</p>}
-                <p className={styles.muted}>依据：{item.evidenceIds.join('、') || '无'}</p>
-              </article>
-            ))}
-          </div>
-        )}
-      </Modal>
+      <ReviewInteractionModals detail={detail} feedbackDecision={feedbackTarget ? STATE_TEXT[feedbackTarget.decision] || feedbackTarget.decision : null}
+        correctionOpen={Boolean(correctionTarget)} busy={busy} feedbackText={feedbackText} correctionText={correctionText}
+        setFeedbackText={setFeedbackText} setCorrectionText={setCorrectionText} closeFeedback={() => setFeedbackTarget(null)}
+        closeCorrection={() => setCorrectionTarget(null)} closeDetail={() => setDetail(null)} feedback={feedback} correct={correct} />
     </SettingsPageLayout>
   );
 }

@@ -1,0 +1,8 @@
+.muted { margin: 6px 0; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.textarea { width: 100%; }
+.modalActions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.detail { display: grid; gap: 12px; }
+.card { border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; font-size: 13px; }
+.cardHead { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; font-size: 13px; }
+.cardHead strong { font-size: 13px; font-weight: 600; }
+.badge { font-size: 12px; flex: none; color: var(--text-secondary); }

@@ -19,6 +19,7 @@ export function useLifeReview() {
   const [dirty, setDirty] = useState(false);
   const live = useRef(false);
   const sequence = useRef(0);
+  const saved = useRef<LifeSettings | null>(null);
   const { showMessage } = useMessage();
   const load = useCallback(async () => {
     const seq = ++sequence.current;
@@ -28,6 +29,7 @@ export function useLifeReview() {
         lifeReviewApi.archives(), fetchFullModelConfig(),
       ]);
       if (!live.current || seq !== sequence.current) return;
+      saved.current = s;
       setSettings(s); setHistory(h); setCandidates(c); setHabit(habitValue); setArchives(a);
       setProviders(models?.providers || []); setError(''); setDirty(false);
     } catch (e) {
@@ -43,5 +45,6 @@ export function useLifeReview() {
     finally { if (live.current) setBusy(false); }
   }
   function patch(next: Partial<LifeSettings>) { setSettings(s => s ? { ...s, ...next } : s); setDirty(true); }
-  return { settings, history, candidates, habit, archives, providers, busy, loading, error, dirty, patch, load, act };
+  function discard() { setSettings(saved.current); setDirty(false); }
+  return { discard, settings, history, candidates, habit, archives, providers, busy, loading, error, dirty, patch, load, act };
 }

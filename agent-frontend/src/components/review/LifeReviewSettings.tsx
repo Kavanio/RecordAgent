@@ -1,3 +1,4 @@
+import { ReviewFormModal } from './ReviewFormModal';
 import { useState } from 'react';
 import { lifeReviewApi } from '../../services/lifeReviewApi';
 import type { LifeSource } from '../../types/lifeReview';
@@ -21,6 +22,8 @@ const CANDIDATE_STATES: Record<string, string> = { PENDING: '等待合适时机'
 export function LifeReviewSettings() {
   const state = useLifeReview();
   const { settings: s, busy, act, patch } = state;
+  const [editor, setEditor] = useState<'settings' | 'consent' | 'habit' | null>(null);
+  function closeEditor() { state.discard(); setConsent(false); setEditor(null); }
   const [consent, setConsent] = useState(false);
   const [hour, setHour] = useState(12);
   const [habitSource, setHabitSource] = useState('');
@@ -33,6 +36,12 @@ export function LifeReviewSettings() {
   return <SettingsPageLayout title="生活复盘与主动联系" description="先备好内容，再选择时机；没有回复也不会连着催。" loading={state.loading} loadingLabel="正在读取生活复盘">
     {state.error && <p role="alert" className={styles.error}>{state.error}<Button size="sm" onClick={() => void state.load()}>重新读取</Button></p>}
     {s && <>
+      <SettingsGroup title="复盘设置" description="查看已保存的范围与运行状态，需要调整时再打开配置。">
+        <SettingsRow label={s.enabled ? '生活复盘已启用' : '生活复盘未启用'} description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'}`}
+          control={<Button size="sm" disabled={busy} onClick={() => setEditor('settings')}>配置复盘</Button>} />
+        <SettingsRow control={null} label="呈现方式" description={`${s.timezone} · 回看${s.historyDays}日 · 每日最多${s.dailyLimit}次 · ${s.proactive ? '主动呈现' : '仅桌面留档'} · ${s.feishu ? '投递本人飞书' : '飞书未开启'}`} />
+      </SettingsGroup>
+      <ReviewFormModal open={editor === 'settings'} title="配置生活复盘" busy={busy} onClose={closeEditor}>
       <SettingsGroup title="范围与固定模型" description="默认关闭。每日21点后可后台准备，按下方额度计费；扩大或修改设置后需要重新授权。">
         <SettingsRow label="启用生活复盘" control={<input aria-label="启用生活复盘" type="checkbox" checked={s.enabled} disabled={busy}
           onChange={e => patch({ enabled: e.target.checked })} />} />
@@ -59,18 +68,24 @@ export function LifeReviewSettings() {
             onChange={e => patch({ feishu: e.target.checked })} />} />
         <SettingsRow label="保存" description={state.dirty ? '有未保存更改；保存后再确认授权。' : '配置保存与授权分别执行。'}
           control={<Button size="sm" variant="primary" disabled={busy || !s.sources.length || !s.modelName}
-            onClick={() => { setConsent(false); void act(() => lifeReviewApi.save(s), '设置已保存，请确认新的授权范围'); }}>保存生活复盘设置</Button>} />
+            onClick={() => { setConsent(false); void act(async () => { await lifeReviewApi.save(s); setEditor(null); }, '设置已保存，请确认新的授权范围'); }}>保存生活复盘设置</Button>} />
       </SettingsGroup>
+        <div className={styles.actions}><Button size="sm" onClick={closeEditor}>取消</Button></div>
+      </ReviewFormModal>
       <SettingsGroup title="独立用途授权" description="生成会把选择的来源材料发送给上述固定模型。改变范围或接收方需重新授权；撤权停止后续读取与生成，已发内容无法撤回。">
         <SettingsRow label="当前状态" description={s.authorized ? '当前保存版本已授权。' : '尚未授权。'}
           control={<span>{state.dirty ? '存在未保存更改' : s.authorized ? '已授权' : '未授权'}</span>} />
+        {!s.authorized && <SettingsRow label="核对授权范围" description="确认来源、固定模型与投递范围后，再明确授权。" control={<Button size="sm" disabled={busy || !s.enabled || !s.revision} onClick={() => setEditor('consent')}>查看并授权</Button>} />}
+        <ReviewFormModal open={editor === 'consent'} title="确认生活复盘授权" busy={busy} onClose={closeEditor}>
+          <p className={styles.muted}>固定模型：{s.providerId} / {s.modelName}；来源：{s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、')}。保存设置不会自动授权。</p>
         {!s.authorized && <SettingsRow label="明确确认" layout="stacked" control={<div className={styles.stack}>
           <label><input type="checkbox" checked={consent} disabled={busy || state.dirty} onChange={e => setConsent(e.target.checked)} />
             我确认来源、{s.timezone} 时区、{s.historyDays}日窗口、每日{s.dailyLimit}次调用与固定模型；
             {s.proactive ? '允许按上述规则主动呈现；' : '仅桌面留档；'}{s.feishu ? '允许向已配置的本人飞书发送同一副本。' : '不投递飞书。'}</label>
           <Button size="sm" variant="primary" disabled={busy || state.dirty || !consent || !s.enabled || !s.revision}
-            onClick={() => { setConsent(false); void act(() => lifeReviewApi.consent(s, true), '当前范围已单独授权'); }}>确认授权生活复盘</Button>
+            onClick={() => { setConsent(false); void act(async () => { await lifeReviewApi.consent(s, true); setEditor(null); }, '当前范围已单独授权'); }}>确认授权生活复盘</Button>
         </div>} />}
+        </ReviewFormModal>
         {s.authorized && <SettingsRow label="撤销" control={<Button size="sm" disabled={busy || state.dirty}
           onClick={() => void act(() => lifeReviewApi.consent(s, false), '授权已撤销，未呈现候选已取消')}>撤销生活复盘授权</Button>} />}
       </SettingsGroup>
@@ -84,17 +99,20 @@ export function LifeReviewSettings() {
         {state.archives.map((a, i) => <details key={i}><summary>重置前的只读外发副本 {i + 1}</summary><p className={styles.archive}>{a}</p></details>)}
       </SettingsGroup>
       <SettingsGroup title="作息候选与纠正" description="只在你明确提供后使用，30天后失效；没有互动不代表没起床或身体异常。">
-        <SettingsRow label="当前候选" description={state.habit ? `${state.habit.availableHour}点后 · ${state.habit.source} · ${state.habit.uncertainty} · 有效至${state.habit.expiresAt}` : '尚未形成作息候选，采用保守规则。'}
-          control={state.habit && <Button size="sm" disabled={disabled} onClick={() => void act(() => lifeReviewApi.saveHabit(
+        <SettingsRow label="当前候选" description={state.habit ? `${state.habit.active ? "生效中" : "已停用"} · ${state.habit.availableHour}点后 · ${state.habit.source} · ${state.habit.uncertainty} · 有效至${state.habit.expiresAt}` : '尚未形成作息候选，采用保守规则。'}
+          control={state.habit && <Button size="sm" disabled={disabled || !state.habit.active} onClick={() => void act(() => lifeReviewApi.saveHabit(
             state.habit!.revision, state.habit!.availableHour, state.habit!.source, false), '作息候选已停用')}>停用候选</Button>} />
+        <SettingsRow label="调整可呈现时间" description="需要时再填写作息说明，可随时纠正或停用。" control={<Button size="sm" disabled={disabled} onClick={() => { setHour(state.habit?.availableHour || 12); setHabitSource(state.habit?.source || ''); setEditor('habit'); }}>编辑作息</Button>} />
+        <ReviewFormModal open={editor === 'habit'} title="编辑作息候选" busy={busy} onClose={closeEditor}>
         <SettingsRow label="明确或纠正可呈现时间" layout="stacked" control={<div className={styles.stack}>
           <TextInput aria-label="生活复盘作息小时" type="number" min={12} max={23} value={hour} disabled={disabled} onChange={e => setHour(Number(e.target.value))} />
           <TextInput aria-label="生活复盘作息来源" value={habitSource} maxLength={300} disabled={disabled} placeholder="例如：我最近通常下午两点后有空" onChange={e => setHabitSource(e.target.value)} />
-          <Button size="sm" disabled={disabled || !habitSource.trim()} onClick={() => void act(() => lifeReviewApi.saveHabit(
-            state.habit?.revision || 0, hour, habitSource, true), '作息候选已保存，后续时机按新候选计算')}>保存作息候选</Button>
+          <Button size="sm" disabled={disabled || !habitSource.trim()} onClick={() => void act(async () => { await lifeReviewApi.saveHabit(
+            state.habit?.revision || 0, hour, habitSource, true); setEditor(null); }, '作息候选已保存，后续时机按新候选计算')}>保存作息候选</Button>
         </div>} />
+        </ReviewFormModal>
       </SettingsGroup>
-      <LifeEventCandidateEditor history={state.history} disabled={disabled || !s.proactive} act={act} />
+      <LifeEventCandidateEditor busy={busy} history={state.history} disabled={disabled || !s.proactive} act={act} />
       <SettingsGroup title="主动记录与反馈" description="等待、过期、取消与已呈现分别记录。未回复不会被判为失败，也不会触发追问。">
         {state.candidates.length === 0 && <p className={styles.muted}>暂无主动候选。</p>}
         {state.candidates.map(c => <SettingsRow key={c.id} label={c.topic} description={`${CANDIDATE_STATES[c.state] || c.state} · 最早${c.dueAt} · 到期${c.expiresAt}${c.feedback ? ` · ${c.feedback}` : ''}`}

@@ -1,0 +1,9 @@
+.panel { max-width: calc(100vw - 32px); }
+.body { min-width: 0; font-size: 13px; line-height: 1.6; color: var(--text-primary); overflow-wrap: anywhere; }
+.body p, .body label, .body span { font-size: 13px; line-height: 1.6; }
+.body h2 { font-size: 14px; }
+.body input, .body select, .body textarea { max-width: 100%; box-sizing: border-box; font-size: 13px; }
+.body input[type='checkbox'] { width: 15px; height: 15px; flex: none; accent-color: var(--accent-color, #555); vertical-align: middle; }
+.body label { display: inline-flex; align-items: flex-start; gap: 8px; }
+.body textarea { display: block; width: 100%; min-height: 100px; padding: 10px 12px; font-family: inherit; color: inherit; line-height: 1.6; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-primary, #fff); resize: vertical; }
+.body label:has(textarea) { display: flex; flex-direction: column; align-items: stretch; width: 100%; }

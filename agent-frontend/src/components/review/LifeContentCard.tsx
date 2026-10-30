@@ -1,3 +1,4 @@
+import { ReviewFormModal } from './ReviewFormModal';
 import { useRef, useState } from 'react';
 import type { LifeContent } from '../../types/lifeReview';
 import { lifeFactLabel } from '../../features/review/lifeReviewLabels';
@@ -16,6 +17,7 @@ interface Props {
 }
 /** 展示一个不可变复盘版本；补充、发送与生成是不同动作。 */
 export function LifeContentCard({ content: c, timezone, busy, authorized, feishu, act }: Props) {
+  const [replyOpen, setReplyOpen] = useState(false);
   const [text, setText] = useState('');
   const [sendOpen, setSendOpen] = useState(false);
   const replyKey = useRef({ text: '', id: '' });
@@ -24,7 +26,7 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
   function supplement() {
     if (replyKey.current.text !== text || !replyKey.current.id)
       replyKey.current = { text, id: crypto.randomUUID() };
-    void act(async () => { await lifeReviewApi.reply(c.id, replyKey.current.id, text); setText(''); }, '补充已记录，新版本在后台准备；已发副本保留');
+    void act(async () => { await lifeReviewApi.reply(c.id, replyKey.current.id, text); setText(''); setReplyOpen(false); }, '补充已记录，新版本在后台准备；已发副本保留');
   }
   const time = (value: string) => {
     try { return new Date(value).toLocaleString('zh-CN', { timeZone: timezone }); }
@@ -52,12 +54,17 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
     <p className={styles.muted}>{c.deliveries.map(d => `${d.channel === 'DESKTOP' ? '桌面' : '飞书'}：${lifeState(d.state)}`).join(' · ')}</p>
     {delivery?.state === 'UNKNOWN' && <p>飞书可能已收到，请人工核对；此处不会自动重发。已读状态未知。</p>}
     {ready && authorized && <>
+      <ReviewFormModal open={replyOpen} title="补充这一天的经历" busy={busy} onClose={() => { setReplyOpen(false); setText(''); }}>
+      <p className={styles.muted}>补充会准备新版本，保留原文及已发送副本；可能占用一次模型调用额度。</p>
       <label className={styles.muted}>补充这一天的经历（可跳过）
         <textarea className={styles.input} aria-label={`补充${c.day}版本${c.version}`} value={text} maxLength={1000} rows={2}
           disabled={busy} onChange={e => setText(e.target.value)} />
       </label>
       <div className={styles.actions}>
         <Button size="sm" variant="outline" disabled={busy || !text.trim()} onClick={supplement}>记录补充并准备新版本</Button>
+      </div></ReviewFormModal>
+      <div className={styles.actions}>
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => setReplyOpen(true)}>补充经历</Button>
         {feishu && (!delivery || delivery.state === 'FAILED') && <Button size="sm" variant="outline" disabled={busy}
           onClick={() => setSendOpen(true)}>{delivery ? '重试原副本' : '发送此版本到本人飞书'}</Button>}
       </div>

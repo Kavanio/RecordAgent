@@ -16,7 +16,10 @@ beforeEach(() => {
   stub = useFetchStub((url, init) => {
     calls.push({ url, init });
     const path = url.pathname;
-    if (path.endsWith('/settings')) return jsonResponse(settings);
+    if (path.endsWith('/settings')) {
+      if (init?.method === 'PUT') settings = { ...settings, ...JSON.parse(init.body), revision: settings.revision + 1, authorized: false };
+      return jsonResponse(settings);
+    }
     if (path.endsWith('/grant')) { settings = { ...settings, authorized: true }; return jsonResponse(settings); }
     if (path.endsWith('/habit')) return jsonResponse(null);
     if (path.endsWith('/candidates') || path.endsWith('/archives')) return jsonResponse([]);
@@ -26,32 +29,39 @@ beforeEach(() => {
   });
 });
 afterEach(async () => { await view?.unmount(); view = null; stub.restore(); });
+const query = selector => document.body.querySelector(selector);
+const queryAll = selector => [...document.body.querySelectorAll(selector)];
+async function click(label) { const button = queryAll('button').find(b => b.textContent === label); assert.ok(button, label); await act(async () => button.click()); }
 async function render() { view = await mount(React.createElement(MessageProvider, null, React.createElement(Settings))); }
 test('首次读取不授权、不生成、不发送，明确展示独立正文范围', async () => {
   await render();
-  assert.match(view.text(), /每日手记正文/); assert.match(view.text(), /普通聊天用户原文/);
-  assert.match(view.text(), /未授权/);
+  assert.equal(query('input'), null);
+  await click('配置复盘');
+  assert.match(document.body.textContent, /每日手记正文/); assert.match(document.body.textContent, /普通聊天用户原文/);
+  assert.match(document.body.textContent, /未授权/);
   assert.ok(calls.every(c => !c.init?.method || c.init.method === 'GET'));
-  assert.ok(view.query('input[aria-label="生活复盘飞书投递"]').disabled);
+  assert.ok(query('input[aria-label="生活复盘飞书投递"]').disabled);
   assert.ok(modelPath);
 });
 test('未勾选不能授权，勾选后只发送当前life-v1许可', async () => {
   await render();
-  const button = view.queryAll('button').find(b => b.textContent === '确认授权生活复盘');
+  await click('查看并授权');
+  const button = queryAll('button').find(b => b.textContent === '确认授权生活复盘');
   assert.equal(button.disabled, true);
-  const consent = view.queryAll('input[type="checkbox"]').at(-1);
+  const consent = queryAll('input[type="checkbox"]').at(-1);
   await act(async () => consent.click());
-  await view.click('确认授权生活复盘');
+  await click('确认授权生活复盘');
   const writes = calls.filter(c => c.init?.method === 'POST');
   assert.equal(writes.length, 1); assert.ok(writes[0].url.pathname.endsWith('/grant'));
   assert.deepEqual(JSON.parse(writes[0].init.body), { expectedRevision: 1, policyVersion: 'life-v1', confirmed: true });
-  assert.match(view.text(), /当前保存版本已授权/);
+  assert.match(document.body.textContent, /当前保存版本已授权/);
 });
 test('修改未保存范围会禁用授权和生成，不能借旧授权读新来源', async () => {
   settings.authorized = true; await render();
-  await act(async () => view.query('input[aria-label="主动呈现生活复盘"]').click());
-  assert.match(view.text(), /未保存更改/);
-  const prepare = view.queryAll('button').find(b => b.textContent === '准备今天的复盘');
+  await click('配置复盘');
+  await act(async () => query('input[aria-label="主动呈现生活复盘"]').click());
+  assert.match(document.body.textContent, /未保存更改/);
+  const prepare = queryAll('button').find(b => b.textContent === '准备今天的复盘');
   assert.equal(prepare.disabled, true);
   assert.equal(calls.filter(c => c.init?.method === 'POST').length, 0);
 });
@@ -63,8 +73,8 @@ test('未知飞书结果显示人工核对且没有补发按钮，原文来源�
   let actions = 0;
   view = await mount(React.createElement(Card, { content: c, timezone: 'Asia/Shanghai', busy: false, authorized: true, feishu: true,
     act: async () => { actions++; } }));
-  assert.match(view.text(), /v1/); assert.match(view.text(), /record-1/); assert.match(view.text(), /不会自动重发/);
-  assert.ok(!view.queryAll('button').some(b => b.textContent.includes('发送') || b.textContent.includes('重试')));
+  assert.match(document.body.textContent, /v1/); assert.match(document.body.textContent, /record-1/); assert.match(document.body.textContent, /不会自动重发/);
+  assert.ok(!queryAll('button').some(b => b.textContent.includes('发送') || b.textContent.includes('重试')));
   assert.equal(actions, 0);
 });
 
@@ -75,20 +85,90 @@ test('人工事件必须选择现有版本和真实依据，记录候选不直�
     availableAt: '2026-10-30T13:00:00Z', coverage: '有限资料', message: '', items: [], questions: [], deliveries: [], facts: [],
     materials: [{ id: 'journal-1', kind: 'JOURNAL', sourceId: 'record-1', occurredAt: '2026-10-30', text: '虚构的新信息', truncated: false }] }];
   await render();
-  const button = view.queryAll('button').find(b => b.textContent === '加入主动候选');
+  await click('添加事件');
+  const button = queryAll('button').find(b => b.textContent === '加入主动候选');
   assert.equal(button.disabled, true);
-  const topic = view.query('input[aria-label="主动事件主题"]');
+  const topic = query('input[aria-label="主动事件主题"]');
   await act(async () => {
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(topic, '学习状态');
     topic.dispatchEvent(new window.Event('input', { bubbles: true }));
   });
   async function select(label, value) {
-    await act(async () => { const node = view.query(`select[aria-label="${label}"]`); node.value = value; node.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    await act(async () => { const node = query(`select[aria-label="${label}"]`); node.value = value; node.dispatchEvent(new window.Event('change', { bubbles: true })); });
   }
   await select('主动事件来源版本', 'content-1');
   await select('主动事件证据', 'journal-1');
-  await view.click('加入主动候选');
+  await click('加入主动候选');
   const writes = calls.filter(c => c.init?.method === 'POST');
   assert.equal(writes.length, 1); assert.ok(writes[0].url.pathname.endsWith('/candidates'));
   assert.deepEqual(JSON.parse(writes[0].init.body), { topic: '学习状态', contentId: 'content-1', evidenceId: 'journal-1', eventKind: 'EVENT' });
+});
+
+
+test('取消配置丢弃草稿，再打开恢复已保存值，且没有写请求', async () => {
+  settings.authorized = true; await render();
+  await click('配置复盘');
+  await act(async () => query('input[aria-label="主动呈现生活复盘"]').click());
+  await click('取消');
+  assert.equal(query('[role="dialog"]'), null);
+  assert.equal(query('input'), null);
+  await click('配置复盘');
+  assert.equal(query('input[aria-label="主动呈现生活复盘"]').checked, false);
+  assert.ok(calls.every(c => !c.init?.method || c.init.method === 'GET'));
+});
+
+test('保存失败保留配置弹窗与用户输入，不隐式授权', async () => {
+  await render(); await click('配置复盘');
+  stub.respond((url, init) => { calls.push({ url, init }); return jsonResponse(null, 400); });
+  await click('保存生活复盘设置');
+  assert.ok(query('[role="dialog"][aria-label="配置生活复盘"]'));
+  assert.equal(query('input[aria-label="生活复盘时区"]').value, 'Asia/Shanghai');
+  assert.equal(calls.filter(c => c.url.pathname.endsWith('/grant')).length, 0);
+});
+
+test('统计复盘首页不铺开配置与目标输入，取消编辑不写入', async () => {
+  const { ReviewSettings } = await loadModule('/src/components/review/ReviewSettings.tsx');
+  const stat = { ...settings, periods: ['DAILY_REPORT'], domains: ['STUDY'], authorized: false, grant: null };
+  stub.respond((url, init) => {
+    calls.push({ url, init });
+    if (url.pathname.endsWith('/settings')) return jsonResponse(stat);
+    if (url.pathname.endsWith('/memory')) return jsonResponse({ actions: [], observations: [] });
+    if (url.pathname.includes('/agent/reviews')) return jsonResponse([]);
+    return jsonResponse({ providers: [] });
+  });
+  view = await mount(React.createElement(MessageProvider, null, React.createElement(ReviewSettings)));
+  assert.equal(query('input[aria-label="最多回看天数"]'), null);
+  assert.equal(query('input[aria-label="目标名称"]'), null);
+  await click('配置统计复盘');
+  assert.ok(query('input[aria-label="最多回看天数"]'));
+  await act(async () => query('button[aria-label="关闭"]').click());
+  await click('新增目标');
+  assert.ok(query('input[aria-label="目标名称"]'));
+  assert.ok(calls.every(c => !c.init?.method || c.init.method === 'GET'));
+});
+
+
+test('成功保存关闭配置弹窗并使旧授权失效，不自动重新授权', async () => {
+  settings.authorized = true; await render(); await click('配置复盘');
+  await act(async () => query('input[aria-label="主动呈现生活复盘"]').click());
+  await click('保存生活复盘设置');
+  assert.equal(query('[role="dialog"]'), null);
+  assert.equal(query('input'), null);
+  assert.match(document.body.textContent, /未授权/);
+  const writes = calls.filter(c => c.init?.method && c.init.method !== 'GET');
+  assert.equal(writes.length, 1); assert.equal(writes[0].init.method, 'PUT');
+  assert.equal(JSON.parse(writes[0].init.body).proactive, true);
+});
+
+test('补充输入仅在弹窗打开后出现，关闭不生成新版本', async () => {
+  let actions = 0;
+  const content = { id: 'c', day: '2026-10-30', version: 1, state: 'READY', sourceAsOf: '2026-10-30T13:00:00Z',
+    availableAt: '2026-10-30T13:00:00Z', coverage: '部分材料', message: '', materials: [], facts: [], items: [], questions: [], deliveries: [] };
+  view = await mount(React.createElement(Card, { content, timezone: 'Asia/Shanghai', busy: false, authorized: true, feishu: false,
+    act: async () => { actions++; } }));
+  assert.equal(query('textarea'), null);
+  await click('补充经历');
+  assert.ok(query('[role="dialog"] textarea'));
+  await act(async () => query('button[aria-label="关闭"]').click());
+  assert.equal(query('textarea'), null); assert.equal(actions, 0);
 });

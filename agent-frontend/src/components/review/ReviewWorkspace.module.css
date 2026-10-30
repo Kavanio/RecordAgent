@@ -1,1 +1,5 @@
-.tabs { display: flex; gap: 8px; flex-wrap: wrap; padding: 20px 24px 0; }
+.workspace { font-size: 13px; line-height: 1.6; color: var(--text-primary); min-width: 0; }
+.workspace h1 { font-size: 20px; line-height: 1.4; }
+.workspace h2 { font-size: 15px; }
+.workspace p { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; width: fit-content; max-width: 100%; padding: 4px; margin: 0 auto 24px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-secondary, #f7f8fa); }
