@@ -31,12 +31,15 @@ public class LifeOutreachService {
     public HabitView habit(String owner, SaveHabit input) {
         authorization.require(owner);
         if (input == null || input.availableHour() < 12 || input.availableHour() > 23
-                || input.source() == null || input.source().isBlank() || input.source().length() > 300)
-            throw new IllegalArgumentException("请明确说明作息来源，并选择12—23点之间的可呈现起点");
+                || (input.source() != null && input.source().length() > 300))
+            throw new IllegalArgumentException("请选择12—23点之间的复盘时间");
+        String source = input.source() == null || input.source().isBlank()
+                ? "手动设定每日 " + input.availableHour() + ":00 自动复盘"
+                : input.source().strip();
         Instant now = automationClock.instant();
         repository.habit(new Habit(owner, "review", input.expectedRevision() + 1, input.availableHour(),
-                input.source().strip(), "用户明确提供的候选作息，可能随当天安排变化；不表示睡眠状态", now,
-                now.plus(Duration.ofDays(30)), input.active()), input.expectedRevision());
+                source, "按设定时间自动准备并呈现，可随时修改", now,
+                now.plus(Duration.ofDays(365)), input.active()), input.expectedRevision());
         return habit(owner);
     }
     /** 用户反馈是唯一反馈来源；刷新和未回复均不会调用此入口。 */

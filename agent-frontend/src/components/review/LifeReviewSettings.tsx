@@ -238,7 +238,7 @@ export function LifeReviewSettings() {
           <SettingsGroup title="我的复盘" description="每份内容标明归属日、覆盖截止点与版本。补充产生新版本，保留已发送副本；准备中可稍后刷新。">
             <SettingsRow
               label="准备今天"
-              description={state.generating ? '正在后台调用模型生成复盘，预计需要 5～15 秒，完成后会自动刷新…' : '使用当前已授权来源，后台调用固定模型；受当日调用上限保护。'}
+              description={state.generating ? '正在后台调用模型生成复盘，预计需要 5～15 秒，完成后会自动刷新…' : `当前每日 ${state.habit?.active ? state.habit.availableHour : 21}:00 自动准备${s.proactive && s.feishu ? '并发送飞书' : ''}；也可随时手动触发。`}
               control={
                 <div className={styles.choices}>
                   <Button size="sm" variant="primary" disabled={disabled || state.generating} onClick={() => {
@@ -247,6 +247,13 @@ export function LifeReviewSettings() {
                     void act(() => lifeReviewApi.prepare(day, readyToday ? readyToday.version : 0, Boolean(readyToday)), '已开始后台生成今日复盘，请稍候…');
                   }}>
                     {state.generating ? '正在生成复盘…' : '准备今天的复盘'}
+                  </Button>
+                  <Button size="sm" disabled={disabled} onClick={() => {
+                    setHour(state.habit?.active ? state.habit.availableHour : 21);
+                    setHabitSource(state.habit?.source || '');
+                    setEditor('habit');
+                  }}>
+                    设置每日时间（{state.habit?.active ? `${state.habit.availableHour}:00` : '21:00'}）
                   </Button>
                   <Button size="sm" disabled={busy || state.dirty} onClick={() => void state.load()}>
                     刷新内容与状态
@@ -275,14 +282,62 @@ export function LifeReviewSettings() {
             ))}
           </SettingsGroup>
 
+          <ReviewFormModal open={editor === 'habit'} title="设置每日复盘与发送时间" busy={busy} onClose={closeEditor}>
+            <SettingsRow
+              label="每日自动生成与发送时间（12:00 — 23:00 整点）"
+              description="到达设定整点后自动准备今日复盘；若开启了主动呈现与飞书投递，生成完成后会自动发送。"
+              layout="stacked"
+              control={
+                <div className={styles.stack}>
+                  <Select
+                    aria-label="生活复盘作息小时"
+                    value={String(hour)}
+                    disabled={disabled}
+                    options={Array.from({ length: 12 }, (_, idx) => {
+                      const h = idx + 12;
+                      return { value: String(h), label: `每天 ${h}:00${h === 21 ? '（默认）' : ''}` };
+                    })}
+                    onChange={e => setHour(Number(e.target.value))}
+                  />
+                  <TextInput aria-label="生活复盘作息来源" value={habitSource} maxLength={300} disabled={disabled} placeholder="备注说明（可选，不填可直接保存）" onChange={e => setHabitSource(e.target.value)} />
+                  <div className={styles.choices}>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      disabled={disabled}
+                      onClick={() => void act(async () => {
+                        await lifeReviewApi.saveHabit(state.habit?.revision || 0, hour, habitSource, true);
+                        setEditor(null);
+                      }, `已设为每天 ${hour}:00 自动复盘`)}
+                    >
+                      保存时间
+                    </Button>
+                    {state.habit?.active && (
+                      <Button
+                        size="sm"
+                        disabled={disabled}
+                        onClick={() => void act(async () => {
+                          await lifeReviewApi.saveHabit(state.habit!.revision, 21, '恢复默认 21:00', false);
+                          setEditor(null);
+                        }, '已恢复默认每天 21:00')}
+                      >
+                        恢复默认 21:00
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              }
+            />
+          </ReviewFormModal>
+
           <ReviewDisclosure title="主动联系（可选）" description="不影响阅读复盘。展开后管理联系时间和发送记录。">
-            <SettingsGroup title="作息候选与纠正" description="只在你明确提供后使用，30天后失效；没有互动不代表没起床或身体异常。">
+            <SettingsGroup title="作息候选与纠正" description="只在你明确提供后使用，可随时纠正或停用；没有互动不代表没起床或身体异常。">
               <SettingsRow
                 label="当前候选"
                 description={
                   state.habit
                     ? `${state.habit.active ? '生效中' : '已停用'} · ${state.habit.availableHour}点后 · ${state.habit.source} · ${state.habit.uncertainty} · 有效至${state.habit.expiresAt}`
-                    : '尚未形成作息候选，采用保守规则。'
+                    : '尚未形成作息候选，默认每天 21:00 自动准备。'
                 }
                 control={
                   state.habit && (
@@ -298,13 +353,13 @@ export function LifeReviewSettings() {
               />
               <SettingsRow
                 label="调整可呈现时间"
-                description="需要时再填写作息说明，可随时纠正或停用。"
+                description="可选择 12:00—23:00 的整点自动准备与发送时间，备注可选。"
                 control={
                   <Button
                     size="sm"
                     disabled={disabled}
                     onClick={() => {
-                      setHour(state.habit?.availableHour || 12);
+                      setHour(state.habit?.availableHour || 21);
                       setHabitSource(state.habit?.source || '');
                       setEditor('habit');
                     }}
@@ -313,28 +368,6 @@ export function LifeReviewSettings() {
                   </Button>
                 }
               />
-              <ReviewFormModal open={editor === 'habit'} title="编辑作息候选" busy={busy} onClose={closeEditor}>
-                <SettingsRow
-                  label="明确或纠正可呈现时间"
-                  layout="stacked"
-                  control={
-                    <div className={styles.stack}>
-                      <TextInput aria-label="生活复盘作息小时" type="number" min={12} max={23} value={hour} disabled={disabled} onChange={e => setHour(Number(e.target.value))} />
-                      <TextInput aria-label="生活复盘作息来源" value={habitSource} maxLength={300} disabled={disabled} placeholder="例如：我最近通常下午两点后有空" onChange={e => setHabitSource(e.target.value)} />
-                      <Button
-                        size="sm"
-                        disabled={disabled || !habitSource.trim()}
-                        onClick={() => void act(async () => {
-                          await lifeReviewApi.saveHabit(state.habit?.revision || 0, hour, habitSource, true);
-                          setEditor(null);
-                        }, '作息候选已保存，后续时机按新候选计算')}
-                      >
-                        保存作息候选
-                      </Button>
-                    </div>
-                  }
-                />
-              </ReviewFormModal>
             </SettingsGroup>
 
             <SettingsGroup title="主动记录与反馈" description="等待、过期、取消与已呈现分别记录。未回复不会被判为失败，也不会触发追问。">

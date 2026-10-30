@@ -186,7 +186,8 @@ class LifeReviewIntegrationTest {
         var c = ready(true, true);
         outreach.habit("owner", new SaveHabit(0, 22, "我明确说明最近22点后才有空", true));
         outreach.tick("owner"); verify(channel, never()).send(anyString(), anyString(), anyString());
-        outreach.habit("owner", new SaveHabit(1, 20, "今天改为20点后有空", true));
+        var updated = outreach.habit("owner", new SaveHabit(1, 20, "", true));
+        assertTrue(updated.source().contains("20:00"));
         outreach.tick("owner"); outreach.propose("owner", c.id()); outreach.tick("owner");
         assertEquals(1, outreach.candidates("owner").size());
         assertEquals("PRESENTED", outreach.candidates("owner").getFirst().state());

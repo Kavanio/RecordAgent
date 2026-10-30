@@ -194,3 +194,19 @@ test('准备中版本显示等待生成提示并禁用重复点击', async () =>
   assert.ok(prepare);
   assert.equal(prepare.disabled, true);
 });
+
+test('支持在我的复盘直接设置每日自动生成时间且备注可选', async () => {
+  settings.authorized = true;
+  await render();
+  await click('设置每日时间（21:00）');
+  const select = query('select[aria-label="生活复盘作息小时"]');
+  assert.ok(select);
+  await act(async () => {
+    select.value = '20';
+    select.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+  await click('保存时间');
+  const writes = calls.filter(c => c.url.pathname.endsWith('/habit') && c.init?.method === 'PUT');
+  assert.equal(writes.length, 1);
+  assert.deepEqual(JSON.parse(writes[0].init.body), { expectedRevision: 0, availableHour: 20, source: '', active: true });
+});

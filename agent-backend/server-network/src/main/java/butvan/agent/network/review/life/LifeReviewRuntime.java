@@ -36,7 +36,11 @@ public class LifeReviewRuntime {
             for (var s : repository.enabled()) {
                 try {
                     var local = automationClock.instant().atZone(ZoneId.of(s.timezone()));
-                    if (local.getHour() >= 21 && repository.latest(s.owner(), local.toLocalDate()).isEmpty())
+                    int triggerHour = repository.habit(s.owner())
+                            .filter(h -> h.active() && automationClock.instant().isBefore(h.expiresAt()))
+                            .map(LifeReviewModels.Habit::availableHour)
+                            .orElse(21);
+                    if (local.getHour() >= triggerHour && repository.latest(s.owner(), local.toLocalDate()).isEmpty())
                         reviews.prepare(s.owner(), new LifeReviewDtos.Prepare(local.toLocalDate(), 0, false));
                     outreach.tick(s.owner());
                 } catch (RuntimeException e) { log.warn("生活复盘调度跳过：{}", e.getClass().getSimpleName()); }
