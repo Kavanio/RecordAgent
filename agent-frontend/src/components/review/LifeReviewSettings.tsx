@@ -8,6 +8,7 @@ import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
 import { SettingsPageLayout } from '../settings/SettingsPageLayout';
 import { LifeContentCard } from './LifeContentCard';
 import { LifeGoalSettings } from './LifeGoalSettings';
+import { LifeOutreachSection } from './LifeOutreachSection';
 import { ReviewDisclosure } from './ReviewDisclosure';
 import { ReviewEmptyState } from './ReviewEmptyState';
 import { ReviewFormModal } from './ReviewFormModal';
@@ -22,12 +23,13 @@ const SOURCES: { id: LifeSource; label: string }[] = [
   { id: 'FINANCE', label: '财务数值（含资产统计）' },
 ];
 
-const CANDIDATE_STATES: Record<string, string> = {
-  PENDING: '等待合适时机',
-  PRESENTED: '已呈现，无需立即回复',
-  CANCELLED: '已取消',
-  EXPIRED: '已过期',
-};
+const IDLE_CHECKIN_OPTIONS = [
+  { value: '0', label: '关闭（不主动问候）' },
+  { value: '2', label: '连续 2 天无互动后问候一次' },
+  { value: '3', label: '连续 3 天无互动后问候一次' },
+  { value: '5', label: '连续 5 天无互动后问候一次' },
+  { value: '7', label: '连续 7 天无互动后问候一次' },
+];
 
 /** 生活复盘独立设置入口；保存、用途授权与主动投递明确分开。 */
 export function LifeReviewSettings() {
@@ -75,7 +77,7 @@ export function LifeReviewSettings() {
           <SettingsGroup title="复盘设置" description="查看已保存的范围与运行状态，需要调整时再打开配置。">
             <SettingsRow
               label={s.enabled ? '生活复盘已启用' : '生活复盘未启用'}
-              description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'} · 回看${s.historyDays}日 · 每日≤${s.dailyLimit}次 · ${s.proactive ? '主动呈现' : '仅桌面留档'}${s.feishu ? ' · 飞书' : ''}`}
+              description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'} · 回看${s.historyDays}日 · 每日≤${s.dailyLimit}次 · ${s.proactive ? '主动呈现' : '仅桌面留档'}${s.feishu ? ' · 飞书' : ''}${s.idleCheckinDays ? ` · ${s.idleCheckinDays}天未互动问候` : ''}`}
               control={<Button size="sm" disabled={busy} onClick={() => setEditor('settings')}>配置复盘</Button>}
             />
           </SettingsGroup>
@@ -177,12 +179,41 @@ export function LifeReviewSettings() {
               <SettingsRow
                 label="主动呈现"
                 description="冷启动每天最多一次；同主题无新信息不重复，23:30后顺延到次日中午。"
-                control={<input aria-label="主动呈现生活复盘" type="checkbox" checked={s.proactive} disabled={busy} onChange={e => patch({ proactive: e.target.checked })} />}
+                control={
+                  <input
+                    aria-label="主动呈现生活复盘"
+                    type="checkbox"
+                    checked={s.proactive}
+                    disabled={busy}
+                    onChange={e => patch({ proactive: e.target.checked, idleCheckinDays: e.target.checked ? s.idleCheckinDays : 0 })}
+                  />
+                }
               />
               <SettingsRow
                 label="投递到本人飞书"
                 description={`${s.channelLabel}；目标只取已配置的本人白名单。飞书已读状态未知。`}
-                control={<input aria-label="生活复盘飞书投递" type="checkbox" checked={s.feishu} disabled={busy || !s.channelAvailable} onChange={e => patch({ feishu: e.target.checked })} />}
+                control={
+                  <input
+                    aria-label="生活复盘飞书投递"
+                    type="checkbox"
+                    checked={s.feishu}
+                    disabled={busy || !s.channelAvailable}
+                    onChange={e => patch({ feishu: e.target.checked, idleCheckinDays: e.target.checked ? s.idleCheckinDays : 0 })}
+                  />
+                }
+              />
+              <SettingsRow
+                label="久未互动飞书问候"
+                description="需同时开启主动呈现与本人飞书。连续 N 天无聊天或手记互动时发送一句固定温和问候（不调用模型，未回复绝不催促）。"
+                control={
+                  <Select
+                    aria-label="久未互动问候天数"
+                    value={String(s.idleCheckinDays || 0)}
+                    disabled={busy || !s.proactive || !s.feishu}
+                    options={IDLE_CHECKIN_OPTIONS}
+                    onChange={e => patch({ idleCheckinDays: Number(e.target.value) })}
+                  />
+                }
               />
             </SettingsGroup>
             <p className={styles.muted}>{state.dirty ? '有未保存更改；保存后再确认授权。' : '配置保存与授权分别执行。'}</p>
@@ -207,7 +238,7 @@ export function LifeReviewSettings() {
             <ReviewFormModal open={editor === 'consent'} title="确认生活复盘授权" busy={busy} onClose={closeEditor}>
               <p className={styles.muted}>
                 固定模型：{s.providerId} / {s.modelName}；来源：{s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、')}。
-                时区：{s.timezone} · 回看{s.historyDays}日 · 每日≤{s.dailyLimit}次调用 · {s.proactive ? '允许主动呈现' : '仅桌面留档'} · {s.feishu ? '允许投递本人飞书' : '不投递飞书'}。
+                时区：{s.timezone} · 回看{s.historyDays}日 · 每日≤{s.dailyLimit}次调用 · {s.proactive ? '允许主动呈现' : '仅桌面留档'} · {s.feishu ? '允许投递本人飞书' : '不投递飞书'}{s.idleCheckinDays ? ` · 连续${s.idleCheckinDays}天无互动飞书问候一次` : ''}。
               </p>
               {!s.authorized && (
                 <SettingsRow
@@ -282,116 +313,27 @@ export function LifeReviewSettings() {
             ))}
           </SettingsGroup>
 
-          <ReviewFormModal open={editor === 'habit'} title="设置每日复盘与发送时间" busy={busy} onClose={closeEditor}>
-            <SettingsRow
-              label="每日自动生成与发送时间（12:00 — 23:00 整点）"
-              description="到达设定整点后自动准备今日复盘；若开启了主动呈现与飞书投递，生成完成后会自动发送。"
-              layout="stacked"
-              control={
-                <div className={styles.stack}>
-                  <Select
-                    aria-label="生活复盘作息小时"
-                    value={String(hour)}
-                    disabled={disabled}
-                    options={Array.from({ length: 12 }, (_, idx) => {
-                      const h = idx + 12;
-                      return { value: String(h), label: `每天 ${h}:00${h === 21 ? '（默认）' : ''}` };
-                    })}
-                    onChange={e => setHour(Number(e.target.value))}
-                  />
-                  <TextInput aria-label="生活复盘作息来源" value={habitSource} maxLength={300} disabled={disabled} placeholder="备注说明（可选，不填可直接保存）" onChange={e => setHabitSource(e.target.value)} />
-                  <div className={styles.choices}>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      disabled={disabled}
-                      onClick={() => void act(async () => {
-                        await lifeReviewApi.saveHabit(state.habit?.revision || 0, hour, habitSource, true);
-                        setEditor(null);
-                      }, `已设为每天 ${hour}:00 自动复盘`)}
-                    >
-                      保存时间
-                    </Button>
-                    {state.habit?.active && (
-                      <Button
-                        size="sm"
-                        disabled={disabled}
-                        onClick={() => void act(async () => {
-                          await lifeReviewApi.saveHabit(state.habit!.revision, 21, '恢复默认 21:00', false);
-                          setEditor(null);
-                        }, '已恢复默认每天 21:00')}
-                      >
-                        恢复默认 21:00
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              }
-            />
-          </ReviewFormModal>
-
-          <ReviewDisclosure title="主动联系（可选）" description="不影响阅读复盘。展开后管理联系时间和发送记录。">
-            <SettingsGroup title="作息候选与纠正" description="只在你明确提供后使用，可随时纠正或停用；没有互动不代表没起床或身体异常。">
-              <SettingsRow
-                label="当前候选"
-                description={
-                  state.habit
-                    ? `${state.habit.active ? '生效中' : '已停用'} · ${state.habit.availableHour}点后 · ${state.habit.source} · ${state.habit.uncertainty} · 有效至${state.habit.expiresAt}`
-                    : '尚未形成作息候选，默认每天 21:00 自动准备。'
-                }
-                control={
-                  state.habit && (
-                    <Button
-                      size="sm"
-                      disabled={disabled || !state.habit.active}
-                      onClick={() => void act(() => lifeReviewApi.saveHabit(state.habit!.revision, state.habit!.availableHour, state.habit!.source, false), '作息候选已停用')}
-                    >
-                      停用候选
-                    </Button>
-                  )
-                }
-              />
-              <SettingsRow
-                label="调整可呈现时间"
-                description="可选择 12:00—23:00 的整点自动准备与发送时间，备注可选。"
-                control={
-                  <Button
-                    size="sm"
-                    disabled={disabled}
-                    onClick={() => {
-                      setHour(state.habit?.availableHour || 21);
-                      setHabitSource(state.habit?.source || '');
-                      setEditor('habit');
-                    }}
-                  >
-                    编辑作息
-                  </Button>
-                }
-              />
-            </SettingsGroup>
-
-            <SettingsGroup title="主动记录与反馈" description="等待、过期、取消与已呈现分别记录。未回复不会被判为失败，也不会触发追问。">
-              {state.candidates.length === 0 && (
-                <ReviewEmptyState title="暂无主动候选" description="有值得呈现的新信息时，候选和后续反馈会记录在这里。" />
-              )}
-              {state.candidates.map(c => (
-                <SettingsRow
-                  key={c.id}
-                  label={c.topic.startsWith('review-') ? `${c.topic.slice(7)} 生活复盘` : c.topic}
-                  description={`${CANDIDATE_STATES[c.state] || c.state} · 最早${new Date(c.dueAt).toLocaleString('zh-CN', { timeZone: s.timezone })} · 到期${new Date(c.expiresAt).toLocaleString('zh-CN', { timeZone: s.timezone })}${c.feedback ? ` · ${c.feedback}` : ''}`}
-                  control={
-                    <div className={styles.choices}>
-                      {(c.state === 'PENDING' ? ['CANCEL'] : ['HELPFUL', 'NOT_RELEVANT']).map(decision => (
-                        <Button key={decision} size="sm" disabled={busy} onClick={() => void act(() => lifeReviewApi.feedback(c.id, decision), '反馈已记录')}>
-                          {decision === 'CANCEL' ? '取消候选' : decision === 'HELPFUL' ? '有帮助' : '不相关'}
-                        </Button>
-                      ))}
-                    </div>
-                  }
-                />
-              ))}
-            </SettingsGroup>
-          </ReviewDisclosure>
+          <LifeOutreachSection
+            settings={s}
+            habit={state.habit}
+            habitSuggestion={state.habitSuggestion}
+            candidates={state.candidates}
+            nudges={state.nudges}
+            busy={busy}
+            disabled={disabled}
+            habitModalOpen={editor === 'habit'}
+            hour={hour}
+            habitSource={habitSource}
+            onHourChange={setHour}
+            onHabitSourceChange={setHabitSource}
+            onOpenHabitModal={(initialHour, initialSource) => {
+              setHour(initialHour);
+              setHabitSource(initialSource);
+              setEditor('habit');
+            }}
+            onCloseHabitModal={closeEditor}
+            act={act}
+          />
         </>
       )}
     </SettingsPageLayout>
