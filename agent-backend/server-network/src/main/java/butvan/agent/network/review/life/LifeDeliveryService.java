@@ -41,6 +41,29 @@ public class LifeDeliveryService {
         sendInternal(owner, candidate.contentId(), channelKey, prefix, false);
     }
 
+    /** 发送与复盘内容解耦的主动短消息；意图先落盘，同一沉默窗口不重复发送，UNKNOWN 不自动重试。 */
+    public void sendNudge(String owner, String kind, String dedupKey, String text) {
+        try (var lease = barrier.enter()) {
+            var s = authorization.require(owner);
+            if (!s.proactive() || !s.feishu() || channels.size() != 1 || !barrier.isCurrent(lease.generation())) return;
+            Instant now = automationClock.instant();
+            Nudge n = new TransactionTemplate(transactions).execute(tx -> {
+                repository.nudge(new Nudge(UUID.randomUUID().toString(), owner, kind, dedupKey, text, "PENDING",
+                        s.targetFingerprint(), "", now, null, ""));
+                return repository.findNudge(owner, kind, dedupKey).orElseThrow();
+            });
+            if (n == null || !n.state().equals("PENDING") || !n.targetFingerprint().equals(s.targetFingerprint())) return;
+            if (!barrier.isCurrent(lease.generation())) return;
+            if (!repository.nudgeState(n.id(), "PENDING", "SENDING", "", now)) return;
+            PersonalDeliveryPort.Attempt result;
+            try { result = channels.getFirst().send(s.targetFingerprint(), n.id(), n.text()); }
+            catch (RuntimeException e) { result = new PersonalDeliveryPort.Attempt("UNKNOWN", ""); }
+            String state = result != null && Set.of("SENT", "FAILED").contains(result.state()) ? result.state() : "UNKNOWN";
+            repository.nudgeState(n.id(), "SENDING", state,
+                    result == null || result.messageId() == null ? "" : result.messageId(), automationClock.instant());
+        }
+    }
+
     private void sendInternal(String owner, String contentId, String channelKey, String prefix, boolean retry) {
         try (var lease = barrier.enter()) {
             var content = repository.content(owner, contentId).orElseThrow(() -> new IllegalArgumentException("复盘不存在"));

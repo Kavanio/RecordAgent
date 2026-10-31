@@ -8,7 +8,14 @@ public final class LifeReviewDtos {
     private LifeReviewDtos() {}
     public record SaveSettings(int expectedRevision, boolean enabled, Set<String> sources, String providerId,
                                String modelName, String timezone, int historyDays, int dailyLimit,
-                               boolean proactive, boolean feishu) {}
+                               boolean proactive, boolean feishu, int idleCheckinDays) {
+        public SaveSettings(int expectedRevision, boolean enabled, Set<String> sources, String providerId,
+                String modelName, String timezone, int historyDays, int dailyLimit,
+                boolean proactive, boolean feishu) {
+            this(expectedRevision, enabled, sources, providerId, modelName, timezone, historyDays, dailyLimit,
+                    proactive, feishu, 0);
+        }
+    }
     public record Consent(int expectedRevision, String policyVersion, boolean confirmed) {}
     public record Prepare(LocalDate day, int expectedVersion, boolean supplement) {}
     public record Feedback(String decision, String text) {}
@@ -21,7 +28,7 @@ public final class LifeReviewDtos {
     public record SettingsView(int revision, boolean enabled, Set<String> sources, String providerId,
                                String modelName, String timezone, int historyDays, int dailyLimit,
                                boolean proactive, boolean feishu, boolean authorized, String policyVersion,
-                               boolean channelAvailable, String channelLabel) {}
+                               boolean channelAvailable, String channelLabel, int idleCheckinDays) {}
     public record MaterialView(String id, String kind, String sourceId, String occurredAt, String text, boolean truncated) {}
     public record FactView(String id, String domain, String metric, String value, String unit, String currency, String period) {}
     public record ItemView(String kind, String text, List<String> evidenceIds, String uncertainty) {}
@@ -34,4 +41,10 @@ public final class LifeReviewDtos {
                                 Instant dueAt, Instant expiresAt, String feedback, String eventKind) {}
     public record HabitView(int revision, int availableHour, String source, String uncertainty,
                             Instant observedAt, Instant expiresAt, boolean active) {}
+    /** 仅由用户消息时间戳统计的作息建议；不含正文，不自动写入作息。 */
+    public record HabitSuggestionView(boolean available, Integer suggestedHour, int sampleCount, int activeDays,
+                                      int windowDays, List<Integer> hourCounts, String note) {}
+    public record NudgeView(String id, String kind, String text, String state, Instant createdAt,
+                            Instant sentAt, String feedback) {}
+    public record NudgeFeedback(String decision) {}
 }
