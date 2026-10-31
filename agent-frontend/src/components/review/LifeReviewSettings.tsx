@@ -56,6 +56,16 @@ export function LifeReviewSettings() {
     <SettingsPageLayout
       title="生活复盘"
       description="回顾近期经历，在一份复盘里阅读和补充。"
+      actions={
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy || state.loading}
+          onClick={() => void state.load()}
+        >
+          {state.loading ? '正在读取…' : '刷新数据'}
+        </Button>
+      }
       loading={state.loading}
       loadingLabel="正在读取生活复盘"
     >
