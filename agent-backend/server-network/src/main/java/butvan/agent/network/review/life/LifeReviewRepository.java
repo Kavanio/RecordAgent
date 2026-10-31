@@ -144,12 +144,12 @@ public class LifeReviewRepository {
         return jdbc.queryForObject("SELECT COUNT(*) FROM life_outreach_candidate WHERE owner_id=? AND topic=? AND novelty=?",
                 Integer.class, owner, topic, novelty) > 0;
     }
-    /** 全域最近呈现时间不受候选展示分页影响，统一覆盖复盘候选与主动短消息。 */
+    /** 全域最近呈现时间不受候选展示分页影响，统一覆盖复盘候选与久未互动问候；信号提醒独立按主题去重。 */
     public Optional<Instant> lastPresentation(String owner) {
         Optional<Instant> candidateSent = Optional.ofNullable(jdbc.queryForObject(
                 "SELECT MAX(sent_at) FROM life_outreach_candidate WHERE owner_id=?", String.class, owner)).map(Instant::parse);
         Optional<Instant> nudgeSent = Optional.ofNullable(jdbc.queryForObject(
-                "SELECT MAX(sent_at) FROM life_nudge WHERE owner_id=?", String.class, owner)).map(Instant::parse);
+                "SELECT MAX(sent_at) FROM life_nudge WHERE owner_id=? AND kind='IDLE_CHECKIN'", String.class, owner)).map(Instant::parse);
         if (candidateSent.isEmpty()) return nudgeSent;
         if (nudgeSent.isEmpty()) return candidateSent;
         return candidateSent.get().isAfter(nudgeSent.get()) ? candidateSent : nudgeSent;
@@ -248,6 +248,24 @@ public class LifeReviewRepository {
                 feedback, now.toString(), owner, id) != 1)
             throw new IllegalArgumentException("主动问候记录不存在");
     }
+    /** 读取指定信息源上次观测基线与活动事件标识。 */
+    public Optional<SignalState> signalState(String owner, String signalKey) {
+        return jdbc.query("SELECT * FROM life_signal_state WHERE owner_id=? AND signal_key=?", (r, idx) ->
+                new SignalState(owner, signalKey, r.getString("baseline_value"), r.getString("active_event_key"),
+                        Instant.parse(r.getString("observed_at"))), owner, signalKey).stream().findFirst();
+    }
+    /** 保存或更新指定信息源观测基线与活动事件标识。 */
+    public void saveSignalState(SignalState state) {
+        jdbc.update("""
+                INSERT INTO life_signal_state(owner_id,signal_key,baseline_value,active_event_key,observed_at)
+                VALUES(?,?,?,?,?)
+                ON CONFLICT(owner_id,signal_key) DO UPDATE SET
+                    baseline_value=excluded.baseline_value,
+                    active_event_key=excluded.active_event_key,
+                    observed_at=excluded.observed_at
+                """, state.owner(), state.signalKey(), state.baselineValue(), state.activeEventKey(),
+                state.observedAt().toString());
+    }
     /** 读取复盘域内最近一次用户主动交互时间（补充或反馈）。 */
     public Optional<Instant> latestUserActivity(String owner) {
         List<String> raw = new ArrayList<>();
@@ -284,6 +302,7 @@ public class LifeReviewRepository {
         jdbc.update("DELETE FROM life_review_reply WHERE owner_id=?", owner);
         jdbc.update("DELETE FROM life_outreach_candidate WHERE owner_id=?", owner);
         jdbc.update("DELETE FROM life_nudge WHERE owner_id=?", owner);
+        jdbc.update("DELETE FROM life_signal_state WHERE owner_id=?", owner);
         jdbc.update("DELETE FROM life_habit_candidate WHERE owner_id=?", owner);
         jdbc.update("DELETE FROM life_review_delivery WHERE owner_id=?", owner);
         jdbc.update("DELETE FROM life_review_content WHERE owner_id=?", owner);

@@ -246,11 +246,18 @@ test('展示基于互动时间戳的作息建议并支持一键采用，且支�
     available: true, suggestedHour: 22, sampleCount: 8, activeDays: 4, windowDays: 14,
     hourCounts: Array(24).fill(0), note: '基于近 14 天 4 个活跃日、共 8 次互动时间戳统计，你在 22:00 前后较为活跃',
   };
-  nudges = [{
-    id: 'nudge-1', kind: 'IDLE_CHECKIN',
-    text: '好几天没见你来记录或聊近况了，顺手问候一声。',
-    state: 'SENT', createdAt: '2026-10-30T13:00:00Z', sentAt: '2026-10-30T13:00:00Z', feedback: '',
-  }];
+  nudges = [
+    {
+      id: 'nudge-1', kind: 'IDLE_CHECKIN',
+      text: '好几天没见你来记录或聊近况了，顺手问候一声。',
+      state: 'SENT', createdAt: '2026-10-30T13:00:00Z', sentAt: '2026-10-30T13:00:00Z', feedback: '',
+    },
+    {
+      id: 'nudge-2', kind: 'WEATHER_ALERT',
+      text: '【天气变化提醒】杭州当前转为暴雨（18°C，体感 17°C），外出请留意天气变化。',
+      state: 'SENT', createdAt: '2026-10-30T14:00:00Z', sentAt: '2026-10-30T14:00:00Z', feedback: '',
+    },
+  ];
   await render();
   assert.match(document.body.textContent, /3天未互动问候/);
 
@@ -258,6 +265,8 @@ test('展示基于互动时间戳的作息建议并支持一键采用，且支�
   const details = queryAll('details').find(d => d.querySelector('summary')?.textContent.includes('主动联系'));
   assert.ok(details);
   details.open = true;
+  assert.match(document.body.textContent, /天气变化提醒/);
+  assert.match(document.body.textContent, /杭州当前转为暴雨/);
   await click('采用建议（22:00）');
   const habitWrites = calls.filter(c => c.url.pathname.endsWith('/habit') && c.init?.method === 'PUT');
   assert.equal(habitWrites.length, 1);
@@ -269,4 +278,34 @@ test('展示基于互动时间戳的作息建议并支持一键采用，且支�
   const feedbackWrites = calls.filter(c => c.url.pathname.includes('/nudges/nudge-1/feedback') && c.init?.method === 'POST');
   assert.equal(feedbackWrites.length, 1);
   assert.deepEqual(JSON.parse(feedbackWrites[0].init.body), { decision: 'HELPFUL' });
+});
+
+test('支出提醒开关依赖财务来源授权与主动飞书，开启后随设置一并保存', async () => {
+  settings.proactive = true;
+  settings.feishu = true;
+  settings.channelAvailable = true;
+  await render();
+  await click('配置复盘');
+  const weatherCheckbox = query('input[aria-label="天气显著变化提醒"]');
+  const expenseCheckbox = query('input[aria-label="支出显著变化提醒"]');
+  assert.equal(weatherCheckbox.disabled, false);
+  assert.equal(expenseCheckbox.disabled, true);
+
+  // 勾选财务数值来源后，支出提醒可开启
+  const financeCheckbox = queryAll('label').find(l => l.textContent.includes('财务数值'))?.querySelector('input');
+  assert.ok(financeCheckbox);
+  await act(async () => financeCheckbox.click());
+  assert.equal(query('input[aria-label="支出显著变化提醒"]').disabled, false);
+
+  await act(async () => query('input[aria-label="天气显著变化提醒"]').click());
+  await act(async () => query('input[aria-label="支出显著变化提醒"]').click());
+  await click('保存生活复盘设置');
+
+  const putCall = calls.find(c => c.url.pathname.endsWith('/settings') && c.init?.method === 'PUT');
+  assert.ok(putCall);
+  const payload = JSON.parse(putCall.init.body);
+  assert.equal(payload.weatherAlertEnabled, true);
+  assert.equal(payload.expenseAlertEnabled, true);
+  assert.match(document.body.textContent, /天气提醒/);
+  assert.match(document.body.textContent, /支出提醒/);
 });

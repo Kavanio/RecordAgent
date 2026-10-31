@@ -8,12 +8,19 @@ public final class LifeReviewDtos {
     private LifeReviewDtos() {}
     public record SaveSettings(int expectedRevision, boolean enabled, Set<String> sources, String providerId,
                                String modelName, String timezone, int historyDays, int dailyLimit,
-                               boolean proactive, boolean feishu, int idleCheckinDays) {
+                               boolean proactive, boolean feishu, int idleCheckinDays,
+                               boolean weatherAlertEnabled, boolean expenseAlertEnabled) {
+        public SaveSettings(int expectedRevision, boolean enabled, Set<String> sources, String providerId,
+                String modelName, String timezone, int historyDays, int dailyLimit,
+                boolean proactive, boolean feishu, int idleCheckinDays) {
+            this(expectedRevision, enabled, sources, providerId, modelName, timezone, historyDays, dailyLimit,
+                    proactive, feishu, idleCheckinDays, false, false);
+        }
         public SaveSettings(int expectedRevision, boolean enabled, Set<String> sources, String providerId,
                 String modelName, String timezone, int historyDays, int dailyLimit,
                 boolean proactive, boolean feishu) {
             this(expectedRevision, enabled, sources, providerId, modelName, timezone, historyDays, dailyLimit,
-                    proactive, feishu, 0);
+                    proactive, feishu, 0, false, false);
         }
     }
     public record Consent(int expectedRevision, String policyVersion, boolean confirmed) {}
@@ -28,7 +35,17 @@ public final class LifeReviewDtos {
     public record SettingsView(int revision, boolean enabled, Set<String> sources, String providerId,
                                String modelName, String timezone, int historyDays, int dailyLimit,
                                boolean proactive, boolean feishu, boolean authorized, String policyVersion,
-                               boolean channelAvailable, String channelLabel, int idleCheckinDays) {}
+                               boolean channelAvailable, String channelLabel, int idleCheckinDays,
+                               boolean weatherAlertEnabled, boolean expenseAlertEnabled) {
+        public SettingsView(int revision, boolean enabled, Set<String> sources, String providerId,
+                String modelName, String timezone, int historyDays, int dailyLimit,
+                boolean proactive, boolean feishu, boolean authorized, String policyVersion,
+                boolean channelAvailable, String channelLabel, int idleCheckinDays) {
+            this(revision, enabled, sources, providerId, modelName, timezone, historyDays, dailyLimit,
+                    proactive, feishu, authorized, policyVersion, channelAvailable, channelLabel,
+                    idleCheckinDays, false, false);
+        }
+    }
     public record MaterialView(String id, String kind, String sourceId, String occurredAt, String text, boolean truncated) {}
     public record FactView(String id, String domain, String metric, String value, String unit, String currency, String period) {}
     public record ItemView(String kind, String text, List<String> evidenceIds, String uncertainty) {}
