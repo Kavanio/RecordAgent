@@ -42,6 +42,15 @@ afterEach(async () => { await view?.unmount(); view = null; stub.restore(); });
 const query = selector => document.body.querySelector(selector);
 const queryAll = selector => [...document.body.querySelectorAll(selector)];
 async function click(label) { const button = queryAll('button').find(b => b.textContent === label); assert.ok(button, label); await act(async () => button.click()); }
+async function changeInput(input, value) {
+  assert.ok(input);
+  const proto = input.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(input, value);
+    input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    input.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+}
 async function render() { view = await mount(React.createElement(MessageProvider, null, React.createElement(Settings))); }
 test('首次读取不授权、不生成、不发送，明确展示独立正文范围', async () => {
   await render();
@@ -308,4 +317,51 @@ test('支出提醒开关依赖财务来源授权与主动飞书，开启后随�
   assert.equal(payload.expenseAlertEnabled, true);
   assert.match(document.body.textContent, /天气提醒/);
   assert.match(document.body.textContent, /支出提醒/);
+});
+
+test('服务器探针提醒支持配置名称与URL，并随设置一并保存与展示短消息', async () => {
+  settings.proactive = true;
+  settings.feishu = true;
+  settings.channelAvailable = true;
+  nudges = [
+    {
+      id: 'nudge-server-1', kind: 'SERVER_ALERT',
+      text: '【服务器状态提醒】生产主后端健康检查检测到异常（HTTP 503 状态异常），请留意服务可用性。',
+      state: 'SENT', createdAt: '2026-10-30T15:00:00Z', sentAt: '2026-10-30T15:00:00Z', feedback: '',
+    },
+    {
+      id: 'nudge-server-2', kind: 'SERVER_RECOVERY',
+      text: '【服务器恢复提醒】生产主后端健康检查已恢复正常（HTTP 200），探针服务已重新就绪。',
+      state: 'SENT', createdAt: '2026-10-30T15:05:00Z', sentAt: '2026-10-30T15:05:00Z', feedback: '',
+    },
+  ];
+  await render();
+  await click('配置复盘');
+  const serverCheckbox = query('input[aria-label="服务器只读健康提醒"]');
+  assert.equal(serverCheckbox.checked, false);
+  await act(async () => serverCheckbox.click());
+
+  const nameInput = query('input[aria-label="服务器标识名称"]');
+  const urlInput = query('input[aria-label="服务器探针地址"]');
+  assert.ok(nameInput);
+  assert.ok(urlInput);
+
+  await changeInput(nameInput, '生产集群网关');
+  await changeInput(urlInput, 'https://api.example.com/actuator/health');
+
+  await click('保存生活复盘设置');
+  const putCall = calls.find(c => c.url.pathname.endsWith('/settings') && c.init?.method === 'PUT');
+  assert.ok(putCall);
+  const payload = JSON.parse(putCall.init.body);
+  assert.equal(payload.serverAlertEnabled, true);
+  assert.equal(payload.serverProbeName, '生产集群网关');
+  assert.equal(payload.serverProbeUrl, 'https://api.example.com/actuator/health');
+
+  // 展开主动联系折叠区，验证服务器提醒短消息标签
+  const details = queryAll('details').find(d => d.querySelector('summary')?.textContent.includes('主动联系'));
+  assert.ok(details);
+  details.open = true;
+  assert.match(document.body.textContent, /服务器状态提醒/);
+  assert.match(document.body.textContent, /服务器恢复提醒/);
+  assert.match(document.body.textContent, /HTTP 503 状态异常/);
 });

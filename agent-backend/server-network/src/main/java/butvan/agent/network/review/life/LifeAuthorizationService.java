@@ -34,7 +34,8 @@ public class LifeAuthorizationService {
         return new SettingsView(s.revision(), s.enabled(), s.sources(), s.providerId(), s.modelName(), s.timezone(),
                 s.historyDays(), s.dailyLimit(), s.proactive(), s.feishu(), authorized, POLICY,
                 target.available(), target.label(), s.idleCheckinDays(),
-                s.weatherAlertEnabled(), s.expenseAlertEnabled());
+                s.weatherAlertEnabled(), s.expenseAlertEnabled(),
+                s.serverAlertEnabled(), s.serverProbeUrl(), s.serverProbeName());
     }
     @Transactional
     public SettingsView save(String owner, SaveSettings input) {
@@ -46,10 +47,15 @@ public class LifeAuthorizationService {
             throw new IllegalArgumentException("久未互动问候只能选择关闭或 2、3、5、7 天");
         if (input.idleCheckinDays() > 0 && !(input.proactive() && input.feishu()))
             throw new IllegalArgumentException("久未互动问候需要同时开启主动呈现和本人飞书投递");
-        if ((input.weatherAlertEnabled() || input.expenseAlertEnabled()) && !(input.proactive() && input.feishu()))
-            throw new IllegalArgumentException("天气与支出变化提醒需要同时开启主动呈现和本人飞书投递");
+        if ((input.weatherAlertEnabled() || input.expenseAlertEnabled() || input.serverAlertEnabled()) && !(input.proactive() && input.feishu()))
+            throw new IllegalArgumentException("天气、支出与服务器状态提醒需要同时开启主动呈现和本人飞书投递");
         if (input.expenseAlertEnabled() && !input.sources().contains("FINANCE"))
             throw new IllegalArgumentException("开启支出变化提醒需要先勾选财务数值来源");
+        if (input.serverAlertEnabled()) {
+            if (input.serverProbeUrl() == null || input.serverProbeUrl().isBlank())
+                throw new IllegalArgumentException("开启服务器状态提醒必须填写有效的健康探针地址");
+            validateProbeUrl(input.serverProbeUrl());
+        }
         var old = repository.settings(owner);
         if (old.revision() != input.expectedRevision()) throw new IllegalArgumentException("设置已变化，请刷新");
         ZoneId zone;
@@ -61,7 +67,8 @@ public class LifeAuthorizationService {
         repository.settings(new Settings(owner, old.revision() + 1, input.enabled(), "", input.sources(),
                 model.providerId(), model.modelName(), model.fingerprint(), zone.getId(), input.historyDays(),
                 input.dailyLimit(), input.proactive(), input.feishu(), input.feishu() ? target.fingerprint() : "", null,
-                input.idleCheckinDays(), input.weatherAlertEnabled(), input.expenseAlertEnabled()), old.revision());
+                input.idleCheckinDays(), input.weatherAlertEnabled(), input.expenseAlertEnabled(),
+                input.serverAlertEnabled(), input.serverProbeUrl(), input.serverProbeName()), old.revision());
         repository.revokeGrants(owner, automationClock.instant());
         repository.cancel(owner);
         return view(owner);
@@ -76,7 +83,8 @@ public class LifeAuthorizationService {
         var next = new Settings(owner, s.revision() + 1, s.enabled(), UUID.randomUUID().toString(), s.sources(),
                 s.providerId(), s.modelName(), s.fingerprint(), s.timezone(), s.historyDays(), s.dailyLimit(),
                 s.proactive(), s.feishu(), s.targetFingerprint(), automationClock.instant(), s.idleCheckinDays(),
-                s.weatherAlertEnabled(), s.expenseAlertEnabled());
+                s.weatherAlertEnabled(), s.expenseAlertEnabled(),
+                s.serverAlertEnabled(), s.serverProbeUrl(), s.serverProbeName());
         repository.settings(next, s.revision());
         repository.grant(next);
         return view(owner);
@@ -88,7 +96,7 @@ public class LifeAuthorizationService {
             throw new IllegalArgumentException("请确认当前授权版本");
         repository.settings(new Settings(owner, s.revision() + 1, false, "", s.sources(), s.providerId(), s.modelName(),
                 s.fingerprint(), s.timezone(), s.historyDays(), s.dailyLimit(), false, false, "", null, 0,
-                false, false), s.revision());
+                false, false, false, "", "应用服务器"), s.revision());
         repository.revokeGrants(owner, automationClock.instant());
         repository.cancel(owner);
         return view(owner);
@@ -110,5 +118,25 @@ public class LifeAuthorizationService {
     public PersonalDeliveryPort.Target target() {
         return channels.size() == 1 ? channels.getFirst().target()
                 : new PersonalDeliveryPort.Target(false, "", "未连接本人飞书");
+    }
+    static void validateProbeUrl(String url) {
+        if (url == null || url.isBlank() || url.length() > 300)
+            throw new IllegalArgumentException("服务器探针地址长度必须在 1—300 字符内");
+        if (url.contains("\n") || url.indexOf('\0') >= 0 || url.contains(" "))
+            throw new IllegalArgumentException("服务器探针地址不能包含空白或空字符");
+        try {
+            var uri = java.net.URI.create(url);
+            String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+            if (!Set.of("http", "https").contains(scheme))
+                throw new IllegalArgumentException("服务器探针地址仅支持 http 或 https 协议");
+            if (uri.getUserInfo() != null)
+                throw new IllegalArgumentException("服务器探针地址不能携带用户身份凭据");
+            if (uri.getHost() == null || uri.getHost().isBlank())
+                throw new IllegalArgumentException("服务器探针地址的主机名无效");
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("服务器探针地址格式无效");
+        }
     }
 }
