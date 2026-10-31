@@ -20,21 +20,29 @@ public class LifeOutreachService {
     private final LifeDeliveryService deliveries;
     private final Clock automationClock;
     private final LifeActivityService activity;
+    private final LifeSignalMonitorService signals;
 
     public LifeOutreachService(LifeReviewRepository repository, LifeAuthorizationService authorization,
             LifeDeliveryService deliveries, Clock automationClock) {
-        this(repository, authorization, deliveries, automationClock, null);
+        this(repository, authorization, deliveries, automationClock, null, null);
+    }
+
+    public LifeOutreachService(LifeReviewRepository repository, LifeAuthorizationService authorization,
+            LifeDeliveryService deliveries, Clock automationClock, LifeActivityService activity) {
+        this(repository, authorization, deliveries, automationClock, activity, null);
     }
 
     @Autowired
     public LifeOutreachService(LifeReviewRepository repository, LifeAuthorizationService authorization,
             LifeDeliveryService deliveries, Clock automationClock,
-            @Autowired(required = false) LifeActivityService activity) {
+            @Autowired(required = false) LifeActivityService activity,
+            @Autowired(required = false) LifeSignalMonitorService signals) {
         this.repository = repository;
         this.authorization = authorization;
         this.deliveries = deliveries;
         this.automationClock = automationClock;
         this.activity = activity;
+        this.signals = signals;
     }
 
     /** 读取当前候选及按最新作息计算的时机，不触发投递。 */
@@ -142,6 +150,7 @@ public class LifeOutreachService {
         Instant now = automationClock.instant();
         repository.expire(owner, now);
         var local = now.atZone(ZoneId.of(s.timezone()));
+        if (signals != null) signals.checkSignals(s, local, now);
         if (local.getHour() < 12 || !local.toLocalTime().isBefore(LocalTime.of(23, 30))) return;
         for (var c : repository.candidates(owner)) {
             if (!c.state().equals("PENDING")) continue;

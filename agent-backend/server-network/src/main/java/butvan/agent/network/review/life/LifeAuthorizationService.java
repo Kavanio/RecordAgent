@@ -33,7 +33,8 @@ public class LifeAuthorizationService {
         }
         return new SettingsView(s.revision(), s.enabled(), s.sources(), s.providerId(), s.modelName(), s.timezone(),
                 s.historyDays(), s.dailyLimit(), s.proactive(), s.feishu(), authorized, POLICY,
-                target.available(), target.label(), s.idleCheckinDays());
+                target.available(), target.label(), s.idleCheckinDays(),
+                s.weatherAlertEnabled(), s.expenseAlertEnabled());
     }
     @Transactional
     public SettingsView save(String owner, SaveSettings input) {
@@ -45,6 +46,10 @@ public class LifeAuthorizationService {
             throw new IllegalArgumentException("久未互动问候只能选择关闭或 2、3、5、7 天");
         if (input.idleCheckinDays() > 0 && !(input.proactive() && input.feishu()))
             throw new IllegalArgumentException("久未互动问候需要同时开启主动呈现和本人飞书投递");
+        if ((input.weatherAlertEnabled() || input.expenseAlertEnabled()) && !(input.proactive() && input.feishu()))
+            throw new IllegalArgumentException("天气与支出变化提醒需要同时开启主动呈现和本人飞书投递");
+        if (input.expenseAlertEnabled() && !input.sources().contains("FINANCE"))
+            throw new IllegalArgumentException("开启支出变化提醒需要先勾选财务数值来源");
         var old = repository.settings(owner);
         if (old.revision() != input.expectedRevision()) throw new IllegalArgumentException("设置已变化，请刷新");
         ZoneId zone;
@@ -56,7 +61,7 @@ public class LifeAuthorizationService {
         repository.settings(new Settings(owner, old.revision() + 1, input.enabled(), "", input.sources(),
                 model.providerId(), model.modelName(), model.fingerprint(), zone.getId(), input.historyDays(),
                 input.dailyLimit(), input.proactive(), input.feishu(), input.feishu() ? target.fingerprint() : "", null,
-                input.idleCheckinDays()), old.revision());
+                input.idleCheckinDays(), input.weatherAlertEnabled(), input.expenseAlertEnabled()), old.revision());
         repository.revokeGrants(owner, automationClock.instant());
         repository.cancel(owner);
         return view(owner);
@@ -70,7 +75,8 @@ public class LifeAuthorizationService {
         verifyIdentity(s);
         var next = new Settings(owner, s.revision() + 1, s.enabled(), UUID.randomUUID().toString(), s.sources(),
                 s.providerId(), s.modelName(), s.fingerprint(), s.timezone(), s.historyDays(), s.dailyLimit(),
-                s.proactive(), s.feishu(), s.targetFingerprint(), automationClock.instant(), s.idleCheckinDays());
+                s.proactive(), s.feishu(), s.targetFingerprint(), automationClock.instant(), s.idleCheckinDays(),
+                s.weatherAlertEnabled(), s.expenseAlertEnabled());
         repository.settings(next, s.revision());
         repository.grant(next);
         return view(owner);
@@ -81,7 +87,8 @@ public class LifeAuthorizationService {
         if (consent == null || !consent.confirmed() || consent.expectedRevision() != s.revision())
             throw new IllegalArgumentException("请确认当前授权版本");
         repository.settings(new Settings(owner, s.revision() + 1, false, "", s.sources(), s.providerId(), s.modelName(),
-                s.fingerprint(), s.timezone(), s.historyDays(), s.dailyLimit(), false, false, "", null, 0), s.revision());
+                s.fingerprint(), s.timezone(), s.historyDays(), s.dailyLimit(), false, false, "", null, 0,
+                false, false), s.revision());
         repository.revokeGrants(owner, automationClock.instant());
         repository.cancel(owner);
         return view(owner);

@@ -41,7 +41,8 @@ class LifeReviewIntegrationTest {
     @SpringBootConfiguration @EnableAutoConfiguration
     @Import({LocalDatabaseConfiguration.class, LifeReviewRepository.class, LifeAuthorizationService.class,
             LifeReviewService.class, LifeOutreachService.class, LifeDeliveryService.class, LifeReplyService.class,
-            LifeActivityService.class, LifeResetParticipant.class, LifeReviewController.class, ApiExceptionHandler.class,
+            LifeActivityService.class, LifeSignalMonitorService.class, LifeResetParticipant.class,
+            LifeReviewController.class, ApiExceptionHandler.class,
             butvan.agent.network.reset.service.ResetOperationAspect.class})
     static class Application {
         @Bean Clock automationClock() {
@@ -64,6 +65,8 @@ class LifeReviewIntegrationTest {
     @MockitoBean butvan.agent.agents.session.SessionCatalogService sessions;
     @MockitoBean butvan.agent.agents.session.TranscriptService transcripts;
     @MockitoBean butvan.agent.network.record.service.RecordService records;
+    @MockitoBean butvan.agent.network.dailycontext.service.DailyContextService dailyContext;
+    @MockitoBean butvan.agent.network.daily.service.ExpenseAnalyticsService expenseAnalytics;
     @jakarta.annotation.Resource LifeAuthorizationService authorization;
     @jakarta.annotation.Resource LifeReviewService reviews;
     @jakarta.annotation.Resource LifeReviewRepository repository;
@@ -454,6 +457,76 @@ class LifeReviewIntegrationTest {
                 .contentType("application/json").content("{\"decision\":\"HELPFUL\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].feedback").value("HELPFUL"));
+    }
+    @Test void weatherAndExpenseSignalsDeliverDeterministicNudgesWithRecoveryAndDoNotBlockDailyReview() {
+        // 1. 支出提醒未勾选 FINANCE 来源时拒绝保存
+        assertThrows(IllegalArgumentException.class, () -> authorization.save("owner",
+                new SaveSettings(0, true, Set.of("JOURNAL"), "p", "m", "Asia/Shanghai", 7, 3, true, true, 0, true, true)));
+
+        // 2. 勾选 JOURNAL + FINANCE 并开启天气与支出提醒后授权
+        var saved = authorization.save("owner", new SaveSettings(
+                0, true, Set.of("JOURNAL", "FINANCE"), "p", "m", "Asia/Shanghai", 7, 3, true, true, 0, true, true));
+        authorization.grant("owner", new Consent(saved.revision(), "life-v1", true));
+
+        // 3. 早上 09:00 (01:00Z)：首次观测正常晴天 24°C，仅记录基线，不发送打扰消息
+        TIME.set(Instant.parse("2026-10-30T01:00:00Z"));
+        when(dailyContext.getSummary(eq(DAY), eq(true), eq(false))).thenReturn(
+                new butvan.agent.network.dailycontext.dto.DailyContextDtos.SummaryResponse(
+                        DAY,
+                        new butvan.agent.network.dailycontext.dto.DailyContextDtos.WeatherResponse(
+                                "杭州", "晴", "100", 24.0, "°C", 24.0, 50, "东风", 2.0, "m/s", ""),
+                        null, null, null));
+        outreach.tick("owner");
+        verify(channel, never()).send(anyString(), anyString(), anyString());
+
+        // 4. 早上 10:00 (02:00Z)：天气转为暴雨 18°C，触发一次 WEATHER_ALERT，重复 tick 不重复发送
+        TIME.set(Instant.parse("2026-10-30T02:00:00Z"));
+        when(dailyContext.getSummary(eq(DAY), eq(true), eq(false))).thenReturn(
+                new butvan.agent.network.dailycontext.dto.DailyContextDtos.SummaryResponse(
+                        DAY,
+                        new butvan.agent.network.dailycontext.dto.DailyContextDtos.WeatherResponse(
+                                "杭州", "暴雨", "307", 18.0, "°C", 17.0, 90, "北风", 6.0, "m/s", ""),
+                        null, null, null));
+        outreach.tick("owner");
+        outreach.tick("owner");
+        verify(channel, times(1)).send(eq("target"), anyString(), contains("【天气变化提醒】杭州当前转为暴雨"));
+
+        // 5. 下午 14:00 (06:00Z)：天气转晴 22°C，触发一次 WEATHER_RECOVERY 恢复通知；
+        //    同时今日 CNY 支出 360 元（高于前 4 个活跃日均 50 元的 2 倍且 ≥ 200 元），触发一次 EXPENSE_ALERT
+        TIME.set(Instant.parse("2026-10-30T06:00:00Z"));
+        when(dailyContext.getSummary(eq(DAY), eq(true), eq(false))).thenReturn(
+                new butvan.agent.network.dailycontext.dto.DailyContextDtos.SummaryResponse(
+                        DAY,
+                        new butvan.agent.network.dailycontext.dto.DailyContextDtos.WeatherResponse(
+                                "杭州", "多云", "101", 22.0, "°C", 22.0, 60, "东风", 2.0, "m/s", ""),
+                        null, null, null));
+        when(expenseAnalytics.reportExpenses(eq("owner"), eq(DAY.minusDays(28)), eq(DAY))).thenReturn(List.of(
+                new butvan.agent.network.daily.service.ExpenseAnalyticsService.ExpenseEntry(
+                        "e1", DAY.minusDays(5), LocalTime.of(12, 0), "餐饮", "", new java.math.BigDecimal("50.00"), "CNY", "finance", NOW),
+                new butvan.agent.network.daily.service.ExpenseAnalyticsService.ExpenseEntry(
+                        "e2", DAY.minusDays(4), LocalTime.of(12, 0), "餐饮", "", new java.math.BigDecimal("50.00"), "CNY", "finance", NOW),
+                new butvan.agent.network.daily.service.ExpenseAnalyticsService.ExpenseEntry(
+                        "e3", DAY.minusDays(2), LocalTime.of(12, 0), "交通", "", new java.math.BigDecimal("50.00"), "CNY", "finance", NOW),
+                new butvan.agent.network.daily.service.ExpenseAnalyticsService.ExpenseEntry(
+                        "e4", DAY, LocalTime.of(13, 30), "数码配件", "", new java.math.BigDecimal("360.00"), "CNY", "finance", NOW)
+        ));
+        outreach.tick("owner");
+        outreach.tick("owner");
+        verify(channel, times(1)).send(eq("target"), anyString(), contains("【天气恢复提醒】杭州天气已转为多云"));
+        verify(channel, times(1)).send(eq("target"), anyString(), contains("【支出变化提醒】今日（2026-10-30）已记录 CNY 支出 360.00（主要分类：数码配件）"));
+
+        // 6. 晚上 21:00 (13:00Z) 生成并呈现今日复盘：早上与下午的信号提醒不阻塞晚间每日复盘发送
+        TIME.set(NOW);
+        reviews.prepare("owner", new Prepare(DAY, 0, false));
+        reviews.tick();
+        outreach.tick("owner");
+        assertEquals("PRESENTED", outreach.candidates("owner").getFirst().state());
+        assertEquals(3, outreach.nudges("owner").size());
+
+        // 7. 重置后清除信号基线与短消息
+        reset.clean("owner");
+        assertTrue(repository.signalState("owner", "WEATHER").isEmpty());
+        assertTrue(repository.signalState("owner", "EXPENSE").isEmpty());
     }
     private static Path temporary() {
         try { return Files.createTempDirectory("life-review-test-"); }
