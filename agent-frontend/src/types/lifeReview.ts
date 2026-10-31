@@ -5,6 +5,7 @@ export interface LifeSettings {
   timezone: string; historyDays: number; dailyLimit: number; proactive: boolean; feishu: boolean;
   authorized: boolean; policyVersion: string; channelAvailable: boolean; channelLabel: string;
   idleCheckinDays?: number; weatherAlertEnabled?: boolean; expenseAlertEnabled?: boolean;
+  serverAlertEnabled?: boolean; serverProbeUrl?: string; serverProbeName?: string;
 }
 export interface LifeContent {
   id: string; themeId: string; day: string; timezone: string; version: number; state: string; sourceAsOf: string;

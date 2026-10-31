@@ -9,6 +9,7 @@ import { SettingsPageLayout } from '../settings/SettingsPageLayout';
 import { LifeContentCard } from './LifeContentCard';
 import { LifeGoalSettings } from './LifeGoalSettings';
 import { LifeOutreachSection } from './LifeOutreachSection';
+import { LifeSignalSettingsRows } from './LifeSignalSettingsRows';
 import { ReviewDisclosure } from './ReviewDisclosure';
 import { ReviewEmptyState } from './ReviewEmptyState';
 import { ReviewFormModal } from './ReviewFormModal';
@@ -21,14 +22,6 @@ const SOURCES: { id: LifeSource; label: string }[] = [
   { id: 'GOALS', label: '人工目标与主动反馈' },
   { id: 'CHAT', label: '普通聊天用户原文' },
   { id: 'FINANCE', label: '财务数值（含资产统计）' },
-];
-
-const IDLE_CHECKIN_OPTIONS = [
-  { value: '0', label: '关闭（不主动问候）' },
-  { value: '2', label: '连续 2 天无互动后问候一次' },
-  { value: '3', label: '连续 3 天无互动后问候一次' },
-  { value: '5', label: '连续 5 天无互动后问候一次' },
-  { value: '7', label: '连续 7 天无互动后问候一次' },
 ];
 
 /** 生活复盘独立设置入口；保存、用途授权与主动投递明确分开。 */
@@ -77,7 +70,7 @@ export function LifeReviewSettings() {
           <SettingsGroup title="复盘设置" description="查看已保存的范围与运行状态，需要调整时再打开配置。">
             <SettingsRow
               label={s.enabled ? '生活复盘已启用' : '生活复盘未启用'}
-              description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'} · 回看${s.historyDays}日 · 每日≤${s.dailyLimit}次 · ${s.proactive ? '主动呈现' : '仅桌面留档'}${s.feishu ? ' · 飞书' : ''}${s.idleCheckinDays ? ` · ${s.idleCheckinDays}天未互动问候` : ''}${s.weatherAlertEnabled ? ' · 天气提醒' : ''}${s.expenseAlertEnabled ? ' · 支出提醒' : ''}`}
+              description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'} · 回看${s.historyDays}日 · 每日≤${s.dailyLimit}次 · ${s.proactive ? '主动呈现' : '仅桌面留档'}${s.feishu ? ' · 飞书' : ''}${s.idleCheckinDays ? ` · ${s.idleCheckinDays}天未互动问候` : ''}${s.weatherAlertEnabled ? ' · 天气提醒' : ''}${s.expenseAlertEnabled ? ' · 支出提醒' : ''}${s.serverAlertEnabled ? ' · 服务器提醒' : ''}`}
               control={<Button size="sm" disabled={busy} onClick={() => setEditor('settings')}>配置复盘</Button>}
             />
           </SettingsGroup>
@@ -180,81 +173,7 @@ export function LifeReviewSettings() {
                   control={<TextInput aria-label="生活复盘每日上限" type="number" min={1} max={3} value={s.dailyLimit} disabled={busy} onChange={e => patch({ dailyLimit: Number(e.target.value) })} />}
                 />
               </ReviewDisclosure>
-              <SettingsRow
-                label="主动呈现"
-                description="冷启动每天最多一次；同主题无新信息不重复，23:30后顺延到次日中午。"
-                control={
-                  <input
-                    aria-label="主动呈现生活复盘"
-                    type="checkbox"
-                    checked={s.proactive}
-                    disabled={busy}
-                    onChange={e => patch({
-                      proactive: e.target.checked,
-                      idleCheckinDays: e.target.checked ? s.idleCheckinDays : 0,
-                      weatherAlertEnabled: e.target.checked ? s.weatherAlertEnabled : false,
-                      expenseAlertEnabled: e.target.checked ? s.expenseAlertEnabled : false,
-                    })}
-                  />
-                }
-              />
-              <SettingsRow
-                label="投递到本人飞书"
-                description={`${s.channelLabel}；目标只取已配置的本人白名单。飞书已读状态未知。`}
-                control={
-                  <input
-                    aria-label="生活复盘飞书投递"
-                    type="checkbox"
-                    checked={s.feishu}
-                    disabled={busy || !s.channelAvailable}
-                    onChange={e => patch({
-                      feishu: e.target.checked,
-                      idleCheckinDays: e.target.checked ? s.idleCheckinDays : 0,
-                      weatherAlertEnabled: e.target.checked ? s.weatherAlertEnabled : false,
-                      expenseAlertEnabled: e.target.checked ? s.expenseAlertEnabled : false,
-                    })}
-                  />
-                }
-              />
-              <SettingsRow
-                label="久未互动飞书问候"
-                description="需同时开启主动呈现与本人飞书。连续 N 天无聊天或手记互动时发送一句固定温和问候（不调用模型，未回复绝不催促）。"
-                control={
-                  <Select
-                    aria-label="久未互动问候天数"
-                    value={String(s.idleCheckinDays || 0)}
-                    disabled={busy || !s.proactive || !s.feishu}
-                    options={IDLE_CHECKIN_OPTIONS}
-                    onChange={e => patch({ idleCheckinDays: Number(e.target.value) })}
-                  />
-                }
-              />
-              <SettingsRow
-                label="天气显著变化提醒"
-                description="复用已配置的和风天气缓存（08:00—22:00），恶劣降水、大幅降温或天气转好时飞书提醒，不后台定位、不调用模型。"
-                control={
-                  <input
-                    aria-label="天气显著变化提醒"
-                    type="checkbox"
-                    checked={Boolean(s.weatherAlertEnabled)}
-                    disabled={busy || !s.proactive || !s.feishu}
-                    onChange={e => patch({ weatherAlertEnabled: e.target.checked })}
-                  />
-                }
-              />
-              <SettingsRow
-                label="支出显著变化提醒"
-                description="需勾选财务数值来源并开启主动飞书。当日支出显著高于近 28 天活跃日均基线时飞书客观提醒，同日同币种去重。"
-                control={
-                  <input
-                    aria-label="支出显著变化提醒"
-                    type="checkbox"
-                    checked={Boolean(s.expenseAlertEnabled)}
-                    disabled={busy || !s.proactive || !s.feishu || !s.sources.includes('FINANCE')}
-                    onChange={e => patch({ expenseAlertEnabled: e.target.checked })}
-                  />
-                }
-              />
+              <LifeSignalSettingsRows settings={s} busy={busy} patch={patch} />
             </SettingsGroup>
             <p className={styles.muted}>{state.dirty ? '有未保存更改；保存后再确认授权。' : '配置保存与授权分别执行。'}</p>
           </ReviewFormModal>
@@ -278,7 +197,7 @@ export function LifeReviewSettings() {
             <ReviewFormModal open={editor === 'consent'} title="确认生活复盘授权" busy={busy} onClose={closeEditor}>
               <p className={styles.muted}>
                 固定模型：{s.providerId} / {s.modelName}；来源：{s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、')}。
-                时区：{s.timezone} · 回看{s.historyDays}日 · 每日≤{s.dailyLimit}次调用 · {s.proactive ? '允许主动呈现' : '仅桌面留档'} · {s.feishu ? '允许投递本人飞书' : '不投递飞书'}{s.idleCheckinDays ? ` · 连续${s.idleCheckinDays}天无互动飞书问候一次` : ''}{s.weatherAlertEnabled ? ' · 开启天气变化提醒' : ''}{s.expenseAlertEnabled ? ' · 开启支出变化提醒' : ''}。
+                时区：{s.timezone} · 回看{s.historyDays}日 · 每日≤{s.dailyLimit}次调用 · {s.proactive ? '允许主动呈现' : '仅桌面留档'} · {s.feishu ? '允许投递本人飞书' : '不投递飞书'}{s.idleCheckinDays ? ` · 连续${s.idleCheckinDays}天无互动飞书问候一次` : ''}{s.weatherAlertEnabled ? ' · 开启天气变化提醒' : ''}{s.expenseAlertEnabled ? ' · 开启支出变化提醒' : ''}{s.serverAlertEnabled ? ` · 开启服务器状态提醒（${s.serverProbeName || '应用服务器'}）` : ''}。
               </p>
               {!s.authorized && (
                 <SettingsRow
