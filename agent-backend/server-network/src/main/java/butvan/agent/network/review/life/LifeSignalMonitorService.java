@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -48,17 +49,34 @@ public class LifeSignalMonitorService {
     private final LifeDeliveryService deliveries;
     private final DailyContextService dailyContext;
     private final ExpenseAnalyticsService expenseAnalytics;
+    private final ServerProbeClient probeClient;
+
+    @FunctionalInterface
+    public interface ServerProbeClient {
+        ProbeResult probe(String url);
+        record ProbeResult(boolean up, int statusCode, String message) {}
+    }
+
+    public LifeSignalMonitorService(
+            LifeReviewRepository repository,
+            LifeDeliveryService deliveries,
+            DailyContextService dailyContext,
+            ExpenseAnalyticsService expenseAnalytics) {
+        this(repository, deliveries, dailyContext, expenseAnalytics, defaultProbeClient());
+    }
 
     @Autowired
     public LifeSignalMonitorService(
             LifeReviewRepository repository,
             LifeDeliveryService deliveries,
             @Autowired(required = false) DailyContextService dailyContext,
-            @Autowired(required = false) ExpenseAnalyticsService expenseAnalytics) {
+            @Autowired(required = false) ExpenseAnalyticsService expenseAnalytics,
+            @Autowired(required = false) ServerProbeClient probeClient) {
         this.repository = repository;
         this.deliveries = deliveries;
         this.dailyContext = dailyContext;
         this.expenseAnalytics = expenseAnalytics;
+        this.probeClient = probeClient != null ? probeClient : defaultProbeClient();
     }
 
     /** 检查已开启的现实信息源变化；各信息源独立降级，互不阻断。 */
@@ -73,6 +91,11 @@ public class LifeSignalMonitorService {
             checkExpense(settings, local, now);
         } catch (RuntimeException e) {
             log.warn("支出变化监测降级跳过：{}", e.getClass().getSimpleName());
+        }
+        try {
+            checkServer(settings, local, now);
+        } catch (RuntimeException e) {
+            log.warn("服务器状态监测降级跳过：{}", e.getClass().getSimpleName());
         }
     }
 
@@ -207,6 +230,82 @@ public class LifeSignalMonitorService {
                     s.owner(), "EXPENSE", today + "|" + currency + "|" + todayTotal.toPlainString(), dedupKey, now));
             deliveries.sendNudge(s.owner(), "EXPENSE_ALERT", dedupKey, text);
         }
+    }
+
+    private void checkServer(Settings s, ZonedDateTime local, Instant now) {
+        if (!s.serverSignalEnabled() || probeClient == null) return;
+        Optional<SignalState> prevOpt = repository.signalState(s.owner(), "SERVER");
+        if (prevOpt.isPresent()) {
+            Instant lastObserved = prevOpt.get().observedAt();
+            if (now.isBefore(lastObserved.plus(Duration.ofSeconds(30)))) {
+                return;
+            }
+        }
+
+        ServerProbeClient.ProbeResult result;
+        try {
+            result = probeClient.probe(s.serverProbeUrl());
+        } catch (Exception e) {
+            result = new ServerProbeClient.ProbeResult(false, 0, "探测请求失败：" + e.getClass().getSimpleName());
+        }
+
+        LocalDate today = local.toLocalDate();
+        String name = s.serverProbeName();
+
+        if (result.up()) {
+            if (prevOpt.isPresent() && !prevOpt.get().activeEventKey().isBlank()) {
+                String activeKey = prevOpt.get().activeEventKey();
+                String recoveryKey = "recovery:" + activeKey;
+                repository.saveSignalState(new SignalState(
+                        s.owner(), "SERVER", "OK|" + result.statusCode(), "", now));
+                String text = "【服务器恢复提醒】" + name + "健康检查已恢复正常（"
+                        + result.message() + "），探针服务已重新就绪。";
+                deliveries.sendNudge(s.owner(), "SERVER_RECOVERY", recoveryKey, text);
+            } else {
+                repository.saveSignalState(new SignalState(
+                        s.owner(), "SERVER", "OK|" + result.statusCode(), "", now));
+            }
+            return;
+        }
+
+        String eventKey = "server:" + today + ":" + name;
+        if (prevOpt.isEmpty() || prevOpt.get().activeEventKey().isBlank()) {
+            repository.saveSignalState(new SignalState(
+                    s.owner(), "SERVER", "FAIL|" + result.statusCode() + "|" + result.message(), eventKey, now));
+            String text = "【服务器状态提醒】" + name + "健康检查检测到异常（"
+                    + result.message() + "），请留意服务可用性。";
+            deliveries.sendNudge(s.owner(), "SERVER_ALERT", eventKey, text);
+        } else {
+            repository.saveSignalState(new SignalState(
+                    s.owner(), "SERVER", "FAIL|" + result.statusCode() + "|" + result.message(), prevOpt.get().activeEventKey(), now));
+        }
+    }
+
+    private static ServerProbeClient defaultProbeClient() {
+        var client = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(2))
+                .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
+                .build();
+        return url -> {
+            try {
+                var request = java.net.http.HttpRequest.newBuilder()
+                        .uri(java.net.URI.create(url))
+                        .timeout(Duration.ofSeconds(3))
+                        .header("User-Agent", "ButvanAgent-ServerProbe/1.0")
+                        .GET()
+                        .build();
+                var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.discarding());
+                int code = response.statusCode();
+                boolean up = code >= 200 && code < 400;
+                return new ServerProbeClient.ProbeResult(up, code, up ? "HTTP " + code : "HTTP " + code + " 状态异常");
+            } catch (java.net.http.HttpConnectTimeoutException | java.net.ConnectException e) {
+                return new ServerProbeClient.ProbeResult(false, 0, "连接失败或超时");
+            } catch (java.net.http.HttpTimeoutException e) {
+                return new ServerProbeClient.ProbeResult(false, 0, "响应读取超时");
+            } catch (Exception e) {
+                return new ServerProbeClient.ProbeResult(false, 0, "探测请求失败：" + e.getClass().getSimpleName());
+            }
+        };
     }
 
     private static String resolveTopCategory(List<ExpenseEntry> entries) {

@@ -67,6 +67,7 @@ class LifeReviewIntegrationTest {
     @MockitoBean butvan.agent.network.record.service.RecordService records;
     @MockitoBean butvan.agent.network.dailycontext.service.DailyContextService dailyContext;
     @MockitoBean butvan.agent.network.daily.service.ExpenseAnalyticsService expenseAnalytics;
+    @MockitoBean LifeSignalMonitorService.ServerProbeClient probeClient;
     @jakarta.annotation.Resource LifeAuthorizationService authorization;
     @jakarta.annotation.Resource LifeReviewService reviews;
     @jakarta.annotation.Resource LifeReviewRepository repository;
@@ -88,6 +89,7 @@ class LifeReviewIntegrationTest {
         when(records.journalFragments(anyString(), any(), any())).thenReturn(List.of());
         when(personal.collect(any(), any())).thenReturn(List.of());
         when(models.resolve("p", "m")).thenReturn(new ModelIdentity("p", "m", "openai", "fingerprint"));
+        when(probeClient.probe(anyString())).thenReturn(new LifeSignalMonitorService.ServerProbeClient.ProbeResult(true, 200, "HTTP 200"));
         when(channel.target()).thenReturn(new PersonalDeliveryPort.Target(true, "target", "本人飞书"));
         when(channel.send(anyString(), anyString(), anyString())).thenReturn(new PersonalDeliveryPort.Attempt("SENT", "message"));
         when(materials.collect(any(), any(), any())).thenReturn(new LifeMaterialService.Collected(
@@ -527,6 +529,51 @@ class LifeReviewIntegrationTest {
         reset.clean("owner");
         assertTrue(repository.signalState("owner", "WEATHER").isEmpty());
         assertTrue(repository.signalState("owner", "EXPENSE").isEmpty());
+    }
+    @Test void serverProbeSignalMonitoringDetectsFailureAndRecoveryWithoutSpamming() {
+        // 1. 开启服务器探针提醒但 URL 无效或缺失时拒绝保存
+        assertThrows(IllegalArgumentException.class, () -> authorization.save("owner",
+                new SaveSettings(0, true, Set.of("JOURNAL"), "p", "m", "Asia/Shanghai", 7, 3, true, true, 0, false, false, true, "", "主后端")));
+        assertThrows(IllegalArgumentException.class, () -> authorization.save("owner",
+                new SaveSettings(0, true, Set.of("JOURNAL"), "p", "m", "Asia/Shanghai", 7, 3, true, true, 0, false, false, true, "ftp://bad", "主后端")));
+        assertThrows(IllegalArgumentException.class, () -> authorization.save("owner",
+                new SaveSettings(0, true, Set.of("JOURNAL"), "p", "m", "Asia/Shanghai", 7, 3, true, true, 0, false, false, true, "http://admin:pwd@evil.com", "主后端")));
+
+        // 2. 正常保存合法探针并授权
+        var saved = authorization.save("owner", new SaveSettings(
+                0, true, Set.of("JOURNAL"), "p", "m", "Asia/Shanghai", 7, 3, true, true, 0,
+                false, false, true, "https://api.example.com/actuator/health", "生产主后端"));
+        authorization.grant("owner", new Consent(saved.revision(), "life-v1", true));
+
+        // 3. 首次探测正常 (200 UP)，仅记录状态，不产生主动骚扰
+        outreach.tick("owner");
+        verify(channel, never()).send(anyString(), anyString(), anyString());
+        assertEquals("OK|200", repository.signalState("owner", "SERVER").orElseThrow().baselineValue());
+
+        // 4. 服务端出现 503 异常：过了 30 秒节流期后触发一次 SERVER_ALERT
+        TIME.set(NOW.plusSeconds(35));
+        when(probeClient.probe(eq("https://api.example.com/actuator/health")))
+                .thenReturn(new LifeSignalMonitorService.ServerProbeClient.ProbeResult(false, 503, "HTTP 503 状态异常"));
+        outreach.tick("owner");
+        verify(channel, times(1)).send(eq("target"), anyString(), contains("【服务器状态提醒】生产主后端健康检查检测到异常（HTTP 503 状态异常）"));
+
+        // 5. 持续异常且过了 35 秒节流期：保持 activeEventKey，不重复刷屏 (T19 去重验证)
+        TIME.set(NOW.plusSeconds(70));
+        outreach.tick("owner");
+        verify(channel, times(1)).send(anyString(), anyString(), anyString());
+
+        // 6. 服务恢复正常 (HTTP 200)：触发一次 SERVER_RECOVERY，并清空 activeEventKey
+        TIME.set(NOW.plusSeconds(105));
+        when(probeClient.probe(eq("https://api.example.com/actuator/health")))
+                .thenReturn(new LifeSignalMonitorService.ServerProbeClient.ProbeResult(true, 200, "HTTP 200"));
+        outreach.tick("owner");
+        verify(channel, times(1)).send(eq("target"), anyString(), contains("【服务器恢复提醒】生产主后端健康检查已恢复正常"));
+        assertTrue(repository.signalState("owner", "SERVER").orElseThrow().activeEventKey().isBlank());
+
+        // 7. 再次正常检查：不重复发送恢复提示
+        TIME.set(NOW.plusSeconds(140));
+        outreach.tick("owner");
+        verify(channel, times(2)).send(anyString(), anyString(), anyString());
     }
     private static Path temporary() {
         try { return Files.createTempDirectory("life-review-test-"); }

@@ -12,26 +12,41 @@ public final class LifeReviewModels {
                            String providerId, String modelName, String fingerprint, String timezone,
                            int historyDays, int dailyLimit, boolean proactive, boolean feishu,
                            String targetFingerprint, Instant authorizedAt, int idleCheckinDays,
-                           boolean weatherAlertEnabled, boolean expenseAlertEnabled) {
-        public Settings { sources = Set.copyOf(sources); }
+                           boolean weatherAlertEnabled, boolean expenseAlertEnabled,
+                           boolean serverAlertEnabled, String serverProbeUrl, String serverProbeName) {
+        public Settings {
+            sources = Set.copyOf(sources);
+            serverProbeUrl = serverProbeUrl == null ? "" : serverProbeUrl.strip();
+            serverProbeName = serverProbeName == null || serverProbeName.isBlank() ? "应用服务器" : serverProbeName.strip();
+        }
+        public Settings(String owner, int revision, boolean enabled, String grantId, Set<String> sources,
+                String providerId, String modelName, String fingerprint, String timezone,
+                int historyDays, int dailyLimit, boolean proactive, boolean feishu,
+                String targetFingerprint, Instant authorizedAt, int idleCheckinDays,
+                boolean weatherAlertEnabled, boolean expenseAlertEnabled) {
+            this(owner, revision, enabled, grantId, sources, providerId, modelName, fingerprint, timezone,
+                    historyDays, dailyLimit, proactive, feishu, targetFingerprint, authorizedAt, idleCheckinDays,
+                    weatherAlertEnabled, expenseAlertEnabled, false, "", "应用服务器");
+        }
         public Settings(String owner, int revision, boolean enabled, String grantId, Set<String> sources,
                 String providerId, String modelName, String fingerprint, String timezone,
                 int historyDays, int dailyLimit, boolean proactive, boolean feishu,
                 String targetFingerprint, Instant authorizedAt, int idleCheckinDays) {
             this(owner, revision, enabled, grantId, sources, providerId, modelName, fingerprint, timezone,
                     historyDays, dailyLimit, proactive, feishu, targetFingerprint, authorizedAt, idleCheckinDays,
-                    false, false);
+                    false, false, false, "", "应用服务器");
         }
         public Settings(String owner, int revision, boolean enabled, String grantId, Set<String> sources,
                 String providerId, String modelName, String fingerprint, String timezone,
                 int historyDays, int dailyLimit, boolean proactive, boolean feishu,
                 String targetFingerprint, Instant authorizedAt) {
             this(owner, revision, enabled, grantId, sources, providerId, modelName, fingerprint, timezone,
-                    historyDays, dailyLimit, proactive, feishu, targetFingerprint, authorizedAt, 0, false, false);
+                    historyDays, dailyLimit, proactive, feishu, targetFingerprint, authorizedAt, 0, false, false,
+                    false, "", "应用服务器");
         }
         public static Settings defaults(String owner) {
             return new Settings(owner, 0, false, "", Set.of(), "", "", "", "Asia/Shanghai", 7, 1,
-                    false, false, "", null, 0, false, false);
+                    false, false, "", null, 0, false, false, false, "", "应用服务器");
         }
         /** 久未互动问候需要主动呈现、本人飞书与问候天数同时开启。 */
         public boolean idleCheckinEnabled() { return proactive && feishu && idleCheckinDays > 0; }
@@ -40,6 +55,10 @@ public final class LifeReviewModels {
         /** 支出变化提醒需要主动呈现、本人飞书、财务来源授权与支出提醒开关同时开启。 */
         public boolean expenseSignalEnabled() {
             return proactive && feishu && expenseAlertEnabled && sources.contains("FINANCE");
+        }
+        /** 服务器健康探针提醒需要主动呈现、本人飞书、开关开启且探针地址有效。 */
+        public boolean serverSignalEnabled() {
+            return proactive && feishu && serverAlertEnabled && !serverProbeUrl.isBlank();
         }
     }
     /** 保留原始角色、时间及截断状态；不将模型推断保存为原始记录。 */
