@@ -4,7 +4,7 @@ export interface LifeSettings {
   revision: number; enabled: boolean; sources: LifeSource[]; providerId: string; modelName: string;
   timezone: string; historyDays: number; dailyLimit: number; proactive: boolean; feishu: boolean;
   authorized: boolean; policyVersion: string; channelAvailable: boolean; channelLabel: string;
-  idleCheckinDays?: number;
+  idleCheckinDays?: number; weatherAlertEnabled?: boolean; expenseAlertEnabled?: boolean;
 }
 export interface LifeContent {
   id: string; themeId: string; day: string; timezone: string; version: number; state: string; sourceAsOf: string;

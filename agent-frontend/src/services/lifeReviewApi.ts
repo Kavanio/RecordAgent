@@ -24,6 +24,7 @@ export const lifeReviewApi = {
     expectedRevision: s.revision, enabled: s.enabled, sources: s.sources, providerId: s.providerId,
     modelName: s.modelName, timezone: s.timezone, historyDays: s.historyDays, dailyLimit: s.dailyLimit,
     proactive: s.proactive, feishu: s.feishu, idleCheckinDays: s.idleCheckinDays || 0,
+    weatherAlertEnabled: Boolean(s.weatherAlertEnabled), expenseAlertEnabled: Boolean(s.expenseAlertEnabled),
   }),
   consent: (s: LifeSettings, grant: boolean) => request<LifeSettings>(grant ? '/grant' : '/revoke', 'POST', {
     expectedRevision: s.revision, policyVersion: s.policyVersion, confirmed: true,
