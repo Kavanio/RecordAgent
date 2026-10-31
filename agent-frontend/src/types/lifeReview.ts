@@ -6,6 +6,8 @@ export interface LifeSettings {
   authorized: boolean; policyVersion: string; channelAvailable: boolean; channelLabel: string;
   idleCheckinDays?: number; weatherAlertEnabled?: boolean; expenseAlertEnabled?: boolean;
   serverAlertEnabled?: boolean; serverProbeUrl?: string; serverProbeName?: string;
+  mailAlertEnabled?: boolean; imapHost?: string; imapPort?: number; imapUsername?: string;
+  imapPassword?: string; imapConfigured?: boolean; mailSenderWhitelist?: string; mailSubjectKeywords?: string;
 }
 export interface LifeContent {
   id: string; themeId: string; day: string; timezone: string; version: number; state: string; sourceAsOf: string;

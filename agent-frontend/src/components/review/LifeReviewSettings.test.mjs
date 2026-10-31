@@ -365,3 +365,61 @@ test('服务器探针提醒支持配置名称与URL，并随设置一并保存�
   assert.match(document.body.textContent, /服务器恢复提醒/);
   assert.match(document.body.textContent, /HTTP 503 状态异常/);
 });
+
+test('重要邮件提醒支持配置IMAP主机、端口、账号、密码及过滤规则，并随设置一并保存与展示短消息', async () => {
+  settings.proactive = true;
+  settings.feishu = true;
+  settings.channelAvailable = true;
+  nudges = [
+    {
+      id: 'nudge-mail-1', kind: 'MAIL_ALERT',
+      text: '【重要邮件提醒】检测到来自「运维监控组」的重要邮件：《生产数据库主从同步延迟》，请留意查收。',
+      state: 'SENT', createdAt: '2026-10-30T16:00:00Z', sentAt: '2026-10-30T16:00:00Z', feedback: '',
+    },
+  ];
+  await render();
+  await click('配置复盘');
+  const mailCheckbox = query('input[aria-label="重要邮件只读提醒"]');
+  assert.equal(mailCheckbox.checked, false);
+  await act(async () => mailCheckbox.click());
+
+  const hostInput = query('input[aria-label="IMAP 服务器主机"]');
+  const portInput = query('input[aria-label="IMAP 端口"]');
+  const userInput = query('input[aria-label="IMAP 账号"]');
+  const passInput = query('input[aria-label="IMAP 密码或授权码"]');
+  const whitelistInput = query('input[aria-label="发件人白名单"]');
+  const keywordsInput = query('input[aria-label="主题关键词"]');
+
+  assert.ok(hostInput);
+  assert.ok(portInput);
+  assert.ok(userInput);
+  assert.ok(passInput);
+  assert.ok(whitelistInput);
+  assert.ok(keywordsInput);
+
+  await changeInput(hostInput, 'imap.example.com');
+  await changeInput(portInput, '993');
+  await changeInput(userInput, 'ops@example.com');
+  await changeInput(passInput, 'auth_token_123');
+  await changeInput(whitelistInput, 'ops@company.com, alert@domain.com');
+  await changeInput(keywordsInput, '紧急, 故障, 开票');
+
+  await click('保存生活复盘设置');
+  const putCall = calls.find(c => c.url.pathname.endsWith('/settings') && c.init?.method === 'PUT');
+  assert.ok(putCall);
+  const payload = JSON.parse(putCall.init.body);
+  assert.equal(payload.mailAlertEnabled, true);
+  assert.equal(payload.imapHost, 'imap.example.com');
+  assert.equal(payload.imapPort, 993);
+  assert.equal(payload.imapUsername, 'ops@example.com');
+  assert.equal(payload.imapPassword, 'auth_token_123');
+  assert.equal(payload.mailSenderWhitelist, 'ops@company.com, alert@domain.com');
+  assert.equal(payload.mailSubjectKeywords, '紧急, 故障, 开票');
+
+  // 展开主动联系折叠区，验证邮件提醒短消息标签
+  const details = queryAll('details').find(d => d.querySelector('summary')?.textContent.includes('主动联系'));
+  assert.ok(details);
+  details.open = true;
+  assert.match(document.body.textContent, /重要邮件提醒/);
+  assert.match(document.body.textContent, /生产数据库主从同步延迟/);
+});

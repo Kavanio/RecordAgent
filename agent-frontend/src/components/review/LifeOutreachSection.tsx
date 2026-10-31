@@ -221,18 +221,19 @@ export function LifeOutreachSection({
         <SettingsGroup
           title="久未互动问候与现实提醒记录"
           description={
-            s.idleCheckinDays || s.weatherAlertEnabled || s.expenseAlertEnabled || s.serverAlertEnabled
+            s.idleCheckinDays || s.weatherAlertEnabled || s.expenseAlertEnabled || s.serverAlertEnabled || s.mailAlertEnabled
               ? `已启用：${[
                   s.idleCheckinDays ? `连续 ${s.idleCheckinDays} 天无互动问候` : '',
                   s.weatherAlertEnabled ? '天气变化提醒' : '',
                   s.expenseAlertEnabled ? '支出变化提醒' : '',
                   s.serverAlertEnabled ? `服务器探针提醒（${s.serverProbeName || '应用服务器'}）` : '',
+                  s.mailAlertEnabled ? `重要邮件提醒（${s.imapHost || 'IMAP'}）` : '',
                 ].filter(Boolean).join('、')}（确定性规则触发，不调用模型，未回复不重复催促）。`
               : '当前未开启久未互动问候或现实变化提醒；可在上方「配置复盘」中按需开启。'
           }
         >
           {nudges.length === 0 && (
-            <ReviewEmptyState title="暂无问候或提醒记录" description="触发过久未互动问候、天气变化、支出变化或服务器探针提醒后，发送时间、状态和你的反馈会记录在这里。" />
+            <ReviewEmptyState title="暂无问候或提醒记录" description="触发过久未互动问候、天气变化、支出变化、服务器探针或重要邮件提醒后，发送时间、状态和你的反馈会记录在这里。" />
           )}
           {nudges.map(n => (
             <SettingsRow
