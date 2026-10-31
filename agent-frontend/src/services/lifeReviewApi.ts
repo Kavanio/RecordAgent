@@ -20,13 +20,17 @@ async function request<T>(path: string, method = 'GET', body?: unknown): Promise
 const idPath = (id: string) => `/${encodeURIComponent(id)}`;
 export const lifeReviewApi = {
   settings: () => request<LifeSettings>('/settings'),
-  save: (s: LifeSettings) => request<LifeSettings>('/settings', 'PUT', {
+  save: (s: LifeSettings & { imapPassword?: string }) => request<LifeSettings>('/settings', 'PUT', {
     expectedRevision: s.revision, enabled: s.enabled, sources: s.sources, providerId: s.providerId,
     modelName: s.modelName, timezone: s.timezone, historyDays: s.historyDays, dailyLimit: s.dailyLimit,
     proactive: s.proactive, feishu: s.feishu, idleCheckinDays: s.idleCheckinDays || 0,
     weatherAlertEnabled: Boolean(s.weatherAlertEnabled), expenseAlertEnabled: Boolean(s.expenseAlertEnabled),
     serverAlertEnabled: Boolean(s.serverAlertEnabled), serverProbeUrl: s.serverProbeUrl || '',
     serverProbeName: s.serverProbeName || '应用服务器',
+    mailAlertEnabled: Boolean(s.mailAlertEnabled), imapHost: s.imapHost || '',
+    imapPort: s.imapPort || 993, imapUsername: s.imapUsername || '',
+    imapPassword: s.imapPassword || '', mailSenderWhitelist: s.mailSenderWhitelist || '',
+    mailSubjectKeywords: s.mailSubjectKeywords || '',
   }),
   consent: (s: LifeSettings, grant: boolean) => request<LifeSettings>(grant ? '/grant' : '/revoke', 'POST', {
     expectedRevision: s.revision, policyVersion: s.policyVersion, confirmed: true,

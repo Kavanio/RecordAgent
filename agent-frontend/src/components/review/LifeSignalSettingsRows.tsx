@@ -37,6 +37,7 @@ export function LifeSignalSettingsRows({ settings: s, busy, patch }: LifeSignalS
               weatherAlertEnabled: e.target.checked ? s.weatherAlertEnabled : false,
               expenseAlertEnabled: e.target.checked ? s.expenseAlertEnabled : false,
               serverAlertEnabled: e.target.checked ? s.serverAlertEnabled : false,
+              mailAlertEnabled: e.target.checked ? s.mailAlertEnabled : false,
             })}
           />
         }
@@ -56,6 +57,7 @@ export function LifeSignalSettingsRows({ settings: s, busy, patch }: LifeSignalS
               weatherAlertEnabled: e.target.checked ? s.weatherAlertEnabled : false,
               expenseAlertEnabled: e.target.checked ? s.expenseAlertEnabled : false,
               serverAlertEnabled: e.target.checked ? s.serverAlertEnabled : false,
+              mailAlertEnabled: e.target.checked ? s.mailAlertEnabled : false,
             })}
           />
         }
@@ -132,6 +134,80 @@ export function LifeSignalSettingsRows({ settings: s, busy, patch }: LifeSignalS
                   disabled={busy}
                   maxLength={300}
                   onChange={e => patch({ serverProbeUrl: e.target.value })}
+                />
+              </div>
+            )}
+          </div>
+        }
+      />
+      <SettingsRow
+        label="重要邮件只读提醒"
+        description="只读扫描未读邮件主题与发件人元数据（绝不读取正文防注入），发件人白名单或主题关键词匹配时飞书提醒。"
+        layout={s.mailAlertEnabled ? 'stacked' : undefined}
+        control={
+          <div className={s.mailAlertEnabled ? styles.stack : undefined}>
+            <label>
+              <input
+                aria-label="重要邮件只读提醒"
+                type="checkbox"
+                checked={Boolean(s.mailAlertEnabled)}
+                disabled={busy || !s.proactive || !s.feishu}
+                onChange={e => patch({ mailAlertEnabled: e.target.checked })}
+              />
+              开启重要邮件提醒
+            </label>
+            {s.mailAlertEnabled && (
+              <div className={styles.stack}>
+                <TextInput
+                  aria-label="IMAP 服务器主机"
+                  value={s.imapHost || ''}
+                  placeholder="IMAP 主机（例如：imap.feishu.cn 或 imap.qq.com）"
+                  disabled={busy}
+                  maxLength={253}
+                  onChange={e => patch({ imapHost: e.target.value })}
+                />
+                <TextInput
+                  aria-label="IMAP 端口"
+                  type="number"
+                  value={s.imapPort || 993}
+                  placeholder="端口（默认 993）"
+                  disabled={busy}
+                  min={1}
+                  max={65535}
+                  onChange={e => patch({ imapPort: Number(e.target.value) || 993 })}
+                />
+                <TextInput
+                  aria-label="IMAP 账号"
+                  value={s.imapUsername || ''}
+                  placeholder="邮箱账号（例如：user@company.com）"
+                  disabled={busy}
+                  maxLength={128}
+                  onChange={e => patch({ imapUsername: e.target.value })}
+                />
+                <TextInput
+                  aria-label="IMAP 密码或授权码"
+                  type="password"
+                  value={s.imapPassword || ''}
+                  placeholder={s.imapConfigured ? '已配置，留空则保持不变' : '请输入 IMAP 授权码或密码'}
+                  disabled={busy}
+                  maxLength={128}
+                  onChange={e => patch({ imapPassword: e.target.value })}
+                />
+                <TextInput
+                  aria-label="发件人白名单"
+                  value={s.mailSenderWhitelist || ''}
+                  placeholder="发件人白名单（可选，逗号分隔，如 alert@ops.com, boss@company.com）"
+                  disabled={busy}
+                  maxLength={300}
+                  onChange={e => patch({ mailSenderWhitelist: e.target.value })}
+                />
+                <TextInput
+                  aria-label="主题关键词"
+                  value={s.mailSubjectKeywords || ''}
+                  placeholder="主题关键词（可选，逗号分隔，如 紧急, 故障, 开票, 通知）"
+                  disabled={busy}
+                  maxLength={300}
+                  onChange={e => patch({ mailSubjectKeywords: e.target.value })}
                 />
               </div>
             )}

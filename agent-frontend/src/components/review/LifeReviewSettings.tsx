@@ -70,7 +70,7 @@ export function LifeReviewSettings() {
           <SettingsGroup title="复盘设置" description="查看已保存的范围与运行状态，需要调整时再打开配置。">
             <SettingsRow
               label={s.enabled ? '生活复盘已启用' : '生活复盘未启用'}
-              description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'} · 回看${s.historyDays}日 · 每日≤${s.dailyLimit}次 · ${s.proactive ? '主动呈现' : '仅桌面留档'}${s.feishu ? ' · 飞书' : ''}${s.idleCheckinDays ? ` · ${s.idleCheckinDays}天未互动问候` : ''}${s.weatherAlertEnabled ? ' · 天气提醒' : ''}${s.expenseAlertEnabled ? ' · 支出提醒' : ''}${s.serverAlertEnabled ? ' · 服务器提醒' : ''}`}
+              description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'} · 回看${s.historyDays}日 · 每日≤${s.dailyLimit}次 · ${s.proactive ? '主动呈现' : '仅桌面留档'}${s.feishu ? ' · 飞书' : ''}${s.idleCheckinDays ? ` · ${s.idleCheckinDays}天未互动问候` : ''}${s.weatherAlertEnabled ? ' · 天气提醒' : ''}${s.expenseAlertEnabled ? ' · 支出提醒' : ''}${s.serverAlertEnabled ? ' · 服务器提醒' : ''}${s.mailAlertEnabled ? ' · 邮件提醒' : ''}`}
               control={<Button size="sm" disabled={busy} onClick={() => setEditor('settings')}>配置复盘</Button>}
             />
           </SettingsGroup>
@@ -197,7 +197,7 @@ export function LifeReviewSettings() {
             <ReviewFormModal open={editor === 'consent'} title="确认生活复盘授权" busy={busy} onClose={closeEditor}>
               <p className={styles.muted}>
                 固定模型：{s.providerId} / {s.modelName}；来源：{s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、')}。
-                时区：{s.timezone} · 回看{s.historyDays}日 · 每日≤{s.dailyLimit}次调用 · {s.proactive ? '允许主动呈现' : '仅桌面留档'} · {s.feishu ? '允许投递本人飞书' : '不投递飞书'}{s.idleCheckinDays ? ` · 连续${s.idleCheckinDays}天无互动飞书问候一次` : ''}{s.weatherAlertEnabled ? ' · 开启天气变化提醒' : ''}{s.expenseAlertEnabled ? ' · 开启支出变化提醒' : ''}{s.serverAlertEnabled ? ` · 开启服务器状态提醒（${s.serverProbeName || '应用服务器'}）` : ''}。
+                时区：{s.timezone} · 回看{s.historyDays}日 · 每日≤{s.dailyLimit}次调用 · {s.proactive ? '允许主动呈现' : '仅桌面留档'} · {s.feishu ? '允许投递本人飞书' : '不投递飞书'}{s.idleCheckinDays ? ` · 连续${s.idleCheckinDays}天无互动飞书问候一次` : ''}{s.weatherAlertEnabled ? ' · 开启天气变化提醒' : ''}{s.expenseAlertEnabled ? ' · 开启支出变化提醒' : ''}{s.serverAlertEnabled ? ` · 开启服务器状态提醒（${s.serverProbeName || '应用服务器'}）` : ''}{s.mailAlertEnabled ? ` · 开启重要邮件提醒（${s.imapHost || 'IMAP'}）` : ''}。
               </p>
               {!s.authorized && (
                 <SettingsRow
