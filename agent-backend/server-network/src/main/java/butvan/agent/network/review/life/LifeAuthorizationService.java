@@ -31,11 +31,14 @@ public class LifeAuthorizationService {
             try { verifyIdentity(s); }
             catch (IllegalArgumentException invalid) { authorized = false; }
         }
+        boolean imapConfigured = s.imapPassword() != null && !s.imapPassword().isBlank();
         return new SettingsView(s.revision(), s.enabled(), s.sources(), s.providerId(), s.modelName(), s.timezone(),
                 s.historyDays(), s.dailyLimit(), s.proactive(), s.feishu(), authorized, POLICY,
                 target.available(), target.label(), s.idleCheckinDays(),
                 s.weatherAlertEnabled(), s.expenseAlertEnabled(),
-                s.serverAlertEnabled(), s.serverProbeUrl(), s.serverProbeName());
+                s.serverAlertEnabled(), s.serverProbeUrl(), s.serverProbeName(),
+                s.mailAlertEnabled(), s.imapHost(), s.imapPort(), s.imapUsername(), imapConfigured,
+                s.mailSenderWhitelist(), s.mailSubjectKeywords());
     }
     @Transactional
     public SettingsView save(String owner, SaveSettings input) {
@@ -47,8 +50,8 @@ public class LifeAuthorizationService {
             throw new IllegalArgumentException("久未互动问候只能选择关闭或 2、3、5、7 天");
         if (input.idleCheckinDays() > 0 && !(input.proactive() && input.feishu()))
             throw new IllegalArgumentException("久未互动问候需要同时开启主动呈现和本人飞书投递");
-        if ((input.weatherAlertEnabled() || input.expenseAlertEnabled() || input.serverAlertEnabled()) && !(input.proactive() && input.feishu()))
-            throw new IllegalArgumentException("天气、支出与服务器状态提醒需要同时开启主动呈现和本人飞书投递");
+        if ((input.weatherAlertEnabled() || input.expenseAlertEnabled() || input.serverAlertEnabled() || input.mailAlertEnabled()) && !(input.proactive() && input.feishu()))
+            throw new IllegalArgumentException("天气、支出、服务器状态与重要邮件提醒需要同时开启主动呈现和本人飞书投递");
         if (input.expenseAlertEnabled() && !input.sources().contains("FINANCE"))
             throw new IllegalArgumentException("开启支出变化提醒需要先勾选财务数值来源");
         if (input.serverAlertEnabled()) {
@@ -58,17 +61,34 @@ public class LifeAuthorizationService {
         }
         var old = repository.settings(owner);
         if (old.revision() != input.expectedRevision()) throw new IllegalArgumentException("设置已变化，请刷新");
+        if (input.mailAlertEnabled()) {
+            if (input.imapHost() == null || !input.imapHost().matches("[a-zA-Z0-9.-]{1,253}"))
+                throw new IllegalArgumentException("IMAP 主机名格式不合法");
+            if (input.imapPort() < 1 || input.imapPort() > 65535)
+                throw new IllegalArgumentException("IMAP 端口必须在 1-65535 范围内");
+            if (input.imapUsername() == null || input.imapUsername().isBlank() || input.imapUsername().length() > 128)
+                throw new IllegalArgumentException("IMAP 账号必须在 1-128 字符内");
+            boolean hasOldPass = old.imapPassword() != null && !old.imapPassword().isBlank();
+            boolean hasNewPass = input.imapPassword() != null && !input.imapPassword().isBlank();
+            if (!hasOldPass && !hasNewPass)
+                throw new IllegalArgumentException("开启重要邮件提醒必须填写 IMAP 授权码或密码");
+        }
         ZoneId zone;
         try { zone = ZoneId.of(input.timezone()); }
         catch (RuntimeException e) { throw new IllegalArgumentException("时区无效"); }
         var model = models.resolve(input.providerId(), input.modelName());
         var target = target();
         if (input.feishu() && !target.available()) throw new IllegalArgumentException("请先配置并连接仅限本人的飞书渠道");
+        String imapPassword = (input.imapPassword() != null && !input.imapPassword().isBlank())
+                ? input.imapPassword()
+                : old.imapPassword();
         repository.settings(new Settings(owner, old.revision() + 1, input.enabled(), "", input.sources(),
                 model.providerId(), model.modelName(), model.fingerprint(), zone.getId(), input.historyDays(),
                 input.dailyLimit(), input.proactive(), input.feishu(), input.feishu() ? target.fingerprint() : "", null,
                 input.idleCheckinDays(), input.weatherAlertEnabled(), input.expenseAlertEnabled(),
-                input.serverAlertEnabled(), input.serverProbeUrl(), input.serverProbeName()), old.revision());
+                input.serverAlertEnabled(), input.serverProbeUrl(), input.serverProbeName(),
+                input.mailAlertEnabled(), input.imapHost(), input.imapPort(), input.imapUsername(), imapPassword,
+                input.mailSenderWhitelist(), input.mailSubjectKeywords()), old.revision());
         repository.revokeGrants(owner, automationClock.instant());
         repository.cancel(owner);
         return view(owner);
@@ -84,7 +104,9 @@ public class LifeAuthorizationService {
                 s.providerId(), s.modelName(), s.fingerprint(), s.timezone(), s.historyDays(), s.dailyLimit(),
                 s.proactive(), s.feishu(), s.targetFingerprint(), automationClock.instant(), s.idleCheckinDays(),
                 s.weatherAlertEnabled(), s.expenseAlertEnabled(),
-                s.serverAlertEnabled(), s.serverProbeUrl(), s.serverProbeName());
+                s.serverAlertEnabled(), s.serverProbeUrl(), s.serverProbeName(),
+                s.mailAlertEnabled(), s.imapHost(), s.imapPort(), s.imapUsername(), s.imapPassword(),
+                s.mailSenderWhitelist(), s.mailSubjectKeywords());
         repository.settings(next, s.revision());
         repository.grant(next);
         return view(owner);
@@ -96,7 +118,8 @@ public class LifeAuthorizationService {
             throw new IllegalArgumentException("请确认当前授权版本");
         repository.settings(new Settings(owner, s.revision() + 1, false, "", s.sources(), s.providerId(), s.modelName(),
                 s.fingerprint(), s.timezone(), s.historyDays(), s.dailyLimit(), false, false, "", null, 0,
-                false, false, false, "", "应用服务器"), s.revision());
+                false, false, false, "", "应用服务器",
+                false, "", 993, "", "", "", ""), s.revision());
         repository.revokeGrants(owner, automationClock.instant());
         repository.cancel(owner);
         return view(owner);

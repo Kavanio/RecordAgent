@@ -8,6 +8,13 @@ import butvan.agent.network.dailycontext.service.DailyContextService;
 import butvan.agent.network.review.life.LifeReviewModels.Habit;
 import butvan.agent.network.review.life.LifeReviewModels.Settings;
 import butvan.agent.network.review.life.LifeReviewModels.SignalState;
+import jakarta.mail.Address;
+import jakarta.mail.Flags;
+import jakarta.mail.Folder;
+import jakarta.mail.Message;
+import jakarta.mail.Session;
+import jakarta.mail.Store;
+import jakarta.mail.search.FlagTerm;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -50,6 +57,7 @@ public class LifeSignalMonitorService {
     private final DailyContextService dailyContext;
     private final ExpenseAnalyticsService expenseAnalytics;
     private final ServerProbeClient probeClient;
+    private final MailInboxClient mailClient;
 
     @FunctionalInterface
     public interface ServerProbeClient {
@@ -57,12 +65,18 @@ public class LifeSignalMonitorService {
         record ProbeResult(boolean up, int statusCode, String message) {}
     }
 
+    @FunctionalInterface
+    public interface MailInboxClient {
+        List<InboxMessageSummary> fetchUnreadMessages(String host, int port, String username, String password);
+        record InboxMessageSummary(String messageId, String from, String subject, Instant receivedAt) {}
+    }
+
     public LifeSignalMonitorService(
             LifeReviewRepository repository,
             LifeDeliveryService deliveries,
             DailyContextService dailyContext,
             ExpenseAnalyticsService expenseAnalytics) {
-        this(repository, deliveries, dailyContext, expenseAnalytics, defaultProbeClient());
+        this(repository, deliveries, dailyContext, expenseAnalytics, defaultProbeClient(), defaultMailClient());
     }
 
     @Autowired
@@ -71,12 +85,14 @@ public class LifeSignalMonitorService {
             LifeDeliveryService deliveries,
             @Autowired(required = false) DailyContextService dailyContext,
             @Autowired(required = false) ExpenseAnalyticsService expenseAnalytics,
-            @Autowired(required = false) ServerProbeClient probeClient) {
+            @Autowired(required = false) ServerProbeClient probeClient,
+            @Autowired(required = false) MailInboxClient mailClient) {
         this.repository = repository;
         this.deliveries = deliveries;
         this.dailyContext = dailyContext;
         this.expenseAnalytics = expenseAnalytics;
         this.probeClient = probeClient != null ? probeClient : defaultProbeClient();
+        this.mailClient = mailClient != null ? mailClient : defaultMailClient();
     }
 
     /** 检查已开启的现实信息源变化；各信息源独立降级，互不阻断。 */
@@ -96,6 +112,11 @@ public class LifeSignalMonitorService {
             checkServer(settings, local, now);
         } catch (RuntimeException e) {
             log.warn("服务器状态监测降级跳过：{}", e.getClass().getSimpleName());
+        }
+        try {
+            checkMail(settings, local, now);
+        } catch (RuntimeException e) {
+            log.warn("重要邮件监测降级跳过：{}", e.getClass().getSimpleName());
         }
     }
 
@@ -279,6 +300,156 @@ public class LifeSignalMonitorService {
             repository.saveSignalState(new SignalState(
                     s.owner(), "SERVER", "FAIL|" + result.statusCode() + "|" + result.message(), prevOpt.get().activeEventKey(), now));
         }
+    }
+
+    private void checkMail(Settings s, ZonedDateTime local, Instant now) {
+        if (!s.mailSignalEnabled() || mailClient == null) return;
+        Optional<SignalState> prevOpt = repository.signalState(s.owner(), "MAIL");
+        if (prevOpt.isPresent()) {
+            Instant lastObserved = prevOpt.get().observedAt();
+            if (now.isBefore(lastObserved.plus(Duration.ofSeconds(60)))) {
+                return;
+            }
+        }
+
+        List<MailInboxClient.InboxMessageSummary> messages;
+        try {
+            messages = mailClient.fetchUnreadMessages(s.imapHost(), s.imapPort(), s.imapUsername(), s.imapPassword());
+        } catch (Exception e) {
+            log.warn("获取 IMAP 未读邮件失败: {}", e.getMessage());
+            repository.saveSignalState(new SignalState(
+                    s.owner(), "MAIL", "FAIL|" + e.getClass().getSimpleName(), "", now));
+            return;
+        }
+
+        if (messages == null || messages.isEmpty()) {
+            repository.saveSignalState(new SignalState(s.owner(), "MAIL", "EMPTY", "", now));
+            return;
+        }
+
+        int triggeredCount = 0;
+        for (MailInboxClient.InboxMessageSummary msg : messages) {
+            if (!isMailMatching(msg.from(), msg.subject(), s.mailSenderWhitelist(), s.mailSubjectKeywords())) {
+                continue;
+            }
+            String rawId = (msg.messageId() != null && !msg.messageId().isBlank())
+                    ? msg.messageId()
+                    : (msg.from() + ":" + msg.subject() + ":" + (msg.receivedAt() != null ? msg.receivedAt().toEpochMilli() : 0));
+            String dedupKey = "mail:" + Integer.toHexString(rawId.hashCode());
+
+            String sender = cleanSender(msg.from());
+            String subject = (msg.subject() == null || msg.subject().isBlank()) ? "(无主题)" : msg.subject().strip();
+            if (subject.length() > 60) {
+                subject = subject.substring(0, 57) + "...";
+            }
+            String text = "【重要邮件提醒】检测到来自「" + sender + "」的重要邮件：《" + subject + "》，请留意查收。";
+
+            deliveries.sendNudge(s.owner(), "MAIL_ALERT", dedupKey, text);
+            triggeredCount++;
+        }
+
+        repository.saveSignalState(new SignalState(
+                s.owner(), "MAIL", "OK|COUNT=" + messages.size() + "|ALERTED=" + triggeredCount, "", now));
+    }
+
+    private static boolean isMailMatching(String from, String subject, String whitelistStr, String keywordsStr) {
+        boolean hasWhitelist = whitelistStr != null && !whitelistStr.isBlank();
+        boolean hasKeywords = keywordsStr != null && !keywordsStr.isBlank();
+        if (!hasWhitelist && !hasKeywords) {
+            return true;
+        }
+
+        String lowerFrom = from == null ? "" : from.toLowerCase(Locale.ROOT);
+        String lowerSubject = subject == null ? "" : subject.toLowerCase(Locale.ROOT);
+
+        if (hasWhitelist) {
+            String[] senders = whitelistStr.split("[,，]");
+            for (String s : senders) {
+                String trimmed = s.strip().toLowerCase(Locale.ROOT);
+                if (!trimmed.isEmpty() && lowerFrom.contains(trimmed)) {
+                    return true;
+                }
+            }
+        }
+
+        if (hasKeywords) {
+            String[] keywords = keywordsStr.split("[,，]");
+            for (String kw : keywords) {
+                String trimmed = kw.strip().toLowerCase(Locale.ROOT);
+                if (!trimmed.isEmpty() && lowerSubject.contains(trimmed)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static String cleanSender(String from) {
+        if (from == null || from.isBlank()) return "未知发件人";
+        String trimmed = from.strip();
+        int angleStart = trimmed.indexOf('<');
+        if (angleStart > 0) {
+            String name = trimmed.substring(0, angleStart).strip();
+            name = name.replaceAll("^[\"']+|[\"']+$", "").strip();
+            if (!name.isBlank()) return name;
+        }
+        return trimmed;
+    }
+
+    private static MailInboxClient defaultMailClient() {
+        return (host, port, username, password) -> {
+            List<MailInboxClient.InboxMessageSummary> summaries = new java.util.ArrayList<>();
+            var props = new java.util.Properties();
+            String protocol = (port == 993) ? "imaps" : "imap";
+            props.put("mail.store.protocol", protocol);
+            props.put("mail." + protocol + ".host", host);
+            props.put("mail." + protocol + ".port", String.valueOf(port));
+            props.put("mail." + protocol + ".timeout", "5000");
+            props.put("mail." + protocol + ".connectiontimeout", "5000");
+            if (port == 993) {
+                props.put("mail.imaps.ssl.enable", "true");
+            }
+            Session session = Session.getInstance(props);
+            Store store = null;
+            Folder inbox = null;
+            try {
+                store = session.getStore(protocol);
+                store.connect(host, port, username, password);
+                inbox = store.getFolder("INBOX");
+                inbox.open(Folder.READ_ONLY);
+                Message[] messages = inbox.search(new FlagTerm(new Flags(Flags.Flag.SEEN), false));
+                if (messages != null && messages.length > 0) {
+                    int start = Math.max(0, messages.length - 20);
+                    for (int i = messages.length - 1; i >= start; i--) {
+                        Message msg = messages[i];
+                        String messageId = "";
+                        String[] msgIdHeaders = msg.getHeader("Message-ID");
+                        if (msgIdHeaders != null && msgIdHeaders.length > 0) {
+                            messageId = msgIdHeaders[0];
+                        }
+                        String from = "";
+                        Address[] froms = msg.getFrom();
+                        if (froms != null && froms.length > 0) {
+                            from = froms[0].toString();
+                        }
+                        String subject = msg.getSubject() != null ? msg.getSubject() : "(无主题)";
+                        Instant receivedAt = msg.getReceivedDate() != null ? msg.getReceivedDate().toInstant() : Instant.now();
+                        summaries.add(new MailInboxClient.InboxMessageSummary(messageId, from, subject, receivedAt));
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("连接或读取 IMAP 邮箱异常: {}", e.getMessage());
+            } finally {
+                if (inbox != null && inbox.isOpen()) {
+                    try { inbox.close(false); } catch (Exception ignored) {}
+                }
+                if (store != null && store.isConnected()) {
+                    try { store.close(); } catch (Exception ignored) {}
+                }
+            }
+            return summaries;
+        };
     }
 
     private static ServerProbeClient defaultProbeClient() {
