@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, after, beforeEach, afterEach, test } from 'node:test';
 import { startHarness, stopHarness, loadModule, getReact, mount, useFetchStub, jsonResponse, act } from '../../testing/harness.mjs';
-let React, Settings, Card, MessageProvider, stub, view, calls, settings, history, modelPath;
+let React, Settings, Card, MessageProvider, stub, view, calls, settings, history, suggestion, nudges, modelPath;
 before(async () => {
   await startHarness(); React = getReact();
   ({ LifeReviewSettings: Settings } = await loadModule('/src/components/review/LifeReviewSettings.tsx'));
@@ -11,8 +11,10 @@ before(async () => {
 after(stopHarness);
 beforeEach(() => {
   calls = []; history = [];
+  suggestion = { available: false, suggestedHour: null, sampleCount: 1, activeDays: 1, windowDays: 14, hourCounts: Array(24).fill(0), note: '近 14 天统计到 1 个活跃日' };
+  nudges = [];
   settings = { revision: 1, enabled: true, sources: ['JOURNAL'], providerId: 'p', modelName: 'm', timezone: 'Asia/Shanghai',
-    historyDays: 7, dailyLimit: 1, proactive: false, feishu: false, authorized: false, policyVersion: 'life-v1', channelAvailable: false, channelLabel: '未连接本人飞书' };
+    historyDays: 7, dailyLimit: 1, proactive: false, feishu: false, idleCheckinDays: 0, authorized: false, policyVersion: 'life-v1', channelAvailable: false, channelLabel: '未连接本人飞书' };
   stub = useFetchStub((url, init) => {
     calls.push({ url, init });
     const path = url.pathname;
@@ -21,7 +23,14 @@ beforeEach(() => {
       return jsonResponse(settings);
     }
     if (path.endsWith('/grant')) { settings = { ...settings, authorized: true }; return jsonResponse(settings); }
+    if (path.endsWith('/habit/suggestion')) return jsonResponse(suggestion);
     if (path.endsWith('/habit')) return jsonResponse(null);
+    if (path.endsWith('/nudges')) return jsonResponse(nudges);
+    if (path.includes('/nudges/') && path.endsWith('/feedback')) {
+      const decision = JSON.parse(init.body).decision;
+      nudges = nudges.map(n => ({ ...n, feedback: decision }));
+      return jsonResponse(nudges);
+    }
     if (path.endsWith('/goals')) return jsonResponse([]);
     if (path.endsWith('/candidates') || path.endsWith('/archives')) return jsonResponse([]);
     if (path.endsWith('/life-reviews')) return jsonResponse(history);
@@ -225,4 +234,39 @@ test('当日已有就绪复盘时再次点击准备今天保持supplement=false�
   const prepares = calls.filter(c => c.url.pathname.endsWith('/prepare') && c.init?.method === 'POST');
   assert.equal(prepares.length, 1);
   assert.deepEqual(JSON.parse(prepares[0].init.body), { day: today, expectedVersion: 0, supplement: false });
+});
+
+test('展示基于互动时间戳的作息建议并支持一键采用，且支持配置久未互动问候与反馈', async () => {
+  settings.authorized = true;
+  settings.proactive = true;
+  settings.feishu = true;
+  settings.channelAvailable = true;
+  settings.idleCheckinDays = 3;
+  suggestion = {
+    available: true, suggestedHour: 22, sampleCount: 8, activeDays: 4, windowDays: 14,
+    hourCounts: Array(24).fill(0), note: '基于近 14 天 4 个活跃日、共 8 次互动时间戳统计，你在 22:00 前后较为活跃',
+  };
+  nudges = [{
+    id: 'nudge-1', kind: 'IDLE_CHECKIN',
+    text: '好几天没见你来记录或聊近况了，顺手问候一声。',
+    state: 'SENT', createdAt: '2026-10-30T13:00:00Z', sentAt: '2026-10-30T13:00:00Z', feedback: '',
+  }];
+  await render();
+  assert.match(document.body.textContent, /3天未互动问候/);
+
+  // 展开主动联系折叠区，采用互动建议时间并反馈久未互动问候
+  const details = queryAll('details').find(d => d.querySelector('summary')?.textContent.includes('主动联系'));
+  assert.ok(details);
+  details.open = true;
+  await click('采用建议（22:00）');
+  const habitWrites = calls.filter(c => c.url.pathname.endsWith('/habit') && c.init?.method === 'PUT');
+  assert.equal(habitWrites.length, 1);
+  assert.deepEqual(JSON.parse(habitWrites[0].init.body), {
+    expectedRevision: 0, availableHour: 22, source: '采用近 14 天互动活跃时段建议', active: true,
+  });
+
+  await click('有帮助');
+  const feedbackWrites = calls.filter(c => c.url.pathname.includes('/nudges/nudge-1/feedback') && c.init?.method === 'POST');
+  assert.equal(feedbackWrites.length, 1);
+  assert.deepEqual(JSON.parse(feedbackWrites[0].init.body), { decision: 'HELPFUL' });
 });

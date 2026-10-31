@@ -66,6 +66,14 @@ public class LifeReviewController {
     }
     @ApiLog("读取可纠正作息候选") @GetMapping("/habit")
     public Result<HabitView> habit() { return Result.success(outreach.habit(user.currentUserId())); }
+    @ApiLog("读取基于互动时间戳的作息建议") @GetMapping("/habit/suggestion")
+    public Result<HabitSuggestionView> habitSuggestion() { return Result.success(outreach.habitSuggestion(user.currentUserId())); }
     @ApiLog("明确纠正或停用作息候选") @PutMapping("/habit")
     public Result<HabitView> habit(@RequestBody SaveHabit input) { return Result.success(outreach.habit(user.currentUserId(), input)); }
+    @ApiLog("查询久未互动问候等主动短消息记录") @GetMapping("/nudges")
+    public Result<List<NudgeView>> nudges() { return Result.success(outreach.nudges(user.currentUserId())); }
+    @ApiLog("提交主动短消息反馈") @PostMapping("/nudges/{id}/feedback")
+    public Result<List<NudgeView>> nudgeFeedback(@PathVariable String id, @RequestBody NudgeFeedback input) {
+        outreach.nudgeFeedback(user.currentUserId(), id, input); return Result.success(outreach.nudges(user.currentUserId()));
+    }
 }

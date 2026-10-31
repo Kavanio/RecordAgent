@@ -2,20 +2,40 @@ package butvan.agent.network.review.life;
 
 import butvan.agent.network.review.life.LifeReviewModels.*;
 import butvan.agent.network.review.life.LifeReviewDtos.*;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 /** 有界主动策略：先判断值得呈现，再决定时机；不根据未回复推断睡眠或危险。 */
 @Service
-@RequiredArgsConstructor
 public class LifeOutreachService {
+    private static final String IDLE_CHECKIN_TEXT =
+            "好几天没见你来记录或聊近况了，顺手问候一声。最近如果比较忙不用特意回复，有空随时来聊。";
+
     private final LifeReviewRepository repository;
     private final LifeAuthorizationService authorization;
     private final LifeDeliveryService deliveries;
     private final Clock automationClock;
+    private final LifeActivityService activity;
+
+    public LifeOutreachService(LifeReviewRepository repository, LifeAuthorizationService authorization,
+            LifeDeliveryService deliveries, Clock automationClock) {
+        this(repository, authorization, deliveries, automationClock, null);
+    }
+
+    @Autowired
+    public LifeOutreachService(LifeReviewRepository repository, LifeAuthorizationService authorization,
+            LifeDeliveryService deliveries, Clock automationClock,
+            @Autowired(required = false) LifeActivityService activity) {
+        this.repository = repository;
+        this.authorization = authorization;
+        this.deliveries = deliveries;
+        this.automationClock = automationClock;
+        this.activity = activity;
+    }
 
     /** 读取当前候选及按最新作息计算的时机，不触发投递。 */
     public List<CandidateView> candidates(String owner) {
@@ -26,6 +46,26 @@ public class LifeOutreachService {
     public HabitView habit(String owner) {
         return repository.habit(owner).map(h -> new HabitView(h.revision(), h.availableHour(), h.source(),
                 h.uncertainty(), h.observedAt(), h.expiresAt(), h.active())).orElse(null);
+    }
+    /** 仅按用户互动时间戳统计近 14 天活跃时段建议，不自动改写作息。 */
+    public HabitSuggestionView habitSuggestion(String owner) {
+        var s = repository.settings(owner);
+        if (activity == null) {
+            return new HabitSuggestionView(false, null, 0, 0, 14, Collections.nCopies(24, 0), "互动时间统计未启用");
+        }
+        return activity.suggestHabit(owner, s.timezone(), automationClock.instant());
+    }
+    /** 读取最近三十条主动短消息记录。 */
+    public List<NudgeView> nudges(String owner) {
+        return repository.nudges(owner).stream().map(n -> new NudgeView(n.id(), n.kind(), n.text(), n.state(),
+                n.createdAt(), n.sentAt(), n.feedback())).toList();
+    }
+    /** 提交对主动短消息的反馈（HELPFUL / NOT_NEEDED）。 */
+    @Transactional
+    public void nudgeFeedback(String owner, String id, NudgeFeedback input) {
+        if (input == null || !Set.of("HELPFUL", "NOT_NEEDED").contains(input.decision()))
+            throw new IllegalArgumentException("反馈无效");
+        repository.nudgeFeedback(owner, id, input.decision(), automationClock.instant());
     }
     @Transactional
     public HabitView habit(String owner, SaveHabit input) {
@@ -118,6 +158,24 @@ public class LifeOutreachService {
             if (!repository.candidateState(owner, c.id(), "PENDING", "PRESENTED", now, "")) continue;
             if (s.feishu()) deliveries.sendCandidate(owner, c);
         }
+        checkIdleNudge(s, local, now);
+    }
+    private void checkIdleNudge(Settings s, ZonedDateTime local, Instant now) {
+        if (!s.idleCheckinEnabled()) return;
+        int minHour = repository.habit(s.owner()).filter(h -> h.active() && now.isBefore(h.expiresAt()))
+                .map(Habit::availableHour).orElse(12);
+        if (local.getHour() < minHour) return;
+        if (repository.lastPresentation(s.owner()).filter(sent -> now.isBefore(sent.plus(Duration.ofHours(24)))).isPresent()) return;
+        Instant lastActive = activity != null
+                ? activity.lastInteractionAt(s.owner(), local.getZone(), now).orElse(null)
+                : repository.latestUserActivity(s.owner()).orElse(null);
+        Instant baseline = s.authorizedAt();
+        if (lastActive != null && (baseline == null || lastActive.isAfter(baseline))) {
+            baseline = lastActive;
+        }
+        if (baseline == null || Duration.between(baseline, now).toDays() < s.idleCheckinDays()) return;
+        String dedupKey = "idle:" + baseline.truncatedTo(ChronoUnit.MINUTES);
+        deliveries.sendNudge(s.owner(), "IDLE_CHECKIN", dedupKey, IDLE_CHECKIN_TEXT);
     }
     private void requireCapacity(String owner, String topic, String novelty) {
         if (repository.pendingCount(owner) >= 100 && !repository.candidateExists(owner, topic, novelty))

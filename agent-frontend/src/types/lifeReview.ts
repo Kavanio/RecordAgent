@@ -4,6 +4,7 @@ export interface LifeSettings {
   revision: number; enabled: boolean; sources: LifeSource[]; providerId: string; modelName: string;
   timezone: string; historyDays: number; dailyLimit: number; proactive: boolean; feishu: boolean;
   authorized: boolean; policyVersion: string; channelAvailable: boolean; channelLabel: string;
+  idleCheckinDays?: number;
 }
 export interface LifeContent {
   id: string; themeId: string; day: string; timezone: string; version: number; state: string; sourceAsOf: string;
@@ -20,4 +21,12 @@ export interface LifeCandidate {
 export interface LifeHabit {
   revision: number; availableHour: number; source: string; uncertainty: string;
   observedAt: string; expiresAt: string; active: boolean;
+}
+export interface LifeHabitSuggestion {
+  available: boolean; suggestedHour: number | null; sampleCount: number; activeDays: number;
+  windowDays: number; hourCounts: number[]; note: string;
+}
+export interface LifeNudge {
+  id: string; kind: string; text: string; state: string; createdAt: string;
+  sentAt: string | null; feedback: string;
 }
