@@ -16,6 +16,7 @@ import java.util.*;
 public class LifeAuthorizationService {
     public static final String POLICY = "life-v1";
     private static final Set<String> SOURCES = Set.of("BUSINESS", "JOURNAL", "CHAT", "FINANCE", "GOALS");
+    private static final Set<Integer> IDLE_DAYS = Set.of(0, 2, 3, 5, 7);
     private final LifeReviewRepository repository;
     private final ReviewModelCatalog models;
     private final List<PersonalDeliveryPort> channels;
@@ -32,7 +33,7 @@ public class LifeAuthorizationService {
         }
         return new SettingsView(s.revision(), s.enabled(), s.sources(), s.providerId(), s.modelName(), s.timezone(),
                 s.historyDays(), s.dailyLimit(), s.proactive(), s.feishu(), authorized, POLICY,
-                target.available(), target.label());
+                target.available(), target.label(), s.idleCheckinDays());
     }
     @Transactional
     public SettingsView save(String owner, SaveSettings input) {
@@ -40,6 +41,10 @@ public class LifeAuthorizationService {
                 || input.sources().isEmpty() || input.historyDays() < 1 || input.historyDays() > 7
                 || input.dailyLimit() < 1 || input.dailyLimit() > 3)
             throw new IllegalArgumentException("请选择有效范围、1—7 日窗口和 1—3 次每日额度");
+        if (!IDLE_DAYS.contains(input.idleCheckinDays()))
+            throw new IllegalArgumentException("久未互动问候只能选择关闭或 2、3、5、7 天");
+        if (input.idleCheckinDays() > 0 && !(input.proactive() && input.feishu()))
+            throw new IllegalArgumentException("久未互动问候需要同时开启主动呈现和本人飞书投递");
         var old = repository.settings(owner);
         if (old.revision() != input.expectedRevision()) throw new IllegalArgumentException("设置已变化，请刷新");
         ZoneId zone;
@@ -50,7 +55,8 @@ public class LifeAuthorizationService {
         if (input.feishu() && !target.available()) throw new IllegalArgumentException("请先配置并连接仅限本人的飞书渠道");
         repository.settings(new Settings(owner, old.revision() + 1, input.enabled(), "", input.sources(),
                 model.providerId(), model.modelName(), model.fingerprint(), zone.getId(), input.historyDays(),
-                input.dailyLimit(), input.proactive(), input.feishu(), input.feishu() ? target.fingerprint() : "", null), old.revision());
+                input.dailyLimit(), input.proactive(), input.feishu(), input.feishu() ? target.fingerprint() : "", null,
+                input.idleCheckinDays()), old.revision());
         repository.revokeGrants(owner, automationClock.instant());
         repository.cancel(owner);
         return view(owner);
@@ -64,7 +70,7 @@ public class LifeAuthorizationService {
         verifyIdentity(s);
         var next = new Settings(owner, s.revision() + 1, s.enabled(), UUID.randomUUID().toString(), s.sources(),
                 s.providerId(), s.modelName(), s.fingerprint(), s.timezone(), s.historyDays(), s.dailyLimit(),
-                s.proactive(), s.feishu(), s.targetFingerprint(), automationClock.instant());
+                s.proactive(), s.feishu(), s.targetFingerprint(), automationClock.instant(), s.idleCheckinDays());
         repository.settings(next, s.revision());
         repository.grant(next);
         return view(owner);
@@ -75,7 +81,7 @@ public class LifeAuthorizationService {
         if (consent == null || !consent.confirmed() || consent.expectedRevision() != s.revision())
             throw new IllegalArgumentException("请确认当前授权版本");
         repository.settings(new Settings(owner, s.revision() + 1, false, "", s.sources(), s.providerId(), s.modelName(),
-                s.fingerprint(), s.timezone(), s.historyDays(), s.dailyLimit(), false, false, "", null), s.revision());
+                s.fingerprint(), s.timezone(), s.historyDays(), s.dailyLimit(), false, false, "", null, 0), s.revision());
         repository.revokeGrants(owner, automationClock.instant());
         repository.cancel(owner);
         return view(owner);

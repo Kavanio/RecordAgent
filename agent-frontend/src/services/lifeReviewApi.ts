@@ -1,5 +1,5 @@
 import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
-import type { LifeSettings, LifeContent, LifeCandidate, LifeHabit } from '../types/lifeReview';
+import type { LifeSettings, LifeContent, LifeCandidate, LifeHabit, LifeHabitSuggestion, LifeNudge } from '../types/lifeReview';
 
 /** 不自动重试写入；读取不会触发模型或投递。 */
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
@@ -23,7 +23,7 @@ export const lifeReviewApi = {
   save: (s: LifeSettings) => request<LifeSettings>('/settings', 'PUT', {
     expectedRevision: s.revision, enabled: s.enabled, sources: s.sources, providerId: s.providerId,
     modelName: s.modelName, timezone: s.timezone, historyDays: s.historyDays, dailyLimit: s.dailyLimit,
-    proactive: s.proactive, feishu: s.feishu,
+    proactive: s.proactive, feishu: s.feishu, idleCheckinDays: s.idleCheckinDays || 0,
   }),
   consent: (s: LifeSettings, grant: boolean) => request<LifeSettings>(grant ? '/grant' : '/revoke', 'POST', {
     expectedRevision: s.revision, policyVersion: s.policyVersion, confirmed: true,
@@ -34,8 +34,12 @@ export const lifeReviewApi = {
     request<LifeCandidate[]>('/candidates', 'POST', { topic, contentId, evidenceId, eventKind }),
   candidates: () => request<LifeCandidate[]>('/candidates'),
   habit: () => request<LifeHabit | null>('/habit'),
+  habitSuggestion: () => request<LifeHabitSuggestion>('/habit/suggestion'),
   saveHabit: (expectedRevision: number, availableHour: number, source: string, active: boolean) =>
     request<LifeHabit>('/habit', 'PUT', { expectedRevision, availableHour, source, active }),
+  nudges: () => request<LifeNudge[]>('/nudges'),
+  nudgeFeedback: (id: string, decision: 'HELPFUL' | 'NOT_NEEDED') =>
+    request<LifeNudge[]>(`/nudges${idPath(id)}/feedback`, 'POST', { decision }),
   prepare: (day: string, expectedVersion = 0, supplement = false) =>
     request<LifeContent>('/prepare', 'POST', { day, expectedVersion, supplement }),
   send: (id: string, retry = false) => request<LifeContent>(`${idPath(id)}/${retry ? 'retry' : 'send'}`, 'POST', retry ? { confirmed: true } : undefined),

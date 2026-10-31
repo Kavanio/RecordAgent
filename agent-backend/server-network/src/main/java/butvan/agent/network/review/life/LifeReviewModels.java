@@ -7,16 +7,25 @@ import java.util.*;
 /** 生活复盘内部模型：文字来源与数值证据独立，版本发布后不可变。 */
 public final class LifeReviewModels {
     private LifeReviewModels() {}
-    /** 配置与授权绑定同一版本；空 grantId 表示未授权。 */
+    /** 配置与授权绑定同一版本；空 grantId 表示未授权；idleCheckinDays=0 表示不做久未互动问候。 */
     public record Settings(String owner, int revision, boolean enabled, String grantId, Set<String> sources,
                            String providerId, String modelName, String fingerprint, String timezone,
                            int historyDays, int dailyLimit, boolean proactive, boolean feishu,
-                           String targetFingerprint, Instant authorizedAt) {
+                           String targetFingerprint, Instant authorizedAt, int idleCheckinDays) {
         public Settings { sources = Set.copyOf(sources); }
+        public Settings(String owner, int revision, boolean enabled, String grantId, Set<String> sources,
+                String providerId, String modelName, String fingerprint, String timezone,
+                int historyDays, int dailyLimit, boolean proactive, boolean feishu,
+                String targetFingerprint, Instant authorizedAt) {
+            this(owner, revision, enabled, grantId, sources, providerId, modelName, fingerprint, timezone,
+                    historyDays, dailyLimit, proactive, feishu, targetFingerprint, authorizedAt, 0);
+        }
         public static Settings defaults(String owner) {
             return new Settings(owner, 0, false, "", Set.of(), "", "", "", "Asia/Shanghai", 7, 1,
-                    false, false, "", null);
+                    false, false, "", null, 0);
         }
+        /** 久未互动问候需要主动呈现、本人飞书与问候天数同时开启。 */
+        public boolean idleCheckinEnabled() { return proactive && feishu && idleCheckinDays > 0; }
     }
     /** 保留原始角色、时间及截断状态；不将模型推断保存为原始记录。 */
     public record Material(String id, String kind, String sourceId, String occurredAt, String text,
@@ -48,4 +57,8 @@ public final class LifeReviewModels {
     /** 作息是带来源、有效期与不确定性的候选，不是稳定画像。 */
     public record Habit(String owner, String topic, int revision, int availableHour, String source,
                         String uncertainty, Instant observedAt, Instant expiresAt, boolean active) {}
+    /** 与复盘内容解耦的主动短消息；文案固定，不承载个人资料。 */
+    public record Nudge(String id, String owner, String kind, String dedupKey, String text, String state,
+                        String targetFingerprint, String messageId, Instant createdAt, Instant sentAt,
+                        String feedback) {}
 }

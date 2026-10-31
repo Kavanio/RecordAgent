@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { lifeReviewApi } from '../../services/lifeReviewApi';
 import { fetchFullModelConfig } from '../../services/api';
 import type { FullModelConfig } from '../../types/model';
-import type { LifeCandidate, LifeContent, LifeHabit, LifeSettings } from '../../types/lifeReview';
+import type { LifeCandidate, LifeContent, LifeHabit, LifeHabitSuggestion, LifeNudge, LifeSettings } from '../../types/lifeReview';
 import { useMessage } from '../common/Message';
 
 /** 设置快照与写入操作编排；组件卸载后不发布迟到加载结果。 */
@@ -11,6 +11,8 @@ export function useLifeReview() {
   const [history, setHistory] = useState<LifeContent[]>([]);
   const [candidates, setCandidates] = useState<LifeCandidate[]>([]);
   const [habit, setHabit] = useState<LifeHabit | null>(null);
+  const [habitSuggestion, setHabitSuggestion] = useState<LifeHabitSuggestion | null>(null);
+  const [nudges, setNudges] = useState<LifeNudge[]>([]);
   const [archives, setArchives] = useState<string[]>([]);
   const [providers, setProviders] = useState<FullModelConfig['providers']>([]);
   const [busy, setBusy] = useState(false);
@@ -24,13 +26,18 @@ export function useLifeReview() {
   const load = useCallback(async () => {
     const seq = ++sequence.current;
     try {
-      const [s, h, c, habitValue, a, models] = await Promise.all([
+      const [s, h, c, habitValue, suggestionValue, nudgesValue, a, models] = await Promise.all([
         lifeReviewApi.settings(), lifeReviewApi.history(), lifeReviewApi.candidates(), lifeReviewApi.habit(),
+        lifeReviewApi.habitSuggestion().catch(() => null), lifeReviewApi.nudges().catch(() => []),
         lifeReviewApi.archives(), fetchFullModelConfig(),
       ]);
       if (!live.current || seq !== sequence.current) return;
-      saved.current = s;
-      setSettings(s); setHistory(h); setCandidates(c); setHabit(habitValue); setArchives(a);
+      const normalized = { ...s, idleCheckinDays: s.idleCheckinDays ?? 0 };
+      saved.current = normalized;
+      setSettings(normalized); setHistory(h); setCandidates(c); setHabit(habitValue);
+      setHabitSuggestion(suggestionValue && typeof suggestionValue.available === 'boolean' ? suggestionValue : null);
+      setNudges(Array.isArray(nudgesValue) ? nudgesValue : []);
+      setArchives(a);
       setProviders(models?.providers || []); setError(''); setDirty(false);
     } catch (e) {
       if (live.current && seq === sequence.current) setError(e instanceof Error ? e.message : '生活复盘读取失败');
@@ -52,5 +59,5 @@ export function useLifeReview() {
   }
   function patch(next: Partial<LifeSettings>) { setSettings(s => s ? { ...s, ...next } : s); setDirty(true); }
   function discard() { setSettings(saved.current); setDirty(false); }
-  return { discard, settings, history, candidates, habit, archives, providers, busy, loading, generating, error, dirty, patch, load, act };
+  return { discard, settings, history, candidates, habit, habitSuggestion, nudges, archives, providers, busy, loading, generating, error, dirty, patch, load, act };
 }

@@ -85,6 +85,7 @@ public class LifeReviewRepository {
                 (r, n) -> read(r.getString(1), Content.class));
         running.forEach(c -> finish(c.finish("UNKNOWN", null, "生成中断，未自动重试"), "RUNNING"));
         jdbc.update("UPDATE life_review_delivery SET state='UNKNOWN' WHERE state='SENDING'");
+        jdbc.update("UPDATE life_nudge SET state='UNKNOWN' WHERE state='SENDING'");
     }
     public boolean reserve(String owner, LocalDate day, int limit) {
         int readyCap = limit <= 1 ? 1 : Math.max(limit, 8);
@@ -143,10 +144,15 @@ public class LifeReviewRepository {
         return jdbc.queryForObject("SELECT COUNT(*) FROM life_outreach_candidate WHERE owner_id=? AND topic=? AND novelty=?",
                 Integer.class, owner, topic, novelty) > 0;
     }
-    /** 全域最近呈现时间不受候选展示分页影响。 */
+    /** 全域最近呈现时间不受候选展示分页影响，统一覆盖复盘候选与主动短消息。 */
     public Optional<Instant> lastPresentation(String owner) {
-        return Optional.ofNullable(jdbc.queryForObject("SELECT MAX(sent_at) FROM life_outreach_candidate WHERE owner_id=?",
-                String.class, owner)).map(Instant::parse);
+        Optional<Instant> candidateSent = Optional.ofNullable(jdbc.queryForObject(
+                "SELECT MAX(sent_at) FROM life_outreach_candidate WHERE owner_id=?", String.class, owner)).map(Instant::parse);
+        Optional<Instant> nudgeSent = Optional.ofNullable(jdbc.queryForObject(
+                "SELECT MAX(sent_at) FROM life_nudge WHERE owner_id=?", String.class, owner)).map(Instant::parse);
+        if (candidateSent.isEmpty()) return nudgeSent;
+        if (nudgeSent.isEmpty()) return candidateSent;
+        return candidateSent.get().isAfter(nudgeSent.get()) ? candidateSent : nudgeSent;
     }
     /** 读取最近一百条候选及原始反馈，未回复保持空反馈。 */
     public List<Candidate> candidates(String owner) {
@@ -213,9 +219,53 @@ public class LifeReviewRepository {
         return jdbc.query("SELECT frozen_text FROM life_review_archive WHERE owner_id=? ORDER BY archived_at DESC LIMIT 30",
                 (r, n) -> r.getString(1), owner);
     }
+    /** 建立唯一主动短消息意图；同一沉默窗口去重键不重复创建。 */
+    public void nudge(Nudge n) {
+        jdbc.update("""
+                INSERT INTO life_nudge(id,owner_id,kind,dedup_key,text,state,target_fingerprint,message_id,created_at,sent_at,feedback,feedback_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,NULL) ON CONFLICT(owner_id,kind,dedup_key) DO NOTHING
+                """, n.id(), n.owner(), n.kind(), n.dedupKey(), n.text(), n.state(), n.targetFingerprint(),
+                n.messageId(), n.createdAt().toString(), n.sentAt() == null ? null : n.sentAt().toString(), n.feedback());
+    }
+    /** 按唯一键查询主动短消息。 */
+    public Optional<Nudge> findNudge(String owner, String kind, String dedupKey) {
+        return jdbc.query("SELECT * FROM life_nudge WHERE owner_id=? AND kind=? AND dedup_key=?",
+                (r, idx) -> mapNudge(owner, r), owner, kind, dedupKey).stream().findFirst();
+    }
+    /** 读取最近三十条主动短消息。 */
+    public List<Nudge> nudges(String owner) {
+        return jdbc.query("SELECT * FROM life_nudge WHERE owner_id=? ORDER BY created_at DESC LIMIT 30",
+                (r, idx) -> mapNudge(owner, r), owner);
+    }
+    /** 按旧状态 CAS 推进主动短消息投递。 */
+    public boolean nudgeState(String id, String expected, String state, String messageId, Instant sentAt) {
+        return jdbc.update("UPDATE life_nudge SET state=?,message_id=?,sent_at=? WHERE id=? AND state=?",
+                state, messageId, sentAt == null ? null : sentAt.toString(), id, expected) == 1;
+    }
+    /** 记录用户对主动短消息的反馈。 */
+    public void nudgeFeedback(String owner, String id, String feedback, Instant now) {
+        if (jdbc.update("UPDATE life_nudge SET feedback=?,feedback_at=? WHERE owner_id=? AND id=?",
+                feedback, now.toString(), owner, id) != 1)
+            throw new IllegalArgumentException("主动问候记录不存在");
+    }
+    /** 读取复盘域内最近一次用户主动交互时间（补充或反馈）。 */
+    public Optional<Instant> latestUserActivity(String owner) {
+        List<String> raw = new ArrayList<>();
+        raw.add(jdbc.queryForObject("SELECT MAX(created_at) FROM life_review_reply WHERE owner_id=?", String.class, owner));
+        raw.add(jdbc.queryForObject("SELECT MAX(feedback_at) FROM life_outreach_candidate WHERE owner_id=? AND feedback_at IS NOT NULL AND feedback_at<>''", String.class, owner));
+        raw.add(jdbc.queryForObject("SELECT MAX(feedback_at) FROM life_nudge WHERE owner_id=? AND feedback_at IS NOT NULL AND feedback_at<>''", String.class, owner));
+        return raw.stream().filter(Objects::nonNull).filter(s -> !s.isBlank()).map(Instant::parse).max(Comparator.naturalOrder());
+    }
+    private Nudge mapNudge(String owner, java.sql.ResultSet r) throws java.sql.SQLException {
+        return new Nudge(r.getString("id"), owner, r.getString("kind"), r.getString("dedup_key"), r.getString("text"),
+                r.getString("state"), r.getString("target_fingerprint"), r.getString("message_id"),
+                Instant.parse(r.getString("created_at")),
+                r.getString("sent_at") == null ? null : Instant.parse(r.getString("sent_at")), r.getString("feedback"));
+    }
     /** 撤权只取消未发候选；已发副本保留原始状态。 */
     public void cancel(String owner) {
         jdbc.update("UPDATE life_outreach_candidate SET state='CANCELLED' WHERE owner_id=? AND state='PENDING'", owner);
+        jdbc.update("UPDATE life_nudge SET state='CANCELLED' WHERE owner_id=? AND state='PENDING'", owner);
     }
     /** 重置清除派生材料、候选与正文，保留调用计数防止重置退还额度。 */
     public void reset(String owner) {
@@ -226,8 +276,14 @@ public class LifeReviewRepository {
                 jdbc.update("INSERT INTO life_review_archive VALUES(?,?,?,?) ON CONFLICT DO NOTHING",
                         c.id(), owner, LifeDeliveryService.render(c), Instant.now().toString());
         }
+        for (var n : nudges(owner)) {
+            if (Set.of("SENT", "UNKNOWN", "SENDING").contains(n.state()))
+                jdbc.update("INSERT INTO life_review_archive VALUES(?,?,?,?) ON CONFLICT DO NOTHING",
+                        n.id(), owner, n.text(), Instant.now().toString());
+        }
         jdbc.update("DELETE FROM life_review_reply WHERE owner_id=?", owner);
         jdbc.update("DELETE FROM life_outreach_candidate WHERE owner_id=?", owner);
+        jdbc.update("DELETE FROM life_nudge WHERE owner_id=?", owner);
         jdbc.update("DELETE FROM life_habit_candidate WHERE owner_id=?", owner);
         jdbc.update("DELETE FROM life_review_delivery WHERE owner_id=?", owner);
         jdbc.update("DELETE FROM life_review_content WHERE owner_id=?", owner);

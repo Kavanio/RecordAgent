@@ -41,7 +41,8 @@ class LifeReviewIntegrationTest {
     @SpringBootConfiguration @EnableAutoConfiguration
     @Import({LocalDatabaseConfiguration.class, LifeReviewRepository.class, LifeAuthorizationService.class,
             LifeReviewService.class, LifeOutreachService.class, LifeDeliveryService.class, LifeReplyService.class,
-            LifeResetParticipant.class, LifeReviewController.class, ApiExceptionHandler.class, butvan.agent.network.reset.service.ResetOperationAspect.class})
+            LifeActivityService.class, LifeResetParticipant.class, LifeReviewController.class, ApiExceptionHandler.class,
+            butvan.agent.network.reset.service.ResetOperationAspect.class})
     static class Application {
         @Bean Clock automationClock() {
             return new Clock() {
@@ -60,6 +61,9 @@ class LifeReviewIntegrationTest {
     @MockitoBean LifePersonalMaterialService personal;
     @MockitoBean PersonalDeliveryPort channel;
     @MockitoBean butvan.agent.agents.identity.CurrentUserProvider user;
+    @MockitoBean butvan.agent.agents.session.SessionCatalogService sessions;
+    @MockitoBean butvan.agent.agents.session.TranscriptService transcripts;
+    @MockitoBean butvan.agent.network.record.service.RecordService records;
     @jakarta.annotation.Resource LifeAuthorizationService authorization;
     @jakarta.annotation.Resource LifeReviewService reviews;
     @jakarta.annotation.Resource LifeReviewRepository repository;
@@ -77,6 +81,8 @@ class LifeReviewIntegrationTest {
         repository.reset("owner"); repository.reset("other");
         jdbc.update("DELETE FROM life_review_budget"); jdbc.update("DELETE FROM life_review_archive");
         when(user.currentUserId()).thenReturn("owner");
+        when(sessions.listActive()).thenReturn(List.of());
+        when(records.journalFragments(anyString(), any(), any())).thenReturn(List.of());
         when(personal.collect(any(), any())).thenReturn(List.of());
         when(models.resolve("p", "m")).thenReturn(new ModelIdentity("p", "m", "openai", "fingerprint"));
         when(channel.target()).thenReturn(new PersonalDeliveryPort.Target(true, "target", "本人飞书"));
@@ -394,6 +400,60 @@ class LifeReviewIntegrationTest {
         authorization.revoke("owner", new Consent(granted.revision(), "life-v1", true));
         assertFalse(fragment.stillCurrent().getAsBoolean());
         assertTrue(reviews.recallRecentReview("owner", "刚才复盘里那个学习建议").isEmpty());
+    }
+    private butvan.agent.agents.session.dto.TranscriptMessageDto userMsg(String id, Instant at) {
+        return new butvan.agent.agents.session.dto.TranscriptMessageDto(id, "turn",
+                butvan.agent.agents.session.dto.TranscriptMessageDto.MessageRole.USER, "x", at,
+                butvan.agent.agents.session.dto.TranscriptMessageDto.MessageStatus.COMPLETED, null, List.of(), null, null);
+    }
+    @Test void habitSuggestionObservesUserMessageTimestampsAndIdleCheckinSendsOncePerSilenceWindow() throws Exception {
+        // 1. 仅 1 天 1 条消息时不满足建议门槛
+        var s1 = new butvan.agent.agents.session.dto.SessionSummaryDto("s1",
+                butvan.agent.agents.session.dto.SessionKind.GENERAL, null, "日常对话", "", NOW, NOW,
+                butvan.agent.agents.session.dto.SessionStatus.ACTIVE);
+        when(sessions.listActive()).thenReturn(List.of(s1));
+        when(transcripts.recent("s1", 48)).thenReturn(List.of(userMsg("m1", NOW.minus(Duration.ofHours(1)))));
+        assertFalse(outreach.habitSuggestion("owner").available());
+
+        // 2. 跨 3 个活跃日、共 5 条 21:00 (Asia/Shanghai = 13:00Z) 用户消息时生成建议 21 点，且不自动写入作息表
+        when(transcripts.recent("s1", 48)).thenReturn(List.of(
+                userMsg("m1", NOW.minus(Duration.ofDays(3))),
+                userMsg("m2", NOW.minus(Duration.ofDays(3)).plusSeconds(60)),
+                userMsg("m3", NOW.minus(Duration.ofDays(2))),
+                userMsg("m4", NOW.minus(Duration.ofDays(1))),
+                userMsg("m5", NOW.minus(Duration.ofDays(1)).plusSeconds(120))));
+        var suggestion = outreach.habitSuggestion("owner");
+        assertTrue(suggestion.available());
+        assertEquals(21, suggestion.suggestedHour());
+        assertNull(outreach.habit("owner"));
+
+        // 3. 开启 3 天久未互动问候并授权；当最近互动在 1 天前时不触发问候
+        var saved = authorization.save("owner", new SaveSettings(repository.settings("owner").revision(),
+                true, Set.of("JOURNAL"), "p", "m", "Asia/Shanghai", 7, 3, true, true, 3));
+        authorization.grant("owner", new Consent(saved.revision(), "life-v1", true));
+        outreach.tick("owner");
+        verify(channel, never()).send(anyString(), anyString(), anyString());
+
+        // 4. 推进时间到授权与最近互动后满 3 天（NOW + 3 天），触发一次固定问候且不调用模型
+        TIME.set(NOW.plus(Duration.ofDays(3)));
+        outreach.tick("owner");
+        verify(channel, times(1)).send(eq("target"), anyString(), contains("好几天没见你来记录或聊近况了"));
+        verifyNoInteractions(generator);
+        assertEquals(1, outreach.nudges("owner").size());
+        String nudgeId = outreach.nudges("owner").getFirst().id();
+        assertEquals("SENT", outreach.nudges("owner").getFirst().state());
+
+        // 5. 未回复时再过 2 天（同一沉默窗口），不会重复催促
+        TIME.set(NOW.plus(Duration.ofDays(5)));
+        outreach.tick("owner");
+        verify(channel, times(1)).send(anyString(), anyString(), anyString());
+
+        // 6. 可通过 HTTP 提交问候反馈
+        mvc.perform(post("/agent/life-reviews/nudges/" + nudgeId + "/feedback")
+                .header("X-Agent-Generation", barrier.state().generation())
+                .contentType("application/json").content("{\"decision\":\"HELPFUL\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].feedback").value("HELPFUL"));
     }
     private static Path temporary() {
         try { return Files.createTempDirectory("life-review-test-"); }
