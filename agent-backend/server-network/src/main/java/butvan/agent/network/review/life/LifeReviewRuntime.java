@@ -23,11 +23,18 @@ public class LifeReviewRuntime {
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "life-review-worker"); t.setDaemon(true); return t;
     });
+    private final ScheduledExecutorService generationWorker = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "life-review-generation"); t.setDaemon(true); return t;
+    });
     @EventListener(ApplicationReadyEvent.class)
     /** 迁移就绪后恢复未知状态，再启动有界后台循环。 */
     public void start() {
-        if (!barrier.blocked()) repository.recover();
+        if (!barrier.blocked()) try (var lease = barrier.enter()) {
+            repository.migrateMailSecrets();
+            repository.recover();
+        }
         worker.scheduleWithFixedDelay(this::tick, 2, 2, TimeUnit.SECONDS);
+        generationWorker.scheduleWithFixedDelay(this::generate, 2, 2, TimeUnit.SECONDS);
     }
     /** 按授权准备每日内容和到期候选，重置保护期间跳过。 */
     public void tick() {
@@ -45,8 +52,13 @@ public class LifeReviewRuntime {
                     outreach.tick(s.owner());
                 } catch (RuntimeException e) { log.warn("生活复盘调度跳过：{}", e.getClass().getSimpleName()); }
             }
-            reviews.tick();
         } catch (RuntimeException e) { log.warn("生活复盘后台暂停：{}", e.getClass().getSimpleName()); }
     }
-    @PreDestroy public void close() { worker.shutdownNow(); }
+    /** 模型生成使用独立单线程，避免等待模型期间阻塞现实信号监测。 */
+    void generate() {
+        if (barrier.blocked()) return;
+        try { reviews.tick(); }
+        catch (RuntimeException e) { log.warn("生活复盘生成调度暂停：{}", e.getClass().getSimpleName()); }
+    }
+    @PreDestroy public void close() { worker.shutdownNow(); generationWorker.shutdownNow(); }
 }

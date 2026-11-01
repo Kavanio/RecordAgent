@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { lifeReviewApi } from '../../services/lifeReviewApi';
 import type { LifeSource } from '../../types/lifeReview';
 import { Button } from '../common/Button';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { Select } from '../common/Select';
 import { TextInput } from '../common/TextInput';
 import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
@@ -9,6 +10,7 @@ import { SettingsPageLayout } from '../settings/SettingsPageLayout';
 import { LifeContentCard } from './LifeContentCard';
 import { LifeGoalSettings } from './LifeGoalSettings';
 import { LifeOutreachSection } from './LifeOutreachSection';
+import { LifeSignalSettingsRows } from './LifeSignalSettingsRows';
 import { ReviewDisclosure } from './ReviewDisclosure';
 import { ReviewEmptyState } from './ReviewEmptyState';
 import { ReviewFormModal } from './ReviewFormModal';
@@ -23,14 +25,6 @@ const SOURCES: { id: LifeSource; label: string }[] = [
   { id: 'FINANCE', label: '财务数值（含资产统计）' },
 ];
 
-const IDLE_CHECKIN_OPTIONS = [
-  { value: '0', label: '关闭（不主动问候）' },
-  { value: '2', label: '连续 2 天无互动后问候一次' },
-  { value: '3', label: '连续 3 天无互动后问候一次' },
-  { value: '5', label: '连续 5 天无互动后问候一次' },
-  { value: '7', label: '连续 7 天无互动后问候一次' },
-];
-
 /** 生活复盘独立设置入口；保存、用途授权与主动投递明确分开。 */
 export function LifeReviewSettings() {
   const state = useLifeReview();
@@ -38,6 +32,7 @@ export function LifeReviewSettings() {
   const [editor, setEditor] = useState<'settings' | 'consent' | 'habit' | null>(null);
   const [hour, setHour] = useState(12);
   const [habitSource, setHabitSource] = useState('');
+  const [refreshOpen, setRefreshOpen] = useState(false);
 
   function closeEditor() {
     state.discard();
@@ -58,11 +53,23 @@ export function LifeReviewSettings() {
       .map(type => parts.find(part => part.type === type)?.value || '')
       .join('-');
   }
+  const orderedHistory = [...state.history].sort((a, b) => b.day.localeCompare(a.day) || b.version - a.version);
+  const todayContent = orderedHistory.find(c => c.day === today());
 
   return (
     <SettingsPageLayout
       title="生活复盘"
       description="回顾近期经历，在一份复盘里阅读和补充。"
+      actions={
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy || state.loading}
+          onClick={() => void state.load()}
+        >
+          {state.loading ? '正在读取…' : '刷新数据'}
+        </Button>
+      }
       loading={state.loading}
       loadingLabel="正在读取生活复盘"
     >
@@ -77,7 +84,7 @@ export function LifeReviewSettings() {
           <SettingsGroup title="复盘设置" description="查看已保存的范围与运行状态，需要调整时再打开配置。">
             <SettingsRow
               label={s.enabled ? '生活复盘已启用' : '生活复盘未启用'}
-              description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'} · 回看${s.historyDays}日 · 每日≤${s.dailyLimit}次 · ${s.proactive ? '主动呈现' : '仅桌面留档'}${s.feishu ? ' · 飞书' : ''}${s.idleCheckinDays ? ` · ${s.idleCheckinDays}天未互动问候` : ''}`}
+              description={`${s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、') || '尚未选择来源'} · ${s.modelName || '尚未选择模型'} · 回看${s.historyDays}日 · 每日≤${s.dailyLimit}次 · ${s.proactive ? '主动呈现' : '仅桌面留档'}${s.feishu ? ' · 飞书' : ''}${s.idleCheckinDays ? ` · ${s.idleCheckinDays}天未互动问候` : ''}${s.weatherAlertEnabled ? ' · 天气提醒' : ''}${s.expenseAlertEnabled ? ' · 支出提醒' : ''}${s.serverAlertEnabled ? ' · 服务器提醒' : ''}${s.mailAlertEnabled ? ` · 邮件提醒${s.mailStatus ? `：${s.mailStatus}` : ''}` : ''}`}
               control={<Button size="sm" disabled={busy} onClick={() => setEditor('settings')}>配置复盘</Button>}
             />
           </SettingsGroup>
@@ -124,11 +131,15 @@ export function LifeReviewSettings() {
                           type="checkbox"
                           checked={s.sources.includes(source.id)}
                           disabled={busy}
-                          onChange={() => patch({
-                            sources: s.sources.includes(source.id)
+                          onChange={() => {
+                            const nextSources = s.sources.includes(source.id)
                               ? s.sources.filter(id => id !== source.id)
-                              : [...s.sources, source.id],
-                          })}
+                              : [...s.sources, source.id];
+                            patch({
+                              sources: nextSources,
+                              expenseAlertEnabled: nextSources.includes('FINANCE') ? s.expenseAlertEnabled : false,
+                            });
+                          }}
                         />
                         {source.label}
                       </label>
@@ -176,45 +187,7 @@ export function LifeReviewSettings() {
                   control={<TextInput aria-label="生活复盘每日上限" type="number" min={1} max={3} value={s.dailyLimit} disabled={busy} onChange={e => patch({ dailyLimit: Number(e.target.value) })} />}
                 />
               </ReviewDisclosure>
-              <SettingsRow
-                label="主动呈现"
-                description="冷启动每天最多一次；同主题无新信息不重复，23:30后顺延到次日中午。"
-                control={
-                  <input
-                    aria-label="主动呈现生活复盘"
-                    type="checkbox"
-                    checked={s.proactive}
-                    disabled={busy}
-                    onChange={e => patch({ proactive: e.target.checked, idleCheckinDays: e.target.checked ? s.idleCheckinDays : 0 })}
-                  />
-                }
-              />
-              <SettingsRow
-                label="投递到本人飞书"
-                description={`${s.channelLabel}；目标只取已配置的本人白名单。飞书已读状态未知。`}
-                control={
-                  <input
-                    aria-label="生活复盘飞书投递"
-                    type="checkbox"
-                    checked={s.feishu}
-                    disabled={busy || !s.channelAvailable}
-                    onChange={e => patch({ feishu: e.target.checked, idleCheckinDays: e.target.checked ? s.idleCheckinDays : 0 })}
-                  />
-                }
-              />
-              <SettingsRow
-                label="久未互动飞书问候"
-                description="需同时开启主动呈现与本人飞书。连续 N 天无聊天或手记互动时发送一句固定温和问候（不调用模型，未回复绝不催促）。"
-                control={
-                  <Select
-                    aria-label="久未互动问候天数"
-                    value={String(s.idleCheckinDays || 0)}
-                    disabled={busy || !s.proactive || !s.feishu}
-                    options={IDLE_CHECKIN_OPTIONS}
-                    onChange={e => patch({ idleCheckinDays: Number(e.target.value) })}
-                  />
-                }
-              />
+              <LifeSignalSettingsRows settings={s} busy={busy} patch={patch} />
             </SettingsGroup>
             <p className={styles.muted}>{state.dirty ? '有未保存更改；保存后再确认授权。' : '配置保存与授权分别执行。'}</p>
           </ReviewFormModal>
@@ -238,7 +211,7 @@ export function LifeReviewSettings() {
             <ReviewFormModal open={editor === 'consent'} title="确认生活复盘授权" busy={busy} onClose={closeEditor}>
               <p className={styles.muted}>
                 固定模型：{s.providerId} / {s.modelName}；来源：{s.sources.map(id => SOURCES.find(source => source.id === id)?.label).join('、')}。
-                时区：{s.timezone} · 回看{s.historyDays}日 · 每日≤{s.dailyLimit}次调用 · {s.proactive ? '允许主动呈现' : '仅桌面留档'} · {s.feishu ? '允许投递本人飞书' : '不投递飞书'}{s.idleCheckinDays ? ` · 连续${s.idleCheckinDays}天无互动飞书问候一次` : ''}。
+                时区：{s.timezone} · 回看{s.historyDays}日 · 每日≤{s.dailyLimit}次调用 · {s.proactive ? '允许主动呈现' : '仅桌面留档'} · {s.feishu ? '允许投递本人飞书' : '不投递飞书'}{s.idleCheckinDays ? ` · 连续${s.idleCheckinDays}天无互动飞书问候一次` : ''}{s.weatherAlertEnabled ? ' · 开启天气变化提醒' : ''}{s.expenseAlertEnabled ? ' · 开启支出变化提醒' : ''}{s.serverAlertEnabled ? ` · 开启服务器状态提醒（${s.serverProbeName || '应用服务器'}）` : ''}{s.mailAlertEnabled ? ` · 开启重要邮件提醒（${s.imapHost || 'IMAP'}）` : ''}。
               </p>
               {!s.authorized && (
                 <SettingsRow
@@ -269,16 +242,19 @@ export function LifeReviewSettings() {
           <SettingsGroup title="我的复盘" description="每份内容标明归属日、覆盖截止点与版本。补充产生新版本，保留已发送副本；准备中可稍后刷新。">
             <SettingsRow
               label="准备今天"
-              description={state.generating ? '正在后台调用模型生成复盘，预计需要 5～15 秒，完成后会自动刷新…' : `当前每日 ${state.habit?.active ? state.habit.availableHour : 21}:00 自动准备${s.proactive && s.feishu ? '并发送飞书' : ''}；也可随时手动触发。`}
+              description={state.generating ? '正在后台调用模型生成复盘，完成后会自动刷新…' : `每日 ${state.habit?.active ? state.habit.availableHour : 21}:00 自动准备。已有当天版本时直接查看；更新资料请点“更新今天的复盘”。`}
               control={
                 <div className={styles.choices}>
                   <Button size="sm" variant="primary" disabled={disabled || state.generating} onClick={() => {
                     const day = today();
                     const readyToday = state.history.some(c => c.day === day && c.state === 'READY');
-                    void act(() => lifeReviewApi.prepare(day, 0, false), readyToday ? '今日复盘已就绪；如需追加内容请点卡片下方「补充经历」' : '已开始后台生成今日复盘，请稍候…');
+                    void act(() => lifeReviewApi.prepare(day, 0, false), readyToday ? '正在查看今天已有版本；需要重新采集资料时请点“更新今天的复盘”' : '已开始后台生成今日复盘，请稍候…');
                   }}>
                     {state.generating ? '正在生成复盘…' : '准备今天的复盘'}
                   </Button>
+                  {todayContent && !state.generating && <Button size="sm" disabled={disabled || todayContent.state === 'UNKNOWN'} onClick={() => setRefreshOpen(true)}>
+                    更新今天的复盘
+                  </Button>}
                   <Button size="sm" disabled={disabled} onClick={() => {
                     setHour(state.habit?.active ? state.habit.availableHour : 21);
                     setHabitSource(state.habit?.source || '');
@@ -295,12 +271,13 @@ export function LifeReviewSettings() {
             {state.history.length === 0 && (
               <ReviewEmptyState title="还没有生活复盘" description="准备一份当天复盘后，内容和历史版本会保留在这里。" />
             )}
-            {state.history.slice(0, 1).map(c => (
+            {!todayContent && orderedHistory.length > 0 && <p className={styles.muted}>今天尚无复盘，以下为最近一天的记录。</p>}
+            {orderedHistory.slice(0, 1).map(c => (
               <LifeContentCard key={c.id} content={c} timezone={c.timezone || s.timezone} busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />
             ))}
             {state.history.length > 1 && (
               <ReviewDisclosure variant="inline" title={`历史版本（${state.history.length - 1}）`} description="旧版保留原内容；展开查看，不会重新生成。">
-                {state.history.slice(1).map(c => (
+                {orderedHistory.slice(1).map(c => (
                   <LifeContentCard key={c.id} content={c} timezone={c.timezone || s.timezone} busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />
                 ))}
               </ReviewDisclosure>
@@ -312,6 +289,12 @@ export function LifeReviewSettings() {
               </details>
             ))}
           </SettingsGroup>
+          <ConfirmDialog open={refreshOpen} title="更新今天的复盘" tone="info" confirmText="确认更新" busy={busy}
+            description="重新采集已授权范围内截至现在的资料，并生成新版本，可能占用一次模型调用额度。旧版本与已发送副本保留。"
+            onClose={() => setRefreshOpen(false)} onConfirm={() => {
+              setRefreshOpen(false);
+              if (todayContent) void act(() => lifeReviewApi.prepare(today(), todayContent.version, true), '已安排更新今天的复盘');
+            }} />
 
           <LifeOutreachSection
             settings={s}

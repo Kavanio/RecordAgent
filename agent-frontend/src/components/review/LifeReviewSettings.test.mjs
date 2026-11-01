@@ -42,6 +42,15 @@ afterEach(async () => { await view?.unmount(); view = null; stub.restore(); });
 const query = selector => document.body.querySelector(selector);
 const queryAll = selector => [...document.body.querySelectorAll(selector)];
 async function click(label) { const button = queryAll('button').find(b => b.textContent === label); assert.ok(button, label); await act(async () => button.click()); }
+async function changeInput(input, value) {
+  assert.ok(input);
+  const proto = input.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(input, value);
+    input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    input.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+}
 async function render() { view = await mount(React.createElement(MessageProvider, null, React.createElement(Settings))); }
 test('首次读取不授权、不生成、不发送，明确展示独立正文范围', async () => {
   await render();
@@ -220,7 +229,7 @@ test('支持在我的复盘直接设置每日自动生成时间且备注可选',
   assert.deepEqual(JSON.parse(writes[0].init.body), { expectedRevision: 0, availableHour: 20, source: '', active: true });
 });
 
-test('当日已有就绪复盘时再次点击准备今天保持supplement=false复用既有版本', async () => {
+test('今天版本优先展示，查看复用旧版，更新须确认并创建新版本', async () => {
   settings.authorized = true;
   const todayParts = new Intl.DateTimeFormat('en', {
     timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -229,11 +238,20 @@ test('当日已有就绪复盘时再次点击准备今天保持supplement=false�
   history = [{ id: 'ready-1', day: today, timezone: 'Asia/Shanghai', version: 1, state: 'READY',
     sourceAsOf: '2026-10-30T13:00:00Z', availableAt: '2026-10-30T13:00:00Z', coverage: '', message: '',
     materials: [], facts: [], items: [{ kind: 'FACT_OBSERVATION', text: '已有今日复盘', evidenceIds: ['e1'], uncertainty: '' }], questions: [], deliveries: [] }];
+  const yesterday = new Date(new Date(`${today}T00:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10);
+  history.unshift({ ...history[0], id: 'yesterday-backfill', day: yesterday });
   await render();
+  assert.match(query('article').getAttribute('aria-label'), new RegExp(today));
+  assert.doesNotMatch(query('article').textContent, /今日回顾/);
   await click('准备今天的复盘');
   const prepares = calls.filter(c => c.url.pathname.endsWith('/prepare') && c.init?.method === 'POST');
   assert.equal(prepares.length, 1);
   assert.deepEqual(JSON.parse(prepares[0].init.body), { day: today, expectedVersion: 0, supplement: false });
+  await click('更新今天的复盘');
+  assert.equal(calls.filter(c => c.url.pathname.endsWith('/prepare')).length, 1);
+  await click('确认更新');
+  const update = calls.filter(c => c.url.pathname.endsWith('/prepare')).at(-1);
+  assert.deepEqual(JSON.parse(update.init.body), { day: today, expectedVersion: 1, supplement: true });
 });
 
 test('展示基于互动时间戳的作息建议并支持一键采用，且支持配置久未互动问候与反馈', async () => {
@@ -246,11 +264,18 @@ test('展示基于互动时间戳的作息建议并支持一键采用，且支�
     available: true, suggestedHour: 22, sampleCount: 8, activeDays: 4, windowDays: 14,
     hourCounts: Array(24).fill(0), note: '基于近 14 天 4 个活跃日、共 8 次互动时间戳统计，你在 22:00 前后较为活跃',
   };
-  nudges = [{
-    id: 'nudge-1', kind: 'IDLE_CHECKIN',
-    text: '好几天没见你来记录或聊近况了，顺手问候一声。',
-    state: 'SENT', createdAt: '2026-10-30T13:00:00Z', sentAt: '2026-10-30T13:00:00Z', feedback: '',
-  }];
+  nudges = [
+    {
+      id: 'nudge-1', kind: 'IDLE_CHECKIN',
+      text: '好几天没见你来记录或聊近况了，顺手问候一声。',
+      state: 'SENT', createdAt: '2026-10-30T13:00:00Z', sentAt: '2026-10-30T13:00:00Z', feedback: '',
+    },
+    {
+      id: 'nudge-2', kind: 'WEATHER_ALERT',
+      text: '【天气变化提醒】杭州当前转为暴雨（18°C，体感 17°C），外出请留意天气变化。',
+      state: 'SENT', createdAt: '2026-10-30T14:00:00Z', sentAt: '2026-10-30T14:00:00Z', feedback: '',
+    },
+  ];
   await render();
   assert.match(document.body.textContent, /3天未互动问候/);
 
@@ -258,6 +283,8 @@ test('展示基于互动时间戳的作息建议并支持一键采用，且支�
   const details = queryAll('details').find(d => d.querySelector('summary')?.textContent.includes('主动联系'));
   assert.ok(details);
   details.open = true;
+  assert.match(document.body.textContent, /天气变化提醒/);
+  assert.match(document.body.textContent, /杭州当前转为暴雨/);
   await click('采用建议（22:00）');
   const habitWrites = calls.filter(c => c.url.pathname.endsWith('/habit') && c.init?.method === 'PUT');
   assert.equal(habitWrites.length, 1);
@@ -269,4 +296,141 @@ test('展示基于互动时间戳的作息建议并支持一键采用，且支�
   const feedbackWrites = calls.filter(c => c.url.pathname.includes('/nudges/nudge-1/feedback') && c.init?.method === 'POST');
   assert.equal(feedbackWrites.length, 1);
   assert.deepEqual(JSON.parse(feedbackWrites[0].init.body), { decision: 'HELPFUL' });
+});
+
+test('支出提醒开关依赖财务来源授权与主动飞书，开启后随设置一并保存', async () => {
+  settings.proactive = true;
+  settings.feishu = true;
+  settings.channelAvailable = true;
+  await render();
+  await click('配置复盘');
+  const weatherCheckbox = query('input[aria-label="天气显著变化提醒"]');
+  const expenseCheckbox = query('input[aria-label="支出显著变化提醒"]');
+  assert.equal(weatherCheckbox.disabled, false);
+  assert.equal(expenseCheckbox.disabled, true);
+
+  // 勾选财务数值来源后，支出提醒可开启
+  const financeCheckbox = queryAll('label').find(l => l.textContent.includes('财务数值'))?.querySelector('input');
+  assert.ok(financeCheckbox);
+  await act(async () => financeCheckbox.click());
+  assert.equal(query('input[aria-label="支出显著变化提醒"]').disabled, false);
+
+  await act(async () => query('input[aria-label="天气显著变化提醒"]').click());
+  await act(async () => query('input[aria-label="支出显著变化提醒"]').click());
+  await click('保存生活复盘设置');
+
+  const putCall = calls.find(c => c.url.pathname.endsWith('/settings') && c.init?.method === 'PUT');
+  assert.ok(putCall);
+  const payload = JSON.parse(putCall.init.body);
+  assert.equal(payload.weatherAlertEnabled, true);
+  assert.equal(payload.expenseAlertEnabled, true);
+  assert.match(document.body.textContent, /天气提醒/);
+  assert.match(document.body.textContent, /支出提醒/);
+});
+
+test('服务器探针提醒支持配置名称与URL，并随设置一并保存与展示短消息', async () => {
+  settings.proactive = true;
+  settings.feishu = true;
+  settings.channelAvailable = true;
+  nudges = [
+    {
+      id: 'nudge-server-1', kind: 'SERVER_ALERT',
+      text: '【服务器状态提醒】生产主后端健康检查检测到异常（HTTP 503 状态异常），请留意服务可用性。',
+      state: 'SENT', createdAt: '2026-10-30T15:00:00Z', sentAt: '2026-10-30T15:00:00Z', feedback: '',
+    },
+    {
+      id: 'nudge-server-2', kind: 'SERVER_RECOVERY',
+      text: '【服务器恢复提醒】生产主后端健康检查已恢复正常（HTTP 200），探针服务已重新就绪。',
+      state: 'SENT', createdAt: '2026-10-30T15:05:00Z', sentAt: '2026-10-30T15:05:00Z', feedback: '',
+    },
+  ];
+  await render();
+  await click('配置复盘');
+  const serverCheckbox = query('input[aria-label="服务器只读健康提醒"]');
+  assert.equal(serverCheckbox.checked, false);
+  await act(async () => serverCheckbox.click());
+
+  const nameInput = query('input[aria-label="服务器标识名称"]');
+  const urlInput = query('input[aria-label="服务器探针地址"]');
+  assert.ok(nameInput);
+  assert.ok(urlInput);
+
+  await changeInput(nameInput, '生产集群网关');
+  await changeInput(urlInput, 'https://api.example.com/actuator/health');
+
+  await click('保存生活复盘设置');
+  const putCall = calls.find(c => c.url.pathname.endsWith('/settings') && c.init?.method === 'PUT');
+  assert.ok(putCall);
+  const payload = JSON.parse(putCall.init.body);
+  assert.equal(payload.serverAlertEnabled, true);
+  assert.equal(payload.serverProbeName, '生产集群网关');
+  assert.equal(payload.serverProbeUrl, 'https://api.example.com/actuator/health');
+
+  // 展开主动联系折叠区，验证服务器提醒短消息标签
+  const details = queryAll('details').find(d => d.querySelector('summary')?.textContent.includes('主动联系'));
+  assert.ok(details);
+  details.open = true;
+  assert.match(document.body.textContent, /服务器状态提醒/);
+  assert.match(document.body.textContent, /服务器恢复提醒/);
+  assert.match(document.body.textContent, /HTTP 503 状态异常/);
+});
+
+test('重要邮件提醒支持配置、失败状态及短消息展示', async () => {
+  settings.mailStatus = '上次邮箱检查失败，请检查连接、加密设置或授权码';
+  settings.proactive = true;
+  settings.feishu = true;
+  settings.channelAvailable = true;
+  nudges = [
+    {
+      id: 'nudge-mail-1', kind: 'MAIL_ALERT',
+      text: '【重要邮件提醒】检测到来自「运维监控组」的重要邮件：《生产数据库主从同步延迟》，请留意查收。',
+      state: 'SENT', createdAt: '2026-10-30T16:00:00Z', sentAt: '2026-10-30T16:00:00Z', feedback: '',
+    },
+  ];
+  await render();
+  await click('配置复盘');
+  assert.match(document.body.textContent, /上次邮箱检查失败/);
+  const mailCheckbox = query('input[aria-label="重要邮件只读提醒"]');
+  assert.equal(mailCheckbox.checked, false);
+  await act(async () => mailCheckbox.click());
+
+  const hostInput = query('input[aria-label="IMAP 服务器主机"]');
+  const portInput = query('input[aria-label="IMAP 端口"]');
+  const userInput = query('input[aria-label="IMAP 账号"]');
+  const passInput = query('input[aria-label="IMAP 密码或授权码"]');
+  const whitelistInput = query('input[aria-label="发件人白名单"]');
+  const keywordsInput = query('input[aria-label="主题关键词"]');
+
+  assert.ok(hostInput);
+  assert.ok(portInput);
+  assert.ok(userInput);
+  assert.ok(passInput);
+  assert.ok(whitelistInput);
+  assert.ok(keywordsInput);
+
+  await changeInput(hostInput, 'imap.example.com');
+  await changeInput(portInput, '993');
+  await changeInput(userInput, 'ops@example.com');
+  await changeInput(passInput, 'auth_token_123');
+  await changeInput(whitelistInput, 'ops@company.com, alert@domain.com');
+  await changeInput(keywordsInput, '紧急, 故障, 开票');
+
+  await click('保存生活复盘设置');
+  const putCall = calls.find(c => c.url.pathname.endsWith('/settings') && c.init?.method === 'PUT');
+  assert.ok(putCall);
+  const payload = JSON.parse(putCall.init.body);
+  assert.equal(payload.mailAlertEnabled, true);
+  assert.equal(payload.imapHost, 'imap.example.com');
+  assert.equal(payload.imapPort, 993);
+  assert.equal(payload.imapUsername, 'ops@example.com');
+  assert.equal(payload.imapPassword, 'auth_token_123');
+  assert.equal(payload.mailSenderWhitelist, 'ops@company.com, alert@domain.com');
+  assert.equal(payload.mailSubjectKeywords, '紧急, 故障, 开票');
+
+  // 展开主动联系折叠区，验证邮件提醒短消息标签
+  const details = queryAll('details').find(d => d.querySelector('summary')?.textContent.includes('主动联系'));
+  assert.ok(details);
+  details.open = true;
+  assert.match(document.body.textContent, /重要邮件提醒/);
+  assert.match(document.body.textContent, /生产数据库主从同步延迟/);
 });

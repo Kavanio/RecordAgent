@@ -31,6 +31,16 @@ const NUDGE_STATES: Record<string, string> = {
   CANCELLED: '已取消',
 };
 
+const NUDGE_KIND_LABELS: Record<string, string> = {
+  IDLE_CHECKIN: '久未互动轻声问候',
+  WEATHER_ALERT: '天气变化提醒',
+  WEATHER_RECOVERY: '天气恢复提醒',
+  EXPENSE_ALERT: '支出变化提醒',
+  SERVER_ALERT: '服务器状态提醒',
+  SERVER_RECOVERY: '服务器恢复提醒',
+  MAIL_ALERT: '重要邮件提醒',
+};
+
 const NUDGE_FEEDBACK_LABELS: Record<string, string> = {
   HELPFUL: '已反馈：有帮助',
   NOT_NEEDED: '已反馈：暂不需要',
@@ -209,20 +219,26 @@ export function LifeOutreachSection({
         </SettingsGroup>
 
         <SettingsGroup
-          title="久未互动问候记录"
+          title="久未互动问候与现实提醒记录"
           description={
-            s.idleCheckinDays
-              ? `当前已开启连续 ${s.idleCheckinDays} 天无互动飞书问候（固定温和问候语，不调用模型，未回复绝不重复催促）。`
-              : '当前未开启久未互动问候；可在上方「配置复盘」中选择连续 2/3/5/7 天无互动后问候一次。'
+            s.idleCheckinDays || s.weatherAlertEnabled || s.expenseAlertEnabled || s.serverAlertEnabled || s.mailAlertEnabled
+              ? `已启用：${[
+                  s.idleCheckinDays ? `连续 ${s.idleCheckinDays} 天无互动问候` : '',
+                  s.weatherAlertEnabled ? '天气变化提醒' : '',
+                  s.expenseAlertEnabled ? '支出变化提醒' : '',
+                  s.serverAlertEnabled ? `服务器探针提醒（${s.serverProbeName || '应用服务器'}）` : '',
+                  s.mailAlertEnabled ? `重要邮件提醒（${s.imapHost || 'IMAP'}）` : '',
+                ].filter(Boolean).join('、')}（确定性规则触发，不调用模型，未回复不重复催促）。`
+              : '当前未开启久未互动问候或现实变化提醒；可在上方「配置复盘」中按需开启。'
           }
         >
           {nudges.length === 0 && (
-            <ReviewEmptyState title="暂无问候记录" description="触发过久未互动问候后，发送时间、状态和你的反馈会记录在这里。" />
+            <ReviewEmptyState title="暂无问候或提醒记录" description="触发过久未互动问候、天气变化、支出变化、服务器探针或重要邮件提醒后，发送时间、状态和你的反馈会记录在这里。" />
           )}
           {nudges.map(n => (
             <SettingsRow
               key={n.id}
-              label={n.kind === 'IDLE_CHECKIN' ? '久未互动轻声问候' : n.kind}
+              label={NUDGE_KIND_LABELS[n.kind] || n.kind}
               description={`${NUDGE_STATES[n.state] || n.state} · ${new Date(n.sentAt || n.createdAt).toLocaleString('zh-CN', { timeZone: s.timezone })} · 「${n.text}」${n.feedback ? ` · ${NUDGE_FEEDBACK_LABELS[n.feedback] || n.feedback}` : ''}`}
               control={
                 <div className={styles.choices}>

@@ -42,10 +42,11 @@ public class LifeDeliveryService {
     }
 
     /** 发送与复盘内容解耦的主动短消息；意图先落盘，同一沉默窗口不重复发送，UNKNOWN 不自动重试。 */
-    public void sendNudge(String owner, String kind, String dedupKey, String text) {
+    public void sendNudge(Settings expected, String kind, String dedupKey, String text) {
         try (var lease = barrier.enter()) {
+            String owner = expected.owner();
             var s = authorization.require(owner);
-            if (!s.proactive() || !s.feishu() || channels.size() != 1 || !barrier.isCurrent(lease.generation())) return;
+            if (!sameNudgeGrant(expected, s, kind) || channels.size() != 1 || !barrier.isCurrent(lease.generation())) return;
             Instant now = automationClock.instant();
             Nudge n = new TransactionTemplate(transactions).execute(tx -> {
                 repository.nudge(new Nudge(UUID.randomUUID().toString(), owner, kind, dedupKey, text, "PENDING",
@@ -54,6 +55,9 @@ public class LifeDeliveryService {
             });
             if (n == null || !n.state().equals("PENDING") || !n.targetFingerprint().equals(s.targetFingerprint())) return;
             if (!barrier.isCurrent(lease.generation())) return;
+            if (!sameNudgeGrant(expected, authorization.require(owner), kind)) {
+                repository.nudgeState(n.id(), "PENDING", "CANCELLED", "", now); return;
+            }
             if (!repository.nudgeState(n.id(), "PENDING", "SENDING", "", now)) return;
             PersonalDeliveryPort.Attempt result;
             try { result = channels.getFirst().send(s.targetFingerprint(), n.id(), n.text()); }
@@ -62,6 +66,20 @@ public class LifeDeliveryService {
             repository.nudgeState(n.id(), "SENDING", state,
                     result == null || result.messageId() == null ? "" : result.messageId(), automationClock.instant());
         }
+    }
+
+    /** 短消息必须仍属于原检测授权，且对应来源开关仍开启。 */
+    private boolean sameNudgeGrant(Settings expected, Settings current, String kind) {
+        if (!expected.grantId().equals(current.grantId()) || expected.revision() != current.revision()
+                || !current.proactive() || !current.feishu()) return false;
+        return switch (kind) {
+            case "WEATHER_ALERT", "WEATHER_RECOVERY" -> current.weatherSignalEnabled();
+            case "EXPENSE_ALERT" -> current.expenseSignalEnabled();
+            case "SERVER_ALERT", "SERVER_RECOVERY" -> current.serverSignalEnabled();
+            case "MAIL_ALERT" -> current.mailSignalEnabled();
+            case "IDLE_CHECKIN" -> current.idleCheckinEnabled();
+            default -> false;
+        };
     }
 
     private void sendInternal(String owner, String contentId, String channelKey, String prefix, boolean retry) {
@@ -103,7 +121,7 @@ public class LifeDeliveryService {
     /** 只渲染持久化版本，材料不得在发送时重新采集，也不向外部输出内部证据编号与技术覆盖串。 */
     public static String render(Content c) {
         List<String> segments = new ArrayList<>();
-        segments.add("跟你顺手理一下今天的复盘（" + c.day() + "）：");
+        segments.add("跟你顺手理一下这一天的复盘（" + c.day() + "）：");
         if (c.draft() != null) {
             for (var o : c.draft().observations()) {
                 if (o.text() != null && !o.text().isBlank()) segments.add(o.text().strip());

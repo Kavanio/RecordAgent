@@ -7,7 +7,7 @@
   </p>
 </div>
 
-> 当前版本：`0.5.0`（见 [`VERSION`](VERSION) 与 [`CHANGELOG.md`](CHANGELOG.md)）。项目仍在快速迭代，适合本地体验、二次开发和架构交流，暂不宣称为完成的通用生产级 Agent 平台。
+> 当前版本：`0.6.0`（见 [`VERSION`](VERSION) 与 [`CHANGELOG.md`](CHANGELOG.md)）。项目仍在快速迭代，适合本地体验、二次开发和架构交流，暂不宣称为完成的通用生产级 Agent 平台。
 
 ## 目录
 
