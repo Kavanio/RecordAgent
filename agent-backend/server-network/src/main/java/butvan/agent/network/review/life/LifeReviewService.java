@@ -253,6 +253,7 @@ public class LifeReviewService implements LifeReviewContextPort {
         List<ReviewGenerationRequest.Observation> observations = new ArrayList<>();
         for (var item : repository.history(current.owner())) {
             if (item.id().equals(current.id()) || !"READY".equals(item.state()) || item.draft() == null) continue;
+            if (!item.grantId().equals(s.grantId()) || item.settingsRevision() != s.revision()) continue;
             if (item.day().isAfter(current.day()) || item.day().isBefore(earliest) || !seenDays.add(item.day())) continue;
             if (item.draft().actions() != null) {
                 for (int i = 0; i < item.draft().actions().size() && actions.size() < 3; i++) {
@@ -287,7 +288,8 @@ public class LifeReviewService implements LifeReviewContextPort {
         List<String> topics = new ArrayList<>(List.of("study"));
         if (s.sources().contains("BUSINESS")) topics.add("todo");
         if (s.sources().contains("FINANCE")) topics.add("finance");
-        return new ReviewGenerationRequest("LIFE_DAILY", c.day() + " 生活复盘 v" + c.version(), coverage, facts,
+        return new ReviewGenerationRequest("LIFE_DAILY", c.day() + " 生活复盘 v" + c.version(),
+                "复盘归属日=" + c.day() + "；优先回顾当天材料，往期经历必须标明原日期，不能说成今天发生。" + coverage, facts,
                 text.stream().filter(m -> m.kind().equals("USER_GOAL")).map(m ->
                     new ReviewGenerationRequest.Goal(m.sourceId(), m.text(), "用户原始约束已包含在目标文本中", "参照原始目标文本")).toList(),
                 prior.actions(), prior.observations(), ReviewMethodCards.select("DAILY_REPORT", topics),

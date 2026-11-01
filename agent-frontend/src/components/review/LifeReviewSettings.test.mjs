@@ -229,7 +229,7 @@ test('支持在我的复盘直接设置每日自动生成时间且备注可选',
   assert.deepEqual(JSON.parse(writes[0].init.body), { expectedRevision: 0, availableHour: 20, source: '', active: true });
 });
 
-test('当日已有就绪复盘时再次点击准备今天保持supplement=false复用既有版本', async () => {
+test('今天版本优先展示，查看复用旧版，更新须确认并创建新版本', async () => {
   settings.authorized = true;
   const todayParts = new Intl.DateTimeFormat('en', {
     timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -238,11 +238,20 @@ test('当日已有就绪复盘时再次点击准备今天保持supplement=false�
   history = [{ id: 'ready-1', day: today, timezone: 'Asia/Shanghai', version: 1, state: 'READY',
     sourceAsOf: '2026-10-30T13:00:00Z', availableAt: '2026-10-30T13:00:00Z', coverage: '', message: '',
     materials: [], facts: [], items: [{ kind: 'FACT_OBSERVATION', text: '已有今日复盘', evidenceIds: ['e1'], uncertainty: '' }], questions: [], deliveries: [] }];
+  const yesterday = new Date(new Date(`${today}T00:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10);
+  history.unshift({ ...history[0], id: 'yesterday-backfill', day: yesterday });
   await render();
+  assert.match(query('article').getAttribute('aria-label'), new RegExp(today));
+  assert.doesNotMatch(query('article').textContent, /今日回顾/);
   await click('准备今天的复盘');
   const prepares = calls.filter(c => c.url.pathname.endsWith('/prepare') && c.init?.method === 'POST');
   assert.equal(prepares.length, 1);
   assert.deepEqual(JSON.parse(prepares[0].init.body), { day: today, expectedVersion: 0, supplement: false });
+  await click('更新今天的复盘');
+  assert.equal(calls.filter(c => c.url.pathname.endsWith('/prepare')).length, 1);
+  await click('确认更新');
+  const update = calls.filter(c => c.url.pathname.endsWith('/prepare')).at(-1);
+  assert.deepEqual(JSON.parse(update.init.body), { day: today, expectedVersion: 1, supplement: true });
 });
 
 test('展示基于互动时间戳的作息建议并支持一键采用，且支持配置久未互动问候与反馈', async () => {
@@ -366,7 +375,8 @@ test('服务器探针提醒支持配置名称与URL，并随设置一并保存�
   assert.match(document.body.textContent, /HTTP 503 状态异常/);
 });
 
-test('重要邮件提醒支持配置IMAP主机、端口、账号、密码及过滤规则，并随设置一并保存与展示短消息', async () => {
+test('重要邮件提醒支持配置、失败状态及短消息展示', async () => {
+  settings.mailStatus = '上次邮箱检查失败，请检查连接、加密设置或授权码';
   settings.proactive = true;
   settings.feishu = true;
   settings.channelAvailable = true;
@@ -379,6 +389,7 @@ test('重要邮件提醒支持配置IMAP主机、端口、账号、密码及过�
   ];
   await render();
   await click('配置复盘');
+  assert.match(document.body.textContent, /上次邮箱检查失败/);
   const mailCheckbox = query('input[aria-label="重要邮件只读提醒"]');
   assert.equal(mailCheckbox.checked, false);
   await act(async () => mailCheckbox.click());

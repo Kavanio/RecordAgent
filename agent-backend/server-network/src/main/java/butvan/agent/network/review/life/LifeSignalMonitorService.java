@@ -8,13 +8,8 @@ import butvan.agent.network.dailycontext.service.DailyContextService;
 import butvan.agent.network.review.life.LifeReviewModels.Habit;
 import butvan.agent.network.review.life.LifeReviewModels.Settings;
 import butvan.agent.network.review.life.LifeReviewModels.SignalState;
-import jakarta.mail.Address;
-import jakarta.mail.Flags;
-import jakarta.mail.Folder;
-import jakarta.mail.Message;
-import jakarta.mail.Session;
-import jakarta.mail.Store;
-import jakarta.mail.search.FlagTerm;
+import jakarta.mail.internet.InternetAddress;
+import butvan.agent.network.review.service.ReviewPolicy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -32,11 +27,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 /**
- * M6 现实信息源只读监测服务（第一批：天气显著变化、支出显著变化）。
+ * M6 现实信息源只读监测：天气、支出、服务器探针和重要邮件。
  *
  * <p>规则判断、基线对比与恢复事件全部由确定性逻辑完成，不调用大模型，
  * 复用 {@link LifeDeliveryService#sendNudge} 实现幂等去重与本人飞书投递。</p>
@@ -67,7 +62,8 @@ public class LifeSignalMonitorService {
 
     @FunctionalInterface
     public interface MailInboxClient {
-        List<InboxMessageSummary> fetchUnreadMessages(String host, int port, String username, String password);
+        InboxPage fetchUnreadMessages(String host, int port, String username, String password, int offset);
+        record InboxPage(List<InboxMessageSummary> messages, int nextOffset) {}
         record InboxMessageSummary(String messageId, String from, String subject, Instant receivedAt) {}
     }
 
@@ -133,19 +129,21 @@ public class LifeSignalMonitorService {
         String location = (w.locationName() == null || w.locationName().isBlank()) ? "当前地点" : w.locationName().strip();
         String condition = (w.condition() == null || w.condition().isBlank()) ? "未知" : w.condition().strip();
         boolean adverse = isAdverseWeather(condition, w.windSpeed());
-        Optional<SignalState> prevOpt = repository.signalState(s.owner(), "WEATHER");
+        String source = ReviewPolicy.fingerprint(location);
+        Optional<SignalState> prevOpt = repository.signalState(s.owner(), "WEATHER")
+                .filter(previous -> source.equals(previous.sourceFingerprint()));
 
         if (prevOpt.isEmpty()) {
             if (adverse) {
-                String eventKey = "weather:" + today + ":" + condition;
-                repository.saveSignalState(new SignalState(
-                        s.owner(), "WEATHER", formatWeatherBaseline(today, condition, w.temperature()), eventKey, now));
+                String eventKey = "weather:" + UUID.randomUUID();
+                repository.saveSignalState(s, new SignalState(
+                        s.owner(), "WEATHER", formatWeatherBaseline(today, condition, w.temperature()), eventKey, now, source));
                 String text = "【天气变化提醒】" + location + "当前天气为" + condition
                         + "（" + formatTemp(w.temperature()) + "°C，体感 " + formatTemp(w.feelsLike()) + "°C），外出请留意天气变化。";
-                deliveries.sendNudge(s.owner(), "WEATHER_ALERT", eventKey, text);
+                deliveries.sendNudge(s, "WEATHER_ALERT", eventKey, text);
             } else {
-                repository.saveSignalState(new SignalState(
-                        s.owner(), "WEATHER", formatWeatherBaseline(today, condition, w.temperature()), "", now));
+                repository.saveSignalState(s, new SignalState(
+                        s.owner(), "WEATHER", formatWeatherBaseline(today, condition, w.temperature()), "", now, source));
             }
             return;
         }
@@ -155,49 +153,51 @@ public class LifeSignalMonitorService {
         String prevActiveKey = prev.activeEventKey() == null ? "" : prev.activeEventKey();
 
         if (adverse) {
-            String eventKey = "weather:" + today + ":" + condition;
-            repository.saveSignalState(new SignalState(
-                    s.owner(), "WEATHER", formatWeatherBaseline(today, condition, w.temperature()), eventKey, now));
+            String eventKey = !prevActiveKey.isBlank() && condition.equals(parsed.condition())
+                    ? prevActiveKey : "weather:" + UUID.randomUUID();
+            repository.saveSignalState(s, new SignalState(
+                    s.owner(), "WEATHER", formatWeatherBaseline(today, condition, w.temperature()), eventKey, now, source));
             if (!eventKey.equals(prevActiveKey)) {
                 String text = "【天气变化提醒】" + location + "当前转为" + condition
                         + "（" + formatTemp(w.temperature()) + "°C，体感 " + formatTemp(w.feelsLike()) + "°C），外出请留意天气变化。";
-                deliveries.sendNudge(s.owner(), "WEATHER_ALERT", eventKey, text);
+                deliveries.sendNudge(s, "WEATHER_ALERT", eventKey, text);
             }
             return;
         }
 
         if (!prevActiveKey.isBlank()) {
             String recoveryKey = "recovery:" + prevActiveKey;
-            repository.saveSignalState(new SignalState(
-                    s.owner(), "WEATHER", formatWeatherBaseline(today, condition, w.temperature()), "", now));
+            repository.saveSignalState(s, new SignalState(
+                    s.owner(), "WEATHER", formatWeatherBaseline(today, condition, w.temperature()), "", now, source));
             String text = "【天气恢复提醒】" + location + "天气已转为" + condition
                     + "（当前 " + formatTemp(w.temperature()) + "°C），先前提醒的天气状况已缓解。";
-            deliveries.sendNudge(s.owner(), "WEATHER_RECOVERY", recoveryKey, text);
+            deliveries.sendNudge(s, "WEATHER_RECOVERY", recoveryKey, text);
             return;
         }
 
         if (parsed.temperature() != null && Math.abs(w.temperature() - parsed.temperature()) >= SIGNIFICANT_TEMP_DELTA_C) {
             boolean up = w.temperature() > parsed.temperature();
             String dir = up ? "升温" : "降温";
-            String deltaKey = "weather-delta:" + today + ":" + (up ? "up" : "down");
+            String deltaKey = "weather-delta:" + source + ":" + today + ":" + (up ? "up" : "down");
             double diff = Math.abs(w.temperature() - parsed.temperature());
-            repository.saveSignalState(new SignalState(
-                    s.owner(), "WEATHER", formatWeatherBaseline(today, condition, w.temperature()), "", now));
+            repository.saveSignalState(s, new SignalState(
+                    s.owner(), "WEATHER", formatWeatherBaseline(today, condition, w.temperature()), "", now, source));
             String text = "【天气变化提醒】" + location + "较前次观测明显" + dir + " " + formatTemp(diff)
                     + "°C（当前" + condition + " " + formatTemp(w.temperature()) + "°C，体感 "
                     + formatTemp(w.feelsLike()) + "°C），注意适时增减衣物。";
-            deliveries.sendNudge(s.owner(), "WEATHER_ALERT", deltaKey, text);
+            deliveries.sendNudge(s, "WEATHER_ALERT", deltaKey, text);
             return;
         }
 
         if (!today.toString().equals(parsed.date())) {
-            repository.saveSignalState(new SignalState(
-                    s.owner(), "WEATHER", formatWeatherBaseline(today, condition, w.temperature()), "", now));
+            repository.saveSignalState(s, new SignalState(
+                    s.owner(), "WEATHER", formatWeatherBaseline(today, condition, w.temperature()), "", now, source));
         }
     }
 
     private void checkExpense(Settings s, ZonedDateTime local, Instant now) {
         if (!s.expenseSignalEnabled() || expenseAnalytics == null) return;
+        String source = "expense";
         int minHour = repository.habit(s.owner())
                 .filter(h -> h.active() && now.isBefore(h.expiresAt()))
                 .map(Habit::availableHour)
@@ -247,15 +247,17 @@ public class LifeSignalMonitorService {
             String text = "【支出变化提醒】今日（" + today + "）已记录 " + currency + " 支出 "
                     + todayTotal.toPlainString() + "（主要分类：" + topCategory
                     + "），高于近 28 天活跃日均基线（" + dailyAvg.toPlainString() + "），顺手帮你留个记录参考。";
-            repository.saveSignalState(new SignalState(
-                    s.owner(), "EXPENSE", today + "|" + currency + "|" + todayTotal.toPlainString(), dedupKey, now));
-            deliveries.sendNudge(s.owner(), "EXPENSE_ALERT", dedupKey, text);
+            repository.saveSignalState(s, new SignalState(
+                    s.owner(), "EXPENSE", today + "|" + currency + "|" + todayTotal.toPlainString(), dedupKey, now, source));
+            deliveries.sendNudge(s, "EXPENSE_ALERT", dedupKey, text);
         }
     }
 
     private void checkServer(Settings s, ZonedDateTime local, Instant now) {
         if (!s.serverSignalEnabled() || probeClient == null) return;
-        Optional<SignalState> prevOpt = repository.signalState(s.owner(), "SERVER");
+        String source = ReviewPolicy.fingerprint(s.serverProbeUrl() + "\n" + s.serverProbeName());
+        Optional<SignalState> prevOpt = repository.signalState(s.owner(), "SERVER")
+                .filter(previous -> source.equals(previous.sourceFingerprint()));
         if (prevOpt.isPresent()) {
             Instant lastObserved = prevOpt.get().observedAt();
             if (now.isBefore(lastObserved.plus(Duration.ofSeconds(30)))) {
@@ -270,41 +272,42 @@ public class LifeSignalMonitorService {
             result = new ServerProbeClient.ProbeResult(false, 0, "探测请求失败：" + e.getClass().getSimpleName());
         }
 
-        LocalDate today = local.toLocalDate();
         String name = s.serverProbeName();
 
         if (result.up()) {
             if (prevOpt.isPresent() && !prevOpt.get().activeEventKey().isBlank()) {
                 String activeKey = prevOpt.get().activeEventKey();
                 String recoveryKey = "recovery:" + activeKey;
-                repository.saveSignalState(new SignalState(
-                        s.owner(), "SERVER", "OK|" + result.statusCode(), "", now));
+                repository.saveSignalState(s, new SignalState(
+                        s.owner(), "SERVER", "OK|" + result.statusCode(), "", now, source));
                 String text = "【服务器恢复提醒】" + name + "健康检查已恢复正常（"
                         + result.message() + "），探针服务已重新就绪。";
-                deliveries.sendNudge(s.owner(), "SERVER_RECOVERY", recoveryKey, text);
+                deliveries.sendNudge(s, "SERVER_RECOVERY", recoveryKey, text);
             } else {
-                repository.saveSignalState(new SignalState(
-                        s.owner(), "SERVER", "OK|" + result.statusCode(), "", now));
+                repository.saveSignalState(s, new SignalState(
+                        s.owner(), "SERVER", "OK|" + result.statusCode(), "", now, source));
             }
             return;
         }
 
-        String eventKey = "server:" + today + ":" + name;
+        String eventKey = "server:" + UUID.randomUUID();
         if (prevOpt.isEmpty() || prevOpt.get().activeEventKey().isBlank()) {
-            repository.saveSignalState(new SignalState(
-                    s.owner(), "SERVER", "FAIL|" + result.statusCode() + "|" + result.message(), eventKey, now));
+            repository.saveSignalState(s, new SignalState(
+                    s.owner(), "SERVER", "FAIL|" + result.statusCode() + "|" + result.message(), eventKey, now, source));
             String text = "【服务器状态提醒】" + name + "健康检查检测到异常（"
                     + result.message() + "），请留意服务可用性。";
-            deliveries.sendNudge(s.owner(), "SERVER_ALERT", eventKey, text);
+            deliveries.sendNudge(s, "SERVER_ALERT", eventKey, text);
         } else {
-            repository.saveSignalState(new SignalState(
-                    s.owner(), "SERVER", "FAIL|" + result.statusCode() + "|" + result.message(), prevOpt.get().activeEventKey(), now));
+            repository.saveSignalState(s, new SignalState(
+                    s.owner(), "SERVER", "FAIL|" + result.statusCode() + "|" + result.message(), prevOpt.get().activeEventKey(), now, source));
         }
     }
 
     private void checkMail(Settings s, ZonedDateTime local, Instant now) {
         if (!s.mailSignalEnabled() || mailClient == null) return;
-        Optional<SignalState> prevOpt = repository.signalState(s.owner(), "MAIL");
+        String source = ReviewPolicy.fingerprint(LifeMailCredentials.identity(s));
+        Optional<SignalState> prevOpt = repository.signalState(s.owner(), "MAIL")
+                .filter(previous -> source.equals(previous.sourceFingerprint()));
         if (prevOpt.isPresent()) {
             Instant lastObserved = prevOpt.get().observedAt();
             if (now.isBefore(lastObserved.plus(Duration.ofSeconds(60)))) {
@@ -312,18 +315,20 @@ public class LifeSignalMonitorService {
             }
         }
 
-        List<MailInboxClient.InboxMessageSummary> messages;
+        int offset = prevOpt.map(previous -> mailOffset(previous.baselineValue())).orElse(0);
+        MailInboxClient.InboxPage page;
         try {
-            messages = mailClient.fetchUnreadMessages(s.imapHost(), s.imapPort(), s.imapUsername(), s.imapPassword());
+            page = mailClient.fetchUnreadMessages(s.imapHost(), s.imapPort(), s.imapUsername(), s.imapPassword(), offset);
         } catch (Exception e) {
-            log.warn("获取 IMAP 未读邮件失败: {}", e.getMessage());
-            repository.saveSignalState(new SignalState(
-                    s.owner(), "MAIL", "FAIL|" + e.getClass().getSimpleName(), "", now));
+            log.warn("获取 IMAP 未读邮件失败: {}", e.getClass().getSimpleName());
+            repository.saveSignalState(s, new SignalState(
+                    s.owner(), "MAIL", "FAIL|" + offset, "", now, source));
             return;
         }
 
-        if (messages == null || messages.isEmpty()) {
-            repository.saveSignalState(new SignalState(s.owner(), "MAIL", "EMPTY", "", now));
+        List<MailInboxClient.InboxMessageSummary> messages = page == null ? List.of() : page.messages();
+        if (messages.isEmpty()) {
+            repository.saveSignalState(s, new SignalState(s.owner(), "MAIL", "OK|0|EMPTY", "", now, source));
             return;
         }
 
@@ -335,7 +340,7 @@ public class LifeSignalMonitorService {
             String rawId = (msg.messageId() != null && !msg.messageId().isBlank())
                     ? msg.messageId()
                     : (msg.from() + ":" + msg.subject() + ":" + (msg.receivedAt() != null ? msg.receivedAt().toEpochMilli() : 0));
-            String dedupKey = "mail:" + Integer.toHexString(rawId.hashCode());
+            String dedupKey = "mail:" + ReviewPolicy.fingerprint(source + "\n" + rawId);
 
             String sender = cleanSender(msg.from());
             String subject = (msg.subject() == null || msg.subject().isBlank()) ? "(无主题)" : msg.subject().strip();
@@ -344,12 +349,16 @@ public class LifeSignalMonitorService {
             }
             String text = "【重要邮件提醒】检测到来自「" + sender + "」的重要邮件：《" + subject + "》，请留意查收。";
 
-            deliveries.sendNudge(s.owner(), "MAIL_ALERT", dedupKey, text);
+            // 升级前的旧编号仅在冻结文案也相同时沿用，避免升级后重发已处理邮件。
+            var legacy = repository.findNudge(s.owner(), "MAIL_ALERT", "mail:" + Integer.toHexString(rawId.hashCode()));
+            if (legacy.filter(n -> n.text().equals(text) && !n.state().equals("CANCELLED")).isPresent()) continue;
+
+            deliveries.sendNudge(s, "MAIL_ALERT", dedupKey, text);
             triggeredCount++;
         }
 
-        repository.saveSignalState(new SignalState(
-                s.owner(), "MAIL", "OK|COUNT=" + messages.size() + "|ALERTED=" + triggeredCount, "", now));
+        repository.saveSignalState(s, new SignalState(
+                s.owner(), "MAIL", "OK|" + page.nextOffset() + "|COUNT=" + messages.size() + "|ALERTED=" + triggeredCount, "", now, source));
     }
 
     private static boolean isMailMatching(String from, String subject, String whitelistStr, String keywordsStr) {
@@ -359,14 +368,20 @@ public class LifeSignalMonitorService {
             return true;
         }
 
-        String lowerFrom = from == null ? "" : from.toLowerCase(Locale.ROOT);
+        String lowerFrom = "";
+        try {
+            var addresses = InternetAddress.parse(from == null ? "" : from, true);
+            if (addresses.length == 1) lowerFrom = addresses[0].getAddress().toLowerCase(Locale.ROOT);
+        } catch (jakarta.mail.internet.AddressException invalid) {
+            log.debug("邮件发件人地址格式无效，按非白名单处理");
+        }
         String lowerSubject = subject == null ? "" : subject.toLowerCase(Locale.ROOT);
 
         if (hasWhitelist) {
             String[] senders = whitelistStr.split("[,，]");
             for (String s : senders) {
                 String trimmed = s.strip().toLowerCase(Locale.ROOT);
-                if (!trimmed.isEmpty() && lowerFrom.contains(trimmed)) {
+                if (!trimmed.isEmpty() && lowerFrom.equals(trimmed)) {
                     return true;
                 }
             }
@@ -397,86 +412,15 @@ public class LifeSignalMonitorService {
         return trimmed;
     }
 
-    private static MailInboxClient defaultMailClient() {
-        return (host, port, username, password) -> {
-            List<MailInboxClient.InboxMessageSummary> summaries = new java.util.ArrayList<>();
-            var props = new java.util.Properties();
-            String protocol = (port == 993) ? "imaps" : "imap";
-            props.put("mail.store.protocol", protocol);
-            props.put("mail." + protocol + ".host", host);
-            props.put("mail." + protocol + ".port", String.valueOf(port));
-            props.put("mail." + protocol + ".timeout", "5000");
-            props.put("mail." + protocol + ".connectiontimeout", "5000");
-            if (port == 993) {
-                props.put("mail.imaps.ssl.enable", "true");
-            }
-            Session session = Session.getInstance(props);
-            Store store = null;
-            Folder inbox = null;
-            try {
-                store = session.getStore(protocol);
-                store.connect(host, port, username, password);
-                inbox = store.getFolder("INBOX");
-                inbox.open(Folder.READ_ONLY);
-                Message[] messages = inbox.search(new FlagTerm(new Flags(Flags.Flag.SEEN), false));
-                if (messages != null && messages.length > 0) {
-                    int start = Math.max(0, messages.length - 20);
-                    for (int i = messages.length - 1; i >= start; i--) {
-                        Message msg = messages[i];
-                        String messageId = "";
-                        String[] msgIdHeaders = msg.getHeader("Message-ID");
-                        if (msgIdHeaders != null && msgIdHeaders.length > 0) {
-                            messageId = msgIdHeaders[0];
-                        }
-                        String from = "";
-                        Address[] froms = msg.getFrom();
-                        if (froms != null && froms.length > 0) {
-                            from = froms[0].toString();
-                        }
-                        String subject = msg.getSubject() != null ? msg.getSubject() : "(无主题)";
-                        Instant receivedAt = msg.getReceivedDate() != null ? msg.getReceivedDate().toInstant() : Instant.now();
-                        summaries.add(new MailInboxClient.InboxMessageSummary(messageId, from, subject, receivedAt));
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("连接或读取 IMAP 邮箱异常: {}", e.getMessage());
-            } finally {
-                if (inbox != null && inbox.isOpen()) {
-                    try { inbox.close(false); } catch (Exception ignored) {}
-                }
-                if (store != null && store.isConnected()) {
-                    try { store.close(); } catch (Exception ignored) {}
-                }
-            }
-            return summaries;
-        };
-    }
+    /** 生产客户端与测试共用同一有界、只读网络适配器。 */
+    static MailInboxClient defaultMailClient() { return LifeSignalClients.mail(); }
+    static ServerProbeClient defaultProbeClient() { return LifeSignalClients.probe(); }
 
-    private static ServerProbeClient defaultProbeClient() {
-        var client = java.net.http.HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(2))
-                .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
-                .build();
-        return url -> {
-            try {
-                var request = java.net.http.HttpRequest.newBuilder()
-                        .uri(java.net.URI.create(url))
-                        .timeout(Duration.ofSeconds(3))
-                        .header("User-Agent", "ButvanAgent-ServerProbe/1.0")
-                        .GET()
-                        .build();
-                var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.discarding());
-                int code = response.statusCode();
-                boolean up = code >= 200 && code < 400;
-                return new ServerProbeClient.ProbeResult(up, code, up ? "HTTP " + code : "HTTP " + code + " 状态异常");
-            } catch (java.net.http.HttpConnectTimeoutException | java.net.ConnectException e) {
-                return new ServerProbeClient.ProbeResult(false, 0, "连接失败或超时");
-            } catch (java.net.http.HttpTimeoutException e) {
-                return new ServerProbeClient.ProbeResult(false, 0, "响应读取超时");
-            } catch (Exception e) {
-                return new ServerProbeClient.ProbeResult(false, 0, "探测请求失败：" + e.getClass().getSimpleName());
-            }
-        };
+    private static int mailOffset(String baseline) {
+        try {
+            String[] parts = baseline.split("\\|", 3);
+            return parts.length > 1 ? Math.max(0, Integer.parseInt(parts[1])) : 0;
+        } catch (NumberFormatException invalid) { return 0; }
     }
 
     private static String resolveTopCategory(List<ExpenseEntry> entries) {

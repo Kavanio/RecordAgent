@@ -65,7 +65,7 @@ public final class LifeReviewDtos {
                                boolean serverAlertEnabled, String serverProbeUrl, String serverProbeName,
                                boolean mailAlertEnabled, String imapHost, int imapPort,
                                String imapUsername, boolean imapConfigured,
-                               String mailSenderWhitelist, String mailSubjectKeywords) {
+                               String mailSenderWhitelist, String mailSubjectKeywords, String mailStatus) {
         public SettingsView(int revision, boolean enabled, Set<String> sources, String providerId,
                 String modelName, String timezone, int historyDays, int dailyLimit,
                 boolean proactive, boolean feishu, boolean authorized, String policyVersion,
@@ -76,7 +76,7 @@ public final class LifeReviewDtos {
                     proactive, feishu, authorized, policyVersion, channelAvailable, channelLabel,
                     idleCheckinDays, weatherAlertEnabled, expenseAlertEnabled,
                     serverAlertEnabled, serverProbeUrl, serverProbeName,
-                    false, "", 993, "", false, "", "");
+                    false, "", 993, "", false, "", "", "");
         }
         public SettingsView(int revision, boolean enabled, Set<String> sources, String providerId,
                 String modelName, String timezone, int historyDays, int dailyLimit,
@@ -86,7 +86,7 @@ public final class LifeReviewDtos {
             this(revision, enabled, sources, providerId, modelName, timezone, historyDays, dailyLimit,
                     proactive, feishu, authorized, policyVersion, channelAvailable, channelLabel,
                     idleCheckinDays, weatherAlertEnabled, expenseAlertEnabled, false, "", "应用服务器",
-                    false, "", 993, "", false, "", "");
+                    false, "", 993, "", false, "", "", "");
         }
         public SettingsView(int revision, boolean enabled, Set<String> sources, String providerId,
                 String modelName, String timezone, int historyDays, int dailyLimit,
@@ -95,7 +95,7 @@ public final class LifeReviewDtos {
             this(revision, enabled, sources, providerId, modelName, timezone, historyDays, dailyLimit,
                     proactive, feishu, authorized, policyVersion, channelAvailable, channelLabel,
                     idleCheckinDays, false, false, false, "", "应用服务器",
-                    false, "", 993, "", false, "", "");
+                    false, "", 993, "", false, "", "", "");
         }
     }
     public record MaterialView(String id, String kind, String sourceId, String occurredAt, String text, boolean truncated) {}

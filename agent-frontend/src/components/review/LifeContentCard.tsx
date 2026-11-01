@@ -46,7 +46,7 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
       <p>已保存参考资料，尚未形成回顾或建议。可点击上方“准备今天的复盘”重新生成，或点击下方“补充经历”准备新版本。</p>
     </div>}
     {observations.length > 0 && <div className={styles.section}>
-      <div className={styles.sectionTitle}>今日回顾</div>
+      <div className={styles.sectionTitle}>这一天的回顾</div>
       <div className={styles.itemList}>
         {observations.map((item, i) => <div key={i} className={styles.item}>
           <p className={styles.itemText}>{item.text}</p>
