@@ -38,7 +38,18 @@ public class LifeAuthorizationService {
                 s.weatherAlertEnabled(), s.expenseAlertEnabled(),
                 s.serverAlertEnabled(), s.serverProbeUrl(), s.serverProbeName(),
                 s.mailAlertEnabled(), s.imapHost(), s.imapPort(), s.imapUsername(), imapConfigured,
-                s.mailSenderWhitelist(), s.mailSubjectKeywords());
+                s.mailSenderWhitelist(), s.mailSubjectKeywords(), mailStatus(s));
+    }
+    /** 只读本地最近一次检查结果，绝不在设置查询时连接邮箱。 */
+    private String mailStatus(Settings s) {
+        if (!s.mailAlertEnabled()) return "";
+        if (s.imapPassword().isBlank()) return "请填写邮箱授权码";
+        if (s.grantId().isBlank()) return "尚未授权，未开始检查邮箱";
+        String source = butvan.agent.network.review.service.ReviewPolicy.fingerprint(LifeMailCredentials.identity(s));
+        return repository.signalState(s.owner(), "MAIL").filter(state -> source.equals(state.sourceFingerprint()))
+                .map(state -> state.baselineValue().startsWith("FAIL|")
+                        ? "上次邮箱检查失败，请检查连接、加密设置或授权码" : "上次邮箱检查正常")
+                .orElse("等待首次检查邮箱");
     }
     @Transactional
     public SettingsView save(String owner, SaveSettings input) {
@@ -68,10 +79,12 @@ public class LifeAuthorizationService {
                 throw new IllegalArgumentException("IMAP 端口必须在 1-65535 范围内");
             if (input.imapUsername() == null || input.imapUsername().isBlank() || input.imapUsername().length() > 128)
                 throw new IllegalArgumentException("IMAP 账号必须在 1-128 字符内");
-            boolean hasOldPass = old.imapPassword() != null && !old.imapPassword().isBlank();
+            boolean sameMailbox = old.imapHost().equalsIgnoreCase(input.imapHost().strip())
+                    && old.imapPort() == input.imapPort() && old.imapUsername().equals(input.imapUsername().strip());
+            boolean hasOldPass = sameMailbox && !old.imapPassword().isBlank();
             boolean hasNewPass = input.imapPassword() != null && !input.imapPassword().isBlank();
             if (!hasOldPass && !hasNewPass)
-                throw new IllegalArgumentException("开启重要邮件提醒必须填写 IMAP 授权码或密码");
+                throw new IllegalArgumentException("开启或更换邮箱连接必须填写 IMAP 授权码或密码");
         }
         ZoneId zone;
         try { zone = ZoneId.of(input.timezone()); }
@@ -81,7 +94,9 @@ public class LifeAuthorizationService {
         if (input.feishu() && !target.available()) throw new IllegalArgumentException("请先配置并连接仅限本人的飞书渠道");
         String imapPassword = (input.imapPassword() != null && !input.imapPassword().isBlank())
                 ? input.imapPassword()
-                : old.imapPassword();
+                : old.imapHost().equalsIgnoreCase(Objects.toString(input.imapHost(), "").strip())
+                    && old.imapPort() == input.imapPort() && old.imapUsername().equals(Objects.toString(input.imapUsername(), "").strip())
+                        ? old.imapPassword() : "";
         repository.settings(new Settings(owner, old.revision() + 1, input.enabled(), "", input.sources(),
                 model.providerId(), model.modelName(), model.fingerprint(), zone.getId(), input.historyDays(),
                 input.dailyLimit(), input.proactive(), input.feishu(), input.feishu() ? target.fingerprint() : "", null,

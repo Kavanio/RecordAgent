@@ -15,7 +15,7 @@ public final class LifeReviewModels {
                            boolean weatherAlertEnabled, boolean expenseAlertEnabled,
                            boolean serverAlertEnabled, String serverProbeUrl, String serverProbeName,
                            boolean mailAlertEnabled, String imapHost, int imapPort,
-                           String imapUsername, String imapPassword,
+                           String imapUsername, @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY) String imapPassword,
                            String mailSenderWhitelist, String mailSubjectKeywords) {
         public Settings {
             sources = Set.copyOf(sources);
@@ -28,6 +28,14 @@ public final class LifeReviewModels {
             mailSenderWhitelist = mailSenderWhitelist == null ? "" : mailSenderWhitelist.strip();
             mailSubjectKeywords = mailSubjectKeywords == null ? "" : mailSubjectKeywords.strip();
         }
+        /** 仅在内存中补回受保护凭据；序列化永远不写密码。 */
+        public Settings withImapPassword(String password) {
+            return new Settings(owner, revision, enabled, grantId, sources, providerId, modelName, fingerprint, timezone,
+                    historyDays, dailyLimit, proactive, feishu, targetFingerprint, authorizedAt, idleCheckinDays,
+                    weatherAlertEnabled, expenseAlertEnabled, serverAlertEnabled, serverProbeUrl, serverProbeName,
+                    mailAlertEnabled, imapHost, imapPort, imapUsername, password, mailSenderWhitelist, mailSubjectKeywords);
+        }
+        @Override public String toString() { return "LifeReviewSettings{REDACTED}"; }
         public Settings(String owner, int revision, boolean enabled, String grantId, Set<String> sources,
                 String providerId, String modelName, String fingerprint, String timezone,
                 int historyDays, int dailyLimit, boolean proactive, boolean feishu,
@@ -126,5 +134,5 @@ public final class LifeReviewModels {
                         String feedback) {}
     /** 现实信息源观测基线与当前活动事件标识，供变化对比与恢复通知判定。 */
     public record SignalState(String owner, String signalKey, String baselineValue, String activeEventKey,
-                              Instant observedAt) {}
+                              Instant observedAt, String sourceFingerprint) {}
 }

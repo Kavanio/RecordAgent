@@ -142,7 +142,7 @@ export function LifeSignalSettingsRows({ settings: s, busy, patch }: LifeSignalS
       />
       <SettingsRow
         label="重要邮件只读提醒"
-        description="只读扫描未读邮件主题与发件人元数据（绝不读取正文防注入），发件人白名单或主题关键词匹配时飞书提醒。"
+        description={`加密连接 INBOX，只读分页扫描未读邮件主题与发件人，不读取正文；白名单或关键词匹配时提醒。${s.mailStatus || ''}`}
         layout={s.mailAlertEnabled ? 'stacked' : undefined}
         control={
           <div className={s.mailAlertEnabled ? styles.stack : undefined}>

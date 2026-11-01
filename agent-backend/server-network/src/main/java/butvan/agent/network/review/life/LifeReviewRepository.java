@@ -14,11 +14,13 @@ import java.util.*;
 public class LifeReviewRepository {
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
+    private final LifeMailCredentials mailCredentials;
 
     /** 读取当前用户设置；未保存时返回关闭的默认值。 */
     public Settings settings(String owner) {
-        return jdbc.query("SELECT settings_json FROM life_review_settings WHERE owner_id=?",
+        var s = jdbc.query("SELECT settings_json FROM life_review_settings WHERE owner_id=?",
                 (r, n) -> read(r.getString(1), Settings.class), owner).stream().findFirst().orElse(Settings.defaults(owner));
+        return s.withImapPassword(mailCredentials.read(s));
     }
     /** 首次插入与后续 CAS 更新使用相同 revision 约束。 */
     public void settings(Settings next, int expected) {
@@ -27,6 +29,19 @@ public class LifeReviewRepository {
         if (expected != 0) rows = jdbc.update("UPDATE life_review_settings SET revision=?,enabled=?,grant_id=?,settings_json=? WHERE owner_id=? AND revision=?",
                 next.revision(), next.enabled(), next.grantId(), json(next), next.owner(), expected);
         if (rows != 1) throw new IllegalArgumentException("生活复盘设置已变化，请刷新");
+        mailCredentials.save(next);
+    }
+    /** 启动时先保护旧版当前凭据，再清除业务 JSON；失败阻止监测启动，不删除唯一副本。 */
+    public void migrateMailSecrets() {
+        for (var s : jdbc.query("SELECT settings_json FROM life_review_settings", (r, n) -> read(r.getString(1), Settings.class))) {
+            // 首次升级绑定当前保存的探针身份，保留同一在途故障，避免重复告警。
+            jdbc.update("UPDATE life_signal_state SET source_fingerprint=? WHERE owner_id=? AND signal_key='SERVER' AND source_fingerprint=''",
+                    butvan.agent.network.review.service.ReviewPolicy.fingerprint(s.serverProbeUrl() + "\n" + s.serverProbeName()), s.owner());
+            if (s.imapPassword().isBlank()) continue;
+            mailCredentials.save(s);
+            jdbc.update("UPDATE life_review_settings SET settings_json=? WHERE owner_id=? AND revision=?", json(s), s.owner(), s.revision());
+        }
+        jdbc.update("UPDATE life_review_grant SET settings_json=json_remove(settings_json,'$.imapPassword') WHERE json_type(settings_json,'$.imapPassword') IS NOT NULL");
     }
     /** 历史授权范围独立审计，不含原文或凭据。 */
     public void grant(Settings s) {
@@ -59,7 +74,7 @@ public class LifeReviewRepository {
     }
     /** 返回最近三十个有限版本，历史读取不调用模型。 */
     public List<Content> history(String owner) {
-        return jdbc.query("SELECT content_json FROM life_review_content WHERE owner_id=? ORDER BY created_at DESC,version DESC LIMIT 30",
+        return jdbc.query("SELECT content_json FROM life_review_content WHERE owner_id=? ORDER BY review_day DESC,version DESC,created_at DESC LIMIT 30",
                 (r, n) -> read(r.getString(1), Content.class), owner);
     }
     /** 只插入新版本，唯一约束阻止同日并发覆盖。 */
@@ -252,19 +267,19 @@ public class LifeReviewRepository {
     public Optional<SignalState> signalState(String owner, String signalKey) {
         return jdbc.query("SELECT * FROM life_signal_state WHERE owner_id=? AND signal_key=?", (r, idx) ->
                 new SignalState(owner, signalKey, r.getString("baseline_value"), r.getString("active_event_key"),
-                        Instant.parse(r.getString("observed_at"))), owner, signalKey).stream().findFirst();
+                        Instant.parse(r.getString("observed_at")), r.getString("source_fingerprint")), owner, signalKey).stream().findFirst();
     }
     /** 保存或更新指定信息源观测基线与活动事件标识。 */
-    public void saveSignalState(SignalState state) {
+    public void saveSignalState(Settings expected, SignalState state) {
         jdbc.update("""
-                INSERT INTO life_signal_state(owner_id,signal_key,baseline_value,active_event_key,observed_at)
-                VALUES(?,?,?,?,?)
+                INSERT INTO life_signal_state(owner_id,signal_key,baseline_value,active_event_key,observed_at,source_fingerprint)
+                SELECT ?,?,?,?,?,? FROM life_review_settings WHERE owner_id=? AND revision=? AND grant_id=? AND enabled=1
                 ON CONFLICT(owner_id,signal_key) DO UPDATE SET
                     baseline_value=excluded.baseline_value,
                     active_event_key=excluded.active_event_key,
-                    observed_at=excluded.observed_at
+                    observed_at=excluded.observed_at,source_fingerprint=excluded.source_fingerprint
                 """, state.owner(), state.signalKey(), state.baselineValue(), state.activeEventKey(),
-                state.observedAt().toString());
+                state.observedAt().toString(), state.sourceFingerprint(), expected.owner(), expected.revision(), expected.grantId());
     }
     /** 读取复盘域内最近一次用户主动交互时间（补充或反馈）。 */
     public Optional<Instant> latestUserActivity(String owner) {
@@ -287,6 +302,7 @@ public class LifeReviewRepository {
     }
     /** 重置清除派生材料、候选与正文，保留调用计数防止重置退还额度。 */
     public void reset(String owner) {
+        mailCredentials.save(Settings.defaults(owner));
         revokeGrants(owner, Instant.now());
         for (var c : jdbc.query("SELECT content_json FROM life_review_content WHERE owner_id=?",
                 (r, n) -> read(r.getString(1), Content.class), owner)) {

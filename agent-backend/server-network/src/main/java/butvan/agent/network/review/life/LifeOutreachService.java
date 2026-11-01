@@ -184,7 +184,7 @@ public class LifeOutreachService {
         }
         if (baseline == null || Duration.between(baseline, now).toDays() < s.idleCheckinDays()) return;
         String dedupKey = "idle:" + baseline.truncatedTo(ChronoUnit.MINUTES);
-        deliveries.sendNudge(s.owner(), "IDLE_CHECKIN", dedupKey, IDLE_CHECKIN_TEXT);
+        deliveries.sendNudge(s, "IDLE_CHECKIN", dedupKey, IDLE_CHECKIN_TEXT);
     }
     private void requireCapacity(String owner, String topic, String novelty) {
         if (repository.pendingCount(owner) >= 100 && !repository.candidateExists(owner, topic, novelty))
