@@ -1,0 +1,120 @@
+https://entire.com/
+你知道这个项目有什么用吗？我有点没看明白？
+我已经从GitHub中将我的项目导入到这里面去了。
+请你使用最简短、最通易懂、大白话向我解释
+
+---
+
+那我要怎么使用，以及平时我让ai写代码需要我做点什么吗？
+
+---
+
+我还以为他会自动帮我review我每次push上去的代码
+
+---
+
+Last login: Sun Nov  1 17:53:54 on ttys001
+butvan@kefandeMacBook-Air-506 ~ % brew install --cask entireio/tap/entire
+==> Auto-updating Homebrew...
+Adjust how often this is run with `$HOMEBREW_AUTO_UPDATE_SECS` or disable with
+`$HOMEBREW_NO_AUTO_UPDATE=1`. Hide these hints with `$HOMEBREW_NO_ENV_HINTS=1` (see `man brew`).
+==> Downloading https://ghcr.io/v2/homebrew/core/portable-ruby/blobs/sha256:43ff285a82f48c84a06d0676a3800815a19d290d32e44182ddd7a6e95478e18e
+################################################################################################################# 100.0%
+==> Pouring portable-ruby-4.0.9.arm64_big_sur.bottle.tar.gz
+==> Auto-updated Homebrew!
+Updated 2 taps (homebrew/core and homebrew/cask).
+==> New Formulae
+arm-optimized-routines: Optimized implementations of various library functions for Arm processors
+beszel: Lightweight server monitoring with historical data, Docker stats, and alerts
+blint: Security linter and SBOM generator for binaries
+calcure: Modern TUI calendar and task manager
+entire-cli: Capture AI agent sessions in your Git workflow
+libkrunfw: Dynamic library bundling the guest payload consumed by libkrun
+lovable-oj: Experimental next generation frontend tooling
+roborev: Background code review with AI agents
+ryl: Fast YAML linter and formatter written in Rust
+sbomasm: Tool to assemble and edit SBOMs
+sbomqs: SBOM quality scorer and compliance checker
+upki: Implements platform-independent browser-grade certificate infrastructure
+zmij: Fast floating-point-to-string conversion library for C and C++
+==> New Casks
+anydrag: Move any window by holding a modifier key and dragging anywhere on it
+deutschlandgpt: Desktop client for the DeutschlandGPT AI assistant
+diri: Terminal workspace for running coding agents in parallel
+font-geist-serif
+font-madhuban
+herdr-app: Desktop app for terminals and coding agents
+junie: AI coding agent by JetBrains
+keyboop: Keyboard layout switcher with local voice dictation
+macdirstat: Disk space analyser
+mactoy: Ventoy installer and disk image flasher
+nebius: Command-line interface for Nebius
+notational-velocity: Store and retrieve notes
+nvalt: Note taking app, fork of Notational Velocity
+opencodex: Proxy that connects AI coding agents to other LLM providers
+openframe-console: Desktop client for IT management notifications and sessions
+peel: App uninstaller and disk space cleaner
+prusaslicer@preview: G-code generator for 3D printers (RepRap, Makerbot, Ultimaker etc.)
+qoder: Agentic coding platform
+rencal: Desktop calendar
+solidcraft: Parametric 3D CAD modeller
+spencer: Window and workspace layout manager across Spaces and displays
+task-manager-tmog: System monitor that identifies resource-heavy processes
+thinkrail: Agentic development environment
+tldv: AI meeting recorder and note taker
+
+You have 34 outdated formulae and 3 outdated casks installed.
+
+==> Tapping entireio/tap
+Cloning into '/opt/homebrew/Library/Taps/entireio/homebrew-tap'...
+Tapped 3 casks (18 files, 224.7KB).
+==> Trusted cask entireio/tap/entire
+==> Fetching downloads for: entireio/tap/entire
+✔︎ Cask entire (0.12.2)                                                                      Downloaded   21.7MB/ 21.7MB
+==> Installing Cask entire
+==> Linking Binary 'entire' to '/opt/homebrew/bin/entire'
+==> Linking Binary 'git-remote-entire' to '/opt/homebrew/bin/git-remote-entire'
+🍺  entire was successfully installed!
+butvan@kefandeMacBook-Air-506 ~ % 
+butvan@kefandeMacBook-Air-506 ~ % 
+butvan@kefandeMacBook-Air-506 ~ % 
+butvan@kefandeMacBook-Air-506 ~ % cd Kavan_Projets/my_code 
+butvan@kefandeMacBook-Air-506 my_code % ls
+Butvan Blog2.0		DESIGN BLOG		home-style restaurant	Share-Home		weixin
+ButvanAgent		Grad Box		MemReductMac		Teacher Network		Windows NAT
+butvan@kefandeMacBook-Air-506 my_code % cd ButvanAgent 
+butvan@kefandeMacBook-Air-506 ButvanAgent % 
+butvan@kefandeMacBook-Air-506 ButvanAgent % ls
+agent-backend		CHANGELOG.md		docs			README.md		skills-lock.json
+agent-frontend		CONTEXT.md		PRODUCT.md		RecordAgent APP		UI COMPONENTS.md
+AGENTS.md		DESIGN.md		PROJECT.md		scripts			VERSION
+butvan@kefandeMacBook-Air-506 ButvanAgent % 
+butvan@kefandeMacBook-Air-506 ButvanAgent % 
+butvan@kefandeMacBook-Air-506 ButvanAgent % entire enable
+  Selected agents: Antigravity, Codex, Pi
+  ✓ Installed hooks
+  ✓ Configured project
+    .entire/settings.json
+
+Ready.
+
+Make sure to commit these files to your Git repo so Entire works across worktrees and clones:
+  .entire/settings.json
+  .entire/.gitignore
+  .agents/hooks.json
+  .pi/extensions/entire/index.ts
+✓ Committed them to desktop/m6-minimal-fixes
+
+Checkpoints will be uploaded when you push to origin.
+  They contain your agent transcripts. If that repo is public, anyone can read them.
+  Secret redaction is best effort, not bulletproof. Review with `entire checkpoint explain`.
+  To stop uploads: `entire configure --local --skip-push-sessions`
+  To use a separate private repo: `entire configure --local --checkpoint-remote github:<owner>/<repo>`
+butvan@kefandeMacBook-Air-506 ButvanAgent % 
+
+
+应该配置好了吧
+
+---
+
+为我介绍一下这个网友中每个操作地方是什么意思，例如点击这个怎么样，以及能看到什么效果，然后告诉我，我平时怎么看？
