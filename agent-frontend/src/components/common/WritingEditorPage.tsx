@@ -14,6 +14,7 @@ import { createSmartLowlight } from '../ui/codeBlockLanguages';
 import { TopBar } from './TopBar';
 import { TopBarAction } from './TopBarAction';
 import { useMessage } from './Message';
+import { WritingTypingBurst } from './WritingTypingBurst';
 import styles from './WritingEditorPage.module.css';
 
 const smartLowlight = createSmartLowlight(createLowlight(all));
@@ -288,6 +289,7 @@ export function WritingEditorPage({
 
   return (
     <main className={styles.workspace}>
+      <WritingTypingBurst editor={editor} />
       <TopBar
         onBack={onBack}
         backLabel={backLabel}

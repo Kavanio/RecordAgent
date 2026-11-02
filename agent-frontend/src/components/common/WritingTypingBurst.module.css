@@ -1,0 +1,42 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.burst { position: absolute; width: 0; height: 0; }
+
+.particle {
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  opacity: 0;
+  animation: scatter 520ms cubic-bezier(.16, .7, .3, 1) both;
+}
+
+.particle svg { display: block; width: 100%; height: 100%; }
+.particle:nth-child(1) { --dx: 2px; --dy: -29px; --spin: 45deg; color: #e9ae47; }
+.particle:nth-child(2) { --dx: 20px; --dy: -19px; --spin: 80deg; width: 4px; height: 4px; color: #69bda5; }
+.particle:nth-child(3) { --dx: 29px; --dy: 0px; --spin: 100deg; width: 7px; height: 7px; color: #87b9ea; }
+.particle:nth-child(4) { --dx: 18px; --dy: 18px; --spin: 30deg; width: 4px; height: 4px; color: #e9ae47; }
+.particle:nth-child(5) { --dx: -2px; --dy: 25px; --spin: -30deg; width: 7px; height: 7px; color: #e89baf; }
+.particle:nth-child(6) { --dx: -24px; --dy: 15px; --spin: -80deg; width: 9px; height: 9px; color: #b19cdb; }
+.particle:nth-child(7) { --dx: -28px; --dy: -4px; --spin: -50deg; width: 4px; height: 4px; color: #87b9ea; }
+.particle:nth-child(8) { --dx: -18px; --dy: -23px; --spin: -90deg; width: 6px; height: 6px; color: #e89baf; }
+
+@keyframes scatter {
+  0% { opacity: 0; transform: translate(0, 0) scale(.25) rotate(0deg); }
+  12% { opacity: .95; }
+  65% { opacity: .75; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.55) rotate(var(--spin)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer { display: none; }
+  .particle { animation: none; }
+}
