@@ -37,7 +37,7 @@
 | **Skeleton** | `agent-frontend/src/components/common/Skeleton.tsx` | `Skeleton.module.css`、ChartSkeleton | 布局感知占位：统计采用标签/金额/说明短线，列表采用图标/标题/次级信息，文章采用日期/标题/摘要/标签，轨迹采用横向时间槽，热力图采用 53×7 中性格；单一中文 status，不输出假值与控件；轻柔扫光、无逐块闪烁 | `variant?: 'text' \| 'metrics' \| 'list' \| 'chart' \| 'document' \| 'timeline' \| 'heatmap'`、`label?: string`、`decorative?: boolean`；chart 兼容入口转交 ChartSkeleton | 文本 / 统计 / 列表 / 图表 / 文章 / 横向轨迹 / 热力图；装饰模式隐藏读屏，减少动态效果时停用扫光 | 日历、财务、资料文章列表及学习记录 |
 | **ChartSkeleton** | `agent-frontend/src/components/common/ChartSkeleton.tsx` | `ChartSkeleton.module.css`、SVG | 专用图表占位：细虚线网格、刻度短线、窄柱与淡曲线/面积；填满宿主图表高度，不使用三根巨型块；无虚假金额、日期和可聚焦数据点；中性灰蓝色与轻扫光 | `variant?: 'trend' \| 'bars'`、`label?: string`、`decorative?: boolean` | 趋势 / 账户柱图；单一状态及装饰模式；减少动态效果时静态 | 财务收支趋势、账户分布、学习节奏 |
 | **UserPopover** | [`UserPopover.tsx`](agent-frontend/src/components/common/UserPopover.tsx) | `UserPopover.module.css`<br/>`lucide-react` | 用户头像气泡浮层，展示当前用户信息、版本号与快捷系统操作 | `isOpen: boolean`<br/>`onClose: () => void`<br/>`onOpenSettings: () => void` | **交互**：浮层定位、快捷键标识（⌘,）、危险操作高亮 | 侧边栏底部用户头像点击弹出菜单 |
-| **WritingEditorPage** | [`WritingEditorPage.tsx`](agent-frontend/src/components/common/WritingEditorPage.tsx) | `WritingEditorPage.module.css`<br/>`@tiptap/*` | 写作/手记工作区通用编辑器骨架页面，集成 TopBar、任务清单扩展、代码块语法高亮与 Tab 缩进支持 | `title: string`<br/>`initialContent: string`<br/>`onSave: (markdown: string) => Promise<void>`<br/>`onBack: () => void` | **状态**：编辑态、自动保存状态指示、快捷键提示 | 手记记录、日记撰写、长文 Markdown 沉浸式创作 |
+| **WritingEditorPage** | [`WritingEditorPage.tsx`](agent-frontend/src/components/common/WritingEditorPage.tsx) | `WritingEditorPage.module.css`<br/>`@tiptap/*` | 通用实时排版编辑器：Markdown 输入规则、纯文本 Markdown 粘贴解析、标题目录、任务清单、代码高亮与缩进；富文本/IDE 粘贴走原处理，代码块内保留原文 | `backLabel / identity / detail: string`<br/>`initialTitle / initialBody / bodyPlaceholder?: string`<br/>`meta / footer?: ReactNode`（标题下 / 正文后插槽）<br/>`saving?: boolean`<br/>`onSave: ({ title?, body, html? }) => void \| Promise<void>`<br/>`onBack: () => void` | **状态**：实时编辑、字数与目录同步、手动保存中禁用、⌘/Ctrl S 保存；正文提供中文多行 textbox 语义 | 手记记录、日记撰写、长文 Markdown 沉浸式创作 |
 
 ---
 
@@ -175,7 +175,7 @@
 | 组件名称 | 源码路径 | 样式 / 依赖 | 核心职责 | 接口契约 | 状态变体与应用场景 |
 | --- | --- | --- | --- | --- | --- |
 | RecordPage | `agent-frontend/src/components/record/RecordPage.tsx` | `RecordPage.module.css`、TopBar / TopBarAction、ConfirmDialog、TextInput、Button、Select、Skeleton、RecordEditor | 资料手记主工作台：左侧动态分类 Tab 管理（支持系统预置与自定义分类）、顶部历史日期切换、备份与恢复、正文阅读态与富文本编辑态联动 | `initialEntry?: RecordEntry \| null`、`initialType?: RecordType`；仅采纳最新读取，搜索防抖且忽略迟到响应 | 初次/搜索以文章行与概况短线骨架占位，不提前显示零篇和空库；同查询刷新保留节点并提示更新；失败结束等待、就地重试及旧数据标记；阅读、全屏写作、Tab 删除、备份恢复 |
-| RecordEditor | `agent-frontend/src/components/record/RecordEditor.tsx` | `RecordEditor.module.css`、WritingEditorPage、Select、useMessage | 手记正文写作编辑器包装：提供分类下拉切换、附件管理列表、文件上传与 Tiptap 富文本保存 | `date: string`、`entry?: RecordEntry \| null`、`initialType?: RecordType`、`initialTabId?: string`、`tabs: RecordTab[]`、`saving: boolean`、`onSave: (input: SaveRecordInput) => Promise<void>`、`onBack: () => void` | 实时编辑态、附件上传中、保存中禁用反馈 |
+| RecordEditor | `agent-frontend/src/components/record/RecordEditor.tsx` | `RecordEditor.module.css`、WritingEditorPage、Select、useMessage | 资料写作编辑器包装：分类、资料日期、标签与附件统一放在正文后的“资料属性”区域；分类联动资料类型，保存 Markdown 与 HTML | `date: string`、`entry?: RecordEntry \| null`、`initialType?: RecordType`、`initialTabId?: string`、`tabs: RecordTab[]`、`saving: boolean`、`onSave: (input: SaveRecordInput) => Promise<void>`、`onBack: () => void` | 实时编辑态、附件上传中、保存中禁用反馈；日期保持现有按日存储契约，不新增时分字段 |
 
 ## 学习与专注统一复用组件（`agent-frontend/src/components/study/`）
 

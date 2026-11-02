@@ -48,18 +48,18 @@ export function RecordEditor({ date, entry, initialType = 'quick', initialTabId,
   return <WritingEditorPage backLabel="资料" identity={entry ? '编辑资料' : '新增资料'} detail={`${recordDate} · ${tabName}`}
     initialTitle={entry?.title ?? ''} initialBody={entry?.contentText ?? ''} saving={saving}
     bodyPlaceholder="开始整理知识、问题与思考……" onBack={onBack}
-    meta={<div className={styles.metaControls}>
-      <Select
-        value={tabId}
-        placeholder="选择分类"
-        options={tabs.map((tab) => ({ value: tab.id, label: tab.name }))}
-        appearance="ghost"
-        onChange={(event) => { const nextId = event.target.value; setTabId(nextId); const nextType = typeForSystemTab(tabs.find((tab) => tab.id === nextId)); if (nextType) setType(nextType); }}
-        aria-label="所属 Tab"
-      />
-      <input type="date" value={recordDate} onChange={(event) => setRecordDate(event.target.value)} aria-label="资料日期" />
-    </div>}
-    footer={<div className={styles.details}>
+    footer={<div className={styles.details} role="group" aria-label="资料属性">
+      <div className={styles.metaControls}>
+        <Select
+          value={tabId}
+          placeholder="选择分类"
+          options={tabs.map((tab) => ({ value: tab.id, label: tab.name }))}
+          appearance="ghost"
+          onChange={(event) => { const nextId = event.target.value; setTabId(nextId); const nextType = typeForSystemTab(tabs.find((tab) => tab.id === nextId)); if (nextType) setType(nextType); }}
+          aria-label="资料分类"
+        />
+        <input type="date" value={recordDate} onChange={(event) => setRecordDate(event.target.value)} aria-label="资料日期" />
+      </div>
       <input className={styles.tagsInput} value={tags} onChange={(event) => setTags(event.target.value)} placeholder="添加标签，用逗号分隔" aria-label="资料标签" />
       {entry && <div className={styles.attachments}>{attachments.map((attachment) => <a key={attachment.id} href={attachmentContentUrl(entry.id, attachment.id)} target="_blank" rel="noreferrer">
         {attachment.mediaType.startsWith('image/') ? <img src={attachmentContentUrl(entry.id, attachment.id)} alt={attachment.originalName} /> : <PaperclipIcon size={13} />}<span>{attachment.originalName}</span>

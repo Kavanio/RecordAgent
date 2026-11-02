@@ -172,7 +172,7 @@ export function WritingEditorPage({
   const [characterCount, setCharacterCount] = useState(0);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const editor = useEditor({
+  const editor: Editor | null = useEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
@@ -211,6 +211,19 @@ export function WritingEditorPage({
     editorProps: {
       attributes: {
         class: styles.bodyEditor,
+        role: 'textbox',
+        'aria-label': '正文',
+        'aria-multiline': 'true',
+      },
+      handlePaste: (_view, event) => {
+        const clipboard = event.clipboardData;
+        // 富文本与 IDE 复制保留原有处理；代码块中的粘贴始终保持原文。
+        if (!editor || !clipboard || editor.isActive('codeBlock')
+          || clipboard.getData('text/html') || clipboard.getData('vscode-editor-data')) return false;
+        const text = clipboard.getData('text/plain');
+        const hasMarkdown = /^(?:#{1,4}\s|>\s|[-+*]\s|\d+\.\s|`{3}|~{3})|(\*\*|__|~~|`|\*|_)(?=\S)[^\n]+?\1|(?<!!)\[[^\]\n]+\]\([^)\n]+\)/m.test(text);
+        if (!hasMarkdown) return false;
+        return editor.commands.insertContent(text, { contentType: 'markdown' });
       },
     },
     onCreate: ({ editor: ed }) => {
