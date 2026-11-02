@@ -1,0 +1,30 @@
+.origin { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; user-select: none; }
+.particle {
+  position: absolute;
+  left: -7px;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  animation: scatter 520ms cubic-bezier(.16, .7, .3, 1) both;
+}
+.icon { width: 10px; height: 10px; fill: currentColor; }
+.emoji { font-size: 14px; line-height: 1; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif; }
+.particle img { width: 14px; height: 14px; object-fit: contain; }
+.particle:nth-child(1) { --dx: 2px; --dy: -29px; --spin: 35deg; color: #f59e0b; }
+.particle:nth-child(2) { --dx: 20px; --dy: -19px; --spin: 30deg; color: #10b981; }
+.particle:nth-child(3) { --dx: 29px; --dy: 0px; --spin: 70deg; color: #3b82f6; }
+.particle:nth-child(4) { --dx: 18px; --dy: 18px; --spin: 25deg; color: #f97316; }
+.particle:nth-child(5) { --dx: -2px; --dy: 25px; --spin: -25deg; color: #f43f5e; }
+.particle:nth-child(6) { --dx: -24px; --dy: 15px; --spin: -40deg; color: #8b5cf6; }
+.particle:nth-child(7) { --dx: -28px; --dy: -4px; --spin: -30deg; color: #06b6d4; }
+.particle:nth-child(8) { --dx: -18px; --dy: -23px; --spin: -45deg; color: #ec4899; }
+@keyframes scatter {
+  0% { opacity: 1; transform: translate(0, 0) scale(.45) rotate(0deg); }
+  18% { opacity: 1; }
+  65% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.8) rotate(var(--spin)); }
+}
+@media (prefers-reduced-motion: reduce) { .origin { display: none; } .particle { animation: none; } }

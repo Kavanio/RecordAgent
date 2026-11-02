@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/core';
-import { Circle, Heart, Sparkle, Star } from 'lucide-react';
+import { WritingBurstParticles } from './WritingBurstParticles';
+import { useWritingEffectPreferences } from './useWritingEffectPreferences';
+import { captureWritingCaret } from './writingCaret';
 import styles from './WritingTypingBurst.module.css';
 
 interface WritingTypingBurstProps {
@@ -14,7 +16,6 @@ interface Burst {
   y: number;
 }
 
-const PARTICLES = [Sparkle, Circle, Star, Circle, Heart, Sparkle, Circle, Star];
 const MAX_BURSTS = 6;
 const LIFETIME_MS = 560;
 
@@ -22,38 +23,39 @@ const LIFETIME_MS = 560;
 export function WritingTypingBurst({ editor }: WritingTypingBurstProps) {
   const [bursts, setBursts] = useState<Burst[]>([]);
   const nextId = useRef(0);
+  const preferences = useWritingEffectPreferences();
+  const preferencesRef = useRef(preferences);
+  preferencesRef.current = preferences;
 
   useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
+    if (!editor || editor.isDestroyed || !preferences.enabled) return;
     const dom = editor.view.dom;
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     const timers = new Map<number, number>();
     let frame: number | null = null;
     let composing = false;
+    let pendingCaret: { x: number; y: number } | null = null;
 
     const clear = () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
       frame = null;
+      pendingCaret = null;
       timers.forEach(timer => window.clearTimeout(timer));
       timers.clear();
       setBursts(current => current.length ? [] : current);
     };
 
     const queueBurst = (text: string | null) => {
-      if (!text?.trim() || media.matches || frame !== null) return;
-      // 等待浏览器和 ProseMirror 更新选区；同帧的 IME 收尾事件合并为一次。
+      if (!text?.trim() || media.matches || !preferencesRef.current.enabled) return;
+      pendingCaret = captureWritingCaret(editor);
+      if (frame !== null) return;
+      // 同帧合并为一次，但保留最后输入文字的末尾坐标，不读取之后的新选区。
       frame = window.requestAnimationFrame(() => {
         frame = null;
-        if (media.matches || editor.isDestroyed || !editor.view.hasFocus() || composing) return;
-        let caret;
-        try {
-          caret = editor.view.coordsAtPos(editor.state.selection.head);
-        } catch {
-          // 视图销毁或光标暂时无布局时跳过装饰，不影响正文输入。
-          return;
-        }
-        const x = caret.left + 2;
-        const y = (caret.top + caret.bottom) / 2;
+        const caret = pendingCaret;
+        pendingCaret = null;
+        if (!caret || !preferencesRef.current.enabled || media.matches || editor.isDestroyed || !editor.view.hasFocus() || composing) return;
+        const { x, y } = caret;
         if (!Number.isFinite(x) || !Number.isFinite(y)
           || x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return;
         const id = ++nextId.current;
@@ -103,17 +105,15 @@ export function WritingTypingBurst({ editor }: WritingTypingBurstProps) {
       media.removeEventListener('change', clear);
       clear();
     };
-  }, [editor]);
+  }, [editor, preferences.enabled]);
 
-  if (!bursts.length) return null;
+  if (!preferences.enabled || !bursts.length) return null;
   return createPortal(
     <div className={styles.layer} aria-hidden="true">
       {bursts.map(burst => (
         <span key={burst.id} className={styles.burst} data-typing-burst=""
           style={{ left: burst.x, top: burst.y }}>
-          {PARTICLES.map((Icon, index) => (
-            <span key={index} className={styles.particle}><Icon strokeWidth={1.8} /></span>
-          ))}
+          <WritingBurstParticles preferences={preferences} seed={burst.id} />
         </span>
       ))}
     </div>,

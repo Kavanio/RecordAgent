@@ -3,7 +3,7 @@ import { Select } from '../common/Select';
 import { LeverSwitch } from '../common/LeverSwitch';
 import { SettingsPageLayout } from './SettingsPageLayout';
 import { SettingsGroup, SettingsRow } from './SettingsGroup';
-import styles from './FeatureSettingsPage.module.css';
+import { WritingEffectSettings } from './WritingEffectSettings';
 
 export type FeatureSettingsTab = 'calendar' | 'finance' | 'library' | 'record';
 
@@ -25,7 +25,7 @@ const FEATURE_CONTENT: Record<Exclude<FeatureSettingsTab, 'record'>, {
   library: {
     title: '资料',
     description: '管理资料库的编辑、分类和阅读偏好。',
-    detail: '当前资料功能使用默认配置。后续新增的默认分类、编辑器和归档选项会集中在这里。',
+    detail: '配置正文打字特效、emoji 图案和本机自定义图片。',
   },
 };
 
@@ -128,10 +128,7 @@ export function FeatureSettingsPage({
   const content = FEATURE_CONTENT[tab];
   return (
     <SettingsPageLayout title={content.title} description={content.description}>
-      <div className={styles.emptyState}>
-        <strong>当前无需额外配置</strong>
-        <p>{content.detail}</p>
-      </div>
+      <WritingEffectSettings />
     </SettingsPageLayout>
   );
 }

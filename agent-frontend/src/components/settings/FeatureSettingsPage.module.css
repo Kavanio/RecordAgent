@@ -1,4 +1,0 @@
-.emptyState p { color: var(--text-secondary); font-size: 12px; line-height: 1.65; }
-.emptyState { padding: 4px 0; }
-.emptyState strong { color: var(--text-primary); font-size: 13px; }
-.emptyState p { max-width: 62ch; margin-top: 5px; }
