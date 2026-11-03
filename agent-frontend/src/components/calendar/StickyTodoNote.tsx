@@ -7,6 +7,7 @@ import {
 } from 'framer-motion';
 import { useEffect, useRef, useState, type PointerEvent, type RefObject } from 'react';
 import { PlusIcon } from '@phosphor-icons/react';
+import { StickyTodoRow } from './StickyTodoRow';
 import styles from './StickyTodoNote.module.css';
 
 export interface StickyTodoItem {
@@ -31,6 +32,7 @@ interface StickyTodoNoteProps {
   onCollapsedChange: (collapsed: boolean) => void;
   onToggle: (item: StickyTodoItem) => void;
   onAdd?: (text: string) => Promise<void> | void;
+  onDelete?: (item: StickyTodoItem) => void;
 }
 
 let topZIndex = 5;
@@ -53,6 +55,7 @@ export function StickyTodoNote({
   onCollapsedChange,
   onToggle,
   onAdd,
+  onDelete,
 }: StickyTodoNoteProps) {
   const [dragging, setDragging] = useState(false);
   const [zIndex, setZIndex] = useState(2);
@@ -333,37 +336,7 @@ export function StickyTodoNote({
                     </form>
                   )}
                   {items.map((item, index) => (
-                    <motion.button
-                      className={`${styles.todo} ${item.done ? styles.done : ''}`}
-                      key={item.id}
-                      type="button"
-                      onClick={() => onToggle(item)}
-                      disabled={item.pending}
-                      aria-label={`${item.done ? '取消完成' : '标记完成'}：${item.text}`}
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.24, delay: index * 0.035 }}
-                    >
-                      <motion.span
-                        className={styles.check}
-                        animate={item.done ? { scale: [0.88, 1.12, 1] } : { scale: 1 }}
-                        transition={{ duration: 0.22 }}
-                      >
-                        {item.done && <motion.svg viewBox="0 0 20 20" fill="none">
-                          <motion.path
-                            d="M5 10.2 8.2 13.25 15 6.7"
-                            stroke="currentColor"
-                            strokeWidth="2.2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            initial={{ pathLength: 0, opacity: 0 }}
-                            animate={{ pathLength: 1, opacity: 1 }}
-                            transition={{ duration: 0.18 }}
-                          />
-                        </motion.svg>}
-                      </motion.span>
-                      <span className={styles.label}>{item.text}</span>
-                    </motion.button>
+                    <StickyTodoRow key={item.id} item={item} index={index} onToggle={onToggle} onDelete={onDelete} />
                   ))}
                 </div>
 

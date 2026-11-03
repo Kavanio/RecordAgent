@@ -1,0 +1,5 @@
+.shortcut { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.shortcut input { width: 220px; padding: 9px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--bg-app); color: var(--text-primary); font: inherit; font-size: 12px; cursor: pointer; }
+.shortcut input:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.shortcut input:disabled { opacity: .5; cursor: default; }
+.error { flex-basis: 100%; color: var(--color-error, #dc2626); font-size: 12px; }

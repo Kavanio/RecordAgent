@@ -80,3 +80,15 @@ export function writePreference(key: string, value: string): void {
     console.warn('桌面偏好保存失败', key, error);
   });
 }
+
+/** 等待权威存储成功后才更新缓存，供需要明确失败反馈的偏好及缩略图上传使用。 */
+export async function writePreferenceConfirmed(key: string, value: string): Promise<void> {
+  if (isTauri()) {
+    await invoke('save_desktop_preference', { key, value });
+    cache.set(key, value);
+    try { localStorage.setItem(key, value); } catch { /* 桌面文件已保存，浏览器缓存失败不影响结果。 */ }
+    return;
+  }
+  localStorage.setItem(key, value);
+  cache.set(key, value);
+}

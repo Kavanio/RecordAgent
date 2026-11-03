@@ -28,6 +28,18 @@ public class SessionController {
         return Result.success(sessionLifecycleService.listSessions());
     }
 
+    @ApiLog("只读获取当前用户飞书会话列表")
+    @GetMapping("/feishu")
+    public Result<List<SessionSummaryDto>> listFeishuSessions() {
+        return Result.success(sessionLifecycleService.listFeishuSessions());
+    }
+
+    @ApiLog("只读获取飞书会话历史")
+    @GetMapping("/feishu/{sessionId}")
+    public Result<SessionDetailDto> getFeishuSessionDetail(@PathVariable String sessionId) {
+        return Result.success(sessionLifecycleService.getFeishuDetail(sessionId));
+    }
+
     @ApiLog("创建聊天会话")
     @PostMapping
     public Result<SessionSummaryDto> createSession(@RequestBody CreateSessionRequest request) {

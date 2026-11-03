@@ -76,4 +76,24 @@ class SessionCatalogServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> service.create(new CreateSessionRequest(SessionKind.PROJECT, "错误会话", "missing")));
     }
+    @Test
+    void channelPersistsAcrossRenamingPermissionsAndPreviewUpdates() {
+        var storage = new AgentStorageProperties(temporaryDirectory);
+        var mapper = new ObjectMapper().findAndRegisterModules();
+        var user = new CurrentUserProvider();
+        var catalog = new SessionCatalogService(storage, user, mapper);
+        var desktop = catalog.create(new CreateSessionRequest(SessionKind.GENERAL, "飞书对话"));
+        var feishu = catalog.createFeishuSession();
+        catalog.updateTitle(feishu.id(), "重命名");
+        catalog.updatePermissionMode(feishu.id(), SessionPermissionMode.FULL_ACCESS);
+        catalog.touch(feishu.id(), "回复内容");
+        // 迁移不允许把带明确桌面标记的新会话改成飞书渠道。
+        catalog.migrateFeishuSessions(java.util.Set.of(desktop.id()));
+        var reloaded = new SessionCatalogService(storage, user, mapper);
+        assertEquals(butvan.agent.agents.session.dto.SessionChannel.FEISHU, reloaded.getChannel(feishu.id()));
+        assertEquals(butvan.agent.agents.session.dto.SessionChannel.DESKTOP, reloaded.getChannel(desktop.id()));
+        assertEquals("回复内容", reloaded.requireActive(feishu.id()).lastMessagePreview());
+        assertEquals(SessionPermissionMode.FULL_ACCESS, reloaded.getPermissionMode(feishu.id()));
+    }
+
 }

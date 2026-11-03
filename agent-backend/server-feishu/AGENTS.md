@@ -10,6 +10,7 @@
 - 生活复盘主动投递通过 agents 的 `PersonalDeliveryPort` 对接，目标取当前配置中唯一的本人 open_id；调用方保存权威内容、稳定投递 ID 与发送意图，本模块不另存一套复盘。`LifeReviewReplyPort` 将 `/review [内容ID] <补充>`（省略内容 ID 时默认关联当前授权下最新版本）关联回同一主题，不重跑聊天 Agent；端口按需解析，避免渠道与组合根形成 Bean 循环。
 - 主动推送及其他渠道后续能力也归本模块；当前聊天回复使用不刷新的卡片富文本渲染 Markdown（卡片 JSON 2.0 的 `markdown` 组件），回执、进度与控制反馈仍是普通文本；不恢复流式卡片或逐字刷新。
 - 不承载 Agent 编排、模型工厂、会话持久化等领域逻辑；这些必须复用 `server-agents` 的既有服务。
+- 渠道会话必须经 `SessionCatalogService.createFeishuSession` 创建；`FeishuSessionMigration` 启动时按账本指针迁移旧会话，停用渠道时仍执行，重置屏障期间跳过。迁移只修改通用目录册渠道，不修改渠道账本或 transcript；目录册仍归 `server-agents` 管理。
 - 调用通用 Agent 时由渠道 Adapter 固定标注 FEISHU 来源，轮次沿用受理时的 turnId；经历授权、来源筛选、任务与补偿统一由 agents 的生命周期 seam 和网络层记忆模块处理，本模块不保存第二份记忆或上传图片。该内部标记不产生远端处理授权。
 
 ## 依赖与分层

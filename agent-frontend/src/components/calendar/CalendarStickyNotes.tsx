@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createDailyRecord, fetchRecurringTodos, setDailyTodoCompleted } from '../../services/dailyEvents';
+import { createDailyRecord, deleteDailyEvent, fetchRecurringTodos, setDailyTodoCompleted } from '../../services/dailyEvents';
 import { getFeaturePreferences, subscribeFeaturePreferences } from '../../services/featurePreferences';
 import {
   getCalendarStickyNoteExpansion,
@@ -9,6 +9,7 @@ import {
 } from '../../services/calendarStickyNoteState';
 import type { RecurringTodoSummary } from '../../types/dailyEvent';
 import { useMessage } from '../common/Message';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { StickyTodoNote, type StickyTodoItem } from './StickyTodoNote';
 import styles from './CalendarStickyNotes.module.css';
 
@@ -38,6 +39,9 @@ export function CalendarStickyNotes({ focusDate, revision, onChanged }: Calendar
   const boardRef = useRef<HTMLDivElement>(null);
   const [todos, setTodos] = useState<RecurringTodoSummary[]>([]);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+  const pendingRef = useRef(new Set<string>());
+  const [deleteTarget, setDeleteTarget] = useState<RecurringTodoSummary | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [boardSize, setBoardSize] = useState<BoardSize | null>(null);
   const [calendarPreferences, setCalendarPreferences] = useState(() => getFeaturePreferences().calendar);
   const [expandedNotes, setExpandedNotes] = useState(() => getCalendarStickyNoteExpansion(
@@ -72,7 +76,8 @@ export function CalendarStickyNotes({ focusDate, revision, onChanged }: Calendar
 
   const toggle = async (item: StickyTodoItem) => {
     const todo = todos.find((candidate) => candidate.id === item.id);
-    if (!todo || pendingIds.has(todo.id)) return;
+    if (!todo || pendingRef.current.has(todo.id) || deleteTarget?.id === todo.id) return;
+    pendingRef.current.add(todo.id);
     setPendingIds((current) => new Set(current).add(todo.id));
     try {
       const occurrenceDate = !todo.completed
@@ -97,11 +102,42 @@ export function CalendarStickyNotes({ focusDate, revision, onChanged }: Calendar
     } catch (error: unknown) {
       showMessage('error', error instanceof Error ? error.message : '修改周期待办失败');
     } finally {
+      pendingRef.current.delete(todo.id);
       setPendingIds((current) => {
         const next = new Set(current);
         next.delete(todo.id);
         return next;
       });
+    }
+  };
+
+  const requestDelete = (item: StickyTodoItem) => {
+    const todo = todos.find((candidate) => candidate.id === item.id);
+    if (todo && !pendingRef.current.has(todo.id) && !deleteTarget) setDeleteTarget(todo);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || pendingRef.current.has(deleteTarget.id)) return;
+    const target = deleteTarget;
+    pendingRef.current.add(target.id);
+    setIsDeleting(true);
+    try {
+      await deleteDailyEvent(target.id, target.version);
+      setTodos((current) => current.filter((todo) => todo.id !== target.id));
+      setDeleteTarget(null);
+      showMessage('success', '已删除整个重复待办');
+      try {
+        await onChanged();
+      } catch (error: unknown) {
+        showMessage('error', error instanceof Error
+          ? `待办已删除，但日历刷新失败：${error.message}`
+          : '待办已删除，但日历刷新失败');
+      }
+    } catch (error: unknown) {
+      showMessage('error', error instanceof Error ? error.message : '删除周期待办失败');
+    } finally {
+      pendingRef.current.delete(target.id);
+      setIsDeleting(false);
     }
   };
 
@@ -201,36 +237,52 @@ export function CalendarStickyNotes({ focusDate, revision, onChanged }: Calendar
     };
   })() : null;
 
+  const interactionPendingIds = new Set([...pendingIds, ...(deleteTarget ? [deleteTarget.id] : [])]);
+
   return (
-    <section className={styles.board} ref={boardRef} aria-label="待办便签">
-      {calendarPreferences.showStickyNotes && layout && weekly.length > 0 && <StickyTodoNote
-        title="本周待办"
-        subtitle="Week Focus"
-        tone="yellow"
-        items={asStickyItems(weekly, pendingIds)}
-        initialX={layout.weekly.x}
-        initialY={layout.weekly.y}
-        rotation={-2.4}
-        collapsed={!expandedNotes.weekly}
-        constraintsRef={boardRef}
-        onCollapsedChange={(collapsed) => setExpanded('weekly', !collapsed)}
-        onToggle={(item) => { void toggle(item); }}
-        onAdd={handleAddWeekly}
-      />}
-      {calendarPreferences.showStickyNotes && layout && monthly.length > 0 && <StickyTodoNote
-        title="本月待办"
-        subtitle="Month Goals"
-        tone="green"
-        items={asStickyItems(monthly, pendingIds)}
-        initialX={layout.monthly.x}
-        initialY={layout.monthly.y}
-        rotation={2.1}
-        collapsed={!expandedNotes.monthly}
-        constraintsRef={boardRef}
-        onCollapsedChange={(collapsed) => setExpanded('monthly', !collapsed)}
-        onToggle={(item) => { void toggle(item); }}
-        onAdd={handleAddMonthly}
-      />}
-    </section>
+    <>
+      <section className={styles.board} ref={boardRef} aria-label="待办便签">
+        {calendarPreferences.showStickyNotes && layout && weekly.length > 0 && <StickyTodoNote
+          title="本周待办"
+          subtitle="Week Focus"
+          tone="yellow"
+          items={asStickyItems(weekly, interactionPendingIds)}
+          initialX={layout.weekly.x}
+          initialY={layout.weekly.y}
+          rotation={-2.4}
+          collapsed={!expandedNotes.weekly}
+          constraintsRef={boardRef}
+          onCollapsedChange={(collapsed) => setExpanded('weekly', !collapsed)}
+          onToggle={(item) => { void toggle(item); }}
+          onAdd={handleAddWeekly}
+          onDelete={requestDelete}
+        />}
+        {calendarPreferences.showStickyNotes && layout && monthly.length > 0 && <StickyTodoNote
+          title="本月待办"
+          subtitle="Month Goals"
+          tone="green"
+          items={asStickyItems(monthly, interactionPendingIds)}
+          initialX={layout.monthly.x}
+          initialY={layout.monthly.y}
+          rotation={2.1}
+          collapsed={!expandedNotes.monthly}
+          constraintsRef={boardRef}
+          onCollapsedChange={(collapsed) => setExpanded('monthly', !collapsed)}
+          onToggle={(item) => { void toggle(item); }}
+          onAdd={handleAddMonthly}
+          onDelete={requestDelete}
+        />}
+      </section>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="删除整个重复待办？"
+        tone="danger"
+        description={`“${deleteTarget?.title}”将被永久删除，以后每${deleteTarget?.recurrence === 'monthly' ? '个月' : '周'}都不会再出现，此操作无法撤销。`}
+        confirmText="删除整个重复待办"
+        busy={isDeleting}
+        onClose={() => { if (!isDeleting) setDeleteTarget(null); }}
+        onConfirm={confirmDelete}
+      />
+    </>
   );
 }
