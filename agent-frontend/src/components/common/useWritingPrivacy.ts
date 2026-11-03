@@ -42,6 +42,12 @@ export function useWritingPrivacy(editor: Editor | null, available: boolean, roo
     editor.view.dispatch(editor.state.tr.setMeta(writingPrivacyKey, { enabled, revealed: null }));
     if (!enabled) return;
     let revealed: HTMLElement | null = null;
+    let idleTimer: number | undefined;
+    let composing = false;
+    const cancelIdle = () => {
+      window.clearTimeout(idleTimer);
+      idleTimer = undefined;
+    };
     const blockFor = (target: EventTarget | Node | null): HTMLElement | null => {
       const element = target instanceof Element ? target : target instanceof Node ? target.parentElement : null;
       const block = element?.closest<HTMLElement>('[data-writing-private]');
@@ -57,27 +63,44 @@ export function useWritingPrivacy(editor: Editor | null, available: boolean, roo
         editor.view.dispatch(editor.state.tr.setMeta(writingPrivacyKey, { revealed: position }));
       }
     };
-    const clear = () => reveal(null);
+    const clear = () => { cancelIdle(); reveal(null); };
+    const deactivate = () => { composing = false; clear(); };
+    // 正文和标题共用输入静止期限；组合输入期间保持可见，确认后才开始计时。
+    const scheduleHide = () => {
+      cancelIdle();
+      if (!composing) idleTimer = window.setTimeout(clear, 1500);
+    };
     const caret = () => {
       if (editor.isFocused && document.hasFocus() && !document.hidden) {
         reveal(null, writingBlockPosition(editor.state.doc, editor.state.selection.from));
+        scheduleHide();
       }
     };
     const hover = (event: Event) => {
-      if (document.hasFocus() && !document.hidden) reveal(blockFor(event.target));
+      if (document.hasFocus() && !document.hidden) {
+        cancelIdle();
+        reveal(blockFor(event.target));
+      }
     };
     const input = (event: Event) => {
-      if (event.target instanceof Node && !editor.view.dom.contains(event.target)) hover(event);
+      if (event.target instanceof Node && !editor.view.dom.contains(event.target)) {
+        hover(event);
+        if (revealed) scheduleHide();
+      }
     };
+    const compositionStart = () => { composing = true; cancelIdle(); };
+    const compositionEnd = (event: Event) => { composing = false; caret(); input(event); };
     root.addEventListener('mouseover', hover);
     root.addEventListener('mousemove', hover);
     root.addEventListener('mouseleave', clear);
     root.addEventListener('focusin', hover);
-    root.addEventListener('focusout', clear);
+    root.addEventListener('focusout', deactivate);
     root.addEventListener('input', input);
+    root.addEventListener('compositionstart', compositionStart);
+    root.addEventListener('compositionend', compositionEnd);
     root.addEventListener('scroll', clear, true);
-    window.addEventListener('blur', clear);
-    document.addEventListener('visibilitychange', clear);
+    window.addEventListener('blur', deactivate);
+    document.addEventListener('visibilitychange', deactivate);
     editor.on('update', caret);
     editor.on('selectionUpdate', caret);
     return () => {
@@ -86,11 +109,13 @@ export function useWritingPrivacy(editor: Editor | null, available: boolean, roo
       root.removeEventListener('mousemove', hover);
       root.removeEventListener('mouseleave', clear);
       root.removeEventListener('focusin', hover);
-      root.removeEventListener('focusout', clear);
+      root.removeEventListener('focusout', deactivate);
       root.removeEventListener('input', input);
+      root.removeEventListener('compositionstart', compositionStart);
+      root.removeEventListener('compositionend', compositionEnd);
       root.removeEventListener('scroll', clear, true);
-      window.removeEventListener('blur', clear);
-      document.removeEventListener('visibilitychange', clear);
+      window.removeEventListener('blur', deactivate);
+      document.removeEventListener('visibilitychange', deactivate);
       editor.off('update', caret);
       editor.off('selectionUpdate', caret);
     };

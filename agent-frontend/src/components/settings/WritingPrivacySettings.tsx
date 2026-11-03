@@ -20,7 +20,7 @@ export function WritingPrivacySettings() {
     catch (reason) { showMessage('error', reason instanceof Error ? reason.message : '防偷窥设置保存失败'); }
     finally { setSaving(false); }
   };
-  return <SettingsGroup title="写作防偷窥" description="仅在资料编写页生效。标题、目录和正文逐块模糊；悬浮只显示当前块，键盘输入时显示当前段落。">
+  return <SettingsGroup title="写作防偷窥" description="仅在资料编写页生效。标题、目录和正文逐块模糊；悬浮只显示当前块，停止输入 1.5 秒自动隐藏，无需回车。">
     <SettingsRow label="开启防偷窥" description="记住开关状态，下次打开资料编辑页继续生效。也可在编辑页顶栏一键恢复或隐藏。" control={
       <LeverSwitch label="开启防偷窥" showLabel={false} checked={preferences.enabled} disabled={saving}
         onChange={enabled => void save({ enabled })} />

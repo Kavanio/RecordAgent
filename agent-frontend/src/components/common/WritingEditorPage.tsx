@@ -341,7 +341,7 @@ export function WritingEditorPage({
             <div className={styles.editorWrapper}>
               <EditorContent editor={editor} />
             </div>
-            {privacy.enabled && <p className={styles.saveHint} role="status">防偷窥已开启 · 悬浮只显示当前块，输入时显示当前段落 · {privacy.shortcut}</p>}
+            {privacy.enabled && <p className={styles.saveHint} role="status">防偷窥已开启 · 悬浮查看当前块，停止输入 1.5 秒自动隐藏 · {privacy.shortcut}</p>}
             {footer}
             <p className={styles.saveHint}>按 ⌘ S 保存</p>
           </article>
