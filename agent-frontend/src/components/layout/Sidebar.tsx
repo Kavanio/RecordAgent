@@ -28,6 +28,7 @@ import { EmailBindingModal } from '../account/EmailBindingModal';
 import { fetchAccountStatus, getAccountAvatarUrl } from '../../services/api';
 import { canPickProjectDirectory, pickProjectDirectory } from '../../services/projectPicker';
 import { readPreference, writePreference } from '../../services/desktopPreferences';
+import { FeishuConversationSection } from './FeishuConversationSection';
 import styles from './Sidebar.module.css';
 
 function getAvatarText(email: string | null): string {
@@ -253,7 +254,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const resolvedAvatarUrl = avatarUrl
     ?? (storedAvatarVersion ? getAccountAvatarUrl(storedAvatarVersion) : undefined);
-
   const generalSessions = sessions.filter((s) => !s.projectId);
   const sortedGeneral = [...generalSessions].sort(sortByUpdatedDesc);
   const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -566,9 +566,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             /* 搜索结果：不分项目/时间，扁平展示 */
             <section className={styles.sectionGroup}>
               <div className={styles.groupHeader}>
-                <span className={styles.groupTitle}>搜索结果</span>
+                <span className={styles.groupTitle}>客户端搜索结果</span>
                 <span className={styles.resultCount}>{searchResults.length} 条</span>
               </div>
+              <FeishuConversationSection query={searchQuery} />
               <div className={styles.sessionList}>
                 {searchResults.length > 0 ? (
                   searchResults.map((session) => renderSessionRow(session))
@@ -579,7 +580,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </section>
           ) : (
             <>
-              {/* 1. 项目大类 */}
               <section className={styles.sectionGroup}>
                 <div className={styles.groupHeader}>
                   <button
@@ -713,10 +713,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </section>
 
-              {/* 2. 最近会话（ChatGPT 式时间分组） */}
+              <FeishuConversationSection query={searchQuery} />
               <section className={styles.sectionGroup}>
                 <div className={styles.groupHeader}>
-                  <span className={styles.groupTitle}>最近</span>
+                  <span className={styles.groupTitle}>客户端对话</span>
                   <button
                     className={styles.iconBtnSmall}
                     title="新建聊天"
@@ -744,7 +744,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* 会话操作菜单（Portal 渲染，避免被滚动区裁剪） */}
       {menuSession &&
         createPortal(
           <div

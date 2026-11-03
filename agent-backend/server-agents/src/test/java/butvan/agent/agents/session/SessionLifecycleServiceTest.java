@@ -20,6 +20,24 @@ import static org.mockito.Mockito.*;
 class SessionLifecycleServiceTest {
     @TempDir Path root;
 
+    @Test void feishuReadOnlyAccessDoesNotOpenDesktopMutationOrCrossChannelReading() {
+        var user = new CurrentUserProvider();
+        var storage = new AgentStorageProperties(root);
+        var mapper = new ObjectMapper().findAndRegisterModules();
+        var catalog = new SessionCatalogService(storage, user, mapper);
+        var transcripts = new TranscriptService(storage, mapper);
+        var desktop = catalog.create(new CreateSessionRequest(SessionKind.GENERAL, "客户端"));
+        var feishu = catalog.createFeishuSession();
+        transcripts.appendUserMessage(feishu.id(), "飞书原文");
+        var lifecycle = new SessionLifecycleService(catalog, transcripts, user, null, null, null, null, null);
+        assertEquals(java.util.List.of(feishu), lifecycle.listFeishuSessions());
+        assertEquals(java.util.List.of(desktop), lifecycle.listSessions());
+        assertEquals("飞书原文", lifecycle.getFeishuDetail(feishu.id()).messages().getFirst().content());
+        assertThrows(IllegalArgumentException.class, () -> lifecycle.getFeishuDetail(desktop.id()));
+        assertThrows(IllegalArgumentException.class, () -> lifecycle.getDetail(feishu.id()));
+        assertThrows(IllegalArgumentException.class, () -> lifecycle.deleteSession(feishu.id()));
+    }
+
     @Test void deletionCanResumeAfterTheSessionWasMarkedDeleting() {
         var user = new CurrentUserProvider();
         var catalog = new SessionCatalogService(new AgentStorageProperties(root), user,

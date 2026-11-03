@@ -1,0 +1,14 @@
+.count { font-size: 11px; color: #8091a4; margin-left: 5px; }
+.session { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: #445368; text-align: left; font: inherit; font-size: 13px; cursor: pointer; }
+.session:hover { background: #e5edf5; }
+.session:focus-visible { outline: 2px solid #7498bd; outline-offset: -2px; }
+.session svg { flex-shrink: 0; }
+.session span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feedback { padding: 12px; font-size: 12px; color: #805e51; }
+.feedback button, .refresh { border: 0; background: transparent; color: #486d96; cursor: pointer; padding: 6px; }
+.messages { display: flex; flex-direction: column; gap: 22px; margin-top: 16px; }
+.message { min-width: 0; padding: 14px; border-radius: 12px; background: #f7f9fc; overflow-wrap: anywhere; }
+.message[data-role='USER'] { background: #edf3fa; }
+.message header { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; color: #586c81; font-size: 12px; margin-bottom: 10px; }
+.message time { color: #8291a2; font-size: 11px; }
+.original { margin: 0; white-space: pre-wrap; line-height: 1.7; }

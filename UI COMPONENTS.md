@@ -136,7 +136,8 @@
 
 | 组件名称 | 源码路径 | 样式文件 / 核心依赖 | 职责与设计契约 | 核心 Props / 接口定义 | 变体 / 尺寸 / 交互状态 | 典型应用场景 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Sidebar** | [`Sidebar.tsx`](agent-frontend/src/components/layout/Sidebar.tsx) | `Sidebar.module.css`<br/>`lucide-react` | 统一全局主侧边栏：Codex 经典冰蓝灰配色、模块路由切换、会话列表树、折叠/展开、快捷设置入口与用户气泡；项目分组支持导入、目录移动/失效提示、项目操作菜单移除登记，移除只解除引用并保留关联会话 | `activeModule: string`<br/>`onSelectModule: (mod) => void`<br/>`collapsed: boolean`<br/>`onToggleCollapse: () => void` | **状态**：完整展开（包含会话列表） / 紧凑折叠（仅图标）；项目可用/目录不可访问、项目操作菜单、移除确认与失败反馈 | 桌面端应用主界面全局左侧导航底座 |
+| **Sidebar** | [`Sidebar.tsx`](agent-frontend/src/components/layout/Sidebar.tsx) | `Sidebar.module.css`<br/>`lucide-react` | 统一全局主侧边栏：客户端对话与独立只读飞书分组隔离，Codex 经典冰蓝灰配色、模块路由切换、会话列表树、折叠/展开、快捷设置入口与用户气泡；项目分组支持导入、目录移动/失效提示、项目操作菜单移除登记，移除只解除引用并保留关联会话 | `activeModule: string`<br/>`onSelectModule: (mod) => void`<br/>`collapsed: boolean`<br/>`onToggleCollapse: () => void` | **状态**：完整展开（包含会话列表） / 紧凑折叠（仅图标）；项目可用/目录不可访问、项目操作菜单、移除确认与失败反馈 | 桌面端应用主界面全局左侧导航底座 |
+| FeishuConversationSection | `agent-frontend/src/components/layout/FeishuConversationSection.tsx` | 同名 CSS Module、Sidebar.module.css、Drawer、MarkdownContent、feishuConversationService | 侧边栏独立飞书分组与原文只读抽屉，不进入桌面聊天状态；窗口重新聚焦或手动刷新读取列表 | `query?: string`；服务层仅调用独立飞书 GET 列表与详情；新建、续聊、删除与权限调整留在原渠道 | 展开／折叠、计数、标题搜索、加载、空记录、错误与重试、迟到响应隔离、原文角色与时间、失败／取消状态  侧边栏飞书历史查看 |
 
 
 ## 财务组件（`agent-frontend/src/components/finance/`）
