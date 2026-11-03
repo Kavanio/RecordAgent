@@ -85,6 +85,20 @@ class AgentServiceChannelResultTest {
         verifyNoInteractions(transcript, sessions, agent);
     }
 
+    @Test void rejectsCrossChannelCallsBeforeWritingUserMessages() throws Exception {
+        when(sessions.getChannel("session")).thenReturn(butvan.agent.agents.session.dto.SessionChannel.FEISHU);
+        var desktopStream = service.streamAgent(request());
+        drainTerminal(desktopStream);
+        assertNull(desktopStream.completion().toCompletableFuture().get(2, TimeUnit.SECONDS));
+        when(sessions.getChannel("session")).thenReturn(butvan.agent.agents.session.dto.SessionChannel.DESKTOP);
+        var feishuStream = service.streamAgent(new AgentUserCall("session", "input", "input", List.of(),
+                "run-feishu", turn, List.of(), butvan.agent.agents.memory.MemorySourceRegistry.Channel.FEISHU));
+        drainTerminal(feishuStream);
+        assertNull(feishuStream.completion().toCompletableFuture().get(2, TimeUnit.SECONDS));
+        verifyNoInteractions(transcript, agent);
+        assertEquals("NOT_FOUND", registry.cancel("local-default", "session", "run-feishu").status());
+    }
+
     @Test void resultIsCompletePersistedAndRunUnregisteredBeforePublishing() throws Exception {
         when(agent.streamEvents(anyList(), any())).thenReturn(Flux.just(
                 new TextBlockDeltaEvent("reply", "block", "不完整的增量"),

@@ -1,0 +1,10 @@
+.count { font-size: 11px; color: #8091a4; margin-left: 5px; }
+.session { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: #445368; text-align: left; font: inherit; font-size: 13px; cursor: pointer; }
+.session:hover { background: #e5edf5; }
+.session:focus-visible { outline: 2px solid #7498bd; outline-offset: -2px; }
+.session svg { flex-shrink: 0; }
+.session span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feedback { padding: 12px; font-size: 12px; color: #805e51; }
+.feedback button { border: 0; background: transparent; color: #486d96; cursor: pointer; padding: 6px; }
+
+.active { background: #dce8f4; color: #244f7b; }

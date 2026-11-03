@@ -1,0 +1,14 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.burst { position: absolute; width: 0; height: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .layer { display: none; }
+}

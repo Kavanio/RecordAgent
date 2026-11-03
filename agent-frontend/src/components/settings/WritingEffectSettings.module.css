@@ -1,0 +1,12 @@
+.choices { display: flex; flex-wrap: wrap; gap: 12px; padding: 3px; }
+.choices .emojiButton { min-width: 36px; }
+.choices .emojiButton[aria-pressed="true"] { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.imageControls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; width: 100%; }
+.gallery { display: flex; flex-wrap: wrap; gap: 12px; width: 100%; }
+.imageItem { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--border-subtle); border-radius: 10px; }
+.imageItem > img { width: 32px; height: 32px; object-fit: contain; }
+.uploadInput { display: none; }
+.imageCount { color: var(--text-muted); font-size: 12px; }
+.preview { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 32px; width: 100%; min-height: 88px; padding: 16px; border-radius: 12px; background: var(--bg-surface-hover); }
+.sample { color: var(--text-primary); font-size: 16px; line-height: 2; }
+.previewAnchor { position: relative; display: inline-block; vertical-align: middle; width: 0; height: 0; }

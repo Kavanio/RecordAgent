@@ -1,0 +1,29 @@
+.origin { position: absolute; left: 4px; top: 0; width: 0; height: 0; pointer-events: none; user-select: none; }
+.particle {
+  position: absolute;
+  left: -7px;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  animation: scatter var(--duration) cubic-bezier(.2, .75, .35, 1) var(--delay) both;
+}
+.icon { width: 10px; height: 10px; fill: currentColor; }
+.emoji { font-size: 14px; line-height: 1; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif; }
+.particle img { width: 14px; height: 14px; object-fit: contain; }
+.particle:nth-child(1) { color: #f59e0b; }
+.particle:nth-child(2) { color: #10b981; }
+.particle:nth-child(3) { color: #3b82f6; }
+.particle:nth-child(4) { color: #f97316; }
+.particle:nth-child(5) { color: #f43f5e; }
+.particle:nth-child(6) { color: #8b5cf6; }
+@keyframes scatter {
+  0% { opacity: 0; transform: translate(0, 0) scale(.4) rotate(var(--start-turn)); }
+  8% { opacity: .9; }
+  30% { opacity: 1; transform: translate(var(--kick-x), var(--kick-y)) scale(.9) rotate(var(--start-turn)); }
+  62% { opacity: .7; transform: translate(var(--float-x), var(--float-y)) scale(1) rotate(var(--float-turn)); }
+  100% { opacity: 0; transform: translate(var(--end-x), var(--end-y)) scale(.6) rotate(var(--end-turn)); }
+}
+@media (prefers-reduced-motion: reduce) { .origin { display: none; } .particle { animation: none; } }

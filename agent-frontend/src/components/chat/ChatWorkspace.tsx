@@ -7,15 +7,11 @@ import { Modal } from '../common/Modal';
 import { ToolApprovalCard } from './ToolApprovalCard';
 import { PlanApprovalCard } from './PlanApprovalCard';
 import { PermissionResumeCard } from './PermissionResumeCard';
-import { AgentResponse } from './AgentResponse';
-import { TokenUsageTrigger } from './TokenUsageTrigger';
 import { TokenUsagePanel, type TokenUsageTurnOption } from './TokenUsagePanel';
 import { formatTokenCount } from './tokenUsageFormat';
 import { ChatStepRail, type StepRailChapter } from './ChatStepRail';
-import { MarkdownContent } from '../common/MarkdownContent';
 import { SessionOverview, type SessionOverviewProps } from './overview/SessionOverview';
 import { PromptInput } from './PromptInput';
-import { SubagentActivity } from './SubagentActivity';
 import { SubagentTaskPanel } from './SubagentTaskPanel';
 import { ProjectFileTree } from './ProjectFileTree';
 import { RightSidePanel, type RightPanelTab } from './RightSidePanel';
@@ -64,19 +60,17 @@ import {
 import { buildSlashStatusData } from '../../features/slash-command/slashCommandStatus';
 import { parseDirectRecordReferenceQuery } from '../../features/record/recordReferenceInput';
 import {
-  Copy,
-  ThumbsUp,
-  ThumbsDown,
-  Maximize2,
   Bot,
   FolderTree,
   MessageSquare,
   PanelRight,
   ChartNoAxesColumnIncreasing,
 } from 'lucide-react';
+import { AssistantMessageItem } from './AssistantMessageItem';
 import styles from './ChatWorkspace.module.css';
 
 interface ChatWorkspaceProps {
+  readOnlyFooter?: React.ReactNode;
   onOpenFeature: SessionOverviewProps['onOpenFeature'];
   onOpenRecords: SessionOverviewProps['onOpenRecords'];
   messages: ChatMessage[];
@@ -117,92 +111,8 @@ interface ChatWorkspaceProps {
   isPermissionModeSaving?: boolean;
 }
 
-interface AssistantMessageItemProps {
-  msg: ChatMessage;
-  tokenUsageActive: boolean;
-  onOpenTokenUsage: (messageId: string) => void;
-}
-
-const AssistantMessageItem: React.FC<AssistantMessageItemProps> = ({
-  msg,
-  tokenUsageActive,
-  onOpenTokenUsage,
-}) => {
-  const isGenerating = msg.status === undefined && msg.elapsedTime === undefined;
-  const elapsedSec = msg.elapsedTime !== undefined
-    ? msg.elapsedTime
-    : (isGenerating && (msg.startTime || msg.createdAt)
-      ? Math.max(1, Math.floor((Date.now() - (msg.startTime || msg.createdAt)) / 1000))
-      : undefined);
-
-  const handleCopy = () => {
-    if (msg.content) {
-      navigator.clipboard.writeText(msg.content);
-    }
-  };
-
-  return (
-    <div className={styles.assistantMessage}>
-      {/* Agent 响应过程区：思考 + 工具/终端时间线 */}
-      <AgentResponse
-        msg={msg}
-        isGenerating={isGenerating}
-        elapsedSeconds={elapsedSec}
-      />
-
-      <SubagentActivity progress={msg.subagentProgress || []} />
-
-      {/* 最终回答正文 */}
-      {msg.content?.startsWith('## 验收报告') ? (
-        <article className={styles.acceptanceReport}>
-          <MarkdownContent content={msg.content} />
-        </article>
-      ) : (
-        msg.content && <MarkdownContent content={msg.content} />
-      )}
-
-      {(msg.status === 'CANCELLED' || msg.status === 'FAILED') && (
-        <div
-          className={`${styles.terminalStatus} ${msg.status === 'FAILED' ? styles.failedStatus : ''}`}
-          role={msg.status === 'FAILED' ? 'alert' : 'status'}
-        >
-          {msg.status === 'CANCELLED'
-            ? '已停止生成'
-            : (msg.failureReason || '生成失败，请重试。')}
-        </div>
-      )}
-
-      {(msg.content || msg.usage) && (
-        <div className={styles.messageFooter}>
-          {/* 消息底部操作工具栏：复制、赞、踩、全屏/分享 */}
-          {msg.content && (
-            <div className={styles.messageActions}>
-              <button className={styles.actionBtn} title="复制内容" aria-label="复制内容" onClick={handleCopy}>
-                <Copy size={14} />
-              </button>
-              <button className={styles.actionBtn} title="即将推出" aria-label="赞（即将推出）" disabled>
-                <ThumbsUp size={14} />
-              </button>
-              <button className={styles.actionBtn} title="即将推出" aria-label="踩（即将推出）" disabled>
-                <ThumbsDown size={14} />
-              </button>
-              <button className={styles.actionBtn} title="即将推出" aria-label="全屏/扩展（即将推出）" disabled>
-                <Maximize2 size={14} />
-              </button>
-            </div>
-          )}
-          <TokenUsageTrigger
-            usage={msg.usage}
-            active={tokenUsageActive}
-            onOpen={() => onOpenTokenUsage(msg.id)}
-          />
-        </div>
-      )}
-    </div>
-  );
-};
-
 export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
+  readOnlyFooter,
   messages,
   onOpenFeature,
   onOpenRecords,
@@ -235,6 +145,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   isPermissionModeDisabled = false,
   isPermissionModeSaving = false,
 }) => {
+  const isReadOnly = Boolean(readOnlyFooter);
   const { showMessage } = useMessage();
   const { getActiveModel, getActiveProvider } = useModel();
   const [inputPrompt, setInputPrompt] = useState('');
@@ -279,6 +190,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   }), []);
 
   useEffect(() => {
+    if (isReadOnly) return;
     let cancelled = false;
     fetchJevStatus()
       .then((status) => {
@@ -290,7 +202,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         if (!cancelled) setJevLoadFailed(true);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [isReadOnly]);
 
   const handleJevEnabledChange = async (enabled: boolean) => {
     setIsJevSaving(true);
@@ -449,6 +361,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       label: 'Token',
       icon: ChartNoAxesColumnIncreasing,
     }];
+    if (readOnlyFooter) tabs.shift();
     if (projectPath) {
       tabs.push({
         id: 'files',
@@ -457,7 +370,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       });
     }
     return tabs;
-  }, [projectPath]);
+  }, [projectPath, readOnlyFooter]);
 
   const openedPanelTabs = availablePanelTabs.filter((tab) => rightPanelTabs.includes(tab.id));
 
@@ -867,7 +780,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     row?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const isOverview = messages.length === 0;
+  const isOverview = !readOnlyFooter && messages.length === 0;
 
   const inputArea = pendingPermission && onPermissionDecision ? (
     <div className={`${styles.permissionContainer} ${isOverview ? styles.bottomContainerOverview : ''}`}>
@@ -1018,7 +931,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             </button>
           )}
         </div>
-        <ChatTopBarInformation onOpenFeature={onOpenFeature} />
+        {!readOnlyFooter && <ChatTopBarInformation onOpenFeature={onOpenFeature} />}
         <button
           type="button"
           className={`${styles.panelToggle} ${rightPanelOpen ? styles.panelToggleActive : ''}`}
@@ -1059,7 +972,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                 ref={messagesAreaRef}
                 className={`${styles.messagesArea} ${isOverview ? styles.overviewArea : ''}`}
               >
-                {messages.length === 0 && <SessionOverview key={sessionId} onOpenFeature={onOpenFeature} onOpenRecords={onOpenRecords} onCompose={(prompt) => {
+                {messages.length === 0 && readOnlyFooter && <p role="status">暂无消息</p>}
+                {messages.length === 0 && !readOnlyFooter && <SessionOverview key={sessionId} onOpenFeature={onOpenFeature} onOpenRecords={onOpenRecords} onCompose={(prompt) => {
                   setInputPrompt(prompt);
                   messagesAreaRef.current?.parentElement?.querySelector<HTMLTextAreaElement>('textarea')?.focus();
                 }} />}
@@ -1082,7 +996,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                 )}
               </div>
 
-              {inputArea}
+              {readOnlyFooter || inputArea}
             </div>
           </div>
         )}

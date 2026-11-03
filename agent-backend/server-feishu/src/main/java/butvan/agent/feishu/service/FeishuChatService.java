@@ -6,8 +6,7 @@ import butvan.agent.agents.identity.CurrentUserProvider;
 import butvan.agent.agents.model.ModelHolder;
 import butvan.agent.agents.session.SessionCatalogService;
 import butvan.agent.agents.session.TranscriptService;
-import butvan.agent.agents.session.dto.CreateSessionRequest;
-import butvan.agent.agents.session.dto.SessionKind;
+import butvan.agent.agents.session.dto.SessionChannel;
 import butvan.agent.agents.session.dto.TranscriptMessageDto;
 import butvan.agent.feishu.config.FeishuConfigData;
 import com.lark.oapi.channel.model.NormalizedMessage;
@@ -29,6 +28,7 @@ import static butvan.agent.feishu.service.FeishuTaskStore.*;
 /** 飞书受理、顺序执行与结果交付入口；不持有 AgentScope 编排或通用聊天记录实现。 */
 @Slf4j
 @Service
+@org.springframework.context.annotation.DependsOn("feishuSessionMigration")
 @RequiredArgsConstructor
 public class FeishuChatService implements AutoCloseable, butvan.agent.agents.review.PersonalDeliveryPort {
     private final FeishuAgentRunner runner;
@@ -271,7 +271,7 @@ public class FeishuChatService implements AutoCloseable, butvan.agent.agents.rev
         }
         if (text.equals("/new")) {
             if (tasks.stream().anyMatch(t -> t.state().active())) return "还有任务正在执行或排队，请先 /stop 和 /clear，再新建对话。";
-            String session = sessions.create(new CreateSessionRequest(SessionKind.GENERAL, "飞书对话")).id();
+            String session = sessions.createFeishuSession().id();
             store.bind(command.conversation(), session);
             return "已建立新对话，之后的消息将使用新的上下文。";
         }
@@ -362,10 +362,14 @@ public class FeishuChatService implements AutoCloseable, butvan.agent.agents.rev
     private String resolveSession(String conversation) {
         String existing = store.snapshot().bindings().get(conversation);
         if (existing != null) {
-            try { sessions.requireActive(existing); return existing; }
+            try {
+                sessions.requireActive(existing);
+                if (sessions.getChannel(existing) == SessionChannel.FEISHU) return existing;
+                log.warn("飞书绑定指向其他渠道，将建立独立会话");
+            }
             catch (IllegalArgumentException exception) { log.info("飞书绑定会话已失效，将建立新会话"); }
         }
-        String created = sessions.create(new CreateSessionRequest(SessionKind.GENERAL, "飞书对话")).id();
+        String created = sessions.createFeishuSession().id();
         store.bind(conversation, created);
         return created;
     }

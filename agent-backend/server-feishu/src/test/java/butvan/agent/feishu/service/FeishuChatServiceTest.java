@@ -46,7 +46,8 @@ class FeishuChatServiceTest {
         when(model.isInitialized()).thenReturn(true);
         when(transcripts.list(anyString())).thenReturn(List.of());
         SessionSummaryDto summary = mock(SessionSummaryDto.class); when(summary.id()).thenReturn("session");
-        when(sessions.create(any())).thenReturn(summary);
+        when(sessions.createFeishuSession()).thenReturn(summary);
+        when(sessions.getChannel(anyString())).thenReturn(SessionChannel.FEISHU);
         store = new FeishuTaskStore(directory);
         chat = new FeishuChatService(runner, sessions, transcripts, model, owner);
         when(runner.run(anyString(), anyString(), anyString(), anyString(), any(), any(), any())).thenAnswer(invocation -> {
@@ -74,6 +75,15 @@ class FeishuChatServiceTest {
 
     Task byMessage(String message) {
         return store.task(stableId("test-app:local-owner:" + message));
+    }
+
+    @Test void newCommandCreatesOnlyAFeishuChannelSession() throws Exception {
+        open();
+        chat.handle(message("new-session", "/new"));
+        pumpUntil(() -> sent.stream().anyMatch(text -> text.contains("已建立新对话")));
+        verify(sessions).createFeishuSession();
+        verify(sessions, never()).create(any());
+        verifyNoInteractions(runner);
     }
 
     @Test void immediateReceiptPeriodicHeartbeatAndFinalReply() throws Exception {

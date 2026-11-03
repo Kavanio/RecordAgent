@@ -148,6 +148,28 @@ class ConversationHistoryToolTest {
         assertTrue(new ApproximateTokenCounter().count(mapper.writeValueAsString(recent)) <= 1_400);
     }
 
+    @Test
+    void allHistoryToolsStayWithinTheCurrentChannelInBothDirections() {
+        var storage = new AgentStorageProperties(root);
+        var catalog = new SessionCatalogService(storage, new CurrentUserProvider(), mapper);
+        var transcripts = new TranscriptService(storage, mapper);
+        String desktop = catalog.create(new CreateSessionRequest(SessionKind.GENERAL, "桌面历史")).id();
+        String feishu = catalog.createFeishuSession().id();
+        transcripts.appendUserMessage(desktop, "共同关键词：桌面内容");
+        transcripts.appendUserMessage(feishu, "共同关键词：飞书内容");
+        var tool = new ConversationHistoryTool(catalog, transcripts, mapper);
+        for (var pair : List.of(List.of(desktop, feishu), List.of(feishu, desktop))) {
+            String current = pair.getFirst();
+            String other = pair.getLast();
+            var context = RuntimeContext.builder().sessionId(current).userId("local-default").build();
+            assertEquals(List.of(current), tool.list(context, 10).records().stream().map(ConversationHistoryTool.Hit::sessionId).toList());
+            assertTrue(tool.recent(context, 3).records().isEmpty());
+            assertEquals(List.of(current), tool.search(context, "共同关键词", 6).records().stream().map(ConversationHistoryTool.Hit::sessionId).toList());
+            assertEquals(1, tool.history(context, current, 6, false).records().size());
+            assertThrows(IllegalArgumentException.class, () -> tool.history(context, other, 6, true));
+        }
+    }
+
     static class FrameworkHistory {
         @Tool(name = "session_history", description = "框架旧实现")
         public String history() { return "unbounded"; }

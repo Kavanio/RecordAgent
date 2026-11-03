@@ -129,6 +129,11 @@ public class AgentService {
 
             // 1. 防止客户端伪造或使用已删除的会话
             var currentSession = sessionCatalogService.requireActive(request.sessionId());
+            boolean feishuSession = sessionCatalogService.getChannel(request.sessionId())
+                    == butvan.agent.agents.session.dto.SessionChannel.FEISHU;
+            boolean feishuCall = request.memoryChannel()
+                    == butvan.agent.agents.memory.MemorySourceRegistry.Channel.FEISHU;
+            if (feishuSession != feishuCall) throw new IllegalArgumentException("会话渠道不匹配，请在原渠道继续对话");
             String requestedContext = request.context() == null || request.context().isBlank()
                     ? request.content() : request.context();
             String input = requireContent(requestedContext);

@@ -38,7 +38,7 @@ public class SessionLifecycleService {
 
 
     public List<SessionSummaryDto> listSessions() {
-        return sessionCatalogService.listActive();
+        return sessionCatalogService.listActive(butvan.agent.agents.session.dto.SessionChannel.DESKTOP);
     }
 
     public SessionSummaryDto createSession(CreateSessionRequest request) {
@@ -46,8 +46,26 @@ public class SessionLifecycleService {
     }
 
     public SessionDetailDto getDetail(String sessionId) {
+        SessionSummaryDto summary = sessionCatalogService.requireDesktopActive(sessionId);
+        return readDetail(summary);
+    }
+
+    /** 客户端独立分组只读列出飞书会话，不开放桌面续聊或修改入口。 */
+    public List<SessionSummaryDto> listFeishuSessions() {
+        return sessionCatalogService.listActive(butvan.agent.agents.session.dto.SessionChannel.FEISHU);
+    }
+
+    /** 按目录册校验飞书来源后读取原有 transcript。 */
+    public SessionDetailDto getFeishuDetail(String sessionId) {
         SessionSummaryDto summary = sessionCatalogService.requireActive(sessionId);
-        List<TranscriptMessageDto> messages = transcriptService.list(sessionId);
+        if (sessionCatalogService.getChannel(sessionId) != butvan.agent.agents.session.dto.SessionChannel.FEISHU) {
+            throw new IllegalArgumentException("该会话不属于飞书渠道");
+        }
+        return readDetail(summary);
+    }
+
+    private SessionDetailDto readDetail(SessionSummaryDto summary) {
+        List<TranscriptMessageDto> messages = transcriptService.list(summary.id());
         int turnCount = (int) messages.stream()
                 .filter(message -> message.role() == TranscriptMessageDto.MessageRole.ASSISTANT)
                 .count();
@@ -64,18 +82,22 @@ public class SessionLifecycleService {
     }
 
     public SessionSummaryDto updateTitle(String sessionId, String title) {
+        sessionCatalogService.requireDesktopActive(sessionId);
         return sessionCatalogService.updateTitle(sessionId, title);
     }
 
     public SessionSummaryDto generateTitle(String sessionId) {
+        sessionCatalogService.requireDesktopActive(sessionId);
         return sessionTitleService.generateIfNeeded(sessionId);
     }
 
     public SessionPermissionMode getPermissionMode(String sessionId) {
+        sessionCatalogService.requireDesktopActive(sessionId);
         return sessionCatalogService.getPermissionMode(sessionId);
     }
 
     public SessionPermissionMode updatePermissionMode(String sessionId, SessionPermissionMode mode) {
+        sessionCatalogService.requireDesktopActive(sessionId);
         return sessionCatalogService.updatePermissionMode(sessionId, mode);
     }
 
@@ -84,6 +106,7 @@ public class SessionLifecycleService {
      * @param sessionId
      */
     public void deleteSession(String sessionId) {
+        sessionCatalogService.requireDesktopChannel(sessionId);
         sessionCatalogService.markDeleting(sessionId);
         checkpointService.deleteSession(sessionId);
         transcriptService.delete(sessionId);
