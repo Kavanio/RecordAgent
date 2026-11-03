@@ -5,6 +5,9 @@ import type { RecordEntry, RecordType } from './types/record';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ModelProviderContext } from './context/ModelContext';
 import { StudyRealtimeProvider } from './context/StudyRealtimeContext';
+import { mapTranscriptToChatMessage } from './features/chat/transcriptMessages';
+import { useConversationSelection } from './components/chat/useConversationSelection';
+import { ChannelConversationView } from './components/chat/ChannelConversationView';
 import { Sidebar } from './components/layout/Sidebar';
 import { ChatWorkspace } from './components/chat/ChatWorkspace';
 import { CalendarView } from './components/calendar/CalendarView';
@@ -42,7 +45,6 @@ import type {
   ChatMessage,
   Project,
   SessionSummaryDto,
-  TranscriptMessageDto,
   SessionPermissionMode,
 } from './types/chat';
 import type { SubagentProgressDto, TaskDto } from './types/team';
@@ -52,39 +54,6 @@ import {
   subscribeSubagentTaskEvents,
 } from './services/taskApi';
 import { fetchProjects, importProject, removeProject as removeProjectApi } from './services/projectApi';
-
-function mapTranscriptToChatMessage(dto: TranscriptMessageDto): ChatMessage {
-  const isUser = dto.role?.toUpperCase() === 'USER';
-  return {
-    id: dto.id,
-    turnId: dto.turnId,
-    role: isUser ? 'user' : 'assistant',
-    modelName: isUser ? undefined : 'ButvanAgent',
-    content: dto.content || '',
-    reasoning: dto.thinking || undefined,
-    createdAt: new Date(dto.createdAt).getTime() || Date.now(),
-    status: dto.status,
-    usage: dto.usage,
-    elapsedTime:
-      dto.durationMillis != null
-        ? Math.max(1, Math.round(dto.durationMillis / 1000))
-        : undefined,
-    tools:
-      dto.tools && dto.tools.length > 0
-        ? dto.tools.map((t) => ({
-            toolCallId: t.toolCallId,
-            toolName: t.toolName,
-            command: t.command,
-            output: t.output,
-            status: (t.status ? t.status.toLowerCase() : 'completed') as
-              | 'running'
-              | 'completed'
-              | 'failed'
-              | 'cancelled',
-          }))
-        : undefined,
-  };
-}
 
 interface ActiveChatRun {
   runId: string;
@@ -136,7 +105,7 @@ export const MainLayout: React.FC<{
   const { showMessage } = useMessage();
   const [projects, setProjects] = useState<Project[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string>('');
+  const { activeSessionId, setActiveSessionId, feishuSession, selectFeishuSession } = useConversationSelection();
   const [recordInitialType, setRecordInitialType] = useState<RecordType>('quick');
   const [recordTarget, setRecordTarget] = useState<RecordEntry | null | undefined>(undefined);
   const [activeFeature, setActiveFeature] = useState<'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task'>('chat');
@@ -375,7 +344,7 @@ export const MainLayout: React.FC<{
         }
       }
     });
-  }, [showMessage]);
+  }, [showMessage, setActiveSessionId]);
 
   // 2. 切换当前激活会话时，若消息未加载，从后端 fetchSessionDetail 获取完整聊天记录
   useEffect(() => {
@@ -1095,7 +1064,9 @@ export const MainLayout: React.FC<{
             onSelectFeature={(feature) => { setRecordTarget(undefined); setActiveFeature(feature); }}
             projects={projects}
             sessions={sessions}
-            activeSessionId={activeSessionId}
+            activeSessionId={feishuSession ? '' : activeSessionId}
+            activeFeishuSessionId={feishuSession?.id}
+            onSelectFeishuSession={(session) => { selectFeishuSession(session); setActiveFeature('chat'); }}
             onSelectSession={handleSelectSession}
             onNewGeneralChat={handleNewGeneralChat}
             onNewProjectChat={handleNewProjectChat}
@@ -1117,44 +1088,46 @@ export const MainLayout: React.FC<{
           ) : activeFeature === 'study' ? (
             <StudyPage />
           ) : (
-            <ChatWorkspace
-              onOpenFeature={setActiveFeature}
-              onOpenRecords={(entry, initialType = 'quick') => { setRecordTarget(entry); setRecordInitialType(initialType); setActiveFeature('record'); }}
-              messages={activeMessages}
-              sessionId={activeSessionId}
-              sessionTitle={activeSession?.title || '新对话'}
-              sessionUsageSummary={activeSession?.usageSummary}
-              isSessionLoading={Boolean(activeSession && !activeSession.isLoaded && !activeSessionLoadError)}
-              isSessionStreaming={streamingSessionIds.has(activeSessionId)}
-              isSessionStopping={stoppingSessionIds.has(activeSessionId)}
-              onStopSession={handleStopAgentRun}
-              sessionLoadError={activeSessionLoadError}
-              onRetrySessionLoad={() => {
-                if (activeSessionId) void syncSessionDetail(activeSessionId);
-              }}
-              onSendMessage={handleSendMessage}
-              onRenameSession={(title) => handleUpdateSessionTitle(activeSessionId, title)}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-              pendingPermission={activePendingPermission}
-              isPermissionSubmitting={isPermissionSubmitting}
-              onPermissionDecision={handlePermissionDecision}
-              onPermissionResume={handlePermissionResume}
-              subagentTasks={subagentTasks}
-              isSubagentTasksLoading={isSubagentTasksLoading}
-              subagentTaskError={subagentTaskError}
-              cancellingTaskId={cancellingTaskId}
-              onRefreshSubagentTasks={() => void refreshSubagentTasks()}
-              onCancelSubagentTask={handleCancelSubagentTask}
-              projectPath={activeProjectPath}
-              projectId={activeSession?.projectId ?? null}
-              permissionMode={permissionModes[activeSessionId] ?? 'ASK'}
-              onPermissionModeChange={handlePermissionModeChange}
-              isPermissionModeDisabled={!activeSessionId
-                || streamingSessionIds.has(activeSessionId)
-                || Boolean(activePendingPermission)
-                || savingPermissionSessionId === activeSessionId}
-              isPermissionModeSaving={savingPermissionSessionId === activeSessionId}
-            />
+            <ChannelConversationView session={feishuSession}>
+              <ChatWorkspace
+                onOpenFeature={setActiveFeature}
+                onOpenRecords={(entry, initialType = 'quick') => { setRecordTarget(entry); setRecordInitialType(initialType); setActiveFeature('record'); }}
+                messages={activeMessages}
+                sessionId={activeSessionId}
+                sessionTitle={activeSession?.title || '新对话'}
+                sessionUsageSummary={activeSession?.usageSummary}
+                isSessionLoading={Boolean(activeSession && !activeSession.isLoaded && !activeSessionLoadError)}
+                isSessionStreaming={streamingSessionIds.has(activeSessionId)}
+                isSessionStopping={stoppingSessionIds.has(activeSessionId)}
+                onStopSession={handleStopAgentRun}
+                sessionLoadError={activeSessionLoadError}
+                onRetrySessionLoad={() => {
+                  if (activeSessionId) void syncSessionDetail(activeSessionId);
+                }}
+                onSendMessage={handleSendMessage}
+                onRenameSession={(title) => handleUpdateSessionTitle(activeSessionId, title)}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+                pendingPermission={activePendingPermission}
+                isPermissionSubmitting={isPermissionSubmitting}
+                onPermissionDecision={handlePermissionDecision}
+                onPermissionResume={handlePermissionResume}
+                subagentTasks={subagentTasks}
+                isSubagentTasksLoading={isSubagentTasksLoading}
+                subagentTaskError={subagentTaskError}
+                cancellingTaskId={cancellingTaskId}
+                onRefreshSubagentTasks={() => void refreshSubagentTasks()}
+                onCancelSubagentTask={handleCancelSubagentTask}
+                projectPath={activeProjectPath}
+                projectId={activeSession?.projectId ?? null}
+                permissionMode={permissionModes[activeSessionId] ?? 'ASK'}
+                onPermissionModeChange={handlePermissionModeChange}
+                isPermissionModeDisabled={!activeSessionId
+                  || streamingSessionIds.has(activeSessionId)
+                  || Boolean(activePendingPermission)
+                  || savingPermissionSessionId === activeSessionId}
+                isPermissionModeSaving={savingPermissionSessionId === activeSessionId}
+              />
+            </ChannelConversationView>
           )}
         </>
       )}

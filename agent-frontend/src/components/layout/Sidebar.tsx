@@ -19,7 +19,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { BooksIcon, CalendarDotsIcon, StudentIcon, WalletIcon } from '@phosphor-icons/react';
-import type { ChatSession, Project } from '../../types/chat';
+import type { ChatSession, Project, SessionSummaryDto } from '../../types/chat';
 import { FormField } from '../common/FormField';
 import { TextInput } from '../common/TextInput';
 import { Modal } from '../common/Modal';
@@ -28,6 +28,7 @@ import { EmailBindingModal } from '../account/EmailBindingModal';
 import { fetchAccountStatus, getAccountAvatarUrl } from '../../services/api';
 import { canPickProjectDirectory, pickProjectDirectory } from '../../services/projectPicker';
 import { readPreference, writePreference } from '../../services/desktopPreferences';
+import { TIME_GROUP_ORDER, TIME_GROUP_LABELS, getTimeGroup, sortByUpdatedDesc } from '../../features/chat/sessionTimeGroups';
 import { FeishuConversationSection } from './FeishuConversationSection';
 import styles from './Sidebar.module.css';
 
@@ -44,40 +45,10 @@ function getAvatarText(email: string | null): string {
   return email.slice(0, 1).toUpperCase() || 'U';
 }
 
-type TimeGroupKey = 'today' | 'yesterday' | 'last7' | 'last30' | 'older';
-
-const TIME_GROUP_ORDER: TimeGroupKey[] = ['today', 'yesterday', 'last7', 'last30', 'older'];
-
-const TIME_GROUP_LABELS: Record<TimeGroupKey, string> = {
-  today: '今天',
-  yesterday: '昨天',
-  last7: '过去 7 天',
-  last30: '过去 30 天',
-  older: '更早',
-};
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 const SIDEBAR_DEFAULT_WIDTH = 260;
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 400;
 const SIDEBAR_WIDTH_KEY = 'butvan.sidebarWidth';
-
-/** 按最近活跃时间将会话分桶（ChatGPT 式时间分组）。 */
-function getTimeGroup(timestamp: number): TimeGroupKey {
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const diffDays = Math.floor((startOfToday.getTime() - timestamp) / DAY_MS);
-  if (diffDays <= 0) return 'today';
-  if (diffDays === 1) return 'yesterday';
-  if (diffDays < 7) return 'last7';
-  if (diffDays < 30) return 'last30';
-  return 'older';
-}
-
-function sortByUpdatedDesc(a: ChatSession, b: ChatSession): number {
-  return b.updatedAt - a.updatedAt;
-}
 
 interface SidebarProps {
   activeFeature: 'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task';
@@ -88,6 +59,8 @@ interface SidebarProps {
   sessions: ChatSession[];
   activeSessionId: string;
   onSelectSession: (id: string) => void;
+  activeFeishuSessionId?: string;
+  onSelectFeishuSession?: (session: SessionSummaryDto) => void;
   onNewGeneralChat: () => void;
   onNewProjectChat: (projectId: string) => void;
   onImportProject: (name: string, path: string) => Promise<{ success: boolean; message?: string }>;
@@ -105,7 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   projects,
   sessions,
   activeSessionId,
-  onSelectSession,
+  onSelectSession, activeFeishuSessionId, onSelectFeishuSession,
   onNewGeneralChat,
   onNewProjectChat,
   onImportProject,
@@ -569,7 +542,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className={styles.groupTitle}>客户端搜索结果</span>
                 <span className={styles.resultCount}>{searchResults.length} 条</span>
               </div>
-              <FeishuConversationSection query={searchQuery} />
+              <FeishuConversationSection query={searchQuery} activeSessionId={activeFeishuSessionId} onSelect={onSelectFeishuSession} />
               <div className={styles.sessionList}>
                 {searchResults.length > 0 ? (
                   searchResults.map((session) => renderSessionRow(session))
@@ -713,7 +686,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </section>
 
-              <FeishuConversationSection query={searchQuery} />
+              <FeishuConversationSection query={searchQuery} activeSessionId={activeFeishuSessionId} onSelect={onSelectFeishuSession} />
               <section className={styles.sectionGroup}>
                 <div className={styles.groupHeader}>
                   <span className={styles.groupTitle}>客户端对话</span>

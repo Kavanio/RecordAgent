@@ -136,8 +136,12 @@
 
 | 组件名称 | 源码路径 | 样式文件 / 核心依赖 | 职责与设计契约 | 核心 Props / 接口定义 | 变体 / 尺寸 / 交互状态 | 典型应用场景 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Sidebar** | [`Sidebar.tsx`](agent-frontend/src/components/layout/Sidebar.tsx) | `Sidebar.module.css`<br/>`lucide-react` | 统一全局主侧边栏：客户端对话与独立只读飞书分组隔离，Codex 经典冰蓝灰配色、模块路由切换、会话列表树、折叠/展开、快捷设置入口与用户气泡；项目分组支持导入、目录移动/失效提示、项目操作菜单移除登记，移除只解除引用并保留关联会话 | `activeModule: string`<br/>`onSelectModule: (mod) => void`<br/>`collapsed: boolean`<br/>`onToggleCollapse: () => void` | **状态**：完整展开（包含会话列表） / 紧凑折叠（仅图标）；项目可用/目录不可访问、项目操作菜单、移除确认与失败反馈 | 桌面端应用主界面全局左侧导航底座 |
-| FeishuConversationSection | `agent-frontend/src/components/layout/FeishuConversationSection.tsx` | 同名 CSS Module、Sidebar.module.css、Drawer、MarkdownContent、feishuConversationService | 侧边栏独立飞书分组与原文只读抽屉，不进入桌面聊天状态；窗口重新聚焦或手动刷新读取列表 | `query?: string`；服务层仅调用独立飞书 GET 列表与详情；新建、续聊、删除与权限调整留在原渠道 | 展开／折叠、计数、标题搜索、加载、空记录、错误与重试、迟到响应隔离、原文角色与时间、失败／取消状态  侧边栏飞书历史查看 |
+| **Sidebar** | [`Sidebar.tsx`](agent-frontend/src/components/layout/Sidebar.tsx) | `Sidebar.module.css`<br/>`lucide-react` | 统一全局主侧边栏：客户端对话与独立只读飞书分组隔离，Codex 经典冰蓝灰配色、模块路由切换、会话列表树、折叠/展开、快捷设置入口与用户气泡；项目分组支持导入、目录移动/失效提示、项目操作菜单移除登记，移除只解除引用并保留关联会话 | `activeModule: string`<br/>`onSelectModule: (mod) => void`<br/>`collapsed: boolean`<br/>`onToggleCollapse: () => void`<br/>`activeFeishuSessionId?`、`onSelectFeishuSession?`：飞书会话受控选择 | **状态**：完整展开（包含会话列表） / 紧凑折叠（仅图标）；项目可用/目录不可访问、项目操作菜单、移除确认与失败反馈 | 桌面端应用主界面全局左侧导航底座 |
+| FeishuConversationSection | `agent-frontend/src/components/layout/FeishuConversationSection.tsx` | 同名 CSS Module、Sidebar.module.css、feishuConversationService | 独立飞书会话列表；受控选择交给主聊天区，不创建抽屉或遮罩 | `query?: string`、`activeSessionId?: string`、`onSelect?(session)`；只读取列表 | 展开／折叠、计数、标题搜索、加载、空记录、错误重试、选中高亮、窗口聚焦／手动刷新 | 侧栏飞书会话导航 |
+| ChannelConversationView | `agent-frontend/src/components/chat/ChannelConversationView.tsx` | 同名 CSS Module、ChatWorkspace、transcriptMessages、feishuConversationService | 主聊天区切换桌面与只读飞书会话；桌面视图隐藏保活，保留草稿与运行，不创建全局遮罩 | `session: SessionSummaryDto \| null`、`children: ReactNode`；详情按选中 ID 读取，迟到响应丢弃，刷新只执行 GET | 加载、读取失败重试、空历史、渠道切换、窗口聚焦刷新、原文与 Token 展示、只读提示 | 双渠道主区域展示 |
+| ChatWorkspace | `agent-frontend/src/components/chat/ChatWorkspace.tsx` | 同名 CSS Module、AssistantMessageItem、UserMessageContent、RightSidePanel | 两渠道统一主聊天布局；只读模式不挂载输入／审批或新会话引导，右侧只提供 Token | 既有会话、消息、运行与审批属性；`readOnlyFooter?: ReactNode` 为只读底栏，存在时关闭写入交互 | 加载、错误、普通聊天、只读历史、Token 面板 | 桌面聊天及飞书历史 |
+| AssistantMessageItem | `agent-frontend/src/components/chat/AssistantMessageItem.tsx` | ChatWorkspace.module.css、AgentResponse、SubagentActivity、MarkdownContent、TokenUsageTrigger | 统一助手消息，保留原工具过程、正文、终态与 Token 查看入口 | `msg: ChatMessage`、`tokenUsageActive: boolean`、`onOpenTokenUsage(messageId)` | 生成中、完成、取消、失败、内容复制与用量查看 | 主聊天消息行 |
+
 
 
 ## 财务组件（`agent-frontend/src/components/finance/`）

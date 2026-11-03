@@ -1,0 +1,6 @@
+.container, .desktop { display: flex; flex: 1; min-width: 0; height: 100%; overflow: hidden; }
+.desktop[hidden] { display: none; }
+.notice { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 18px 24px 24px; font-size: 12px; color: var(--text-muted); }
+.notice button { border: 0; background: transparent; font: inherit; color: var(--text-secondary); cursor: pointer; padding: 5px 8px; border-radius: 6px; }
+.notice button:hover { background: var(--bg-hover); }
+.notice button:focus-visible { outline: 2px solid var(--text-secondary); }
