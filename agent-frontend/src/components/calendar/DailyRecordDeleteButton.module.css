@@ -14,9 +14,14 @@
   transition: color var(--transition-fast), background-color var(--transition-fast), opacity var(--transition-fast);
 }
 
-.button:hover {
+.button:hover:not(:disabled) {
   background: #fff1f0;
   color: #b42318;
+}
+
+.button:disabled {
+  cursor: wait;
+  opacity: 0.4;
 }
 
 .button:focus-visible {

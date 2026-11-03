@@ -1,0 +1,77 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.todo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  color: #272c34;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.todo:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.check {
+  display: grid;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border: 1.45px solid rgba(41, 46, 54, 0.38);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.19);
+  transition: 0.18s ease;
+  place-items: center;
+}
+
+.done .check {
+  border-color: var(--note-accent);
+  background: var(--note-accent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.todo svg {
+  width: 13px;
+  height: 13px;
+  color: white;
+}
+
+.label {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 560;
+  line-height: 1.4;
+  letter-spacing: -0.12px;
+  transition: opacity 0.16s ease;
+}
+
+.done .label {
+  opacity: 0.72;
+}
+
+.todo:focus-visible {
+  outline: 2px solid var(--note-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .todo {
+    transition: none !important;
+    animation: none !important;
+  }
+}
