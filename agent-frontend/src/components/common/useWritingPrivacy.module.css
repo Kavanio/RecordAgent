@@ -1,0 +1,7 @@
+/* 逐块模糊，保留真实排版与原有编辑命中；不对整个编辑器使用 filter。 */
+.protected [data-writing-private] {
+  filter: blur(6px);
+}
+.protected [data-writing-private][data-writing-revealed='true'] {
+  filter: none;
+}

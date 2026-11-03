@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { CheckIcon, NotePencilIcon } from '@phosphor-icons/react';
+import { CheckIcon, EyeIcon, EyeSlashIcon, NotePencilIcon } from '@phosphor-icons/react';
 import { EditorContent, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
 import type { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
@@ -15,6 +15,8 @@ import { TopBar } from './TopBar';
 import { TopBarAction } from './TopBarAction';
 import { useMessage } from './Message';
 import { WritingTypingBurst } from './WritingTypingBurst';
+import { useWritingPrivacy } from './useWritingPrivacy';
+import { WritingPrivacyExtension } from '../../features/writing/writingPrivacyExtension';
 import styles from './WritingEditorPage.module.css';
 
 const smartLowlight = createSmartLowlight(createLowlight(all));
@@ -123,6 +125,7 @@ interface WritingEditorPageProps {
   meta?: ReactNode;
   footer?: ReactNode;
   saving?: boolean;
+  privacyAvailable?: boolean;
   onBack: () => void;
   onSave: (value: { title?: string; body: string; html?: string }) => void | Promise<void>;
 }
@@ -164,6 +167,7 @@ export function WritingEditorPage({
   meta,
   footer,
   saving = false,
+  privacyAvailable = false,
   onBack,
   onSave,
 }: WritingEditorPageProps) {
@@ -172,6 +176,7 @@ export function WritingEditorPage({
   const [headings, setHeadings] = useState<EditorHeading[]>([]);
   const [characterCount, setCharacterCount] = useState(0);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
 
   const editor: Editor | null = useEditor({
     immediatelyRender: false,
@@ -183,6 +188,7 @@ export function WritingEditorPage({
         codeBlock: false,
       }),
       CustomCodeBlock,
+      WritingPrivacyExtension,
       Markdown,
       TaskList,
       TaskItem.configure({
@@ -237,6 +243,7 @@ export function WritingEditorPage({
     },
   });
 
+  const privacy = useWritingPrivacy(editor, privacyAvailable, workspaceRef);
   const canSave = Boolean(title.trim() || (editor ? !editor.isEmpty : initialBody.trim())) && !saving;
 
   const save = useCallback(async () => {
@@ -288,7 +295,7 @@ export function WritingEditorPage({
   };
 
   return (
-    <main className={styles.workspace}>
+    <main ref={workspaceRef} className={`${styles.workspace} ${privacy.className}`}>
       <WritingTypingBurst editor={editor} />
       <TopBar
         onBack={onBack}
@@ -297,14 +304,21 @@ export function WritingEditorPage({
         title={identity}
         subtitle={detail}
         actions={
-          <TopBarAction
-            variant="primary"
-            disabled={!canSave}
-            onClick={() => void save()}
-            icon={<CheckIcon size={15} weight="bold" />}
-          >
-            {saving ? '保存中…' : '保存'}
-          </TopBarAction>
+          <>
+            {privacyAvailable && <TopBarAction variant="outline" aria-pressed={privacy.enabled} disabled={privacy.saving}
+              title={`逐块模糊，悬浮显示当前块；${privacy.shortcut}`} onClick={() => void privacy.toggle()}
+              icon={privacy.enabled ? <EyeIcon size={15} /> : <EyeSlashIcon size={15} />}>
+              {privacy.enabled ? '恢复可见' : '开启防偷窥'}
+            </TopBarAction>}
+            <TopBarAction
+              variant="primary"
+              disabled={!canSave}
+              onClick={() => void save()}
+              icon={<CheckIcon size={15} weight="bold" />}
+            >
+              {saving ? '保存中…' : '保存'}
+            </TopBarAction>
+          </>
         }
       />
       <div ref={scrollAreaRef} className={styles.scrollArea} onClick={handleContainerClick}>
@@ -317,6 +331,7 @@ export function WritingEditorPage({
               onChange={(event) => setTitle(event.target.value)}
               placeholder="标题"
               aria-label="标题"
+              data-writing-private="true"
               autoFocus
             />
             <div className={styles.metaRow}>
@@ -326,6 +341,7 @@ export function WritingEditorPage({
             <div className={styles.editorWrapper}>
               <EditorContent editor={editor} />
             </div>
+            {privacy.enabled && <p className={styles.saveHint} role="status">防偷窥已开启 · 悬浮只显示当前块，输入时显示当前段落 · {privacy.shortcut}</p>}
             {footer}
             <p className={styles.saveHint}>按 ⌘ S 保存</p>
           </article>
@@ -339,7 +355,8 @@ export function WritingEditorPage({
                     type="button"
                     className={styles[`outlineLevel${heading.level}`]}
                     onClick={() => locateHeading(heading)}
-                    title={heading.label}
+                    title={privacy.enabled ? undefined : heading.label}
+                    data-writing-private="true"
                   >
                     {heading.label}
                   </button>

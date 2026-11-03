@@ -46,6 +46,7 @@ export function RecordEditor({ date, entry, initialType = 'quick', initialTabId,
 
   const tabName = tabs.find((tab) => tab.id === tabId)?.name ?? '全部';
   return <WritingEditorPage backLabel="资料" identity={entry ? '编辑资料' : '新增资料'} detail={`${recordDate} · ${tabName}`}
+    privacyAvailable
     initialTitle={entry?.title ?? ''} initialBody={entry?.contentText ?? ''} saving={saving}
     bodyPlaceholder="开始整理知识、问题与思考……" onBack={onBack}
     footer={<div className={styles.details} role="group" aria-label="资料属性">

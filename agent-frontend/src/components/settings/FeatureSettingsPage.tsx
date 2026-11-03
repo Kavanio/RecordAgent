@@ -4,6 +4,7 @@ import { LeverSwitch } from '../common/LeverSwitch';
 import { SettingsPageLayout } from './SettingsPageLayout';
 import { SettingsGroup, SettingsRow } from './SettingsGroup';
 import { WritingEffectSettings } from './WritingEffectSettings';
+import { WritingPrivacySettings } from './WritingPrivacySettings';
 
 export type FeatureSettingsTab = 'calendar' | 'finance' | 'library' | 'record';
 
@@ -25,7 +26,7 @@ const FEATURE_CONTENT: Record<Exclude<FeatureSettingsTab, 'record'>, {
   library: {
     title: '资料',
     description: '管理资料库的编辑、分类和阅读偏好。',
-    detail: '配置正文打字特效、emoji 图案和本机自定义图片。',
+    detail: '配置写作防偷窥、快捷键、正文打字特效和本机自定义图片。',
   },
 };
 
@@ -129,6 +130,7 @@ export function FeatureSettingsPage({
   return (
     <SettingsPageLayout title={content.title} description={content.description}>
       <WritingEffectSettings />
+      <WritingPrivacySettings />
     </SettingsPageLayout>
   );
 }
