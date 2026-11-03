@@ -4,6 +4,7 @@ import butvan.agent.agents.identity.CurrentUserProvider;
 import butvan.agent.agents.project.ProjectRegistry;
 import butvan.agent.agents.session.dto.CreateSessionRequest;
 import butvan.agent.agents.session.dto.SessionKind;
+import butvan.agent.agents.session.dto.SessionChannel;
 import butvan.agent.agents.session.dto.SessionPermissionMode;
 import butvan.agent.agents.session.dto.SessionStatus;
 import butvan.agent.agents.session.dto.SessionSummaryDto;
@@ -71,6 +72,15 @@ public class SessionCatalogService {
      * @return
      */
     public synchronized SessionSummaryDto create(CreateSessionRequest request) {
+        return create(request, SessionChannel.DESKTOP);
+    }
+
+    /** 仅供可信飞书 Adapter 创建独立渠道会话。 */
+    public synchronized SessionSummaryDto createFeishuSession() {
+        return create(new CreateSessionRequest(SessionKind.GENERAL, "飞书对话"), SessionChannel.FEISHU);
+    }
+
+    private SessionSummaryDto create(CreateSessionRequest request, SessionChannel channel) {
         SessionKind kind = request != null && request.kind() != null ? request.kind() : SessionKind.GENERAL;
         String projectId = request == null ? null : request.projectId();
         if (kind == SessionKind.PROJECT) {
@@ -95,7 +105,7 @@ public class SessionCatalogService {
         );
 
         List<CatalogRecord> records = readRecords();
-        records.add(CatalogRecord.from(currentUserProvider.currentUserId(), created));
+        records.add(CatalogRecord.from(currentUserProvider.currentUserId(), created, channel));
         writeRecords(records);
 
         return created;
@@ -110,6 +120,51 @@ public class SessionCatalogService {
                 .map(CatalogRecord::toDto)
                 .sorted(Comparator.comparing(SessionSummaryDto::updatedAt).reversed())
                 .toList();
+    }
+
+    /** 按可信渠道返回会话；默认旧记录属于桌面端。 */
+    public synchronized List<SessionSummaryDto> listActive(SessionChannel channel) {
+        String ownerId = currentUserProvider.currentUserId();
+        return readRecords().stream()
+                .filter(record -> ownerId.equals(record.ownerId()) && record.status() == SessionStatus.ACTIVE)
+                .filter(record -> record.effectiveChannel() == channel)
+                .map(CatalogRecord::toDto)
+                .sorted(Comparator.comparing(SessionSummaryDto::updatedAt).reversed())
+                .toList();
+    }
+
+    /** 读取持久化渠道；标题、权限模式及调用方参数均不能改变渠道。 */
+    public synchronized SessionChannel getChannel(String sessionId) {
+        return requireRecord(sessionId, false).effectiveChannel();
+    }
+
+    /** 桌面端入口拒绝访问飞书会话，包括旧客户端缓存的会话 ID。 */
+    public synchronized SessionSummaryDto requireDesktopActive(String sessionId) {
+        requireDesktopChannel(sessionId);
+        return requireActive(sessionId);
+    }
+
+    /** 删除重试仍可校验渠道，允许已经处于 DELETING 的桌面会话继续清理。 */
+    public synchronized void requireDesktopChannel(String sessionId) {
+        if (getChannel(sessionId) != SessionChannel.DESKTOP) {
+            throw new IllegalArgumentException("飞书会话仅可在飞书中继续使用");
+        }
+    }
+
+    /** 只依据可信渠道账本迁移旧会话，不根据标题猜测，不创建或删除历史。 */
+    public synchronized void migrateFeishuSessions(java.util.Set<String> sessionIds) {
+        List<CatalogRecord> records = readRecords();
+        boolean changed = false;
+        for (int index = 0; index < records.size(); index++) {
+            CatalogRecord record = records.get(index);
+            if (currentUserProvider.currentUserId().equals(record.ownerId())
+                    && sessionIds.contains(record.id()) && record.channel() == null
+                    && record.kind() == SessionKind.GENERAL) {
+                records.set(index, record.withChannel(SessionChannel.FEISHU));
+                changed = true;
+            }
+        }
+        if (changed) writeRecords(records);
     }
 
     /** 校验会话存在、归属正确且可继续使用；聊天、详情、改标题都会复用它。 */
@@ -274,11 +329,15 @@ public class SessionCatalogService {
     }
 
     private CatalogRecord requireRecord(String sessionId) {
+        return requireRecord(sessionId, true);
+    }
+
+    private CatalogRecord requireRecord(String sessionId, boolean activeOnly) {
         String ownerId = currentUserProvider.currentUserId();
         return readRecords().stream()
                 .filter(record -> ownerId.equals(record.ownerId()))
                 .filter(record -> record.id().equals(sessionId))
-                .filter(record -> record.status() == SessionStatus.ACTIVE)
+                .filter(record -> !activeOnly || record.status() == SessionStatus.ACTIVE)
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("会话不存在、无权访问或正在删除"));
     }
@@ -312,6 +371,7 @@ public class SessionCatalogService {
      * @param status
      * @param titleSource 标题来源；旧数据缺失时根据标题内容兼容推断
      * @param permissionMode 会话权限模式；旧数据缺失时回退 ASK
+     * @param channel 创建渠道；旧数据由可信账本补充，缺失时按桌面会话处理
      */
     private record CatalogRecord(
             String id,
@@ -324,31 +384,40 @@ public class SessionCatalogService {
             Instant updateAt,
             SessionStatus status,
             TitleSource titleSource,
-            SessionPermissionMode permissionMode
+            SessionPermissionMode permissionMode,
+            SessionChannel channel
     ) {
 
-        static CatalogRecord from(String ownerId, SessionSummaryDto dto) {
-            return new CatalogRecord(dto.id(), ownerId, dto.kind(), dto.projectId(), dto.title(), dto.lastMessagePreview(), dto.createdAt(), dto.updatedAt(), dto.status(), TitleSource.DEFAULT, SessionPermissionMode.ASK);
+        static CatalogRecord from(String ownerId, SessionSummaryDto dto, SessionChannel channel) {
+            return new CatalogRecord(dto.id(), ownerId, dto.kind(), dto.projectId(), dto.title(), dto.lastMessagePreview(), dto.createdAt(), dto.updatedAt(), dto.status(), TitleSource.DEFAULT, SessionPermissionMode.ASK, channel);
         }
 
         CatalogRecord withTitle(String newTitle, TitleSource newSource) {
-            return new CatalogRecord(id, ownerId, kind, projectId, newTitle, lastMessagePreview, createAt, updateAt, status, newSource, permissionMode);
+            return new CatalogRecord(id, ownerId, kind, projectId, newTitle, lastMessagePreview, createAt, updateAt, status, newSource, permissionMode, channel);
         }
 
         CatalogRecord withPreview(String preview) {
-            return new CatalogRecord(id, ownerId, kind, projectId, title, preview, createAt, updateAt, status, titleSource, permissionMode);
+            return new CatalogRecord(id, ownerId, kind, projectId, title, preview, createAt, updateAt, status, titleSource, permissionMode, channel);
         }
 
         CatalogRecord withStatus(SessionStatus newStatus) {
-            return new CatalogRecord(id, ownerId, kind, projectId, title, lastMessagePreview, createAt, updateAt, newStatus, titleSource, permissionMode);
+            return new CatalogRecord(id, ownerId, kind, projectId, title, lastMessagePreview, createAt, updateAt, newStatus, titleSource, permissionMode, channel);
         }
 
         CatalogRecord withPermissionMode(SessionPermissionMode newMode) {
-            return new CatalogRecord(id, ownerId, kind, projectId, title, lastMessagePreview, createAt, updateAt, status, titleSource, newMode);
+            return new CatalogRecord(id, ownerId, kind, projectId, title, lastMessagePreview, createAt, updateAt, status, titleSource, newMode, channel);
         }
 
         CatalogRecord detachProject() {
-            return new CatalogRecord(id, ownerId, SessionKind.GENERAL, null, title, lastMessagePreview, createAt, updateAt, status, titleSource, permissionMode);
+            return new CatalogRecord(id, ownerId, SessionKind.GENERAL, null, title, lastMessagePreview, createAt, updateAt, status, titleSource, permissionMode, channel);
+        }
+
+        CatalogRecord withChannel(SessionChannel newChannel) {
+            return new CatalogRecord(id, ownerId, kind, projectId, title, lastMessagePreview, createAt, updateAt, status, titleSource, permissionMode, newChannel);
+        }
+
+        SessionChannel effectiveChannel() {
+            return channel == null ? SessionChannel.DESKTOP : channel;
         }
 
         TitleSource effectiveTitleSource() {

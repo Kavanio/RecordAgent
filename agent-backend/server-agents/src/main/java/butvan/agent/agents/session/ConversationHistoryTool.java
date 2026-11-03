@@ -85,7 +85,7 @@ public class ConversationHistoryTool implements AgentToolModule {
     private List<SessionSummaryDto> scope(RuntimeContext context) {
         if (context == null || context.getSessionId() == null) throw new IllegalArgumentException("缺少当前会话身份");
         var current = sessions.requireActive(context.getSessionId());
-        return sessions.listActive().stream().filter(s -> s.kind() == current.kind()
+        return sessions.listActive(sessions.getChannel(current.id())).stream().filter(s -> s.kind() == current.kind()
                 && Objects.equals(s.projectId(), current.projectId())).toList();
     }
 

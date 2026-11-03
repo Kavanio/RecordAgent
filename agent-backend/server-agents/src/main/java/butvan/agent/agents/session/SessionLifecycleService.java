@@ -38,7 +38,7 @@ public class SessionLifecycleService {
 
 
     public List<SessionSummaryDto> listSessions() {
-        return sessionCatalogService.listActive();
+        return sessionCatalogService.listActive(butvan.agent.agents.session.dto.SessionChannel.DESKTOP);
     }
 
     public SessionSummaryDto createSession(CreateSessionRequest request) {
@@ -46,7 +46,7 @@ public class SessionLifecycleService {
     }
 
     public SessionDetailDto getDetail(String sessionId) {
-        SessionSummaryDto summary = sessionCatalogService.requireActive(sessionId);
+        SessionSummaryDto summary = sessionCatalogService.requireDesktopActive(sessionId);
         List<TranscriptMessageDto> messages = transcriptService.list(sessionId);
         int turnCount = (int) messages.stream()
                 .filter(message -> message.role() == TranscriptMessageDto.MessageRole.ASSISTANT)
@@ -64,18 +64,22 @@ public class SessionLifecycleService {
     }
 
     public SessionSummaryDto updateTitle(String sessionId, String title) {
+        sessionCatalogService.requireDesktopActive(sessionId);
         return sessionCatalogService.updateTitle(sessionId, title);
     }
 
     public SessionSummaryDto generateTitle(String sessionId) {
+        sessionCatalogService.requireDesktopActive(sessionId);
         return sessionTitleService.generateIfNeeded(sessionId);
     }
 
     public SessionPermissionMode getPermissionMode(String sessionId) {
+        sessionCatalogService.requireDesktopActive(sessionId);
         return sessionCatalogService.getPermissionMode(sessionId);
     }
 
     public SessionPermissionMode updatePermissionMode(String sessionId, SessionPermissionMode mode) {
+        sessionCatalogService.requireDesktopActive(sessionId);
         return sessionCatalogService.updatePermissionMode(sessionId, mode);
     }
 
@@ -84,6 +88,7 @@ public class SessionLifecycleService {
      * @param sessionId
      */
     public void deleteSession(String sessionId) {
+        sessionCatalogService.requireDesktopChannel(sessionId);
         sessionCatalogService.markDeleting(sessionId);
         checkpointService.deleteSession(sessionId);
         transcriptService.delete(sessionId);
