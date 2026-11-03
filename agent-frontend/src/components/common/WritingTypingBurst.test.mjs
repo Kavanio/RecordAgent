@@ -24,7 +24,7 @@ beforeEach(async () => {
   window.requestAnimationFrame = callback => { const key = ++id; frames.set(key, callback); return key; };
   window.cancelAnimationFrame = key => frames.delete(key);
   window.setTimeout = (callback, duration, ...args) => {
-    if (duration !== 560) return originalTimeout(callback, duration, ...args);
+    if (duration !== 460) return originalTimeout(callback, duration, ...args);
     const key = ++id; timers.set(key, callback); return key;
   };
   window.clearTimeout = key => { if (!timers.delete(key)) originalClearTimeout(key); };
@@ -73,8 +73,7 @@ test('字母和数字在当前光标处炸开微型图标，动画不进入正�
   assert.equal(bursts().length, 1);
   assert.equal(bursts()[0].style.left, '120px');
   assert.equal(bursts()[0].style.top, '110px');
-  assert.equal(bursts()[0].firstElementChild.style.top, '-22px', '粒子在字形顶部之外保留空隙');
-  assert.equal(bursts()[0].querySelectorAll('svg').length, 4);
+  assert.equal(bursts()[0].querySelectorAll('svg').length, 3);
   assert.equal(bursts()[0].parentElement.getAttribute('aria-hidden'), 'true');
   editor.view.coordsAtPos = () => ({ left: 150, right: 150, top: 130, bottom: 150 });
   await input('1'); await advance();
@@ -128,10 +127,10 @@ test('软换行取最后输入字形的右边缘，同帧连续输入采用最�
     assert.equal(bursts().length, 1);
     assert.equal(bursts()[0].style.left, '90px');
     assert.equal(bursts()[0].style.top, '100px');
-    assert.equal(bursts()[0].firstElementChild.style.top, '-22px');
+    assert.equal(bursts()[0].firstElementChild.style.top, '', '粒子从字尾中线向前喷散，不上移成团');
     window.Range.prototype.getClientRects = () => [{ left: 60, right: 90, top: 80, bottom: 120, height: 40 }];
     await input('大'); await advance();
-    assert.equal(bursts()[1].firstElementChild.style.top, '-32px', '大字号按字高增加避让空间');
+    assert.equal(bursts()[1].style.top, '100px', '大字号也从实际字形中线向前喷散');
   } finally {
     if (original) window.Range.prototype.getClientRects = original;
     else delete window.Range.prototype.getClientRects;
@@ -149,11 +148,11 @@ test('删除、粘贴、撤销、空格及光标移动均不产生特效', async
   assert.equal(bursts().length, 0);
 });
 
-test('高速输入最多保留三组避免密集遮字，滚动清除旧位置特效且卸载取消待执行帧', async () => {
+test('高速输入最多保留两组避免堆积，滚动清除旧位置特效且卸载取消待执行帧', async () => {
   await render();
   for (let i = 0; i < 12; i++) { await input(String(i)); await advance(); }
-  assert.equal(bursts().length, 3);
-  assert.equal(timers.size, 3);
+  assert.equal(bursts().length, 2);
+  assert.equal(timers.size, 2);
   await act(async () => window.dispatchEvent(new window.Event('scroll')));
   assert.equal(bursts().length, 0);
   assert.equal(timers.size, 0);
@@ -186,7 +185,7 @@ test('编辑器接收设置变化，关闭即清理特效，emoji 与自定义�
   await render();
   await act(async () => preferences.updateWritingEffectPreferences({ style: 'emoji', emojis: ['🌸'] }));
   await input('花'); await advance();
-  assert.equal(bursts()[0].textContent, '🌸'.repeat(8));
+  assert.equal(bursts()[0].textContent, '🌸'.repeat(6));
   await act(async () => preferences.updateWritingEffectPreferences({ enabled: false }));
   assert.equal(bursts().length, 0);
   assert.equal(timers.size, 0);
@@ -195,6 +194,6 @@ test('编辑器接收设置变化，关闭即清理特效，emoji 与自定义�
     { id: 'sticker', name: '贴纸.png', dataUrl: 'data:image/png;base64,iVBORw0KGgo=' },
   ] }));
   await input('图'); await advance();
-  assert.equal(bursts()[0].querySelectorAll('img').length, 8);
+  assert.equal(bursts()[0].querySelectorAll('img').length, 6);
   assert.equal(bursts()[0].style.left, '120px');
 });

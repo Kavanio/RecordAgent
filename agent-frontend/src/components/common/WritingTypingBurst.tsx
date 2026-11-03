@@ -14,11 +14,10 @@ interface Burst {
   id: number;
   x: number;
   y: number;
-  clearance: number;
 }
 
-const MAX_BURSTS = 3;
-const LIFETIME_MS = 560;
+const MAX_BURSTS = 2;
+const LIFETIME_MS = 460;
 
 /** 正文光标旁的微型打字烟花；仅观察输入，不修改编辑器文档或选区。 */
 export function WritingTypingBurst({ editor }: WritingTypingBurstProps) {
@@ -56,11 +55,11 @@ export function WritingTypingBurst({ editor }: WritingTypingBurstProps) {
         const caret = pendingCaret;
         pendingCaret = null;
         if (!caret || !preferencesRef.current.enabled || media.matches || editor.isDestroyed || !editor.view.hasFocus() || composing) return;
-        const { x, y, clearance } = caret;
+        const { x, y } = caret;
         if (!Number.isFinite(x) || !Number.isFinite(y)
           || x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return;
         const id = ++nextId.current;
-        setBursts(current => [...current.slice(-(MAX_BURSTS - 1)), { id, x, y, clearance }]);
+        setBursts(current => [...current.slice(-(MAX_BURSTS - 1)), { id, x, y }]);
         if (timers.size >= MAX_BURSTS) {
           const oldestId = timers.keys().next().value;
           if (oldestId !== undefined) {
@@ -114,7 +113,7 @@ export function WritingTypingBurst({ editor }: WritingTypingBurstProps) {
       {bursts.map(burst => (
         <span key={burst.id} className={styles.burst} data-typing-burst=""
           style={{ left: burst.x, top: burst.y }}>
-          <WritingBurstParticles preferences={preferences} seed={burst.id} clearance={burst.clearance} />
+          <WritingBurstParticles preferences={preferences} seed={burst.id} />
         </span>
       ))}
     </div>,

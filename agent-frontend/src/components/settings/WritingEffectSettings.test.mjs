@@ -74,7 +74,7 @@ test('上传图片、使用统一缩略图、切换图片模式并删除，配�
   assert.equal(preferences.getWritingEffectPreferences().images.length, 1);
   await selectStyle('images');
   await handle.click('预览特效');
-  assert.equal(handle.queryAll('img[alt=""]').length, 8);
+  assert.equal(handle.queryAll('img[alt=""]').length, 6);
   await act(async () => handle.query('[aria-label="删除特效图片 我的贴纸.png"]').click());
   assert.equal(handle.query('img[alt="我的贴纸.png"]'), null);
   assert.equal(preferences.getWritingEffectPreferences().images.length, 0);

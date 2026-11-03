@@ -1,4 +1,4 @@
-.origin { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; user-select: none; }
+.origin { position: absolute; left: 12px; top: 0; width: 0; height: 0; pointer-events: none; user-select: none; }
 .particle {
   position: absolute;
   left: -7px;
@@ -19,13 +19,11 @@
 .particle:nth-child(4) { color: #f97316; }
 .particle:nth-child(5) { color: #f43f5e; }
 .particle:nth-child(6) { color: #8b5cf6; }
-.particle:nth-child(7) { color: #06b6d4; }
-.particle:nth-child(8) { color: #ec4899; }
 @keyframes scatter {
   0% { opacity: 0; transform: translate(0, 0) scale(.4) rotate(var(--start-turn)); }
-  12% { opacity: 1; }
-  30% { opacity: 1; transform: translate(var(--kick-x), var(--kick-y)) scale(1) rotate(var(--start-turn)); }
-  62% { opacity: .95; transform: translate(var(--float-x), var(--float-y)) scale(.95) rotate(var(--float-turn)); }
+  16% { opacity: .9; }
+  30% { opacity: 1; transform: translate(var(--kick-x), var(--kick-y)) scale(.9) rotate(var(--start-turn)); }
+  62% { opacity: .7; transform: translate(var(--float-x), var(--float-y)) scale(1) rotate(var(--float-turn)); }
   100% { opacity: 0; transform: translate(var(--end-x), var(--end-y)) scale(.6) rotate(var(--end-turn)); }
 }
 @media (prefers-reduced-motion: reduce) { .origin { display: none; } .particle { animation: none; } }

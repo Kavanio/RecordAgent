@@ -1,7 +1,7 @@
 import type { Editor } from '@tiptap/core';
 
 /** 在输入事件发生时冻结刚输入文字末尾的视口坐标，避免后续选区移动改变爆点。 */
-export function captureWritingCaret(editor: Editor): { x: number; y: number; clearance: number } | null {
+export function captureWritingCaret(editor: Editor): { x: number; y: number } | null {
   if (editor.isDestroyed) return null;
   const { dom } = editor.view;
   const selection = dom.ownerDocument.getSelection();
@@ -18,12 +18,12 @@ export function captureWritingCaret(editor: Editor): { x: number; y: number; cle
     const rect = rects.filter(item => item.height > 0).at(-1);
     if (rect) {
       const rtl = getComputedStyle(node.parentElement ?? dom).direction === 'rtl';
-      return { x: rtl ? rect.left : rect.right, y: (rect.top + rect.bottom) / 2, clearance: rect.height / 2 + 12 };
+      return { x: rtl ? rect.left : rect.right, y: (rect.top + rect.bottom) / 2 };
     }
   }
   try {
     const caret = editor.view.coordsAtPos(editor.state.selection.head, -1);
-    return { x: caret.left, y: (caret.top + caret.bottom) / 2, clearance: (caret.bottom - caret.top) / 2 + 12 };
+    return { x: caret.left, y: (caret.top + caret.bottom) / 2 };
   } catch {
     // 装饰不具备可靠坐标时直接跳过，不让暂时缺少布局影响输入。
     return null;
