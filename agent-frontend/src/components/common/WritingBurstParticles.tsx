@@ -20,7 +20,7 @@ function particleMotion(seed: number, index: number): CSSProperties {
     return (state >>> 0) / 0x100000000;
   };
   const branch = index % 3 - 1;
-  const endX = index < 3 ? 48 + random() * 18 : 76 + random() * 20;
+  const endX = index < 3 ? 24 + random() * 8 : 38 + random() * 12;
   const endY = branch * endX * (.38 + random() * .18) + (random() - .5) * 4;
   const spin = (random() < .5 ? -1 : 1) * (45 + random() * 90);
   const px = (value: number) => `${value.toFixed(2)}px`;
