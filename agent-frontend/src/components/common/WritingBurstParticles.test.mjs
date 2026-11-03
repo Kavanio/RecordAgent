@@ -30,7 +30,7 @@ test('轨迹远近、角度和节奏各不相同，形成小簇喷散而非等�
   const angles = particles.map(particle => Math.atan2(value(particle, 'kick-y'), value(particle, 'kick-x'))).sort((a, b) => a - b);
   const gaps = angles.map((angle, i) => (angles[(i + 1) % angles.length] - angle + Math.PI * 2) % (Math.PI * 2));
   assert.ok(Math.max(...gaps) - Math.min(...gaps) > .4);
-  assert.equal(particles.filter(particle => value(particle, 'kick-y') < 0).length, 6);
+  assert.equal(particles.filter(particle => value(particle, 'kick-y') < 0).length, 8);
 });
 
 test('多次输入均保持小范围且早于回收结束，重渲染与换图案不会重抽轨迹', async () => {
@@ -40,6 +40,7 @@ test('多次输入均保持小范围且早于回收结束，重渲染与换图�
       for (const phase of ['kick', 'float', 'end']) {
         const radius = Math.hypot(value(particle, `${phase}-x`), value(particle, `${phase}-y`));
         assert.ok(Number.isFinite(radius) && radius <= 34.02, `seed ${seed} 的 ${phase} 轨迹超出小范围`);
+        assert.ok(value(particle, `${phase}-y`) < 0, '粒子弹出和回落均应保持在文字上方');
       }
       assert.ok(value(particle, 'duration') + value(particle, 'delay') <= 534);
     }
