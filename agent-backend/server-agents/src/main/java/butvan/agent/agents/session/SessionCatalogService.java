@@ -80,6 +80,23 @@ public class SessionCatalogService {
         return create(new CreateSessionRequest(SessionKind.GENERAL, "飞书对话"), SessionChannel.FEISHU);
     }
 
+    /**
+     * 解析或创建当前用户的唯一日常主对话（优先绑定飞书主会话，无飞书时复用最新普通会话）。
+     */
+    public synchronized SessionSummaryDto resolveOrCreateCompanionSession(boolean preferFeishu) {
+        List<SessionSummaryDto> feishuSessions = listActive(SessionChannel.FEISHU);
+        if (!feishuSessions.isEmpty()) {
+            return feishuSessions.getFirst();
+        }
+        if (preferFeishu) {
+            return createFeishuSession();
+        }
+        return listActive(SessionChannel.DESKTOP).stream()
+                .filter(s -> s.kind() == SessionKind.GENERAL)
+                .findFirst()
+                .orElseGet(() -> create(new CreateSessionRequest(SessionKind.GENERAL, "日常陪伴"), SessionChannel.DESKTOP));
+    }
+
     private SessionSummaryDto create(CreateSessionRequest request, SessionChannel channel) {
         SessionKind kind = request != null && request.kind() != null ? request.kind() : SessionKind.GENERAL;
         String projectId = request == null ? null : request.projectId();
@@ -397,7 +414,7 @@ public class SessionCatalogService {
         }
 
         CatalogRecord withPreview(String preview) {
-            return new CatalogRecord(id, ownerId, kind, projectId, title, preview, createAt, updateAt, status, titleSource, permissionMode, channel);
+            return new CatalogRecord(id, ownerId, kind, projectId, title, preview, createAt, Instant.now(), status, titleSource, permissionMode, channel);
         }
 
         CatalogRecord withStatus(SessionStatus newStatus) {
