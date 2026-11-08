@@ -3,7 +3,7 @@
   "checkpoint_id": "01M6YRV113KDVGHNAW92NF3YEW",
   "strategy": "manual-commit",
   "branch": "desktop/proactive-companion",
-  "checkpoints_count": 5,
+  "checkpoints_count": 7,
   "files_touched": [
     "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/AgentService.java",
     "agent-backend/server-agents/src/main/java/butvan/agent/agents/session/SessionCatalogService.java",
@@ -18,15 +18,21 @@
       "transcript": "/0/full.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": ""
     }
   ],
   "redaction": {
-    "replacements": 10,
+    "replacements": 11,
     "layers": {
       "betterleaks": 10,
       "connection_string": 0,
       "credential_key": 0,
-      "credential_value": 0,
+      "credential_value": 1,
       "credentialed_uri": 0,
       "entropy": 0,
       "key_context": 0,
