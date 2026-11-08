@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6YRV113KDVGHNAW92NF3YEW",
+  "strategy": "manual-commit",
+  "branch": "desktop/proactive-companion",
+  "checkpoints_count": 5,
+  "files_touched": [
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/AgentService.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/session/SessionCatalogService.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/session/TranscriptService.java",
+    "agent-backend/server-agents/src/test/java/butvan/agent/agents/session/SessionCatalogServiceTest.java",
+    "agent-backend/server-feishu/src/main/java/butvan/agent/feishu/service/FeishuChatService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/chat/service/AgentChatContextService.java"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 10,
+    "layers": {
+      "betterleaks": 10,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
