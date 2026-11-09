@@ -55,7 +55,9 @@ import {
 } from './services/taskApi';
 import { fetchProjects, importProject, removeProject as removeProjectApi } from './services/projectApi';
 import { lifeReviewApi } from './services/lifeReviewApi';
-import { deliverTaskNotification, isTaskDesktop } from './services/taskDesktop';
+import { fetchFeishuConversations } from './services/feishuConversationService';
+import { deliverTaskNotification } from './services/taskDesktop';
+import type { LifeCompanionView } from './types/lifeReview';
 
 interface ActiveChatRun {
   runId: string;
@@ -170,55 +172,93 @@ export const MainLayout: React.FC<{
 
   useEffect(() => {
     let stopped = false;
+    const processCompanionView = (companion: LifeCompanionView | null | undefined) => {
+      if (stopped || !companion?.pendingDesktopNotices?.length) return;
+      for (const notice of companion.pendingDesktopNotices) {
+        if (notice.acknowledged || ackedCompanionNoticesRef.current.has(notice.id)) continue;
+        ackedCompanionNoticesRef.current.add(notice.id);
+        void lifeReviewApi.ackDesktopNotice(notice.id).catch(() => {});
+
+        const ts = Date.parse(notice.createdAt) || Date.now();
+        void deliverTaskNotification({
+          id: notice.id,
+          taskId: 'companion',
+          title: notice.title || 'Agent 主动问候',
+          content: notice.content,
+          plannedAt: ts,
+          createdAt: ts,
+          source: 'COMPANION',
+          status: 'RUNNING',
+          desktopStatus: 'PENDING',
+          emailStatus: 'SKIPPED',
+          confirmation: 'NONE',
+          sound: true,
+          error: '',
+        }).catch(() => {});
+
+        showMessage('info', `💬 ${notice.title || 'Agent 主动问候'}：${notice.content.slice(0, 120)}`, {
+          duration: 10000,
+          action: {
+            label: '去回复',
+            onClick: () => {
+              setIsSettingsOpen(false);
+              setActiveFeature('chat');
+              if (!notice.sessionId) return;
+              void fetchFeishuConversations()
+                .then((feishuList) => {
+                  const matchedFeishu = feishuList.find((s) => s.id === notice.sessionId);
+                  if (matchedFeishu) {
+                    selectFeishuSession(matchedFeishu);
+                  } else {
+                    setActiveSessionId(notice.sessionId);
+                  }
+                })
+                .catch(() => {
+                  setActiveSessionId(notice.sessionId);
+                });
+            },
+          },
+        });
+
+        if (notice.sessionId) {
+          void fetchSessionDetail(notice.sessionId).then((detail) => {
+            if (!detail || stopped) return;
+            const messages = detail.messages.map(mapTranscriptToChatMessage);
+            setSessions((previous) => previous.map((session) => session.id === notice.sessionId
+              ? { ...session, title: detail.summary.title, lastMessagePreview: detail.summary.lastMessagePreview, messages, usageSummary: detail.usageSummary, isLoaded: true }
+              : session));
+          }).catch(() => {});
+        }
+      }
+    };
+
     const pollCompanionNotices = async () => {
       try {
         const companion = await lifeReviewApi.companion();
-        if (stopped || !companion?.pendingDesktopNotices?.length) return;
-        for (const notice of companion.pendingDesktopNotices) {
-          if (notice.acknowledged || ackedCompanionNoticesRef.current.has(notice.id)) continue;
-          ackedCompanionNoticesRef.current.add(notice.id);
-          void lifeReviewApi.ackDesktopNotice(notice.id).catch(() => {});
-          if (isTaskDesktop()) {
-            const ts = Date.parse(notice.createdAt) || Date.now();
-            void deliverTaskNotification({
-              id: notice.id,
-              taskId: 'companion',
-              title: notice.title || 'Agent 主动问候',
-              content: notice.content,
-              plannedAt: ts,
-              createdAt: ts,
-              source: 'COMPANION',
-              status: 'RUNNING',
-              desktopStatus: 'PENDING',
-              emailStatus: 'SKIPPED',
-              confirmation: 'NONE',
-              sound: true,
-              error: '',
-            }).catch(() => {});
-          } else {
-            showMessage('info', `${notice.title || 'Agent 主动问候'}：${notice.content.slice(0, 80)}`);
-          }
-          if (notice.sessionId && notice.sessionId === activeSessionIdRef.current) {
-            void fetchSessionDetail(notice.sessionId).then((detail) => {
-              if (!detail || stopped) return;
-              const messages = detail.messages.map(mapTranscriptToChatMessage);
-              setSessions((previous) => previous.map((session) => session.id === notice.sessionId
-                ? { ...session, title: detail.summary.title, lastMessagePreview: detail.summary.lastMessagePreview, messages, usageSummary: detail.usageSummary, isLoaded: true }
-                : session));
-            }).catch(() => {});
-          }
-        }
+        processCompanionView(companion);
       } catch {
         // 静默忽略未启动或未配置状态
       }
     };
+
+    const onCompanionOutreachUpdated = (event: Event) => {
+      const custom = event as CustomEvent<LifeCompanionView>;
+      if (custom.detail) {
+        processCompanionView(custom.detail);
+      } else {
+        void pollCompanionNotices();
+      }
+    };
+
+    window.addEventListener('companion-outreach-updated', onCompanionOutreachUpdated);
     void pollCompanionNotices();
     const timer = window.setInterval(() => { void pollCompanionNotices(); }, 15000);
     return () => {
       stopped = true;
+      window.removeEventListener('companion-outreach-updated', onCompanionOutreachUpdated);
       window.clearInterval(timer);
     };
-  }, [showMessage]);
+  }, [showMessage, selectFeishuSession, setActiveSessionId, setIsSettingsOpen]);
 
   const syncSessionDetail = useCallback(async (sessionId: string, generateTitle = false) => {
     setSessionLoadErrors((previous) => {

@@ -20,7 +20,22 @@ export async function listenTaskActivity(receive: (sample: ComputerActivity) => 
   return listen<ComputerActivity>('task-activity', event => receive(event.payload));
 }
 export async function deliverTaskNotification(run: AutomationRun): Promise<'SUBMITTED' | 'SKIPPED'> {
-  if (!isTauri()) return 'SKIPPED';
+  if (!isTauri()) {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      try {
+        if (window.Notification.permission === 'default') {
+          await window.Notification.requestPermission();
+        }
+        if (window.Notification.permission === 'granted') {
+          new window.Notification(run.title, { body: run.content.slice(0, 300) });
+          return 'SUBMITTED';
+        }
+      } catch {
+        // 忽略浏览器通知异常
+      }
+    }
+    return 'SKIPPED';
+  }
   await invoke('send_task_notification', { title: run.title, body: run.content.slice(0, 300) || '任务已完成，请在任务页查看。', sound: run.sound });
   return 'SUBMITTED';
 }

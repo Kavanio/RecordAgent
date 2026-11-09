@@ -95,7 +95,7 @@ export function LifeCompanionSection({
                 disabled={busy}
                 onClick={() => void act(
                   () => lifeReviewApi.reachOutCompanion(),
-                  '已生成主动问候并同步至唯一主对话',
+                  '',
                 )}
               >
                 立即主动问候一次

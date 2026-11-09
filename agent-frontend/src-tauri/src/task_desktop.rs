@@ -143,6 +143,15 @@ pub fn send_task_notification(app: tauri::AppHandle, title: String, body: String
     #[cfg(target_os = "macos")]
     {
         if task_notification_status().mode == "DEV_FALLBACK" {
+            let _ = std::process::Command::new("/usr/bin/osascript")
+                .args([
+                    "-e",
+                    "on run argv\ndisplay notification (item 2 of argv) with title (item 1 of argv)\nend run",
+                    "--",
+                    &title,
+                    &body,
+                ])
+                .spawn();
             if sound {
                 app.run_on_main_thread(|| {
                     use objc2_app_kit::NSSound;
@@ -160,7 +169,11 @@ pub fn send_task_notification(app: tauri::AppHandle, title: String, body: String
             }
             return Ok(());
         }
-        let settings = task_notification_status();
+        let mut settings = task_notification_status();
+        if !settings.authorized {
+            let _ = crate::notification_authorization::request();
+            settings = task_notification_status();
+        }
         if !settings.authorized || !settings.alert_enabled {
             return Err("请在系统设置 → 通知 → ButvanAgent 开启通知横幅".into());
         }

@@ -64,7 +64,13 @@ export function useLifeReview() {
   async function act(work: () => Promise<unknown>, message: string) {
     if (busy) return;
     setBusy(true);
-    try { await work(); if (live.current) { showMessage('success', message); await load(); } }
+    try {
+      await work();
+      if (live.current) {
+        if (message) showMessage('success', message);
+        await load();
+      }
+    }
     catch (e) { if (live.current) showMessage('error', e instanceof Error ? e.message : '操作未完成'); }
     finally { if (live.current) setBusy(false); }
   }

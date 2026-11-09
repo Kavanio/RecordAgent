@@ -67,6 +67,12 @@ export const lifeReviewApi = {
   saveCognition: (input: SaveLifeCognitionInput) => request<LifeCompanionView>('/companion/cognition', 'PUT', input),
   enableCompanion: (input: EnableLifeCompanionInput) => request<LifeCompanionView>('/companion/enable', 'POST', input),
   learnCompanion: () => request<LifeCompanionView>('/companion/learn', 'POST'),
-  reachOutCompanion: (reasonHint?: string) => request<LifeCompanionView>('/companion/reach-out', 'POST', { reasonHint: reasonHint || '' }),
+  reachOutCompanion: async (reasonHint?: string) => {
+    const view = await request<LifeCompanionView>('/companion/reach-out', 'POST', { reasonHint: reasonHint || '' });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('companion-outreach-updated', { detail: view }));
+    }
+    return view;
+  },
   ackDesktopNotice: (id: string) => request<void>(`/companion/desktop-notices${idPath(id)}/ack`, 'POST'),
 };
