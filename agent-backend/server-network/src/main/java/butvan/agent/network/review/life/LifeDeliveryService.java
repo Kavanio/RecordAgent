@@ -1,9 +1,13 @@
 package butvan.agent.network.review.life;
 
+import butvan.agent.agents.agent.AgentService;
 import butvan.agent.agents.reset.ResetBarrier;
 import butvan.agent.agents.review.PersonalDeliveryPort;
+import butvan.agent.agents.session.SessionCatalogService;
+import butvan.agent.agents.session.TranscriptService;
 import butvan.agent.network.review.life.LifeReviewModels.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -20,6 +24,14 @@ public class LifeDeliveryService {
     private final List<PersonalDeliveryPort> channels;
     private final Clock automationClock;
     private final PlatformTransactionManager transactions;
+    @Autowired(required = false)
+    private LifeCompanionStore companionStore;
+    @Autowired(required = false)
+    private SessionCatalogService sessionCatalog;
+    @Autowired(required = false)
+    private AgentService agentService;
+    @Autowired(required = false)
+    private TranscriptService transcriptService;
 
     /** 只允许当前授权生成的已完成版本；重试不会重新读取资料或重新生成。 */
     public void send(String owner, String contentId, boolean retry) {
@@ -65,6 +77,9 @@ public class LifeDeliveryService {
             String state = result != null && Set.of("SENT", "FAILED").contains(result.state()) ? result.state() : "UNKNOWN";
             repository.nudgeState(n.id(), "SENDING", state,
                     result == null || result.messageId() == null ? "" : result.messageId(), automationClock.instant());
+            if ("SENT".equals(state) && !dedupKey.startsWith("companion:") && !dedupKey.startsWith("manual:")) {
+                syncToCompanionSession(owner, kind, "Agent 主动提醒", LifeCompanionService.naturalizeTemplateText(n.text()));
+            }
         }
     }
 
@@ -115,6 +130,25 @@ public class LifeDeliveryService {
             String state = result != null && Set.of("SENT", "FAILED").contains(result.state()) ? result.state() : "UNKNOWN";
             repository.deliveryState(d.id(), "SENDING", state,
                     result == null || result.messageId() == null ? "" : result.messageId(), automationClock.instant());
+            if ("SENT".equals(state)) {
+                syncToCompanionSession(owner, "LIFE_REVIEW", "每日复盘与跟进", LifeCompanionService.naturalizeTemplateText(body));
+            }
+        }
+    }
+
+    private void syncToCompanionSession(String owner, String kind, String title, String text) {
+        if (companionStore == null || sessionCatalog == null || text == null || text.isBlank()) return;
+        try {
+            var session = sessionCatalog.resolveOrCreateCompanionSession(!channels.isEmpty() && channels.getFirst().target().available());
+            if (session == null) return;
+            if (agentService != null) {
+                agentService.appendProactiveMessageToSession(session.id(), text);
+            } else if (transcriptService != null) {
+                transcriptService.appendProactiveAssistantMessage(session.id(), text);
+                sessionCatalog.touch(session.id(), text);
+            }
+            companionStore.appendDesktopNotice(owner, session.id(), kind, title, text, automationClock.instant());
+        } catch (RuntimeException ignored) {
         }
     }
 

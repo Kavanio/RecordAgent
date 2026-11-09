@@ -3,8 +3,10 @@ package butvan.agent.network.review.life;
 import butvan.agent.agents.identity.CurrentUserProvider;
 import butvan.agent.network.annotation.ApiLog;
 import butvan.agent.network.common.Result;
+import butvan.agent.network.review.life.LifeCompanionModels.*;
 import butvan.agent.network.review.life.LifeReviewDtos.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -19,6 +21,8 @@ public class LifeReviewController {
     private final LifeDeliveryService delivery;
     private final LifeOutreachService outreach;
     private final LifeReplyService replies;
+    @Autowired(required = false)
+    private LifeCompanionService companion;
 
     @ApiLog("读取生活复盘独立设置") @GetMapping("/settings")
     public Result<SettingsView> settings() { return Result.success(authorization.view(user.currentUserId())); }
@@ -75,5 +79,36 @@ public class LifeReviewController {
     @ApiLog("提交主动短消息反馈") @PostMapping("/nudges/{id}/feedback")
     public Result<List<NudgeView>> nudgeFeedback(@PathVariable String id, @RequestBody NudgeFeedback input) {
         outreach.nudgeFeedback(user.currentUserId(), id, input); return Result.success(outreach.nudges(user.currentUserId()));
+    }
+    @ApiLog("读取系统性认知与主动陪伴状态") @GetMapping("/companion")
+    public Result<CompanionView> companion() {
+        return Result.success(requireCompanion().view(user.currentUserId()));
+    }
+    @ApiLog("修改并保存系统性用户认知") @PutMapping("/companion/cognition")
+    public Result<CompanionView> saveCognition(@RequestBody SaveCognitionRequest input) {
+        return Result.success(requireCompanion().saveCognition(user.currentUserId(), input));
+    }
+    @ApiLog("一键开启或配置主动陪伴与认知学习") @PostMapping("/companion/enable")
+    public Result<CompanionView> enableCompanion(@RequestBody EnableCompanionRequest input) {
+        return Result.success(requireCompanion().enableCompanion(user.currentUserId(), input));
+    }
+    @ApiLog("立即触发全量资料系统性认知学习") @PostMapping("/companion/learn")
+    public Result<CompanionView> learnCompanion() {
+        return Result.success(requireCompanion().learnNow(user.currentUserId()));
+    }
+    @ApiLog("立即触发一次自然口语化主动问候并写入主对话") @PostMapping("/companion/reach-out")
+    public Result<CompanionView> reachOutCompanion(@RequestBody(required = false) ReachOutRequest input) {
+        return Result.success(requireCompanion().reachOutNow(
+                user.currentUserId(), input == null ? null : input.reasonHint()));
+    }
+    @ApiLog("确认已弹出桌面主动问候通知") @PostMapping("/companion/desktop-notices/{id}/ack")
+    public Result<Void> ackDesktopNotice(@PathVariable String id) {
+        requireCompanion().acknowledgeDesktopNotice(user.currentUserId(), id);
+        return Result.success(null);
+    }
+
+    private LifeCompanionService requireCompanion() {
+        if (companion == null) throw new IllegalStateException("主动陪伴服务未启用");
+        return companion;
     }
 }

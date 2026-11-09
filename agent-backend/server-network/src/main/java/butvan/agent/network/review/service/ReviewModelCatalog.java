@@ -47,4 +47,36 @@ public class ReviewModelCatalog {
                 : switch (type) { case "deepseek", "openai" -> "openai"; default -> type; };
         return new ModelIdentity(providerId, modelName, protocol, butvan.agent.agents.review.ReviewConnectionIdentity.fingerprint(providerId, modelName, type, provider.getProtocol(), provider.getBaseUrl()));
     }
+
+    /**
+     * 当未指定固定模型或指定为 ACTIVE 时，自动选用当前已启用的首个可用模型连接，换模型无需重新授权。
+     */
+    public ModelIdentity resolveOrActive(String providerId, String modelName) {
+        if (providerId != null && !providerId.isBlank() && !"ACTIVE".equalsIgnoreCase(providerId)
+                && modelName != null && !modelName.isBlank()) {
+            return resolve(providerId, modelName);
+        }
+        try {
+            var path = config.getConfigPath();
+            if (Files.isRegularFile(path) && Files.size(path) <= 2_000_000) {
+                var data = mapper.readValue(Files.readAllBytes(path), LocalConfigService.ModelConfigData.class);
+                if (data != null && data.getProviders() != null) {
+                    for (var provider : data.getProviders()) {
+                        if (provider == null || !Boolean.TRUE.equals(provider.getIsEnabled())
+                                || provider.getModels() == null || provider.getModels().isEmpty()) continue;
+                        var firstModel = provider.getModels().stream().filter(java.util.Objects::nonNull).findFirst().orElse(null);
+                        if (firstModel == null) continue;
+                        String resolvedName = firstModel.getModelName() == null || firstModel.getModelName().isBlank()
+                                ? firstModel.getName() : firstModel.getModelName();
+                        if (resolvedName != null && !resolvedName.isBlank()) {
+                            return new ModelIdentity("ACTIVE", resolvedName, "openai", "ACTIVE");
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // 回退到动态主模型标识
+        }
+        return new ModelIdentity("ACTIVE", modelName == null || modelName.isBlank() ? "当前聊天主模型" : modelName, "openai", "ACTIVE");
+    }
 }

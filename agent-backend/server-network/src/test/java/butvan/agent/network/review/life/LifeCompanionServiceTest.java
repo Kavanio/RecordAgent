@@ -1,0 +1,194 @@
+package butvan.agent.network.review.life;
+
+import butvan.agent.agents.context.PersonalContextService;
+import butvan.agent.agents.reset.ResetBarrier;
+import butvan.agent.agents.review.PersonalDeliveryPort;
+import butvan.agent.agents.session.SessionCatalogService;
+import butvan.agent.agents.session.TranscriptService;
+import butvan.agent.agents.session.dto.SessionKind;
+import butvan.agent.agents.session.dto.SessionStatus;
+import butvan.agent.agents.session.dto.SessionSummaryDto;
+import butvan.agent.agents.session.dto.TranscriptMessageDto;
+import butvan.agent.agents.storage.AgentStorageProperties;
+import butvan.agent.agents.usage.ApproximateTokenCounter;
+import butvan.agent.network.config.database.LocalDatabaseConfiguration;
+import butvan.agent.network.record.service.RecordService;
+import butvan.agent.network.review.life.LifeCompanionModels.*;
+import butvan.agent.network.review.model.ReviewModels.ModelIdentity;
+import butvan.agent.network.review.service.ReviewGoalService;
+import butvan.agent.network.review.service.ReviewModelCatalog;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@SpringBootTest(classes = LifeCompanionServiceTest.App.class)
+class LifeCompanionServiceTest {
+    private static final Path ROOT = tempDir();
+    private static final Instant START = Instant.parse("2026-11-08T11:00:00Z"); // 19:00 Asia/Shanghai
+    private static final AtomicReference<Instant> TIME = new AtomicReference<>(START);
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @Import({
+            LocalDatabaseConfiguration.class,
+            LifeReviewRepository.class,
+            LifeMailCredentials.class,
+            LifeAuthorizationService.class,
+            LifeDeliveryService.class,
+            LifeCompanionStore.class,
+            LifeCompanionService.class
+    })
+    static class App {
+        @Bean
+        AgentStorageProperties storageProperties() {
+            return new AgentStorageProperties(ROOT.resolve("agent"));
+        }
+
+        @Bean
+        ResetBarrier barrier(AgentStorageProperties props) {
+            return new ResetBarrier(props);
+        }
+
+        @Bean
+        PersonalContextService personalContextService(AgentStorageProperties props) {
+            return new PersonalContextService(props, new ApproximateTokenCounter(), new ObjectMapper());
+        }
+
+        @Bean
+        Clock automationClock() {
+            return new Clock() {
+                @Override public ZoneId getZone() { return ZoneOffset.UTC; }
+                @Override public Clock withZone(ZoneId zone) { return this; }
+                @Override public Instant instant() { return TIME.get(); }
+            };
+        }
+    }
+
+    @DynamicPropertySource
+    static void db(DynamicPropertyRegistry r) {
+        r.add("butvan.database.path", () -> ROOT.resolve("companion-test.db").toString());
+    }
+
+    @MockitoBean ReviewModelCatalog modelCatalog;
+    @MockitoBean PersonalDeliveryPort feishuChannel;
+    @MockitoBean SessionCatalogService sessions;
+    @MockitoBean TranscriptService transcripts;
+    @MockitoBean RecordService records;
+    @MockitoBean ReviewGoalService goals;
+    @MockitoBean LifeActivityService activity;
+
+    @jakarta.annotation.Resource LifeCompanionService companion;
+    @jakarta.annotation.Resource LifeCompanionStore store;
+    @jakarta.annotation.Resource LifeReviewRepository repository;
+    @jakarta.annotation.Resource PersonalContextService personalContext;
+
+    @BeforeEach
+    void setUp() {
+        TIME.set(START);
+        repository.reset("owner");
+        store.reset("owner");
+        when(modelCatalog.resolveOrActive(anyString(), anyString()))
+                .thenReturn(new ModelIdentity("ACTIVE", "qwen-max", "openai", "fp-active"));
+        when(feishuChannel.target()).thenReturn(new PersonalDeliveryPort.Target(true, "feishu-user", "本人飞书"));
+        when(feishuChannel.send(anyString(), anyString(), anyString()))
+                .thenReturn(new PersonalDeliveryPort.Attempt("SENT", "msg-1"));
+
+        SessionSummaryDto primarySession = new SessionSummaryDto(
+                "feishu-main-1", SessionKind.GENERAL, null, "飞书主对话", "",
+                START, START, SessionStatus.ACTIVE);
+        when(sessions.resolveOrCreateCompanionSession(anyBoolean())).thenReturn(primarySession);
+        when(sessions.listActive()).thenReturn(List.of(primarySession));
+        when(transcripts.recent(eq("feishu-main-1"), anyInt())).thenReturn(List.of(
+                new TranscriptMessageDto("m-1", "turn-1", TranscriptMessageDto.MessageRole.USER,
+                        "这周正在把主动陪伴与认知模块重构完", START.minusSeconds(3600),
+                        TranscriptMessageDto.MessageStatus.COMPLETED, null, List.of(), null, null)
+        ));
+        when(records.journalFragments(eq("owner"), any(), any())).thenReturn(List.of(
+                new butvan.agent.network.record.model.RecordModels.JournalFragment(
+                        "j-1", LocalDate.of(2026, 11, 8),
+                        "下午跑了五公里，脑子清醒了不少", START.minusSeconds(7200), false)
+        ));
+        when(goals.list("owner")).thenReturn(List.of());
+        when(activity.lastInteractionAt(eq("owner"), any(), any())).thenReturn(Optional.of(START.minusSeconds(3600)));
+    }
+
+    @Test
+    void enableCompanionLearnsCognitionAndAdaptsToBusyHoursBeforeFollowingUp() {
+        CompanionView enabled = companion.enableCompanion("owner", new EnableCompanionRequest(
+                true, true, true, true, false, "", "", false, "", 993, "", "", "", "", "ACTIVE", "ACTIVE", "Asia/Shanghai"
+        ));
+        assertTrue(enabled.companionEnabled());
+        assertEquals("feishu-main-1", enabled.primarySessionId());
+        assertTrue(enabled.cognition().activeFocusAndBlockers().contains("跑了五公里"));
+        assertTrue(enabled.cognition().pendingHooksAndCuriosities().contains("主动陪伴与认知模块"));
+        assertTrue(personalContext.get("owner").content().contains("主动陪伴与认知模块"));
+
+        // 手动触发一次主动问候：应写入唯一主对话 transcript、生成桌面通知并发送飞书
+        CompanionView afterReach = companion.reachOutNow("owner", null);
+        assertEquals(1, afterReach.rhythm().unansweredCount());
+        assertEquals(1, afterReach.pendingDesktopNotices().size());
+        verify(transcripts, atLeastOnce()).appendProactiveAssistantMessage(eq("feishu-main-1"), anyString());
+        verify(feishuChannel, atLeastOnce()).send(eq("feishu-user"), anyString(), anyString());
+
+        // 确认桌面通知后待弹列表清空
+        String noticeId = afterReach.pendingDesktopNotices().getFirst().id();
+        companion.acknowledgeDesktopNotice("owner", noticeId);
+        assertTrue(companion.view("owner").pendingDesktopNotices().isEmpty());
+
+        // 模拟次日白天 14:00（处于 09:00-18:00 忙碌时段），且用户尚未回复（unansweredCount = 1）
+        Instant busyTime = Instant.parse("2026-11-09T06:00:00Z"); // 14:00 Asia/Shanghai
+        CompanionState current = store.load("owner");
+        store.save("owner", new CompanionState(current.cognition(), new RhythmState(
+                true, 1, false, current.rhythm().lastOutreachHook(), current.rhythm().lastLearnedAt(),
+                current.rhythm().lastDataFingerprint(), START, START.minusSeconds(3600), busyTime.minusSeconds(60)
+        ), current.desktopNotices()));
+
+        TIME.set(busyTime);
+        clearInvocations(transcripts, feishuChannel);
+        companion.tick("owner");
+
+        // 忙时应当自动顺延至 18:15 之后，不打扰用户
+        CompanionView deferredView = companion.view("owner");
+        assertTrue(deferredView.rhythm().busyDeferred());
+        assertEquals(1, deferredView.rhythm().unansweredCount());
+        verify(transcripts, never()).appendProactiveAssistantMessage(anyString(), anyString());
+
+        // 推进时间到 18:20（已过忙碌时段），tick 应当自然跟进询问
+        Instant afterBusyTime = Instant.parse("2026-11-09T10:20:00Z"); // 18:20 Asia/Shanghai
+        TIME.set(afterBusyTime);
+        companion.tick("owner");
+
+        CompanionView followedUp = companion.view("owner");
+        assertFalse(followedUp.rhythm().busyDeferred());
+        assertEquals(2, followedUp.rhythm().unansweredCount());
+        verify(transcripts, times(1)).appendProactiveAssistantMessage(eq("feishu-main-1"),
+                argThat(msg -> msg.contains("忙") || msg.contains("进展")));
+    }
+
+    private static Path tempDir() {
+        try {
+            return Files.createTempDirectory("companion-test-");
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+}

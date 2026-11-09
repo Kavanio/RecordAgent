@@ -21,6 +21,8 @@ public class LifeOutreachService {
     private final Clock automationClock;
     private final LifeActivityService activity;
     private final LifeSignalMonitorService signals;
+    @Autowired(required = false)
+    private LifeCompanionService companion;
 
     public LifeOutreachService(LifeReviewRepository repository, LifeAuthorizationService authorization,
             LifeDeliveryService deliveries, Clock automationClock) {
@@ -151,6 +153,7 @@ public class LifeOutreachService {
         repository.expire(owner, now);
         var local = now.atZone(ZoneId.of(s.timezone()));
         if (signals != null) signals.checkSignals(s, local, now);
+        if (companion != null) companion.tick(owner);
         if (local.getHour() < 12 || !local.toLocalTime().isBefore(LocalTime.of(23, 30))) return;
         for (var c : repository.candidates(owner)) {
             if (!c.state().equals("PENDING")) continue;
@@ -171,6 +174,7 @@ public class LifeOutreachService {
     }
     private void checkIdleNudge(Settings s, ZonedDateTime local, Instant now) {
         if (!s.idleCheckinEnabled()) return;
+        if (companion != null && companion.view(s.owner()).companionEnabled()) return;
         int minHour = repository.habit(s.owner()).filter(h -> h.active() && now.isBefore(h.expiresAt()))
                 .map(Habit::availableHour).orElse(12);
         if (local.getHour() < minHour) return;
