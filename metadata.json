@@ -1,0 +1,44 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6YW4WY3P5VENAYQ8H43ATV1",
+  "strategy": "manual-commit",
+  "branch": "desktop/proactive-companion",
+  "checkpoints_count": 5,
+  "files_touched": [
+    "UI COMPONENTS.md",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/AGENTS.md",
+    "agent-frontend/src/App.tsx",
+    "agent-frontend/src/components/chat/ChannelConversationView.test.mjs",
+    "agent-frontend/src/components/chat/ChannelConversationView.tsx",
+    "agent-frontend/src/components/chat/ChatWorkspace.tsx",
+    "agent-frontend/src/components/review/LifeCompanionSection.tsx",
+    "agent-frontend/src/components/review/LifeReviewSettings.module.css",
+    "agent-frontend/src/components/review/LifeReviewSettings.test.mjs",
+    "agent-frontend/src/components/review/LifeReviewSettings.tsx",
+    "agent-frontend/src/components/review/useLifeReview.ts",
+    "agent-frontend/src/services/lifeReviewApi.ts",
+    "agent-frontend/src/types/lifeReview.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "redaction": {
+    "replacements": 11,
+    "layers": {
+      "betterleaks": 10,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 1,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
