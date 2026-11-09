@@ -5,3 +5,4 @@
 .error { color: #b42318; font-size: 13px; }
 .archive { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.7; }
 .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); font-size: 13px; line-height: 1.5; resize: vertical; }

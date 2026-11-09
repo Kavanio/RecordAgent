@@ -71,6 +71,7 @@ import styles from './ChatWorkspace.module.css';
 
 interface ChatWorkspaceProps {
   readOnlyFooter?: React.ReactNode;
+  channelBanner?: React.ReactNode;
   onOpenFeature: SessionOverviewProps['onOpenFeature'];
   onOpenRecords: SessionOverviewProps['onOpenRecords'];
   messages: ChatMessage[];
@@ -113,6 +114,7 @@ interface ChatWorkspaceProps {
 
 export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   readOnlyFooter,
+  channelBanner,
   messages,
   onOpenFeature,
   onOpenRecords,
@@ -996,6 +998,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                 )}
               </div>
 
+              {channelBanner}
               {readOnlyFooter || inputArea}
             </div>
           </div>

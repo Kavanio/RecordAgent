@@ -89,7 +89,9 @@ public class LifeAuthorizationService {
         ZoneId zone;
         try { zone = ZoneId.of(input.timezone()); }
         catch (RuntimeException e) { throw new IllegalArgumentException("时区无效"); }
-        var model = models.resolve(input.providerId(), input.modelName());
+        var model = (input.providerId() == null || input.providerId().isBlank() || "ACTIVE".equalsIgnoreCase(input.providerId()))
+                ? models.resolveOrActive(input.providerId(), input.modelName())
+                : models.resolve(input.providerId(), input.modelName());
         var target = target();
         if (input.feishu() && !target.available()) throw new IllegalArgumentException("请先配置并连接仅限本人的飞书渠道");
         String imapPassword = (input.imapPassword() != null && !input.imapPassword().isBlank())
@@ -147,7 +149,8 @@ public class LifeAuthorizationService {
         return s;
     }
     private void verifyIdentity(Settings s) {
-        if (!models.resolve(s.providerId(), s.modelName()).fingerprint().equals(s.fingerprint()))
+        if (!"ACTIVE".equalsIgnoreCase(s.providerId())
+                && !models.resolve(s.providerId(), s.modelName()).fingerprint().equals(s.fingerprint()))
             throw new IllegalArgumentException("模型接收方已变化，请重新授权");
         if (s.feishu() && !target().fingerprint().equals(s.targetFingerprint()))
             throw new IllegalArgumentException("飞书本人目标已变化或不可用，请检查连接");

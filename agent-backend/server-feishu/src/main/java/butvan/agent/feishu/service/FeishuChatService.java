@@ -369,6 +369,12 @@ public class FeishuChatService implements AutoCloseable, butvan.agent.agents.rev
             }
             catch (IllegalArgumentException exception) { log.info("飞书绑定会话已失效，将建立新会话"); }
         }
+        var feishuSessions = sessions.listActive(SessionChannel.FEISHU);
+        if (feishuSessions != null && !feishuSessions.isEmpty()) {
+            String latest = feishuSessions.getFirst().id();
+            store.bind(conversation, latest);
+            return latest;
+        }
         String created = sessions.createFeishuSession().id();
         store.bind(conversation, created);
         return created;

@@ -645,6 +645,29 @@ public class AgentService {
 
 
     /**
+     * 将主动问候消息写入指定会话的 Transcript 上下文，并同步到 AgentState 以便用户直接接着回复。
+     */
+    public void appendProactiveMessageToSession(String sessionId, String content) {
+        if (sessionId == null || sessionId.isBlank() || content == null || content.isBlank()) return;
+        String userId = currentUserProvider.currentUserId();
+        sessionCatalogService.requireActive(sessionId);
+        String normalized = content.strip();
+        transcriptService.appendProactiveAssistantMessage(sessionId, normalized);
+        sessionCatalogService.touch(sessionId, normalized);
+        if (modelHolder.isInitialized()) {
+            try {
+                HarnessAgent agent = agentFactory.currentAgent(sessionId);
+                var state = agent.getDelegate().getAgentState(userId, sessionId);
+                state.contextMutable().add(Msg.builder().role(MsgRole.ASSISTANT).textContent(normalized).build());
+                agent.getDelegate().saveAgentState(userId, sessionId);
+            } catch (RuntimeException exception) {
+                log.debug("同步主动消息到 AgentState 跳过：sessionId={}, errorType={}",
+                        sessionId, exception.getClass().getSimpleName());
+            }
+        }
+    }
+
+    /**
      * 事件入队
      * 客户端断开触发中断时立即停止生产
      * @param streamSession

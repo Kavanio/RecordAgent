@@ -157,6 +157,24 @@ public class TranscriptService {
         ));
     }
 
+    /**
+     * 将主动问候或关怀消息作为完整 assistant 消息写入会话上下文记录，返回本轮生成的 turnId。
+     */
+    public synchronized String appendProactiveAssistantMessage(String sessionId, String content) {
+        String turnId = UUID.randomUUID().toString();
+        appendAssistantMessage(
+                sessionId,
+                turnId,
+                content == null ? "" : content.strip(),
+                null,
+                TranscriptMessageDto.MessageStatus.COMPLETED,
+                0L,
+                List.of(),
+                null
+        );
+        return turnId;
+    }
+
     /** 判断某轮 assistant 终态是否已经写入，用于崩溃恢复去重。 */
     public synchronized boolean hasAssistantMessage(String sessionId, String turnId) {
         return list(sessionId).stream().anyMatch(message ->
