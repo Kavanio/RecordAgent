@@ -34,3 +34,76 @@ export interface LifeNudge {
   id: string; kind: string; text: string; state: string; createdAt: string;
   sentAt: string | null; feedback: string;
 }
+
+export interface LifeCognition {
+  backgroundAndPreferences: string;
+  routineAndBusyHours: string;
+  activeFocusAndBlockers: string;
+  pendingHooksAndCuriosities: string;
+  busyStartHour: number;
+  busyEndHour: number;
+  updatedAt: string | null;
+}
+
+export interface LifeRhythmState {
+  companionEnabled: boolean;
+  unansweredCount: number;
+  busyDeferred: boolean;
+  lastOutreachHook: string;
+  lastLearnedAt: string | null;
+  lastDataFingerprint: string;
+  lastOutreachAt: string | null;
+  lastUserActiveAt: string | null;
+  nextReachAt: string | null;
+}
+
+export interface LifeDesktopNotice {
+  id: string;
+  sessionId: string;
+  kind: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  acknowledged: boolean;
+}
+
+export interface LifeCompanionView {
+  companionEnabled: boolean;
+  primarySessionId: string;
+  primarySessionTitle: string;
+  activeModelLabel: string;
+  feishuConnected: boolean;
+  feishuLabel: string;
+  cognition: LifeCognition;
+  rhythm: LifeRhythmState;
+  pendingDesktopNotices: LifeDesktopNotice[];
+}
+
+export interface SaveLifeCognitionInput {
+  backgroundAndPreferences: string;
+  routineAndBusyHours: string;
+  activeFocusAndBlockers: string;
+  pendingHooksAndCuriosities: string;
+  busyStartHour: number;
+  busyEndHour: number;
+}
+
+export interface EnableLifeCompanionInput {
+  enabled: boolean;
+  feishu?: boolean;
+  weatherAlertEnabled?: boolean;
+  expenseAlertEnabled?: boolean;
+  serverAlertEnabled?: boolean;
+  serverProbeUrl?: string;
+  serverProbeName?: string;
+  mailAlertEnabled?: boolean;
+  imapHost?: string;
+  imapPort?: number;
+  imapUsername?: string;
+  imapPassword?: string;
+  mailSenderWhitelist?: string;
+  mailSubjectKeywords?: string;
+  providerId?: string;
+  modelName?: string;
+  timezone?: string;
+}

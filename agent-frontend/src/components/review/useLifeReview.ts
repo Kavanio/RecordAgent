@@ -2,12 +2,21 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { lifeReviewApi } from '../../services/lifeReviewApi';
 import { fetchFullModelConfig } from '../../services/api';
 import type { FullModelConfig } from '../../types/model';
-import type { LifeCandidate, LifeContent, LifeHabit, LifeHabitSuggestion, LifeNudge, LifeSettings } from '../../types/lifeReview';
+import type {
+  LifeCandidate,
+  LifeCompanionView,
+  LifeContent,
+  LifeHabit,
+  LifeHabitSuggestion,
+  LifeNudge,
+  LifeSettings,
+} from '../../types/lifeReview';
 import { useMessage } from '../common/Message';
 
 /** 设置快照与写入操作编排；组件卸载后不发布迟到加载结果。 */
 export function useLifeReview() {
   const [settings, setSettings] = useState<LifeSettings | null>(null);
+  const [companion, setCompanion] = useState<LifeCompanionView | null>(null);
   const [history, setHistory] = useState<LifeContent[]>([]);
   const [candidates, setCandidates] = useState<LifeCandidate[]>([]);
   const [habit, setHabit] = useState<LifeHabit | null>(null);
@@ -26,10 +35,11 @@ export function useLifeReview() {
   const load = useCallback(async () => {
     const seq = ++sequence.current;
     try {
-      const [s, h, c, habitValue, suggestionValue, nudgesValue, a, models] = await Promise.all([
+      const [s, h, c, habitValue, suggestionValue, nudgesValue, a, models, companionValue] = await Promise.all([
         lifeReviewApi.settings(), lifeReviewApi.history(), lifeReviewApi.candidates(), lifeReviewApi.habit(),
         lifeReviewApi.habitSuggestion().catch(() => null), lifeReviewApi.nudges().catch(() => []),
         lifeReviewApi.archives(), fetchFullModelConfig(),
+        lifeReviewApi.companion().catch(() => null),
       ]);
       if (!live.current || seq !== sequence.current) return;
       const normalized = { ...s, idleCheckinDays: s.idleCheckinDays ?? 0 };
@@ -37,6 +47,7 @@ export function useLifeReview() {
       setSettings(normalized); setHistory(h); setCandidates(c); setHabit(habitValue);
       setHabitSuggestion(suggestionValue && typeof suggestionValue.available === 'boolean' ? suggestionValue : null);
       setNudges(Array.isArray(nudgesValue) ? nudgesValue : []);
+      setCompanion(companionValue && typeof companionValue.companionEnabled === 'boolean' ? companionValue : null);
       setArchives(a);
       setProviders(models?.providers || []); setError(''); setDirty(false);
     } catch (e) {
@@ -53,11 +64,17 @@ export function useLifeReview() {
   async function act(work: () => Promise<unknown>, message: string) {
     if (busy) return;
     setBusy(true);
-    try { await work(); if (live.current) { showMessage('success', message); await load(); } }
+    try {
+      await work();
+      if (live.current) {
+        if (message) showMessage('success', message);
+        await load();
+      }
+    }
     catch (e) { if (live.current) showMessage('error', e instanceof Error ? e.message : '操作未完成'); }
     finally { if (live.current) setBusy(false); }
   }
   function patch(next: Partial<LifeSettings>) { setSettings(s => s ? { ...s, ...next } : s); setDirty(true); }
   function discard() { setSettings(saved.current); setDirty(false); }
-  return { discard, settings, history, candidates, habit, habitSuggestion, nudges, archives, providers, busy, loading, generating, error, dirty, patch, load, act };
+  return { discard, settings, companion, history, candidates, habit, habitSuggestion, nudges, archives, providers, busy, loading, generating, error, dirty, patch, load, act };
 }

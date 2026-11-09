@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, after, beforeEach, afterEach, test } from 'node:test';
 import { startHarness, stopHarness, loadModule, getReact, mount, useFetchStub, jsonResponse, act } from '../../testing/harness.mjs';
-let React, Settings, Card, MessageProvider, stub, view, calls, settings, history, suggestion, nudges, modelPath;
+let React, Settings, Card, MessageProvider, stub, view, calls, settings, history, suggestion, nudges, companion, modelPath;
 before(async () => {
   await startHarness(); React = getReact();
   ({ LifeReviewSettings: Settings } = await loadModule('/src/components/review/LifeReviewSettings.tsx'));
@@ -13,6 +13,7 @@ beforeEach(() => {
   calls = []; history = [];
   suggestion = { available: false, suggestedHour: null, sampleCount: 1, activeDays: 1, windowDays: 14, hourCounts: Array(24).fill(0), note: '近 14 天统计到 1 个活跃日' };
   nudges = [];
+  companion = null;
   settings = { revision: 1, enabled: true, sources: ['JOURNAL'], providerId: 'p', modelName: 'm', timezone: 'Asia/Shanghai',
     historyDays: 7, dailyLimit: 1, proactive: false, feishu: false, idleCheckinDays: 0, authorized: false, policyVersion: 'life-v1', channelAvailable: false, channelLabel: '未连接本人飞书' };
   stub = useFetchStub((url, init) => {
@@ -24,6 +25,19 @@ beforeEach(() => {
     }
     if (path.endsWith('/grant')) { settings = { ...settings, authorized: true }; return jsonResponse(settings); }
     if (path.endsWith('/habit/suggestion')) return jsonResponse(suggestion);
+    if (path.endsWith('/companion')) return jsonResponse(companion);
+    if (path.endsWith('/companion/cognition') && init?.method === 'PUT') {
+      const body = JSON.parse(init.body);
+      companion = { ...companion, cognition: { ...companion.cognition, ...body } };
+      return jsonResponse(companion);
+    }
+    if (path.endsWith('/companion/enable') && init?.method === 'POST') {
+      const body = JSON.parse(init.body);
+      companion = { ...companion, companionEnabled: body.enabled };
+      return jsonResponse(companion);
+    }
+    if (path.endsWith('/companion/learn') && init?.method === 'POST') return jsonResponse(companion);
+    if (path.endsWith('/companion/reach-out') && init?.method === 'POST') return jsonResponse(companion);
     if (path.endsWith('/habit')) return jsonResponse(null);
     if (path.endsWith('/nudges')) return jsonResponse(nudges);
     if (path.includes('/nudges/') && path.endsWith('/feedback')) {
@@ -433,4 +447,56 @@ test('重要邮件提醒支持配置、失败状态及短消息展示', async ()
   details.open = true;
   assert.match(document.body.textContent, /重要邮件提醒/);
   assert.match(document.body.textContent, /生产数据库主从同步延迟/);
+});
+
+test('展示系统性四维认知卡片、支持一键开启陪伴、立即学习问候以及直接编辑保存认知', async () => {
+  companion = {
+    companionEnabled: false,
+    primarySessionId: 'feishu-main-1',
+    primarySessionTitle: '飞书主对话',
+    activeModelLabel: 'qwen-max',
+    feishuConnected: true,
+    feishuLabel: '本人飞书',
+    cognition: {
+      backgroundAndPreferences: '偏好简洁直接、不打扰的交流方式',
+      routineAndBusyHours: '通常在 09:00—18:00 集中忙正事，晚间互动最活跃',
+      activeFocusAndBlockers: '正在推进主动陪伴模块重构',
+      pendingHooksAndCuriosities: '上次聊到跑了五公里，想顺手跟进恢复情况',
+      busyStartHour: 9,
+      busyEndHour: 18,
+      updatedAt: '2026-11-08T12:00:00Z',
+    },
+    rhythm: {
+      companionEnabled: false,
+      unansweredCount: 1,
+      busyDeferred: true,
+      lastOutreachHook: '跑步恢复',
+      lastLearnedAt: '2026-11-08T12:00:00Z',
+      lastDataFingerprint: 'fp',
+      lastOutreachAt: '2026-11-08T10:00:00Z',
+      lastUserActiveAt: '2026-11-08T08:00:00Z',
+      nextReachAt: '2026-11-08T18:15:00Z',
+    },
+    pendingDesktopNotices: [],
+  };
+  await render();
+  assert.match(document.body.textContent, /不定时主动问候与陪伴/);
+  assert.match(document.body.textContent, /忙时免打扰顺延中/);
+  assert.match(document.body.textContent, /正在推进主动陪伴模块重构/);
+
+  await click('一键开启主动陪伴');
+  const enableCall = calls.find(c => c.url.pathname.endsWith('/companion/enable') && c.init?.method === 'POST');
+  assert.ok(enableCall);
+  assert.equal(JSON.parse(enableCall.init.body).enabled, true);
+
+  await click('修改认知');
+  const focusInput = query('textarea[aria-label="近期主线大事与卡点"]');
+  assert.ok(focusInput);
+  await changeInput(focusInput, '已完成主动陪伴改造并准备联调');
+  await click('保存系统性认知');
+
+  const saveCogCall = calls.find(c => c.url.pathname.endsWith('/companion/cognition') && c.init?.method === 'PUT');
+  assert.ok(saveCogCall);
+  assert.equal(JSON.parse(saveCogCall.init.body).activeFocusAndBlockers, '已完成主动陪伴改造并准备联调');
+  assert.match(document.body.textContent, /已完成主动陪伴改造并准备联调/);
 });
