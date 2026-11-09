@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6Z5NCBX2MY5RV8MG82H1YXY",
+  "session_id": "35b8b603-dd32-4447-985b-9dc0aeec2503",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-09T03:29:37.585632Z",
+  "branch": "desktop/proactive-companion",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "agent-frontend/src-tauri/build.rs",
+    "agent-frontend/src-tauri/src/task_desktop.rs"
+  ],
+  "agent": "Antigravity",
+  "model": "claude-opus-5-5-medium",
+  "turn_id": "e0355bc7b752",
+  "checkpoint_transcript_start": 201,
+  "transcript_lines_at_start": 201,
+  "redaction": {
+    "replacements": 1,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 1,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 6
+  }
+}

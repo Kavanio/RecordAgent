@@ -3,7 +3,7 @@
   "checkpoint_id": "01M6Z5NCBX2MY5RV8MG82H1YXY",
   "strategy": "manual-commit",
   "branch": "desktop/proactive-companion",
-  "checkpoints_count": 1,
+  "checkpoints_count": 3,
   "files_touched": [
     "agent-frontend/src-tauri/build.rs",
     "agent-frontend/src-tauri/src/task_desktop.rs"
@@ -14,15 +14,21 @@
       "transcript": "/0/full.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": ""
     }
   ],
   "redaction": {
-    "replacements": 15,
+    "replacements": 16,
     "layers": {
       "betterleaks": 10,
       "connection_string": 0,
       "credential_key": 0,
-      "credential_value": 0,
+      "credential_value": 1,
       "credentialed_uri": 0,
       "entropy": 5,
       "key_context": 0,
