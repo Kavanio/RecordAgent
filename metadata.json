@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6Z1HGEAV5P1JW89A63702TX",
+  "strategy": "manual-commit",
+  "branch": "desktop/proactive-companion",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "agent-frontend/src-tauri/src/task_desktop.rs",
+    "agent-frontend/src/App.tsx",
+    "agent-frontend/src/components/review/LifeCompanionSection.tsx",
+    "agent-frontend/src/components/review/useLifeReview.ts",
+    "agent-frontend/src/services/lifeReviewApi.ts",
+    "agent-frontend/src/services/taskDesktop.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 15,
+    "layers": {
+      "betterleaks": 10,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 5,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
