@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6Z5NCBX2MY5RV8MG82H1YXY",
+  "session_id": "1d2b5aa8-07d3-4cc8-81ea-ed9cd278d09b",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-09T03:29:37.472202Z",
+  "branch": "desktop/proactive-companion",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-frontend/src-tauri/build.rs",
+    "agent-frontend/src-tauri/src/task_desktop.rs"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-argon-high",
+  "turn_id": "65c8514f6c4a",
+  "checkpoint_transcript_start": 522,
+  "transcript_lines_at_start": 522,
+  "redaction": {
+    "replacements": 15,
+    "layers": {
+      "betterleaks": 10,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 5,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 9
+  }
+}
