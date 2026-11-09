@@ -3,7 +3,7 @@
   "checkpoint_id": "01M6YW4WY3P5VENAYQ8H43ATV1",
   "strategy": "manual-commit",
   "branch": "desktop/proactive-companion",
-  "checkpoints_count": 5,
+  "checkpoints_count": 7,
   "files_touched": [
     "UI COMPONENTS.md",
     "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/AGENTS.md",
@@ -25,15 +25,21 @@
       "transcript": "/0/full.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": ""
     }
   ],
   "redaction": {
-    "replacements": 11,
+    "replacements": 12,
     "layers": {
       "betterleaks": 10,
       "connection_string": 0,
       "credential_key": 0,
-      "credential_value": 0,
+      "credential_value": 1,
       "credentialed_uri": 0,
       "entropy": 1,
       "key_context": 0,
