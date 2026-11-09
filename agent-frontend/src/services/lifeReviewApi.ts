@@ -1,5 +1,15 @@
 import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
-import type { LifeSettings, LifeContent, LifeCandidate, LifeHabit, LifeHabitSuggestion, LifeNudge } from '../types/lifeReview';
+import type {
+  LifeSettings,
+  LifeContent,
+  LifeCandidate,
+  LifeHabit,
+  LifeHabitSuggestion,
+  LifeNudge,
+  LifeCompanionView,
+  SaveLifeCognitionInput,
+  EnableLifeCompanionInput,
+} from '../types/lifeReview';
 
 /** 不自动重试写入；读取不会触发模型或投递。 */
 async function request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
@@ -53,4 +63,10 @@ export const lifeReviewApi = {
   reply: (id: string, requestId: string, text: string) => request<string>(`${idPath(id)}/reply`, 'POST', { requestId, text }),
   propose: (id: string) => request<LifeCandidate[]>(`${idPath(id)}/propose`, 'POST'),
   feedback: (id: string, decision: string) => request<LifeCandidate[]>(`/candidates${idPath(id)}/feedback`, 'POST', { decision, text: '' }),
+  companion: () => request<LifeCompanionView>('/companion'),
+  saveCognition: (input: SaveLifeCognitionInput) => request<LifeCompanionView>('/companion/cognition', 'PUT', input),
+  enableCompanion: (input: EnableLifeCompanionInput) => request<LifeCompanionView>('/companion/enable', 'POST', input),
+  learnCompanion: () => request<LifeCompanionView>('/companion/learn', 'POST'),
+  reachOutCompanion: (reasonHint?: string) => request<LifeCompanionView>('/companion/reach-out', 'POST', { reasonHint: reasonHint || '' }),
+  ackDesktopNotice: (id: string) => request<void>(`/companion/desktop-notices${idPath(id)}/ack`, 'POST'),
 };

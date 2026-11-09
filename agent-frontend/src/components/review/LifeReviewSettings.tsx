@@ -7,6 +7,7 @@ import { Select } from '../common/Select';
 import { TextInput } from '../common/TextInput';
 import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
 import { SettingsPageLayout } from '../settings/SettingsPageLayout';
+import { LifeCompanionSection } from './LifeCompanionSection';
 import { LifeContentCard } from './LifeContentCard';
 import { LifeGoalSettings } from './LifeGoalSettings';
 import { LifeOutreachSection } from './LifeOutreachSection';
@@ -81,6 +82,14 @@ export function LifeReviewSettings() {
       )}
       {s && (
         <>
+          {state.companion && (
+            <LifeCompanionSection
+              companion={state.companion}
+              timezone={s.timezone}
+              busy={busy}
+              act={act}
+            />
+          )}
           <SettingsGroup title="复盘设置" description="查看已保存的范围与运行状态，需要调整时再打开配置。">
             <SettingsRow
               label={s.enabled ? '生活复盘已启用' : '生活复盘未启用'}
@@ -154,8 +163,15 @@ export function LifeReviewSettings() {
                     aria-label="生活复盘模型连接"
                     value={s.providerId}
                     disabled={busy}
-                    options={[{ value: '', label: '请选择模型连接' }, ...state.providers.filter(p => p.isEnabled).map(p => ({ value: p.id, label: p.name }))]}
-                    onChange={e => patch({ providerId: e.target.value, modelName: '' })}
+                    options={[
+                      { value: '', label: '请选择模型连接' },
+                      { value: 'ACTIVE', label: '跟随当前聊天默认模型（推荐）' },
+                      ...state.providers.filter(p => p.isEnabled).map(p => ({ value: p.id, label: p.name })),
+                    ]}
+                    onChange={e => patch({
+                      providerId: e.target.value,
+                      modelName: e.target.value === 'ACTIVE' ? 'ACTIVE' : '',
+                    })}
                   />
                 }
               />
@@ -165,8 +181,12 @@ export function LifeReviewSettings() {
                   <Select
                     aria-label="生活复盘固定模型"
                     value={s.modelName}
-                    disabled={busy}
-                    options={[{ value: '', label: '请选择模型' }, ...(provider?.models || []).map(m => ({ value: m.name, label: m.name }))]}
+                    disabled={busy || s.providerId === 'ACTIVE'}
+                    options={
+                      s.providerId === 'ACTIVE'
+                        ? [{ value: 'ACTIVE', label: '自动跟随当前聊天模型' }]
+                        : [{ value: '', label: '请选择模型' }, ...(provider?.models || []).map(m => ({ value: m.name, label: m.name }))]
+                    }
                     onChange={e => patch({ modelName: e.target.value })}
                   />
                 }

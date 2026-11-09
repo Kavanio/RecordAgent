@@ -54,6 +54,8 @@ import {
   subscribeSubagentTaskEvents,
 } from './services/taskApi';
 import { fetchProjects, importProject, removeProject as removeProjectApi } from './services/projectApi';
+import { lifeReviewApi } from './services/lifeReviewApi';
+import { deliverTaskNotification, isTaskDesktop } from './services/taskDesktop';
 
 interface ActiveChatRun {
   runId: string;
@@ -123,6 +125,7 @@ export const MainLayout: React.FC<{
   const lastRoutingNoticeRef = useRef<{ code: string; shownAt: number } | null>(null);
   const [sessionLoadErrors, setSessionLoadErrors] = useState<Record<string, string>>({});
   const activeSessionIdRef = useRef(activeSessionId);
+  const ackedCompanionNoticesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId;
@@ -164,6 +167,58 @@ export const MainLayout: React.FC<{
     activeChatRunsRef.current.forEach((run) => run.controller.abort());
     activeChatRunsRef.current.clear();
   }, []);
+
+  useEffect(() => {
+    let stopped = false;
+    const pollCompanionNotices = async () => {
+      try {
+        const companion = await lifeReviewApi.companion();
+        if (stopped || !companion?.pendingDesktopNotices?.length) return;
+        for (const notice of companion.pendingDesktopNotices) {
+          if (notice.acknowledged || ackedCompanionNoticesRef.current.has(notice.id)) continue;
+          ackedCompanionNoticesRef.current.add(notice.id);
+          void lifeReviewApi.ackDesktopNotice(notice.id).catch(() => {});
+          if (isTaskDesktop()) {
+            const ts = Date.parse(notice.createdAt) || Date.now();
+            void deliverTaskNotification({
+              id: notice.id,
+              taskId: 'companion',
+              title: notice.title || 'Agent 主动问候',
+              content: notice.content,
+              plannedAt: ts,
+              createdAt: ts,
+              source: 'COMPANION',
+              status: 'RUNNING',
+              desktopStatus: 'PENDING',
+              emailStatus: 'SKIPPED',
+              confirmation: 'NONE',
+              sound: true,
+              error: '',
+            }).catch(() => {});
+          } else {
+            showMessage('info', `${notice.title || 'Agent 主动问候'}：${notice.content.slice(0, 80)}`);
+          }
+          if (notice.sessionId && notice.sessionId === activeSessionIdRef.current) {
+            void fetchSessionDetail(notice.sessionId).then((detail) => {
+              if (!detail || stopped) return;
+              const messages = detail.messages.map(mapTranscriptToChatMessage);
+              setSessions((previous) => previous.map((session) => session.id === notice.sessionId
+                ? { ...session, title: detail.summary.title, lastMessagePreview: detail.summary.lastMessagePreview, messages, usageSummary: detail.usageSummary, isLoaded: true }
+                : session));
+            }).catch(() => {});
+          }
+        }
+      } catch {
+        // 静默忽略未启动或未配置状态
+      }
+    };
+    void pollCompanionNotices();
+    const timer = window.setInterval(() => { void pollCompanionNotices(); }, 15000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [showMessage]);
 
   const syncSessionDetail = useCallback(async (sessionId: string, generateTitle = false) => {
     setSessionLoadErrors((previous) => {
@@ -1088,7 +1143,7 @@ export const MainLayout: React.FC<{
           ) : activeFeature === 'study' ? (
             <StudyPage />
           ) : (
-            <ChannelConversationView session={feishuSession}>
+            <ChannelConversationView session={feishuSession} allowDesktopReply>
               <ChatWorkspace
                 onOpenFeature={setActiveFeature}
                 onOpenRecords={(entry, initialType = 'quick') => { setRecordTarget(entry); setRecordInitialType(initialType); setActiveFeature('record'); }}
