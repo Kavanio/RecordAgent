@@ -134,95 +134,7 @@ pub async fn request_task_notification_permission() -> Result<TaskNotificationSt
     Ok(task_notification_status())
 }
 
-/// 开发模式下生成带 ButvanAgent 图标与 Bundle ID 的轻量通知应用包，避免退化为脚本编辑器默认图标。
-#[cfg(target_os = "macos")]
-fn ensure_macos_dev_notifier(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    use std::os::unix::fs::PermissionsExt;
-    use std::sync::OnceLock;
-
-    static READY_BIN: OnceLock<std::path::PathBuf> = OnceLock::new();
-    if let Some(bin) = READY_BIN.get() {
-        if bin.exists() {
-            return Ok(bin.clone());
-        }
-    }
-
-    let root = crate::desktop_preferences::root(app)?;
-    let bundle_dir = root.join("ButvanAgent.app");
-    let contents_dir = bundle_dir.join("Contents");
-    let macos_dir = contents_dir.join("MacOS");
-    let resources_dir = contents_dir.join("Resources");
-    std::fs::create_dir_all(&macos_dir).map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&resources_dir).map_err(|e| e.to_string())?;
-
-    let info_plist_path = contents_dir.join("Info.plist");
-    let icon_path = resources_dir.join("icon.icns");
-    let bin_path = macos_dir.join("ButvanAgent");
-
-    const INFO_PLIST: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>zh_CN</string>
-    <key>CFBundleDisplayName</key>
-    <string>ButvanAgent</string>
-    <key>CFBundleExecutable</key>
-    <string>ButvanAgent</string>
-    <key>CFBundleIconFile</key>
-    <string>icon.icns</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.butvan.agent</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>ButvanAgent</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>0.6.0</string>
-    <key>CFBundleVersion</key>
-    <string>0.6.0</string>
-    <key>LSUIElement</key>
-    <true/>
-</dict>
-</plist>
-"#;
-    const ICON_BYTES: &[u8] = include_bytes!("../icons/icon.icns");
-    const NOTIFIER_BIN: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/butvan-macos-notifier"));
-
-    std::fs::write(&info_plist_path, INFO_PLIST).map_err(|e| e.to_string())?;
-    std::fs::write(&icon_path, ICON_BYTES).map_err(|e| e.to_string())?;
-    std::fs::write(&bin_path, NOTIFIER_BIN).map_err(|e| e.to_string())?;
-    std::fs::set_permissions(&bin_path, std::fs::Permissions::from_mode(0o755))
-        .map_err(|e| e.to_string())?;
-
-    let _ = std::process::Command::new("/usr/bin/codesign")
-        .args([
-            "--force",
-            "--deep",
-            "--sign",
-            "-",
-            "--identifier",
-            "com.butvan.agent",
-        ])
-        .arg(&bundle_dir)
-        .status();
-
-    if !std::path::Path::new("/Applications/ButvanAgent.app").exists() {
-        let _ = std::process::Command::new(
-            "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister",
-        )
-        .arg("-f")
-        .arg(&bundle_dir)
-        .status();
-    }
-
-    let _ = READY_BIN.set(bin_path.clone());
-    Ok(bin_path)
-}
-
-/// 安装版等待系统接纳通知；开发版通过签名辅助应用包发送带应用图标的系统通知。
+/// 开发模式下无稳定包身份，仅播放系统提示音并由应用内消息呈现。
 #[tauri::command]
 pub fn send_task_notification(app: tauri::AppHandle, title: String, body: String, sound: bool) -> Result<(), String> {
     if title.chars().count() > 100 || body.chars().count() > 400 {
@@ -231,16 +143,6 @@ pub fn send_task_notification(app: tauri::AppHandle, title: String, body: String
     #[cfg(target_os = "macos")]
     {
         if task_notification_status().mode == "DEV_FALLBACK" {
-            if let Ok(notifier_bin) = ensure_macos_dev_notifier(&app) {
-                let sound_flag = if sound { "1" } else { "0" };
-                if std::process::Command::new(notifier_bin)
-                    .args([&title, &body, sound_flag])
-                    .spawn()
-                    .is_ok()
-                {
-                    return Ok(());
-                }
-            }
             if sound {
                 app.run_on_main_thread(|| {
                     use objc2_app_kit::NSSound;
