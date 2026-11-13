@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { before, after, afterEach, test } from 'node:test';
-import { startHarness, stopHarness, loadModule, getReact, mount, useFetchStub, jsonResponse, act, resetModules } from '../../testing/harness.mjs';
+import { startHarness, stopHarness, loadModule, getReact, mount, useFetchStub, jsonResponse, deferred, act, resetModules } from '../../testing/harness.mjs';
 let view;
 before(() => startHarness());
 after(() => stopHarness());
@@ -146,4 +146,21 @@ test('正常 IDLE 状态挂载后不再周期轮询 /agent/reset/current', async
   assert.equal(currentCalls, 1);
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 2200)); });
   assert.equal(currentCalls, 1);
+});
+
+test('初始重置状态尚未返回时显示启动加载动画，不闪现恢复出厂设置页面', async () => {
+  resetModules();
+  const pending = deferred();
+  useFetchStub(() => pending.promise);
+  const React = getReact();
+  const { AgentResetBoundary } = await loadModule('/src/components/reset/AgentResetBoundary.tsx');
+  view = await mount(React.createElement(AgentResetBoundary, null, React.createElement('p', null, '业务应用哨兵')));
+  assert.match(view.text(), /正在启动 ButvanAgent/);
+  assert.doesNotMatch(view.text(), /Agent 恢复出厂设置/);
+  assert.doesNotMatch(view.text(), /Hindsight 尚未接入/);
+  assert.doesNotMatch(view.text(), /业务应用哨兵/);
+  await act(async () => {
+    pending.resolve(jsonResponse(idle));
+  });
+  assert.equal(view.text(), '业务应用哨兵');
 });

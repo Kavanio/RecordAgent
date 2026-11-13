@@ -1,0 +1,66 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--window-titlebar-inset, 0px) 24px 24px;
+  background-color: #ffffff;
+  opacity: 1;
+  transition: opacity 220ms ease-out;
+}
+
+.fading {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.errorPage {
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  padding: calc(32px + var(--window-titlebar-inset, 0px)) 24px 32px;
+  background: #fafafa;
+  color: #252525;
+}
+
+.errorCard {
+  max-width: 640px;
+  padding: 28px;
+  border: 1px solid #e5e5e5;
+  border-radius: 18px;
+  background: #ffffff;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.errorCard h1 {
+  margin: 0 0 12px;
+  font-size: 22px;
+}
+
+.errorText {
+  color: #a82929;
+}
+
+.recoveryCard {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 840px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay {
+    transition: none;
+  }
+}

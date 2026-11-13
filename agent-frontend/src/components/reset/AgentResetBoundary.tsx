@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '../common/Button';
+import { LoadingTree } from '../common/LoadingTree';
 import { MessageProvider } from '../common/Message';
 import { BackendConnectionSettings } from '../settings/BackendConnectionSettings';
 import { fetchBackendConnection, getApiBaseUrl, isTauri, restartApplication } from '../../services/api';
 import { fetchAgentReset, resetBlocked, retryAgentReset, subscribeAgentReset } from '../../services/agentResetService';
 import type { AgentResetStatus } from '../../types/agentReset';
+import { useBootSplashHold } from './bootSplashContext';
 import styles from './AgentResetBoundary.module.css';
 
 /** 启动先确认屏障；状态代次改变时卸载旧应用树，丢弃会话、图片草稿和迟到组件响应。 */
@@ -15,6 +17,8 @@ export function AgentResetBoundary({ children }: { children: ReactNode }) {
   const [canRestart, setCanRestart] = useState(false);
   const [connectionSettingsOpen, setConnectionSettingsOpen] = useState(false);
   const seenBlocked = useRef(false);
+  const checkingInitial = !status && !error && !connectionSettingsOpen;
+  const hasBootSplash = useBootSplashHold('reset-boundary', checkingInitial);
   useEffect(() => {
     let mounted = true;
     let pollingBlocked = false;
@@ -78,6 +82,13 @@ export function AgentResetBoundary({ children }: { children: ReactNode }) {
       </section>
     </main>
   </MessageProvider>;
+  if (checkingInitial) {
+    return hasBootSplash ? null : (
+      <div className="bootScreen" data-tauri-drag-region>
+        <LoadingTree size="large" label="正在启动 ButvanAgent…" />
+      </div>
+    );
+  }
   if (status && !resetBlocked(status) && !receipt) return <Fragment key={status.generation}>{children}</Fragment>;
   return <main className={styles.page} aria-label="Agent 恢复出厂进度">
     <section className={styles.card}>
