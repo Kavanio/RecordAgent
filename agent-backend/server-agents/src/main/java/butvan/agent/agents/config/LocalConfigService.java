@@ -277,7 +277,7 @@ public class LocalConfigService {
         if (configFile.exists() && configFile.isFile()) {
             try {
                 ModelConfigData data = objectMapper.readValue(configFile, ModelConfigData.class);
-                log.info("成功从本地文件读取多厂商模型配置: {}", configPath);
+                log.debug("成功从本地文件读取多厂商模型配置: {}", configPath);
                 return data;
             } catch (Exception e) {
                 log.error("读取本地模型配置文件失败 [{}]，将自动初始化为空配置模板并写出", configPath, e);

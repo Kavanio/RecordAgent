@@ -29,6 +29,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * M6 现实信息源只读监测：天气、支出、服务器探针和重要邮件。
@@ -46,6 +48,7 @@ public class LifeSignalMonitorService {
     private static final int MIN_PRIOR_EXPENSE_DAYS = 3;
     private static final BigDecimal EXPENSE_SPIKE_MULTIPLIER = BigDecimal.valueOf(2);
     private static final BigDecimal MIN_EXPENSE_ALERT_AMOUNT = new BigDecimal("200.00");
+    private static final Duration WEATHER_CHECK_INTERVAL = Duration.ofSeconds(60);
 
     private final LifeReviewRepository repository;
     private final LifeDeliveryService deliveries;
@@ -53,6 +56,7 @@ public class LifeSignalMonitorService {
     private final ExpenseAnalyticsService expenseAnalytics;
     private final ServerProbeClient probeClient;
     private final MailInboxClient mailClient;
+    private final ConcurrentMap<String, Instant> lastWeatherChecks = new ConcurrentHashMap<>();
 
     @FunctionalInterface
     public interface ServerProbeClient {
@@ -120,6 +124,11 @@ public class LifeSignalMonitorService {
         if (!s.weatherSignalEnabled() || dailyContext == null) return;
         int hour = local.getHour();
         if (hour < 8 || hour >= 22) return;
+        Instant lastChecked = lastWeatherChecks.get(s.owner());
+        if (lastChecked != null && !now.isBefore(lastChecked) && now.isBefore(lastChecked.plus(WEATHER_CHECK_INTERVAL))) {
+            return;
+        }
+        lastWeatherChecks.put(s.owner(), now);
 
         LocalDate today = local.toLocalDate();
         SummaryResponse summary = dailyContext.getSummary(today, true, false);
