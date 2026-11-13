@@ -1,0 +1,41 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M79X5R23V156TXW4JFNE4090",
+  "strategy": "manual-commit",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/LifeCompanionCollector.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/LifeCompanionRhythmPolicy.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/LifeCompanionService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/LifeCompanionStreamService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/LifeCompanionSynthesisService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/LifeDeliveryService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/LifeOutreachService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/LifeReviewController.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/LifeReviewRuntime.java",
+    "agent-backend/server-network/src/test/java/butvan/agent/network/review/life/LifeCompanionServiceTest.java"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "redaction": {
+    "replacements": 17,
+    "layers": {
+      "betterleaks": 12,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 5,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
