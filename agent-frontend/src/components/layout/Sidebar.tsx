@@ -99,7 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [editingTitle, setEditingTitle] = useState('');
 
   // 项目分区展开/收起
-  const [isProjectsExpanded, setIsProjectsExpanded] = useState(true);
+  const [isProjectsExpanded, setIsProjectsExpanded] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
 
   // 会话搜索与悬停菜单

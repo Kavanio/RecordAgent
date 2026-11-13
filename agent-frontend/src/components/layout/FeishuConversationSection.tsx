@@ -11,7 +11,7 @@ export function FeishuConversationSection({ query = '', activeSessionId, onSelec
   activeSessionId?: string;
   onSelect?: (session: SessionSummaryDto) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(() => query.trim().length > 0);
   const [sessions, setSessions] = useState<SessionSummaryDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
