@@ -1,0 +1,59 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7A0H9XGB6VFPG9T0HN6F7R6",
+  "session_id": "88baa338-a982-4e57-8232-c22f127b5233",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-13T08:31:39.871138Z",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "UI COMPONENTS.md",
+    "agent-frontend/src/components/calendar/CalendarView.tsx",
+    "agent-frontend/src/components/chat/PermissionRequestCard.module.css",
+    "agent-frontend/src/components/chat/PlanApprovalCard.tsx",
+    "agent-frontend/src/components/chat/ProjectFileTree.module.css",
+    "agent-frontend/src/components/chat/ProjectFileTree.tsx",
+    "agent-frontend/src/components/chat/SlashCommandResult.module.css",
+    "agent-frontend/src/components/chat/SlashCommandResult.tsx",
+    "agent-frontend/src/components/chat/SubagentTaskPanel.module.css",
+    "agent-frontend/src/components/chat/SubagentTaskPanel.tsx",
+    "agent-frontend/src/components/common/LoadingFeedback.test.mjs",
+    "agent-frontend/src/components/common/LoadingTree.module.css",
+    "agent-frontend/src/components/common/LoadingTree.tsx",
+    "agent-frontend/src/components/layout/FeishuConversationSection.module.css",
+    "agent-frontend/src/components/layout/FeishuConversationSection.tsx",
+    "agent-frontend/src/components/memory/MemoryDocumentDialog.module.css",
+    "agent-frontend/src/components/memory/MemoryDocumentDialog.tsx",
+    "agent-frontend/src/components/memory/MemoryDocumentManager.tsx",
+    "agent-frontend/src/components/settings/DailyContextSettingsPage.module.css",
+    "agent-frontend/src/components/settings/DailyContextSettingsPage.tsx",
+    "agent-frontend/src/components/settings/PersonalContextSettingsPage.test.mjs",
+    "agent-frontend/src/components/settings/PersonalContextSettingsPage.tsx",
+    "agent-frontend/src/components/settings/QWeatherConsolePanel.tsx",
+    "agent-frontend/src/components/task/TaskHistoryDrawer.module.css",
+    "agent-frontend/src/components/task/TaskHistoryDrawer.test.mjs",
+    "agent-frontend/src/components/task/TaskHistoryDrawer.tsx"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-hydrogen-high",
+  "turn_id": "4526c6f41afe",
+  "checkpoint_transcript_start": 37,
+  "transcript_lines_at_start": 37,
+  "redaction": {
+    "replacements": 5,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 5,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 2
+  }
+}
