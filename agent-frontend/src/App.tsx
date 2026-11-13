@@ -54,10 +54,7 @@ import {
   subscribeSubagentTaskEvents,
 } from './services/taskApi';
 import { fetchProjects, importProject, removeProject as removeProjectApi } from './services/projectApi';
-import { lifeReviewApi } from './services/lifeReviewApi';
-import { fetchFeishuConversations } from './services/feishuConversationService';
-import { deliverTaskNotification } from './services/taskDesktop';
-import type { LifeCompanionView } from './types/lifeReview';
+import { useCompanionNotifications } from './components/review/useCompanionNotifications';
 
 interface ActiveChatRun {
   runId: string;
@@ -127,7 +124,6 @@ export const MainLayout: React.FC<{
   const lastRoutingNoticeRef = useRef<{ code: string; shownAt: number } | null>(null);
   const [sessionLoadErrors, setSessionLoadErrors] = useState<Record<string, string>>({});
   const activeSessionIdRef = useRef(activeSessionId);
-  const ackedCompanionNoticesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId;
@@ -170,95 +166,7 @@ export const MainLayout: React.FC<{
     activeChatRunsRef.current.clear();
   }, []);
 
-  useEffect(() => {
-    let stopped = false;
-    const processCompanionView = (companion: LifeCompanionView | null | undefined) => {
-      if (stopped || !companion?.pendingDesktopNotices?.length) return;
-      for (const notice of companion.pendingDesktopNotices) {
-        if (notice.acknowledged || ackedCompanionNoticesRef.current.has(notice.id)) continue;
-        ackedCompanionNoticesRef.current.add(notice.id);
-        void lifeReviewApi.ackDesktopNotice(notice.id).catch(() => {});
-
-        const ts = Date.parse(notice.createdAt) || Date.now();
-        void deliverTaskNotification({
-          id: notice.id,
-          taskId: 'companion',
-          title: notice.title || 'Agent 主动问候',
-          content: notice.content,
-          plannedAt: ts,
-          createdAt: ts,
-          source: 'COMPANION',
-          status: 'RUNNING',
-          desktopStatus: 'PENDING',
-          emailStatus: 'SKIPPED',
-          confirmation: 'NONE',
-          sound: true,
-          error: '',
-        }).catch(() => {});
-
-        showMessage('info', `💬 ${notice.title || 'Agent 主动问候'}：${notice.content.slice(0, 120)}`, {
-          duration: 10000,
-          action: {
-            label: '去回复',
-            onClick: () => {
-              setIsSettingsOpen(false);
-              setActiveFeature('chat');
-              if (!notice.sessionId) return;
-              void fetchFeishuConversations()
-                .then((feishuList) => {
-                  const matchedFeishu = feishuList.find((s) => s.id === notice.sessionId);
-                  if (matchedFeishu) {
-                    selectFeishuSession(matchedFeishu);
-                  } else {
-                    setActiveSessionId(notice.sessionId);
-                  }
-                })
-                .catch(() => {
-                  setActiveSessionId(notice.sessionId);
-                });
-            },
-          },
-        });
-
-        if (notice.sessionId) {
-          void fetchSessionDetail(notice.sessionId).then((detail) => {
-            if (!detail || stopped) return;
-            const messages = detail.messages.map(mapTranscriptToChatMessage);
-            setSessions((previous) => previous.map((session) => session.id === notice.sessionId
-              ? { ...session, title: detail.summary.title, lastMessagePreview: detail.summary.lastMessagePreview, messages, usageSummary: detail.usageSummary, isLoaded: true }
-              : session));
-          }).catch(() => {});
-        }
-      }
-    };
-
-    const pollCompanionNotices = async () => {
-      try {
-        const companion = await lifeReviewApi.companion();
-        processCompanionView(companion);
-      } catch {
-        // 静默忽略未启动或未配置状态
-      }
-    };
-
-    const onCompanionOutreachUpdated = (event: Event) => {
-      const custom = event as CustomEvent<LifeCompanionView>;
-      if (custom.detail) {
-        processCompanionView(custom.detail);
-      } else {
-        void pollCompanionNotices();
-      }
-    };
-
-    window.addEventListener('companion-outreach-updated', onCompanionOutreachUpdated);
-    void pollCompanionNotices();
-    const timer = window.setInterval(() => { void pollCompanionNotices(); }, 15000);
-    return () => {
-      stopped = true;
-      window.removeEventListener('companion-outreach-updated', onCompanionOutreachUpdated);
-      window.clearInterval(timer);
-    };
-  }, [showMessage, selectFeishuSession, setActiveSessionId, setIsSettingsOpen]);
+  useCompanionNotifications({ showMessage, setIsSettingsOpen, setActiveFeature, setActiveSessionId, fetchSessionDetail, setSessions });
 
   const syncSessionDetail = useCallback(async (sessionId: string, generateTitle = false) => {
     setSessionLoadErrors((previous) => {
@@ -1280,27 +1188,13 @@ const PrimaryApp: React.FC = () => {
     );
   }
 
-  // 若未初始化配置（字段为空），全屏展示初始化设置页面 ModelInitPage
   if (needsInit) {
-    return (
-      <ModelInitPage
-        vendors={vendors}
-        onSuccess={() => {
-          setNeedsInit(false);
-          checkConfig();
-        }}
-      />
-    );
+    return <ModelInitPage vendors={vendors} onSuccess={() => { setNeedsInit(false); checkConfig(); }} />;
   }
 
   return (
     <ModelProviderContext>
-      <MainLayout
-        isSettingsOpen={isSettingsOpen}
-        setIsSettingsOpen={setIsSettingsOpen}
-        settingsTab={settingsTab}
-        setSettingsTab={setSettingsTab}
-      />
+      <MainLayout isSettingsOpen={isSettingsOpen} setIsSettingsOpen={setIsSettingsOpen} settingsTab={settingsTab} setSettingsTab={setSettingsTab} />
     </ModelProviderContext>
   );
 };

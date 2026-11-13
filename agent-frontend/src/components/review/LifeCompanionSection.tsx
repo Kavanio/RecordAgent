@@ -61,11 +61,11 @@ export function LifeCompanionSection({
     <>
       <SettingsGroup
         title="不定时主动问候与陪伴"
-        description="自动从日常对话、手记、待办、学习与账单中持续认识你；忙时不打扰，闲时像朋友一样在唯一主对话里主动关心与跟进。"
+        description="自动从日常对话、手记、待办、学习与账单中持续认识你；忙时不打扰，闲时像朋友一样在桌面日常陪伴对话及飞书里主动关心与跟进。"
       >
         <SettingsRow
           label={companion.companionEnabled ? '主动陪伴与认知学习已开启' : '主动陪伴与认知学习未开启'}
-          description={`绑定唯一主对话：「${companion.primarySessionTitle || '日常主对话'}」 · 模型：${companion.activeModelLabel} · 渠道：${companion.feishuLabel} · ${rhythmStatusText}`}
+          description={`绑定桌面陪伴对话：「${companion.primarySessionTitle || '日常陪伴'}」 · 模型：${companion.activeModelLabel} · 渠道：${companion.feishuLabel} · ${rhythmStatusText}`}
           control={
             <div className={styles.choices}>
               <Button
@@ -107,7 +107,7 @@ export function LifeCompanionSection({
 
       <SettingsGroup
         title="Agent 对你的系统性认知（自动学习 · 可直接修改）"
-        description="无需逐条审批提案，后台自动提炼并同步至个人画像；发现不准确之处可随时点击右侧按钮直接修改。"
+        description="独立维护四维陪伴认知并在启用时按需注入对话上下文，不覆盖个人画像；发现不准确之处可随时点击右侧按钮直接修改。"
       >
         <SettingsRow
           label="1. 基本背景与性格喜好"
@@ -146,7 +146,7 @@ export function LifeCompanionSection({
               onClick={() => void act(async () => {
                 await lifeReviewApi.saveCognition(draft);
                 setEditOpen(false);
-              }, '系统性认知已保存并同步至个人画像')}
+              }, '系统性认知已保存')}
             >
               保存系统性认知
             </Button>
