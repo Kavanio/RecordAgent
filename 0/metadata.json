@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M79X5XFFTN8BNXQWN0FJYVVX",
+  "session_id": "1d2b5aa8-07d3-4cc8-81ea-ed9cd278d09b",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-13T07:33:00.708801Z",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "agent-frontend/src/App.tsx",
+    "agent-frontend/src/components/review/LifeCompanionSection.tsx",
+    "agent-frontend/src/components/review/useCompanionNotifications.test.mjs",
+    "agent-frontend/src/components/review/useCompanionNotifications.ts",
+    "agent-frontend/src/services/lifeReviewApi.ts"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-argon-high",
+  "turn_id": "8b0a65ba7edd",
+  "checkpoint_transcript_start": 1073,
+  "transcript_lines_at_start": 1073,
+  "redaction": {
+    "replacements": 17,
+    "layers": {
+      "betterleaks": 12,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 5,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 11
+  }
+}
