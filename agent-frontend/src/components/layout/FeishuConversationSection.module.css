@@ -5,6 +5,7 @@
 .session svg { flex-shrink: 0; }
 .session span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .feedback { padding: 12px; font-size: 12px; color: #805e51; }
+.loadingState { display: flex; justify-content: center; padding: 16px 8px; }
 .feedback button { border: 0; background: transparent; color: #486d96; cursor: pointer; padding: 6px; }
 
 .active { background: #dce8f4; color: #244f7b; }

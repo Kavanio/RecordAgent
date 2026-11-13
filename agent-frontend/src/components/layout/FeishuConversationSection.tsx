@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, MessageSquare, RefreshCw } from 'lucide-react';
 import { fetchFeishuConversations } from '../../services/feishuConversationService';
 import type { SessionSummaryDto } from '../../types/chat';
+import { LoadingTree } from '../common/LoadingTree';
 import sidebar from './Sidebar.module.css';
 import styles from './FeishuConversationSection.module.css';
 
@@ -49,7 +50,7 @@ export function FeishuConversationSection({ query = '', activeSessionId, onSelec
           title="刷新飞书对话" onClick={refresh} disabled={loading}><RefreshCw size={13} /></button>
       </div>
       {expanded && <div className={sidebar.sessionList}>
-        {loading && <p className={sidebar.emptyText} role="status">正在读取飞书对话…</p>}
+        {loading && <div className={styles.loadingState}><LoadingTree size="small" label="正在读取飞书对话…" /></div>}
         {error && <div className={styles.feedback} role="alert">{error}
           <button type="button" onClick={refresh}>重试</button></div>}
         {!loading && !error && visible.length === 0 && <p className={sidebar.emptyText}>

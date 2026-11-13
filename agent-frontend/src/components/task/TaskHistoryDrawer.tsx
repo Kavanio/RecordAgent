@@ -4,6 +4,7 @@ import { runStatus, scheduleText, taskStatus } from '../../features/automation/p
 import type { AutomationRun, AutomationTask } from '../../types/automation';
 import { Button } from '../common/Button';
 import { Drawer } from '../common/Drawer';
+import { LoadingTree } from '../common/LoadingTree';
 import styles from './TaskHistoryDrawer.module.css';
 
 interface TaskHistoryDrawerProps {
@@ -49,7 +50,7 @@ export function TaskHistoryDrawer({ task, runs, loading, error, busy, onClose, o
         <strong>历史记录读取失败</strong><p>{error}</p>
         <Button size="sm" variant="ghost" icon={<RotateCcw size={13} />} onClick={onReload}>重新加载</Button>
       </section>}
-      {loading && <div className={styles.feedback} role="status"><span className={styles.spinner} />正在同步执行记录…</div>}
+      {loading && <div className={styles.loadingState}><LoadingTree label="正在同步执行记录…" /></div>}
       {!loading && !error && runs.length === 0 && <section className={styles.empty}>
         <span className={styles.emptyIcon}><History size={22} /></span>
         <strong>暂无执行记录</strong>

@@ -118,7 +118,7 @@ export function PersonalContextSettingsPage() {
     } finally { setSaving(false); }
   };
 
-  if (loading && !settings) return <SettingsPageLayout title="个人上下文" description="控制 Agent 自动了解你的方式。"><div className={styles.state} role="status">正在读取本地设置…</div></SettingsPageLayout>;
+  if (loading && !settings) return <SettingsPageLayout title="个人上下文" description="控制 Agent 自动了解你的方式。" loading loadingLabel="正在读取本地设置…"><div className={styles.state} /></SettingsPageLayout>;
   if (!settings || !maintenance) return <SettingsPageLayout title="个人上下文" description="控制 Agent 自动了解你的方式。"><div className={styles.state} role="alert"><p>{error}</p><Button variant="outline" onClick={() => void load()}>重新加载</Button></div></SettingsPageLayout>;
 
   const dirty = draft !== settings.profile;

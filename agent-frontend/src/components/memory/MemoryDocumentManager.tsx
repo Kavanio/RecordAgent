@@ -4,6 +4,7 @@ import { memoryDeletionLabel } from '../../features/memory/cleanupPresentation';
 import type { MemoryDocument } from '../../types/experienceMemory';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
+import { LoadingTree } from '../common/LoadingTree';
 import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
 import { MemoryDocumentDialog } from './MemoryDocumentDialog';
 import styles from './MemoryDocumentManager.module.css';
@@ -46,7 +47,7 @@ function MemorySourceList() {
   useEffect(() => { void load(); }, []);
   return <SettingsGroup title="经历来源管理" description="只列出授权后登记的聊天，远端删除结果需逐条核对。">
     <SettingsRow label="来源记录" control={<Button variant="outline" disabled={busy} onClick={() => void load()}>刷新来源</Button>} />
-    {busy && !items.length && <p className={styles.state} role="status">正在读取来源…</p>}
+    {busy && !items.length && <div className={styles.more}><LoadingTree size="small" label="正在读取来源…" /></div>}
     {error && <p className={styles.state} role="alert">{error}</p>}
     {!busy && !error && !items.length && <p className={styles.state}>暂无经历来源，接入并授权后的新聊天才会出现在这里。</p>}
     {items.map((item) => <SettingsRow key={item.id} label={`${item.channel === 'DESKTOP' ? '桌面' : '飞书'} · ${new Date(item.occurredAt).toLocaleString('zh-CN')}`}

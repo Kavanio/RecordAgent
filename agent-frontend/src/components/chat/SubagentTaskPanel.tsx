@@ -57,7 +57,7 @@ export const SubagentTaskPanel: React.FC<SubagentTaskPanelProps> = ({
       {error ? (
         <p className={styles.error} role="status">{error}</p>
       ) : isLoading && tasks.length === 0 ? (
-        <LoadingTree size="small" label="正在读取任务…" />
+        <div className={styles.loadingState}><LoadingTree size="small" label="正在读取任务…" /></div>
       ) : tasks.length === 0 ? (
         <p className={styles.empty}>子 Agent 启动后台任务后会显示在这里。</p>
       ) : (

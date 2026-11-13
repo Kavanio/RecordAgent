@@ -208,6 +208,12 @@
   line-height: 1.55;
 }
 
+.loadingState {
+  display: flex;
+  justify-content: center;
+  padding: 18px 8px;
+}
+
 .footer {
   justify-content: space-between;
   gap: 16px;

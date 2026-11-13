@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, test } from 'node:test';
-import { act, getReact, jsonResponse, loadModule, mount, startHarness, stopHarness, useFetchStub } from '../../testing/harness.mjs';
+import { act, deferred, getReact, jsonResponse, loadModule, mount, startHarness, stopHarness, useFetchStub } from '../../testing/harness.mjs';
 
 let Page, Provider, view, stub, settings, maintenance, writes;
 before(async () => {
@@ -93,4 +93,21 @@ test('清空画像仍需确认，成功后首页只显示未填写状态', async
   await closeProfile();
   assert.match(view.text(), /尚未填写个人画像/);
   assert.equal(document.querySelector('textarea'), null);
+});
+
+test('首次加载使用 SettingsPageLayout 统一大树等待遮罩，不使用纯文本占位', async () => {
+  const pending = deferred();
+  stub.respond(async (url) => {
+    if (url.pathname === '/agent/personal-context') return pending.promise;
+    if (url.pathname === '/agent/personal-context/maintenance') return jsonResponse(maintenance);
+    return jsonResponse(null, 503);
+  });
+  await render();
+  const status = view.query('[role="status"]');
+  assert.ok(status);
+  assert.match(status.textContent, /正在读取本地设置/);
+  assert.ok(status.querySelector('svg [data-tree-part="outline"]'));
+  await act(async () => {
+    pending.resolve(jsonResponse(settings));
+  });
 });

@@ -43,7 +43,7 @@ export function PlanApprovalCard({
       </div>
 
       {plan === null ? (
-        <LoadingTree size="small" label="正在读取计划书…" />
+        <div className={styles.loadingState}><LoadingTree size="small" label="正在读取计划书…" /></div>
       ) : plan === '' ? (
         <p className={styles.description}>暂无计划书内容</p>
       ) : (
