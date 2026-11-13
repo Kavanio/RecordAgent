@@ -20,6 +20,8 @@ public class LifeReviewRuntime {
     private final LifeOutreachService outreach;
     private final ResetBarrier barrier;
     private final Clock automationClock;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LifeCompanionService companion;
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "life-review-worker"); t.setDaemon(true); return t;
     });
@@ -54,10 +56,18 @@ public class LifeReviewRuntime {
             }
         } catch (RuntimeException e) { log.warn("生活复盘后台暂停：{}", e.getClass().getSimpleName()); }
     }
-    /** 模型生成使用独立单线程，避免等待模型期间阻塞现实信号监测。 */
+    /** 模型生成与主动陪伴学习使用独立单线程，避免等待模型期间阻塞现实信号监测。 */
     void generate() {
         if (barrier.blocked()) return;
-        try { reviews.tick(); }
+        try {
+            reviews.tick();
+            if (companion != null) {
+                for (var s : repository.enabled()) {
+                    try { companion.tick(s.owner()); }
+                    catch (RuntimeException e) { log.warn("主动陪伴调度跳过：{}", e.getClass().getSimpleName()); }
+                }
+            }
+        }
         catch (RuntimeException e) { log.warn("生活复盘生成调度暂停：{}", e.getClass().getSimpleName()); }
     }
     @PreDestroy public void close() { worker.shutdownNow(); generationWorker.shutdownNow(); }

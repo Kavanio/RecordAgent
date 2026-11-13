@@ -32,6 +32,10 @@ public class LifeDeliveryService {
     private AgentService agentService;
     @Autowired(required = false)
     private TranscriptService transcriptService;
+    @Autowired(required = false)
+    private LifeCompanionStreamService companionStream;
+    @Autowired(required = false)
+    private org.springframework.beans.factory.ObjectProvider<LifeCompanionService> companionProvider;
 
     /** 只允许当前授权生成的已完成版本；重试不会重新读取资料或重新生成。 */
     public void send(String owner, String contentId, boolean retry) {
@@ -149,6 +153,10 @@ public class LifeDeliveryService {
                 sessionCatalog.touch(session.id(), text);
             }
             companionStore.appendDesktopNotice(owner, session.id(), kind, title, text, automationClock.instant());
+            var companion = companionProvider == null ? null : companionProvider.getIfAvailable();
+            if (companionStream != null && companion != null) {
+                companionStream.publish(owner, companion.view(owner));
+            }
         } catch (RuntimeException ignored) {
         }
     }

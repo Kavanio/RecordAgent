@@ -14,7 +14,10 @@ import butvan.agent.agents.usage.ApproximateTokenCounter;
 import butvan.agent.network.config.database.LocalDatabaseConfiguration;
 import butvan.agent.network.record.service.RecordService;
 import butvan.agent.network.review.life.LifeCompanionModels.*;
+import butvan.agent.network.review.model.ReviewModels.Fact;
 import butvan.agent.network.review.model.ReviewModels.ModelIdentity;
+import butvan.agent.network.review.model.ReviewModels.SourceStatus;
+import butvan.agent.network.review.service.ReviewFactCollector;
 import butvan.agent.network.review.service.ReviewGoalService;
 import butvan.agent.network.review.service.ReviewModelCatalog;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -55,6 +58,9 @@ class LifeCompanionServiceTest {
             LifeAuthorizationService.class,
             LifeDeliveryService.class,
             LifeCompanionStore.class,
+            LifeCompanionCollector.class,
+            LifeCompanionSynthesisService.class,
+            LifeCompanionStreamService.class,
             LifeCompanionService.class
     })
     static class App {
@@ -95,6 +101,7 @@ class LifeCompanionServiceTest {
     @MockitoBean RecordService records;
     @MockitoBean ReviewGoalService goals;
     @MockitoBean LifeActivityService activity;
+    @MockitoBean ReviewFactCollector factCollector;
 
     @jakarta.annotation.Resource LifeCompanionService companion;
     @jakarta.annotation.Resource LifeCompanionStore store;
@@ -135,6 +142,14 @@ class LifeCompanionServiceTest {
         ));
         when(goals.list("owner")).thenReturn(List.of());
         when(activity.lastInteractionAt(eq("owner"), any(), any())).thenReturn(Optional.of(START.minusSeconds(3600)));
+        when(factCollector.collect(eq("owner"), any(), any(), any(), any())).thenReturn(new ReviewFactCollector.Collected(
+                List.of(
+                        new Fact("TODO", "completed_count", "all", "", "项", 3),
+                        new Fact("STUDY", "focus_minutes", "all", "", "分钟", 90),
+                        new Fact("FINANCE", "expense_total", "all", "CNY", "元", 128)
+                ),
+                List.of(new SourceStatus("TODO", "AVAILABLE"), new SourceStatus("STUDY", "AVAILABLE"), new SourceStatus("FINANCE", "AVAILABLE"))
+        ));
     }
 
     @Test
@@ -145,8 +160,16 @@ class LifeCompanionServiceTest {
         assertTrue(enabled.companionEnabled());
         assertEquals("desktop-main-1", enabled.primarySessionId());
         assertTrue(enabled.cognition().activeFocusAndBlockers().contains("跑了五公里"));
+        assertTrue(enabled.cognition().activeFocusAndBlockers().contains("completed_count=3"));
+        assertTrue(enabled.cognition().activeFocusAndBlockers().contains("focus_minutes=90"));
+        assertTrue(enabled.cognition().activeFocusAndBlockers().contains("expense_total=128"));
         assertTrue(enabled.cognition().pendingHooksAndCuriosities().contains("主动陪伴与认知模块"));
-        assertTrue(personalContext.get("owner").content().contains("主动陪伴与认知模块"));
+        // 严守画像修订边界：后台学习不得静默覆盖 PROFILE.md，仅通过受控上下文端口按需注入
+        assertTrue(personalContext.get("owner").content().isBlank());
+        var fragment = companion.recallCognition("owner", "最近有什么进展？");
+        assertTrue(fragment.isPresent());
+        assertTrue(fragment.get().content().contains("主动陪伴与认知模块"));
+        assertTrue(fragment.get().stillCurrent().getAsBoolean());
 
         // 手动触发一次主动问候：应写入桌面主对话与飞书隔离对话 transcript、生成桌面通知并发送飞书
         CompanionView afterReach = companion.reachOutNow("owner", null);
@@ -189,6 +212,24 @@ class LifeCompanionServiceTest {
         assertEquals(2, followedUp.rhythm().unansweredCount());
         verify(transcripts, times(1)).appendProactiveAssistantMessage(eq("desktop-main-1"),
                 argThat(msg -> msg.contains("忙") || msg.contains("进展")));
+
+        // 同一天达到自动触达上限 1 次后不再二次打扰；用户发送消息后立即重置未回复计数与忙时顺延状态
+        TIME.set(Instant.parse("2026-11-09T13:30:00Z")); // 21:30 Asia/Shanghai
+        companion.tick("owner");
+        assertEquals(2, companion.view("owner").rhythm().unansweredCount());
+
+        // 22:30 Asia/Shanghai 进入安静时段（22:00-09:00）同样不触发
+        TIME.set(Instant.parse("2026-11-09T14:30:00Z"));
+        companion.tick("owner");
+        verify(transcripts, times(1)).appendProactiveAssistantMessage(eq("desktop-main-1"),
+                argThat(msg -> msg.contains("忙") || msg.contains("进展")));
+
+        // 用户在任意渠道主动发言：立即重置未回复计数
+        companion.onUserTurnRecorded("owner", "desktop-main-1",
+                butvan.agent.agents.memory.MemorySourceRegistry.Channel.DESKTOP);
+        CompanionView afterReply = companion.view("owner");
+        assertEquals(0, afterReply.rhythm().unansweredCount());
+        assertFalse(afterReply.rhythm().busyDeferred());
     }
 
     private static Path tempDir() {
