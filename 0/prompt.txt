@@ -1,0 +1,5 @@
+2026-11-13T16:09:14.657+08:00  INFO 65605 --- [e-review-worker] b.a.agents.config.LocalConfigService     : 成功从本地文件读取多厂商模型配置: /Users/butvan/.butvan-agent/config.json
+2026-11-13T16:09:16.671+08:00  INFO 65605 --- [e-review-worker] b.a.agents.config.LocalConfigService     : 成功从本地文件读取多厂商模型配置: /Users/butvan/.butvan-agent/config.json
+2026-11-13T16:09:18.685+08:00  INFO 65605 --- [e-review-worker] b.a.agents.config.LocalConfigService     : 成功从本地文件读取多厂商模型配置: /Users/butvan/.butvan-agent/config.json
+
+现在怎么又被这个刷屏了？
