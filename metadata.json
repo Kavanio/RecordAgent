@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M79WC76JX7B2TP1Z51W7HWX4",
+  "strategy": "manual-commit",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/review/ModelReviewGenerator.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/session/SessionCatalogService.java",
+    "agent-backend/server-agents/src/test/java/butvan/agent/agents/session/SessionCatalogServiceTest.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/chat/service/AgentChatContextService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/LifeAuthorizationService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/LifeCompanionService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/life/LifeDeliveryService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/review/service/ReviewModelCatalog.java",
+    "agent-backend/server-network/src/test/java/butvan/agent/network/review/life/LifeCompanionServiceTest.java",
+    "agent-frontend/src/App.tsx",
+    "agent-frontend/src/components/chat/ChannelConversationView.test.mjs",
+    "agent-frontend/src/components/chat/ChannelConversationView.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "redaction": {
+    "replacements": 17,
+    "layers": {
+      "betterleaks": 12,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 5,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
