@@ -2,6 +2,7 @@ package butvan.agent.agents.context;
 
 import butvan.agent.agents.memory.MemoryRecallPort;
 import butvan.agent.agents.reset.ResetBarrier;
+import butvan.agent.agents.review.CompanionContextPort;
 import butvan.agent.agents.review.LifeReviewContextPort;
 import butvan.agent.agents.review.TaskReportContextPort;
 import butvan.agent.agents.storage.AgentStorageProperties;
@@ -25,6 +26,7 @@ public class ConversationContextAssembler {
     private MemoryRecallPort remote = request -> MemoryRecallPort.Result.empty(MemoryRecallPort.Status.NOT_CONFIGURED);
     private LifeReviewContextPort lifeReviewContext = (owner, query) -> Optional.empty();
     private TaskReportContextPort taskReportContext = (owner, query) -> Optional.empty();
+    private CompanionContextPort companionContext = (owner, query) -> Optional.empty();
     private ResetBarrier resetBarrier;
 
     public ConversationContextAssembler(AgentStorageProperties storage, TokenCounter tokenCounter, PersonalContextService personalContextService) {
@@ -48,6 +50,14 @@ public class ConversationContextAssembler {
         this.taskReportContext = (owner, query) -> {
             TaskReportContextPort context = provider.getIfAvailable();
             return context == null ? Optional.empty() : context.recallRecentReport(owner, query);
+        };
+    }
+    /** 仅在实际召回时解析可选主动陪伴认知上下文，避免反向依赖网络模块且禁止静默改写画像。 */
+    @Autowired
+    public void setCompanionContext(ObjectProvider<CompanionContextPort> provider) {
+        this.companionContext = (owner, query) -> {
+            CompanionContextPort context = provider.getIfAvailable();
+            return context == null ? Optional.empty() : context.recallCognition(owner, query);
         };
     }
     @Autowired(required = false)
@@ -100,6 +110,11 @@ public class ConversationContextAssembler {
                 taskReportContext.recallRecentReport(request.userId(), request.query()).ifPresent(candidates::add);
             } catch (RuntimeException exception) {
                 log.warn("任务报告邮件上下文读取降级：errorType={}", exception.getClass().getSimpleName());
+            }
+            try {
+                companionContext.recallCognition(request.userId(), request.query()).ifPresent(candidates::add);
+            } catch (RuntimeException exception) {
+                log.warn("陪伴认知上下文读取降级：errorType={}", exception.getClass().getSimpleName());
             }
             candidates.addAll(result.fragments());
             for (var fragment : candidates) {

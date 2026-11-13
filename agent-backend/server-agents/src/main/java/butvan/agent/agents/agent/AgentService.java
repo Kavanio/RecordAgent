@@ -51,10 +51,21 @@ import java.util.*;
 public class AgentService {
 
     private butvan.agent.agents.memory.MemoryTurnLifecycle memoryLifecycle = butvan.agent.agents.memory.MemoryTurnLifecycle.disabled();
+    private butvan.agent.agents.review.UserTurnActivityListener userTurnActivityListener;
 
     /** 仅 agents 模块运行时保持关闭 Adapter；不改变既有构造和聊天依赖。 */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setMemoryLifecycle(butvan.agent.agents.memory.MemoryTurnLifecycle lifecycle) { this.memoryLifecycle = lifecycle; }
+
+    /** 注入可选的用户发言活动监听（如主动陪伴节律重置），非阻塞且异常不影响对话主流程。 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setUserTurnActivityListener(
+            org.springframework.beans.factory.ObjectProvider<butvan.agent.agents.review.UserTurnActivityListener> provider) {
+        this.userTurnActivityListener = (ownerId, sessionId, channel) -> {
+            var listener = provider.getIfAvailable();
+            if (listener != null) listener.onUserTurnRecorded(ownerId, sessionId, channel);
+        };
+    }
 
     private final ModelHolder modelHolder;
     private final CurrentUserProvider currentUserProvider;
@@ -144,6 +155,13 @@ public class AgentService {
             String turnId = request.turnId() == null
                     ? transcriptService.appendUserMessage(request.sessionId(), displayContent)
                     : transcriptService.appendUserMessageWithTurnId(request.sessionId(), displayContent, request.turnId());
+            if (userTurnActivityListener != null) {
+                try {
+                    userTurnActivityListener.onUserTurnRecorded(userId, request.sessionId(), request.memoryChannel());
+                } catch (RuntimeException exception) {
+                    log.debug("用户发言监听降级：errorType={}", exception.getClass().getSimpleName());
+                }
+            }
             try { memoryLifecycle.admitted(request, userId, turnId); }
             catch (RuntimeException exception) {
                 log.warn("经历来源登记未完成，聊天继续：errorType={}", exception.getClass().getSimpleName());
