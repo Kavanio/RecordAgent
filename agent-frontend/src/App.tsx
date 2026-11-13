@@ -1183,7 +1183,7 @@ export const MainLayout: React.FC<{
           ) : activeFeature === 'study' ? (
             <StudyPage />
           ) : (
-            <ChannelConversationView session={feishuSession} allowDesktopReply>
+            <ChannelConversationView session={feishuSession}>
               <ChatWorkspace
                 onOpenFeature={setActiveFeature}
                 onOpenRecords={(entry, initialType = 'quick') => { setRecordTarget(entry); setRecordInitialType(initialType); setActiveFeature('record'); }}

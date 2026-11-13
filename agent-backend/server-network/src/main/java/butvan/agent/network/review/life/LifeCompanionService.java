@@ -14,6 +14,7 @@ import butvan.agent.network.record.service.RecordService;
 import butvan.agent.network.review.life.LifeCompanionModels.*;
 import butvan.agent.network.review.life.LifeReviewDtos.*;
 import butvan.agent.network.review.life.LifeReviewModels.Settings;
+import butvan.agent.network.review.model.ReviewModels.ModelIdentity;
 import butvan.agent.network.review.service.ReviewGoalService;
 import butvan.agent.network.review.service.ReviewModelCatalog;
 import butvan.agent.network.review.service.ReviewPolicy;
@@ -94,7 +95,7 @@ public class LifeCompanionService {
         Settings s = repository.settings(owner);
         boolean feishuOk = isFeishuAvailable();
         String feishuLabel = feishuOk ? channels.getFirst().target().label() : "未连接飞书（仅桌面主对话与系统通知）";
-        SessionSummaryDto primary = resolvePrimarySession(feishuOk);
+        SessionSummaryDto primary = resolvePrimarySession(false);
         String activeModel = resolveActiveModelLabel(s);
         boolean enabled = s.enabled() && s.proactive() && state.rhythm().companionEnabled();
         List<DesktopNotice> unacked = state.desktopNotices().stream().filter(n -> !n.acknowledged()).toList();
@@ -134,8 +135,9 @@ public class LifeCompanionService {
         if (req == null) throw new IllegalArgumentException("请求不能为空");
         Settings current = repository.settings(owner);
         boolean feishu = req.feishu() != null ? req.feishu() : (isFeishuAvailable() && current.feishu());
-        String providerId = (req.providerId() == null || req.providerId().isBlank()) ? "ACTIVE" : req.providerId().strip();
-        String modelName = (req.modelName() == null || req.modelName().isBlank()) ? "ACTIVE" : req.modelName().strip();
+        ModelIdentity resolvedModel = resolveConcreteModel(req, current);
+        String providerId = resolvedModel.providerId();
+        String modelName = resolvedModel.modelName();
         String tz = (req.timezone() == null || req.timezone().isBlank()) ? current.timezone() : req.timezone().strip();
 
         SaveSettings saveInput = new SaveSettings(
@@ -340,7 +342,7 @@ public class LifeCompanionService {
         if (content == null || content.isBlank()) return;
         Instant now = automationClock.instant();
         String naturalText = naturalizeTemplateText(content);
-        SessionSummaryDto primary = resolvePrimarySession(isFeishuAvailable());
+        SessionSummaryDto primary = resolvePrimarySession(false);
         appendToSessionContext(primary.id(), naturalText);
         store.appendDesktopNotice(owner, primary.id(), kind, title, naturalText, now);
     }
@@ -362,12 +364,16 @@ public class LifeCompanionService {
             String owner, Settings s, String kind, String dedupKey, String hook, String text, Instant now
     ) {
         boolean feishuOk = isFeishuAvailable();
-        SessionSummaryDto primary = resolvePrimarySession(feishuOk);
-        appendToSessionContext(primary.id(), text);
-        store.appendDesktopNotice(owner, primary.id(), kind, "Agent 主动问候", text, now);
+        SessionSummaryDto desktopSession = resolvePrimarySession(false);
+        appendToSessionContext(desktopSession.id(), text);
+        store.appendDesktopNotice(owner, desktopSession.id(), kind, "Agent 主动问候", text, now);
         if (s.enabled() && s.proactive() && s.feishu() && feishuOk) {
             try {
                 deliveries.sendNudge(s, "IDLE_CHECKIN", dedupKey, text);
+                SessionSummaryDto feishuSession = resolvePrimarySession(true);
+                if (!feishuSession.id().equals(desktopSession.id())) {
+                    appendToSessionContext(feishuSession.id(), text);
+                }
             } catch (RuntimeException e) {
                 log.warn("主动问候同步飞书降级：{}", e.getClass().getSimpleName());
             }
@@ -398,17 +404,36 @@ public class LifeCompanionService {
         return channels.size() == 1 && channels.getFirst().target().available();
     }
 
-    private String resolveActiveModelLabel(Settings s) {
-        if (modelCatalog != null) {
+    private ModelIdentity resolveConcreteModel(EnableCompanionRequest req, Settings current) {
+        if (modelCatalog == null) {
+            throw new IllegalArgumentException("模型目录服务不可用，请先配置模型连接");
+        }
+        String reqProvider = req.providerId() == null ? "" : req.providerId().strip();
+        String reqModel = req.modelName() == null ? "" : req.modelName().strip();
+        if (!reqProvider.isBlank() && !"ACTIVE".equalsIgnoreCase(reqProvider)
+                && !reqModel.isBlank() && !"ACTIVE".equalsIgnoreCase(reqModel)) {
+            return modelCatalog.resolve(reqProvider, reqModel);
+        }
+        if (current.providerId() != null && !current.providerId().isBlank() && !"ACTIVE".equalsIgnoreCase(current.providerId())
+                && current.modelName() != null && !current.modelName().isBlank() && !"ACTIVE".equalsIgnoreCase(current.modelName())) {
             try {
-                var id = modelCatalog.resolveOrActive(s.providerId(), s.modelName());
-                return id.modelName();
+                return modelCatalog.resolve(current.providerId(), current.modelName());
+            } catch (IllegalArgumentException ignored) {
+                // 已保存模型不可用时回退解析当前首个可用模型并固化新身份
+            }
+        }
+        return modelCatalog.resolveFirstEnabled();
+    }
+
+    private String resolveActiveModelLabel(Settings s) {
+        if (modelCatalog != null && s.providerId() != null && !s.providerId().isBlank()
+                && s.modelName() != null && !s.modelName().isBlank()) {
+            try {
+                return modelCatalog.resolve(s.providerId(), s.modelName()).modelName();
             } catch (RuntimeException ignored) {
             }
         }
-        return (s.modelName() == null || s.modelName().isBlank() || "ACTIVE".equalsIgnoreCase(s.modelName()))
-                ? "当前聊天默认模型"
-                : s.modelName();
+        return (s.modelName() == null || s.modelName().isBlank()) ? "未配置模型" : s.modelName();
     }
 
     private List<String> collectRecentUserMessages(int limit) {

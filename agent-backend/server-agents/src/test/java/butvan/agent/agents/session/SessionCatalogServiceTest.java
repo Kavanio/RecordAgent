@@ -97,22 +97,21 @@ class SessionCatalogServiceTest {
     }
 
     @Test
-    void companionSessionPrefersExistingFeishuSessionAndAppendsProactiveAssistantTranscript() {
+    void companionSessionKeepsDesktopAndFeishuChannelsStrictlyIsolated() {
         var storage = new AgentStorageProperties(temporaryDirectory.resolve("companion"));
         var mapper = new ObjectMapper().findAndRegisterModules();
         var user = new CurrentUserProvider();
         var catalog = new SessionCatalogService(storage, user, mapper);
         var transcripts = new TranscriptService(storage, mapper);
 
+        var feishuSession = catalog.createFeishuSession();
         var desktopSession = catalog.resolveOrCreateCompanionSession(false);
         assertEquals(butvan.agent.agents.session.dto.SessionChannel.DESKTOP, catalog.getChannel(desktopSession.id()));
+        assertEquals(feishuSession.id(), catalog.resolveOrCreateCompanionSession(true).id());
 
-        var feishuSession = catalog.createFeishuSession();
-        assertEquals(feishuSession.id(), catalog.resolveOrCreateCompanionSession(false).id());
-
-        String turnId = transcripts.appendProactiveAssistantMessage(feishuSession.id(), "晚上好，看你今天忙了一整天，歇下来了吗？");
-        catalog.touch(feishuSession.id(), "晚上好，看你今天忙了一整天，歇下来了吗？");
-        var messages = transcripts.list(feishuSession.id());
+        String turnId = transcripts.appendProactiveAssistantMessage(desktopSession.id(), "晚上好，看你今天忙了一整天，歇下来了吗？");
+        catalog.touch(desktopSession.id(), "晚上好，看你今天忙了一整天，歇下来了吗？");
+        var messages = transcripts.list(desktopSession.id());
         assertEquals(1, messages.size());
         assertEquals(turnId, messages.getFirst().turnId());
         assertEquals(butvan.agent.agents.session.dto.TranscriptMessageDto.MessageRole.ASSISTANT, messages.getFirst().role());
