@@ -1,0 +1,41 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M79ZY93FDX9AJ214KKE84EWC",
+  "session_id": "1d2b5aa8-07d3-4cc8-81ea-ed9cd278d09b",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-13T08:21:16.250707Z",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 2,
+  "save_step_count": 1,
+  "files_touched": [
+    "agent-frontend/index.html",
+    "agent-frontend/src/App.tsx",
+    "agent-frontend/src/components/reset/AgentResetBoundary.tsx",
+    "agent-frontend/src/components/reset/AppBootGate.module.css",
+    "agent-frontend/src/components/reset/AppBootGate.tsx",
+    "agent-frontend/src/components/reset/bootSplashContext.ts",
+    "agent-frontend/src/main.tsx"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-argon-high",
+  "turn_id": "3433371415ab",
+  "checkpoint_transcript_start": 1081,
+  "transcript_lines_at_start": 1081,
+  "redaction": {
+    "replacements": 17,
+    "layers": {
+      "betterleaks": 12,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 5,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 13
+  }
+}

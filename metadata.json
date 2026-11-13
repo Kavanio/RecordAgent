@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M79ZY93FDX9AJ214KKE84EWC",
+  "strategy": "manual-commit",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "agent-frontend/index.html",
+    "agent-frontend/src/App.tsx",
+    "agent-frontend/src/components/reset/AgentResetBoundary.tsx",
+    "agent-frontend/src/components/reset/AppBootGate.module.css",
+    "agent-frontend/src/components/reset/AppBootGate.tsx",
+    "agent-frontend/src/components/reset/bootSplashContext.ts",
+    "agent-frontend/src/main.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 17,
+    "layers": {
+      "betterleaks": 12,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 5,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
