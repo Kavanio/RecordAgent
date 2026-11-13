@@ -105,7 +105,7 @@ public class LifeCompanionService implements CompanionContextPort, UserTurnActiv
 
     public CompanionView view(String owner) {
         CompanionState state = store.load(owner);
-        Settings s = repository.settings(owner);
+        Settings s = healLegacyActiveModelIfNeeded(owner, repository.settings(owner));
         boolean feishuOk = isFeishuAvailable();
         String feishuLabel = feishuOk ? channels.getFirst().target().label() : "未连接飞书（仅桌面主对话与系统通知）";
         SessionSummaryDto primary = resolvePrimarySession(false);
@@ -235,7 +235,7 @@ public class LifeCompanionService implements CompanionContextPort, UserTurnActiv
     public void tick(String owner) {
         if (resetBarrier != null && resetBarrier.blocked()) return;
         CompanionState state = store.load(owner);
-        Settings s = repository.settings(owner);
+        Settings s = healLegacyActiveModelIfNeeded(owner, repository.settings(owner));
         if (!s.enabled() || !s.proactive() || !state.rhythm().companionEnabled()) return;
 
         Instant now = automationClock.instant();
@@ -442,6 +442,38 @@ public class LifeCompanionService implements CompanionContextPort, UserTurnActiv
 
     private boolean isFeishuAvailable() {
         return channels.size() == 1 && channels.getFirst().target().available();
+    }
+
+    private Settings healLegacyActiveModelIfNeeded(String owner, Settings s) {
+        if (modelCatalog == null || !s.enabled()) return s;
+        if (!"ACTIVE".equalsIgnoreCase(s.providerId()) && !"ACTIVE".equalsIgnoreCase(s.modelName())) {
+            return s;
+        }
+        try {
+            ModelIdentity resolved = modelCatalog.resolveFirstEnabled();
+            boolean hadGrant = s.grantId() != null && !s.grantId().isBlank();
+            boolean feishu = s.feishu() && isFeishuAvailable();
+            SaveSettings saveInput = new SaveSettings(
+                    s.revision(), s.enabled(), s.sources(),
+                    resolved.providerId(), resolved.modelName(), s.timezone(),
+                    s.historyDays(), s.dailyLimit(), s.proactive(), feishu,
+                    (s.proactive() && feishu) ? s.idleCheckinDays() : 0,
+                    s.proactive() && feishu && s.weatherSignalEnabled(),
+                    s.proactive() && feishu && s.expenseSignalEnabled(),
+                    s.proactive() && feishu && s.serverSignalEnabled(),
+                    s.serverProbeUrl(), s.serverProbeName(),
+                    s.proactive() && feishu && s.mailSignalEnabled(),
+                    s.imapHost(), s.imapPort(), s.imapUsername(), "",
+                    s.mailSenderWhitelist(), s.mailSubjectKeywords()
+            );
+            SettingsView saved = authorization.save(owner, saveInput);
+            if (hadGrant) {
+                authorization.grant(owner, new Consent(saved.revision(), LifeAuthorizationService.POLICY, true));
+            }
+            return repository.settings(owner);
+        } catch (RuntimeException ignored) {
+            return s;
+        }
     }
 
     private ModelIdentity resolveConcreteModel(EnableCompanionRequest req, Settings current) {

@@ -17,10 +17,27 @@ export function AgentResetBoundary({ children }: { children: ReactNode }) {
   const seenBlocked = useRef(false);
   useEffect(() => {
     let mounted = true;
-    let timer: ReturnType<typeof setTimeout>;
+    let pollingBlocked = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const clearPoll = () => {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+    };
+    const schedulePoll = () => {
+      clearPoll();
+      if (mounted && pollingBlocked) timer = setTimeout(() => void refresh(), 2000);
+    };
     const unsubscribe = subscribeAgentReset(next => {
       if (!mounted) return;
-      if (resetBlocked(next)) seenBlocked.current = true;
+      pollingBlocked = resetBlocked(next);
+      if (pollingBlocked) {
+        seenBlocked.current = true;
+        schedulePoll();
+      } else {
+        clearPoll();
+      }
       if (next.status === 'LOCAL_COMPLETE' && seenBlocked.current) setReceipt(true);
       setStatus(previous => previous && (previous.generation > next.generation
         || (previous.generation === next.generation && previous.status === 'LOCAL_COMPLETE')) ? previous : next);
@@ -28,12 +45,16 @@ export function AgentResetBoundary({ children }: { children: ReactNode }) {
     });
     async function refresh() {
       try { await fetchAgentReset(); }
-      catch (cause) { if (mounted) setError(cause instanceof Error ? cause.message : '无法确认重置状态'); }
-      finally { if (mounted) timer = setTimeout(() => void refresh(), 2000); }
+      catch (cause) {
+        if (mounted) {
+          setError(cause instanceof Error ? cause.message : '无法确认重置状态');
+          schedulePoll();
+        }
+      }
     }
     void refresh();
     void fetchBackendConnection().then(info => { if (mounted) setCanRestart(info.mode === 'sidecar'); }).catch(() => undefined);
-    return () => { mounted = false; clearTimeout(timer); unsubscribe(); };
+    return () => { mounted = false; clearPoll(); unsubscribe(); };
   }, []);
   async function retry() {
     if (!status?.resetId) return;

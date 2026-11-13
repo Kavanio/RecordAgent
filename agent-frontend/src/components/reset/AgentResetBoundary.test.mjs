@@ -131,3 +131,19 @@ test('浏览器连接失败提供开发后端指引，手动重查成功后才�
   await view.click('重新检查状态');
   assert.equal(view.text(), '业务应用哨兵');
 });
+
+test('正常 IDLE 状态挂载后不再周期轮询 /agent/reset/current', async () => {
+  resetModules();
+  let currentCalls = 0;
+  useFetchStub(url => {
+    if (String(url).endsWith('/agent/reset/current')) currentCalls++;
+    return jsonResponse(idle);
+  });
+  const React = getReact();
+  const { AgentResetBoundary } = await loadModule('/src/components/reset/AgentResetBoundary.tsx');
+  view = await mount(React.createElement(AgentResetBoundary, null, React.createElement('p', null, '业务应用哨兵')));
+  assert.equal(view.text(), '业务应用哨兵');
+  assert.equal(currentCalls, 1);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 2200)); });
+  assert.equal(currentCalls, 1);
+});
