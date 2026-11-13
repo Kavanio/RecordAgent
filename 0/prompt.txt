@@ -1,0 +1,17 @@
+2026-11-13T15:34:19.159+08:00  WARN 61819 --- [e-review-worker] b.a.n.review.life.LifeReviewRuntime      : 生活复盘调度跳过：IllegalArgumentException
+2026-11-13T15:34:20.778+08:00  INFO 61819 --- [nio-8081-exec-7] b.agent.network.aspect.ApiLogAspect      : [API-LOG] >>> START | Description: [查询当前 Agent 重置任务] | Method: [GET /agent/reset/current] | Client: [0:0:0:0:0:0:0:1] | Handler: [AgentResetController.current] | Args: []
+2026-11-13T15:34:20.782+08:00  INFO 61819 --- [nio-8081-exec-7] b.agent.network.aspect.ApiLogAspect      : [API-LOG] <<< END   | Description: [查询当前 Agent 重置任务] | Method: [GET /agent/reset/current] | Status: [SUCCESS] | Cost: [4 ms] | Result: Result{code=200, message='success', dataType='Status'}
+2026-11-13T15:34:21.175+08:00  WARN 61819 --- [e-review-worker] b.a.n.review.life.LifeReviewRuntime      : 生活复盘调度跳过：IllegalArgumentException
+2026-11-13T15:34:22.881+08:00  INFO 61819 --- [nio-8081-exec-2] b.agent.network.aspect.ApiLogAspect      : [API-LOG] >>> START | Description: [查询当前 Agent 重置任务] | Method: [GET /agent/reset/current] | Client: [0:0:0:0:0:0:0:1] | Handler: [AgentResetController.current] | Args: []
+2026-11-13T15:34:22.886+08:00  INFO 61819 --- [nio-8081-exec-2] b.agent.network.aspect.ApiLogAspect      : [API-LOG] <<< END   | Description: [查询当前 Agent 重置任务] | Method: [GET /agent/reset/current] | Status: [SUCCESS] | Cost: [4 ms] | Result: Result{code=200, message='success', dataType='Status'}
+2026-11-13T15:34:23.186+08:00  WARN 61819 --- [e-review-worker] b.a.n.review.life.LifeReviewRuntime      : 生活复盘调度跳过：IllegalArgumentException
+2026-11-13T15:34:24.975+08:00  INFO 61819 --- [nio-8081-exec-3] b.agent.network.aspect.ApiLogAspect      : [API-LOG] >>> START | Description: [查询当前 Agent 重置任务] | Method: [GET /agent/reset/current] | Client: [0:0:0:0:0:0:0:1] | Handler: [AgentResetController.current] | Args: []
+2026-11-13T15:34:24.977+08:00  INFO 61819 --- [nio-8081-exec-3] b.agent.network.aspect.ApiLogAspect      : [API-LOG] <<< END   | Description: [查询当前 Agent 重置任务] | Method: [GET /agent/reset/current] | Status: [SUCCESS] | Cost: [2 ms] | Result: Result{code=200, message='success', dataType='Status'}
+2026-11-13T15:34:25.197+08:00  WARN 61819 --- [e-review-worker] b.a.n.review.life.LifeReviewRuntime      : 生活复盘调度跳过：IllegalArgumentException
+
+
+目前系统后端日志输出总是会不断的跳出日志，这部分功能能不能优化一下？
+
+---
+
+继续
