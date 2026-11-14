@@ -3,7 +3,7 @@ import { test, before, after, beforeEach, afterEach } from 'node:test';
 import { startHarness, stopHarness, loadModule, mount, useFetchStub, jsonResponse, act } from '../../testing/harness.mjs';
 
 let React, Sidebar, MessageProvider, view, stub;
-let removed, removeResult;
+let removed, removeResult, selectedFeature;
 const project = {
   id: 'project-1',
   name: 'Butvan Blog2.0',
@@ -23,6 +23,7 @@ after(stopHarness);
 beforeEach(async () => {
   localStorage.clear();
   removed = [];
+  selectedFeature = null;
   removeResult = { success: true };
   stub = useFetchStub(async (url) => {
     if (url.pathname.endsWith('/feishu')) return jsonResponse([]);
@@ -33,7 +34,7 @@ beforeEach(async () => {
     null,
     React.createElement(Sidebar, {
       activeFeature: 'chat',
-      onSelectFeature() {},
+      onSelectFeature(feature) { selectedFeature = feature; },
       projects: [project],
       sessions: [],
       activeSessionId: '',
@@ -103,3 +104,11 @@ test('移除失败时保留确认弹框并展示全局错误', async () => {
   assert.match(document.body.textContent, /项目目录册写入失败/);
   assert.match(document.body.textContent, /移除项目？/);
 });
+
+test('功能导航包含状态入口并支持点击切换', async () => {
+  const statusBtn = buttonByText('状态');
+  assert.ok(statusBtn);
+  await click(statusBtn);
+  assert.equal(selectedFeature, 'status');
+});
+

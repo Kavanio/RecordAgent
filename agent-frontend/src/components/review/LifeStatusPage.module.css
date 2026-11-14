@@ -1,0 +1,10 @@
+.page { display: flex; flex: 1; min-width: 0; flex-direction: column; background: #fff; height: 100%; }
+.headerActions { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; white-space: nowrap; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.workspace { position: relative; display: flex; flex: 1; min-height: 0; min-width: 0; }
+.content { flex: 1; min-width: 0; overflow: auto; padding: 24px 28px 48px; }
+.contentInner { box-sizing: border-box; width: min(100%, 920px); min-height: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.loadingCenter { display: flex; flex: 1; min-height: 320px; align-items: center; justify-content: center; }
+@media (max-width: 900px) {
+  .content { padding: 16px; }
+}

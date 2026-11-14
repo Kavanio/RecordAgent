@@ -1,22 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Bell,
-  SquarePen,
-  Search,
-  X,
-  Trash2,
-  Folder,
-  Plus,
-  FolderPlus,
-  MessageSquare,
-  ChevronRight,
-  ChevronDown,
-  MoreHorizontal,
-  Pencil,
-  User,
-  Settings,
-  AlertTriangle,
+  Bell, SquarePen, Search, X, Trash2, Folder, Plus, FolderPlus, MessageSquare,
+  ChevronRight, ChevronDown, MoreHorizontal, Pencil, User, Settings, AlertTriangle, Sparkles,
 } from 'lucide-react';
 import { BooksIcon, CalendarDotsIcon, StudentIcon, WalletIcon } from '@phosphor-icons/react';
 import type { ChatSession, Project, SessionSummaryDto } from '../../types/chat';
@@ -51,8 +37,8 @@ const SIDEBAR_MAX_WIDTH = 400;
 const SIDEBAR_WIDTH_KEY = 'butvan.sidebarWidth';
 
 interface SidebarProps {
-  activeFeature: 'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task';
-  onSelectFeature: (feature: 'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task') => void;
+  activeFeature: 'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task' | 'status';
+  onSelectFeature: (feature: 'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task' | 'status') => void;
   /** 用户头像 URL；未配置时使用邮箱前两位作为默认头像 */
   avatarUrl?: string;
   projects: Project[];
@@ -492,46 +478,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <nav className={styles.featureNav} aria-label="功能导航">
-          <button
-            type="button"
-            className={`${styles.featureTab} ${activeFeature === 'calendar' ? styles.featureTabActive : ''}`}
-            onClick={() => onSelectFeature('calendar')}
-            aria-current={activeFeature === 'calendar' ? 'page' : undefined}
-          >
-            <CalendarDotsIcon size={14} />
-            <span>日历</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.featureTab} ${activeFeature === 'finance' ? styles.featureTabActive : ''}`}
-            onClick={() => onSelectFeature('finance')}
-            aria-current={activeFeature === 'finance' ? 'page' : undefined}
-          >
-            <WalletIcon size={14} />
-            <span>财务</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.featureTab} ${activeFeature === 'record' ? styles.featureTabActive : ''}`}
-            onClick={() => onSelectFeature('record')}
-            aria-current={activeFeature === 'record' ? 'page' : undefined}
-          >
-            <BooksIcon size={14} />
-            <span>资料</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.featureTab} ${activeFeature === 'study' ? styles.featureTabActive : ''}`}
-            onClick={() => onSelectFeature('study')}
-            aria-current={activeFeature === 'study' ? 'page' : undefined}
-          >
-            <StudentIcon size={14} />
-            <span>记录</span>
-          </button>
-          <button type="button" className={`${styles.featureTab} ${activeFeature === 'task' ? styles.featureTabActive : ''}`}
-            onClick={() => onSelectFeature('task')} aria-current={activeFeature === 'task' ? 'page' : undefined}>
-            <Bell size={14} /><span>任务</span>
-          </button>
+          {([
+            { id: 'calendar', label: '日历', Icon: CalendarDotsIcon },
+            { id: 'finance', label: '财务', Icon: WalletIcon },
+            { id: 'record', label: '资料', Icon: BooksIcon },
+            { id: 'study', label: '记录', Icon: StudentIcon },
+            { id: 'task', label: '任务', Icon: Bell },
+            { id: 'status', label: '状态', Icon: Sparkles },
+          ] as const).map(({ id, label, Icon }) => (
+            <button key={id} type="button" className={`${styles.featureTab} ${activeFeature === id ? styles.featureTabActive : ''}`}
+              onClick={() => onSelectFeature(id)} aria-current={activeFeature === id ? 'page' : undefined}>
+              <Icon size={14} /><span>{label}</span>
+            </button>
+          ))}
         </nav>
 
         <div className={styles.scrollArea}>

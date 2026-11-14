@@ -18,43 +18,22 @@ import { StudyWindowLayer } from './components/study/StudyWindowLayer';
 import { SystemStudyWindow } from './components/study/SystemStudyWindow';
 import { ModelSettingsPage } from './components/model/ModelSettingsPage';
 import { ModelInitPage } from './components/model/ModelInitPage';
-import { MessageProvider } from './components/common/Message';
-import { useMessage } from './components/common/Message';
+import { MessageProvider, useMessage } from './components/common/Message';
 import { LoadingTree } from './components/common/LoadingTree';
 import { useBootSplashHold } from './components/reset/bootSplashContext';
 import {
-  fetchModelConfig,
-  fetchSupportedVendors,
-  streamAgentChat,
-  fetchSessions,
-  fetchSessionDetail,
-  createSessionApi,
-  updateSessionTitleApi,
-  deleteSessionApi,
-  submitPermissionDecisions,
-  fetchPendingPermission,
-  generateSessionTitle,
-  fetchSessionPermissionMode,
-  updateSessionPermissionMode,
-  cancelAgentChatRun,
+  fetchModelConfig, fetchSupportedVendors, streamAgentChat, fetchSessions, fetchSessionDetail,
+  createSessionApi, updateSessionTitleApi, deleteSessionApi, submitPermissionDecisions,
+  fetchPendingPermission, generateSessionTitle, fetchSessionPermissionMode, updateSessionPermissionMode, cancelAgentChatRun,
 } from './services/api';
 import type { PermissionDecisionInput, PermissionToolPayload } from './services/api';
 import type {
-  AgentAnalysisContextRequest,
-  ChatImageAttachment,
-  ChatSession,
-  ChatMessage,
-  Project,
-  SessionSummaryDto,
-  SessionPermissionMode,
+  AgentAnalysisContextRequest, ChatImageAttachment, ChatSession, ChatMessage, Project, SessionSummaryDto, SessionPermissionMode,
 } from './types/chat';
 import type { SubagentProgressDto, TaskDto } from './types/team';
-import {
-  cancelSubagentTask,
-  fetchSubagentTasks,
-  subscribeSubagentTaskEvents,
-} from './services/taskApi';
+import { cancelSubagentTask, fetchSubagentTasks, subscribeSubagentTaskEvents } from './services/taskApi';
 import { fetchProjects, importProject, removeProject as removeProjectApi } from './services/projectApi';
+import { LifeStatusPage } from './components/review/LifeStatusPage';
 import { useCompanionNotifications } from './components/review/useCompanionNotifications';
 
 interface ActiveChatRun {
@@ -110,7 +89,7 @@ export const MainLayout: React.FC<{
   const { activeSessionId, setActiveSessionId, feishuSession, selectFeishuSession } = useConversationSelection();
   const [recordInitialType, setRecordInitialType] = useState<RecordType>('quick');
   const [recordTarget, setRecordTarget] = useState<RecordEntry | null | undefined>(undefined);
-  const [activeFeature, setActiveFeature] = useState<'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task'>('chat');
+  const [activeFeature, setActiveFeature] = useState<'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task' | 'status'>('chat');
   const [pendingPermissions, setPendingPermissions] = useState<Record<string, PendingPermissionState>>({});
   const [isPermissionSubmitting, setIsPermissionSubmitting] = useState(false);
   const [subagentTasks, setSubagentTasks] = useState<TaskDto[]>([]);
@@ -1060,7 +1039,11 @@ export const MainLayout: React.FC<{
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden' }}>
       {isSettingsOpen ? (
-        <ModelSettingsPage onBack={() => setIsSettingsOpen(false)} initialTab={settingsTab} />
+        <ModelSettingsPage
+          onBack={() => setIsSettingsOpen(false)}
+          initialTab={settingsTab}
+          onOpenStatus={() => { setIsSettingsOpen(false); setActiveFeature('status'); }}
+        />
       ) : (
         <>
           <Sidebar
@@ -1083,6 +1066,8 @@ export const MainLayout: React.FC<{
           />
           {activeFeature === 'task' ? (
             <TaskPage onOpenSettings={() => { setSettingsTab('task'); setIsSettingsOpen(true); }} />
+          ) : activeFeature === 'status' ? (
+            <LifeStatusPage onOpenSettings={(tab = 'review') => { setSettingsTab(tab); setIsSettingsOpen(true); }} />
           ) : activeFeature === 'calendar' ? (
             <CalendarView />
           ) : activeFeature === 'finance' ? (

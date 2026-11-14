@@ -57,11 +57,11 @@ pnpm build   # tsc -b && vite build，类型检查与生产构建
 
 - 个人上下文显示并配置 Bank ID；GET/PUT `/agent/memory/trial-connection` 增加 `bankId`。空串使用持久化空间对应的 `ra-<spaceId>`，缺省字段保留原配置，默认库 ID 原样保存须归一化为空串以保持旧指纹。自定义 ID 限 1—128 个英文字母、数字、下划线或连字符，保存于受保护连接文件并绑定接收方指纹；保存、召回、状态查询、删除统一使用同一目标。已有未 VERIFIED 的旧接收方目标时拒绝切换，不迁移或删除旧记忆，不解除暂停；连接检查不证明库存在或库权限已通过。前端遇到不返回 bankId 的旧后端只显示升级提示，禁止编辑库字段。
 
-## 生活复盘入口
+## 状态模块与生活复盘入口
 
-- 模型设置侧栏只保留“生活复盘”一个复盘入口，直接渲染 `components/review/LifeReviewSettings`，不在内容顶部叠加 Tab 栏；生活复盘 HTTP 统一经 `services/lifeReviewApi`。保存设置不授予权限，有未保存变更时不得授权或生成。
+- 主侧栏新增“状态”一级功能入口（`components/review/LifeStatusPage`），与日历、财务、资料、记录、任务并列，统一承载日常复盘阅读与准备、个人目标维护、不定时主动问候与四维系统性认知、个人画像与经历来源管理入口、作息建议与主动提醒记录。模型设置侧栏“生活复盘”直接渲染 `components/review/LifeReviewSettings`，专注范围与模型配置、主动提醒信号及用途授权，并提供前往“状态”模块的快捷入口；生活复盘 HTTP 统一经 `services/lifeReviewApi`。保存设置不授予权限，有未保存变更时不得授权或生成。
 - 统计复盘不再作为设置页签，改名为“报告邮件 AI 点评”，由 `components/review/ReportReviewSettings` 嵌入自动任务设置（`TaskSettings`）。它不自已定时：只有报告类任务开启邮件并成功生成后，才会轮到它在 `AutomationService` 里排队并向邮件追加正文。后端 `/agent/reviews` 接口与数据结构不变，不得因前端换位置而修改授权、冻结副本或清除语义。点评正文在任务执行历史（`TaskHistoryDrawer` 的“生成内容”）里看，不再单独提供统计复盘历史页。
-- 个人目标维护位于生活复盘页（`components/review/LifeGoalSettings`），因为生活复盘的 `GOALS` 来源与主动候选都引用它；后端使用同一组 `/agent/reviews/goals` 接口，不得另建目标表或让模型静默写入。
+- 个人目标维护位于“状态”模块（`components/review/LifeGoalSettings`），因为生活复盘的 `GOALS` 来源与主动候选都引用它；后端使用同一组 `/agent/reviews/goals` 接口，不得另建目标表或让模型静默写入。
 - 版本卡片展示原始时区、归属日、覆盖截止点、来源与各渠道状态；打开历史只读，补充单独创建版本。飞书 UNKNOWN 仅显示人工核对说明，不提供自动或隐式重发。
 - 作息是用户明确提供的有期限候选；未回复不生成负反馈。前端不按本机日期推断后端时区的复盘归属日。
 
