@@ -50,7 +50,7 @@ async function render() {
 
 test('支持编辑进行中的目标并带上 expectedRevision', async () => {
   await render();
-  assert.match(document.body.textContent, /1\/3 个进行中/);
+  assert.match(document.body.textContent, /1\/3/);
   const editBtn = document.body.querySelector('button[aria-label="编辑目标 每周读书三次"]');
   assert.ok(editBtn);
   await act(async () => editBtn.click());
@@ -83,12 +83,12 @@ test('支持展开已归档目标并恢复；满 3 个有效目标时禁用新�
   assert.equal(writes.length, 1);
   assert.equal(writes[0].body.state, 'ACTIVE');
   assert.equal(writes[0].body.expectedRevision, 2);
-  assert.match(document.body.textContent, /2\/3 个进行中/);
+  assert.match(document.body.textContent, /2\/3/);
 
   goals.push({ id: 'g3', title: '第三项目标', constraintText: '', successCriterion: '', state: 'ACTIVE', revision: 1, createdAt: '', updatedAt: '' });
   await view.unmount();
   await render();
-  assert.match(document.body.textContent, /3\/3 个进行中/);
+  assert.match(document.body.textContent, /3\/3/);
   const addBtn = [...document.body.querySelectorAll('button')].find(b => b.textContent.includes('新增目标'));
   assert.equal(addBtn.disabled, true);
 });

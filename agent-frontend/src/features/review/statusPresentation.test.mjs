@@ -63,3 +63,18 @@ test('companionPulse 按优先级输出状态文案', () => {
   assert.match(mod.companionPulse(true, { companionEnabled: true, unansweredCount: 1, busyDeferred: true, lastOutreachHook: '', lastLearnedAt: null, lastDataFingerprint: '', lastOutreachAt: null, lastUserActiveAt: null, nextReachAt: null }, cog, 'Asia/Shanghai').text, /忙时免打扰/);
   assert.match(mod.companionPulse(true, { companionEnabled: true, unansweredCount: 2, busyDeferred: false, lastOutreachHook: '', lastLearnedAt: null, lastDataFingerprint: '', lastOutreachAt: null, lastUserActiveAt: null, nextReachAt: null }, cog, 'Asia/Shanghai').text, /连续 2 次/);
 });
+
+test('formatCompanionChannel 与 formatRhythmSummary 去除技术冗词并保留详述', () => {
+  assert.equal(mod.formatCompanionChannel('已配置的本人飞书私聊', true), '飞书私聊');
+  assert.equal(mod.formatCompanionChannel('', false), '仅桌面');
+
+  const raw = '近 14 天统计到 1 个活跃日、共 2 次互动时间戳（需至少 3 个活跃日且 12—23 点不少于 5 次互动才生成作息建议）。';
+  const sparse = mod.formatRhythmSummary({ available: false, suggestedHour: 21, sampleCount: 2, activeDays: 1, windowDays: 14, hourCounts: [], note: raw });
+  assert.doesNotMatch(sparse.text, /需至少/);
+  assert.match(sparse.text, /2 次互动/);
+  assert.equal(sparse.detail, raw);
+
+  const ready = mod.formatRhythmSummary({ available: true, suggestedHour: 22, sampleCount: 8, activeDays: 4, windowDays: 14, hourCounts: [], note: '完整建议说明' });
+  assert.match(ready.text, /22:00/);
+  assert.equal(ready.detail, '完整建议说明');
+});

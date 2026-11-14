@@ -133,6 +133,8 @@ test('展示顶部状态胶囊并支持点击柱子设定作息时间', async ()
   assert.doesNotMatch(document.body.textContent, /私密个人画像原文|私密提案摘要/);
 
   const bar20 = view.query('button[aria-label="设为每天 20:00 复盘"]');
+  await act(async () => bar20.focus());
+  assert.match(document.body.textContent, /9 次互动/);
   await act(async () => bar20.click());
   assert.ok(document.body.querySelector('[role="dialog"]'));
   const saveBtn = [...document.body.querySelectorAll('button')].find(b => b.textContent === '保存时间');

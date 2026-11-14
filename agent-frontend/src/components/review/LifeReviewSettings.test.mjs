@@ -240,7 +240,7 @@ test('准备中版本显示等待生成提示并禁用重复点击', async () =>
 test('支持在我的复盘直接设置每日自动生成时间且备注可选', async () => {
   settings.authorized = true;
   await renderStatus();
-  await click('设置每日时间（21:00）');
+  await click('每日 21:00');
   const select = query('select[aria-label="生活复盘作息小时"]');
   assert.ok(select);
   await act(async () => {
@@ -253,24 +253,31 @@ test('支持在我的复盘直接设置每日自动生成时间且备注可选',
   assert.deepEqual(JSON.parse(writes[0].init.body), { expectedRevision: 0, availableHour: 20, source: '', active: true });
 });
 
-test('今天版本优先展示，查看复用旧版，更新须确认并创建新版本', async () => {
+test('无今日复盘时提供准备入口；已有今日版本时优先展示并只保留更新确认入口', async () => {
   settings.authorized = true;
   const todayParts = new Intl.DateTimeFormat('en', {
     timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
   }).formatToParts(new Date());
   const today = ['year', 'month', 'day'].map(t => todayParts.find(p => p.type === t)?.value || '').join('-');
-  history = [{ id: 'ready-1', day: today, timezone: 'Asia/Shanghai', version: 1, state: 'READY',
+  const todayItem = { id: 'ready-1', day: today, timezone: 'Asia/Shanghai', version: 1, state: 'READY',
     sourceAsOf: '2026-10-30T13:00:00Z', availableAt: '2026-10-30T13:00:00Z', coverage: '', message: '',
-    materials: [], facts: [], items: [{ kind: 'FACT_OBSERVATION', text: '已有今日复盘', evidenceIds: ['e1'], uncertainty: '' }], questions: [], deliveries: [] }];
+    materials: [], facts: [], items: [{ kind: 'FACT_OBSERVATION', text: '已有今日复盘', evidenceIds: ['e1'], uncertainty: '' }], questions: [], deliveries: [] };
   const yesterday = new Date(new Date(`${today}T00:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10);
-  history.unshift({ ...history[0], id: 'yesterday-backfill', day: yesterday });
+
+  history = [{ ...todayItem, id: 'yesterday-backfill', day: yesterday }];
   await renderStatus();
-  assert.match(query('article').getAttribute('aria-label'), new RegExp(today));
-  assert.doesNotMatch(query('article').textContent, /今日回顾/);
+  assert.equal(queryAll('button').some(b => b.textContent === '更新今天的复盘'), false);
   await click('准备今天的复盘');
   const prepares = calls.filter(c => c.url.pathname.endsWith('/prepare') && c.init?.method === 'POST');
   assert.equal(prepares.length, 1);
   assert.deepEqual(JSON.parse(prepares[0].init.body), { day: today, expectedVersion: 0, supplement: false });
+
+  await view.unmount(); view = null;
+  history = [{ ...todayItem, id: 'yesterday-backfill', day: yesterday }, todayItem];
+  await renderStatus();
+  assert.match(query('article').getAttribute('aria-label'), new RegExp(today));
+  assert.doesNotMatch(query('article').textContent, /今日回顾/);
+  assert.equal(queryAll('button').some(b => b.textContent === '准备今天的复盘'), false);
   await click('更新今天的复盘');
   assert.equal(calls.filter(c => c.url.pathname.endsWith('/prepare')).length, 1);
   await click('确认更新');
@@ -302,7 +309,7 @@ test('展示基于互动时间戳的作息建议并支持一键采用，且支�
   ];
   await renderStatus();
 
-  await click('采用建议（22:00）');
+  await click('采用建议 22:00');
   const habitWrites = calls.filter(c => c.url.pathname.endsWith('/habit') && c.init?.method === 'PUT');
   assert.equal(habitWrites.length, 1);
   assert.deepEqual(JSON.parse(habitWrites[0].init.body), {
