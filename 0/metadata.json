@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7C0ZY73HDAMEAPK5QH4BA3B",
+  "session_id": "ec02bd7e-ce29-4ce8-94fb-5265d234a702",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-14T03:18:08.001984Z",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "UI COMPONENTS.md"
+  ],
+  "agent": "Antigravity",
+  "model": "claude-opus-5-5-medium",
+  "turn_id": "7dc498cdd5b3",
+  "checkpoint_transcript_start": 681,
+  "transcript_lines_at_start": 681,
+  "redaction": {
+    "replacements": 24,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 24,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 14
+  }
+}
