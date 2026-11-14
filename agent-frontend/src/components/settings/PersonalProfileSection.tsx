@@ -174,15 +174,15 @@ export function PersonalProfileSection({
             <span className={tileStyles.tileIcon} aria-hidden="true"><UserRoundCheck size={16} /></span>
             <div className={tileStyles.tileTitles}>
               <h2>个人画像</h2>
-              <p>{hasProfile ? '已保存个人画像' : '尚未填写个人画像'} · 仅在打开后显示私密正文</p>
+              <p>{hasProfile ? '已保存个人画像' : '尚未填写个人画像'}</p>
             </div>
           </div>
           <span className={tileStyles.badge} data-active={hasProfile}>{hasProfile ? '已填写' : '待填写'}</span>
         </div>
 
-        <p className={tileStyles.meta}>
-          维护检查：{PROFILE_RESULT_LABELS[maintenance.lastResult]}{lastChecked ? ` · ${lastChecked}` : ''}
-          {hasProfile ? ` · 约 ${formatTokenCount(settings.estimatedTokens)} tokens` : ''}
+        <p className={tileStyles.meta} title={lastChecked ? `上次检查：${lastChecked}` : undefined}>
+          {hasProfile ? `约 ${formatTokenCount(settings.estimatedTokens)} tokens · ` : ''}
+          维护检查：{PROFILE_RESULT_LABELS[maintenance.lastResult]}
         </p>
 
         {proposal && (

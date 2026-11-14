@@ -63,14 +63,12 @@ export function StatusInsightView({ companion, timezone, busy, memorySummary, on
       <header className={styles.blockHeader}>
         <div>
           <h2><Brain size={16} aria-hidden="true" />Agent 学到的你</h2>
-          <p>
-            独立维护四维陪伴认知并在对话时按需参考，不会覆盖个人画像；最近更新：{formatDateTime(cognition?.updatedAt, timezone)}。
-          </p>
+          <p>更新于 {formatDateTime(cognition?.updatedAt, timezone)}</p>
         </div>
         {companion && (
           <Button size="sm" variant="outline" icon={<RefreshCw size={14} />} disabled={busy}
             onClick={() => void act(() => lifeReviewApi.learnCompanion(), '已从近期全量记录更新对你的系统性认知')}>
-            立即学习更新
+            更新认知
           </Button>
         )}
       </header>
@@ -95,7 +93,7 @@ export function StatusInsightView({ companion, timezone, busy, memorySummary, on
               <p className={text ? styles.dimText : styles.dimFallback}>{text || dim.fallback}</p>
               {dim.key === 'routineAndBusyHours' && (
                 <div className={styles.busyWindow}>
-                  忙时免打扰窗口：{formatHour(cognition.busyStartHour)}—{formatHour(cognition.busyEndHour)}
+                  免打扰 {formatHour(cognition.busyStartHour)}—{formatHour(cognition.busyEndHour)}
                 </div>
               )}
             </article>;
@@ -108,7 +106,6 @@ export function StatusInsightView({ companion, timezone, busy, memorySummary, on
       <header className={styles.blockHeader}>
         <div>
           <h2>你告诉 Agent 的</h2>
-          <p>由你显式填写或授权登记，正文与详情仅在你点击打开弹窗时加载展示。</p>
         </div>
       </header>
       <div className={styles.tiles}>

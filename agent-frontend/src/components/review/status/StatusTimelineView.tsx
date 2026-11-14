@@ -47,7 +47,7 @@ export function StatusTimelineView({
     <StatusCard
       title="复盘时间线"
       icon={<History size={16} />}
-      description={days.length > 0 ? `已记录 ${days.length} 天、共 ${history.length} 个版本；点击日期阅读正文与参考材料。` : '每日复盘生成后按归属日排列在这里。'}
+      description={days.length > 0 ? `${days.length} 天 · ${history.length} 个版本` : '复盘按日留档在这里'}
     >
       {days.length === 0 ? (
         <ReviewEmptyState title="还没有生活复盘" description="在「今天」准备首份复盘后，每天的回顾和历史版本会保留在这里。" />
@@ -58,13 +58,13 @@ export function StatusTimelineView({
               <div className={styles.dayTop}>
                 <strong>{dayTitle(day.day)}</strong>
                 <div className={styles.dayBadges}>
+                  <span className={styles.tag}>v{day.latest.version}</span>
                   {day.versions.length > 1 && <span className={styles.tag}>{day.versions.length} 个版本</span>}
                   <span className={styles.state} data-state={day.latest.state}>{REVIEW_STATE_LABELS[day.latest.state] || day.latest.state}</span>
                   <ChevronRight size={14} aria-hidden="true" />
                 </div>
               </div>
               <p className={styles.excerpt}>{reviewExcerpt(day.latest)}</p>
-              <span className={styles.daySub}>{day.day} · 最新 v{day.latest.version}</span>
             </button>
           </li>)}
         </ul>
@@ -82,7 +82,7 @@ export function StatusTimelineView({
     <StatusCard
       title="主动联系时间线"
       icon={<Bell size={16} />}
-      description={enabledRules.length > 0 ? `已开启：${enabledRules.join('、')}（未回复不催促）` : '暂无已开启的提醒规则，可在复盘设置中按需开启。'}
+      description={enabledRules.length > 0 ? <span title={enabledRules.join('、')}>已启用 {enabledRules.length} 项提醒 · 未回复不催促</span> : '暂未开启提醒规则'}
     >
       <div className={styles.filters} role="group" aria-label="筛选主动联系记录">
         {OUTREACH_FILTERS.map(item => {
@@ -107,24 +107,28 @@ export function StatusTimelineView({
             </div>
             <p className={styles.outreachText}>{entry.text}</p>
             <div className={styles.outreachFoot}>
-              <span>{formatDateTime(entry.at, s.timezone)}{entry.feedback ? ` · 已反馈：${FEEDBACK_LABELS[entry.feedback] || entry.feedback}` : ''}</span>
-              <div className={styles.outreachActions}>
-                {entry.source === 'nudge' ? (
-                  (['HELPFUL', 'NOT_NEEDED'] as const).map(decision => (
-                    <Button key={decision} size="sm" variant="ghost" disabled={busy || entry.feedback === decision}
-                      onClick={() => void act(() => lifeReviewApi.nudgeFeedback(entry.id, decision), '问候反馈已记录')}>
-                      {decision === 'HELPFUL' ? '有帮助' : '暂不需要'}
-                    </Button>
-                  ))
-                ) : (
-                  (entry.state === 'PENDING' ? ['CANCEL'] : ['HELPFUL', 'NOT_RELEVANT']).map(decision => (
-                    <Button key={decision} size="sm" variant="ghost" disabled={busy}
-                      onClick={() => void act(() => lifeReviewApi.feedback(entry.id, decision), '反馈已记录')}>
-                      {decision === 'CANCEL' ? '取消候选' : decision === 'HELPFUL' ? '有帮助' : '不相关'}
-                    </Button>
-                  ))
-                )}
-              </div>
+              <span>{formatDateTime(entry.at, s.timezone)}</span>
+              {entry.feedback && entry.state !== 'PENDING' ? (
+                <span className={styles.feedbackDone}>已反馈：{FEEDBACK_LABELS[entry.feedback] || entry.feedback}</span>
+              ) : (
+                <div className={styles.outreachActions}>
+                  {entry.source === 'nudge' ? (
+                    (['HELPFUL', 'NOT_NEEDED'] as const).map(decision => (
+                      <Button key={decision} size="sm" variant="ghost" disabled={busy}
+                        onClick={() => void act(() => lifeReviewApi.nudgeFeedback(entry.id, decision), '问候反馈已记录')}>
+                        {decision === 'HELPFUL' ? '有帮助' : '暂不需要'}
+                      </Button>
+                    ))
+                  ) : (
+                    (entry.state === 'PENDING' ? ['CANCEL'] : ['HELPFUL', 'NOT_RELEVANT']).map(decision => (
+                      <Button key={decision} size="sm" variant="ghost" disabled={busy}
+                        onClick={() => void act(() => lifeReviewApi.feedback(entry.id, decision), '反馈已记录')}>
+                        {decision === 'CANCEL' ? '取消候选' : decision === 'HELPFUL' ? '有帮助' : '不相关'}
+                      </Button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </li>)}
         </ul>

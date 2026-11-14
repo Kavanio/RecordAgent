@@ -35,15 +35,18 @@ export function CompanionPulseCard({ companion, timezone, busy, act }: Companion
       <span className={styles.dot} aria-hidden="true" />
       <p>{pulse.text}</p>
     </div>
-    <dl className={styles.meta}>
-      <div><dt>陪伴对话</dt><dd>{companion.primarySessionTitle || '日常陪伴'}</dd></div>
-      <div><dt>渠道</dt><dd>{companion.feishuLabel || (companion.feishuConnected ? '本人飞书' : '仅桌面')}</dd></div>
-      <div><dt>最近学习</dt><dd>{formatDateTime(rhythm.lastLearnedAt, timezone)}</dd></div>
-      <div><dt>上次问候</dt><dd>{formatDateTime(rhythm.lastOutreachAt, timezone)}</dd></div>
-    </dl>
+    <p className={styles.metaLine}>
+      <span>{companion.primarySessionTitle || '日常陪伴'}</span>
+      <span aria-hidden="true">·</span>
+      <span>{companion.feishuLabel || (companion.feishuConnected ? '本人飞书' : '仅桌面')}</span>
+      <span aria-hidden="true">·</span>
+      <span>学习 {formatDateTime(rhythm.lastLearnedAt, timezone)}</span>
+      <span aria-hidden="true">·</span>
+      <span>问候 {formatDateTime(rhythm.lastOutreachAt, timezone)}</span>
+    </p>
     <div className={styles.actions}>
-      <Button size="sm" variant="outline" disabled={busy} onClick={() => void act(() => lifeReviewApi.reachOutCompanion(), '')}>立即问候一次</Button>
-      <Button size="sm" variant="outline" disabled={busy} onClick={() => void act(() => lifeReviewApi.learnCompanion(), '已从近期全量记录更新对你的系统性认知')}>立即学习更新</Button>
+      <Button size="sm" variant="outline" disabled={busy} onClick={() => void act(() => lifeReviewApi.reachOutCompanion(), '')}>问候一次</Button>
+      <Button size="sm" variant="outline" disabled={busy} onClick={() => void act(() => lifeReviewApi.learnCompanion(), '已从近期全量记录更新对你的系统性认知')}>更新认知</Button>
     </div>
   </StatusCard>;
 }

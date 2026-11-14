@@ -1,12 +1,9 @@
-.pulse { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg-surface); }
-.pulse p { margin: 0; color: var(--text-primary); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
-.dot { width: 8px; height: 8px; flex: 0 0 auto; margin-top: 7px; border-radius: 50%; background: var(--text-muted); }
+.pulse { display: flex; align-items: flex-start; gap: 9px; padding: 8px 11px; border-radius: 9px; background: var(--bg-surface); }
+.pulse p { margin: 0; color: var(--text-primary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.dot { width: 7px; height: 7px; flex: 0 0 auto; margin-top: 6px; border-radius: 50%; background: var(--text-muted); }
 .pulse[data-tone='on'] .dot { background: #10b981; box-shadow: 0 0 0 3px #d1fae5; }
 .pulse[data-tone='wait'] .dot { background: #f59e0b; box-shadow: 0 0 0 3px #fef3c7; }
-.meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; margin: 0; }
-.meta div { min-width: 0; }
-.meta dt { color: var(--text-muted); font-size: 11px; }
-.meta dd { margin: 2px 0 0; overflow: hidden; color: var(--text-primary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.metaLine { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; }
 @media (prefers-reduced-motion: no-preference) { .pulse[data-tone='on'] .dot { animation: breathe 2.4s ease-in-out infinite; } }
 @keyframes breathe { 50% { box-shadow: 0 0 0 5px #d1fae5; } }

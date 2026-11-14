@@ -42,7 +42,7 @@ export function RhythmCard({ habit, suggestion, cognition, busy, disabled, act }
   return <StatusCard
     title="作息节律"
     icon={<Clock3 size={16} />}
-    description={`每日复盘时间 ${formatHour(current)}${habit?.active ? '' : '（默认）'}`}
+    description={`每日复盘 ${formatHour(current)}`}
     actions={<Button size="sm" variant="outline" disabled={disabled} onClick={() => openModal()}>{`设置每日时间（${formatHour(current).replace(/^0/, '')}）`}</Button>}
   >
     <div className={styles.chart} role="img" aria-label={hasData ? '近 14 天各小时互动次数分布' : '暂无足够的互动时间数据'}>
@@ -59,12 +59,12 @@ export function RhythmCard({ habit, suggestion, cognition, busy, disabled, act }
     </div>
     <div className={styles.axis} aria-hidden="true"><span>0时</span><span>6时</span><span>12时</span><span>18时</span><span>23时</span></div>
     <div className={styles.legend}>
-      <span><i className={styles.legendActive} />互动次数</span>
+      <span><i className={styles.legendActive} />互动分布</span>
       {cognition && <span><i className={styles.legendBusy} />忙碌 {formatHour(cognition.busyStartHour)}—{formatHour(cognition.busyEndHour)}</span>}
       <span><i className={styles.legendCurrent} />复盘时间</span>
     </div>
-    <p className={styles.note}>
-      {suggestion?.note || '仅统计近 14 天普通会话的消息时间戳（不读正文、不调用模型），至少 3 个活跃日与 5 次互动后给出建议。'}
+    <p className={styles.note} title="仅统计近 14 天普通会话的消息时间戳（不读正文、不调用模型），至少 3 个活跃日与 5 次互动后给出建议。">
+      {suggestion?.note || '近 14 天暂未积累足够互动时段样本，点柱子可手动调整时间。'}
     </p>
     {suggested !== null && suggested !== current && (
       <Button size="sm" variant="outline" disabled={disabled}

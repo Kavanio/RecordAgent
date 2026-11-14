@@ -31,7 +31,7 @@ export function MemoryDocumentManager({ variant = 'settings', sourceSummary = nu
             <span className={styles.tileIcon} aria-hidden="true"><Database size={16} /></span>
             <div className={styles.tileTitles}>
               <h2>经历来源管理</h2>
-              <p>聊天来源仅在打开后读取，原聊天会话始终保留。</p>
+              <p>仅在打开后读取，支持纠正与删除核对</p>
             </div>
           </div>
           {sourceSummary && (
@@ -40,7 +40,6 @@ export function MemoryDocumentManager({ variant = 'settings', sourceSummary = nu
             </span>
           )}
         </div>
-        <p className={styles.meta}>查看已授权登记的聊天来源，支持本地纠正或逐条核对远端删除结果。</p>
         <div className={styles.tileActions}>
           <Button variant="outline" size="sm" icon={<Lock size={14} />} onClick={() => setOpen(true)}>管理来源</Button>
         </div>

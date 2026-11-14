@@ -109,7 +109,7 @@ const NUDGE_KIND_LABELS: Record<string, string> = {
   EXPENSE_ALERT: '支出变化提醒', SERVER_ALERT: '服务器状态提醒', SERVER_RECOVERY: '服务器恢复提醒', MAIL_ALERT: '重要邮件提醒',
 };
 const NUDGE_STATES: Record<string, string> = {
-  PENDING: '等待发送', SENDING: '正在发送', SENT: '已发送', UNKNOWN: '发送结果未知（不自动重发）', FAILED: '发送未完成', CANCELLED: '已取消',
+  PENDING: '等待发送', SENDING: '正在发送', SENT: '已发送', UNKNOWN: '结果未知', FAILED: '发送未完成', CANCELLED: '已取消',
 };
 const CANDIDATE_STATES: Record<string, string> = {
   PENDING: '等待合适时机', PRESENTED: '已呈现', CANCELLED: '已取消', EXPIRED: '已过期',
@@ -117,6 +117,13 @@ const CANDIDATE_STATES: Record<string, string> = {
 export const FEEDBACK_LABELS: Record<string, string> = {
   HELPFUL: '有帮助', NOT_NEEDED: '暂不需要', NOT_RELEVANT: '不相关', CANCEL: '已取消',
 };
+
+/** 去掉正文中与卡片标题完全重复的 `【标题】` 前缀。 */
+export function cleanOutreachText(text: string, title: string): string {
+  const prefix = `【${title}】`;
+  if (text.startsWith(prefix)) return text.slice(prefix.length).trim();
+  return text.replace(/^【[^】]{2,14}提醒】\s*/, '');
+}
 
 export interface OutreachEntry {
   key: string;
@@ -133,11 +140,14 @@ export interface OutreachEntry {
 
 /** 合并问候/提醒与复盘候选，按时间倒序；无效时间排在最后。 */
 export function buildOutreachTimeline(nudges: LifeNudge[], candidates: LifeCandidate[]): OutreachEntry[] {
-  const nudgeEntries: OutreachEntry[] = nudges.map(n => ({
-    key: `nudge-${n.id}`, id: n.id, source: 'nudge', category: n.kind === 'IDLE_CHECKIN' ? 'greeting' : 'alert',
-    title: NUDGE_KIND_LABELS[n.kind] || n.kind, text: n.text, state: n.state, stateLabel: NUDGE_STATES[n.state] || n.state,
-    at: n.sentAt || n.createdAt, feedback: n.feedback || '',
-  }));
+  const nudgeEntries: OutreachEntry[] = nudges.map(n => {
+    const title = NUDGE_KIND_LABELS[n.kind] || n.kind;
+    return {
+      key: `nudge-${n.id}`, id: n.id, source: 'nudge', category: n.kind === 'IDLE_CHECKIN' ? 'greeting' : 'alert',
+      title, text: cleanOutreachText(n.text, title), state: n.state, stateLabel: NUDGE_STATES[n.state] || n.state,
+      at: n.sentAt || n.createdAt, feedback: n.feedback || '',
+    };
+  });
   const candidateEntries: OutreachEntry[] = candidates.map(c => ({
     key: `candidate-${c.id}`, id: c.id, source: 'candidate', category: 'candidate',
     title: c.topic.startsWith('review-') ? `${c.topic.slice(7)} 生活复盘` : c.topic,
@@ -178,9 +188,9 @@ export function rhythmBars(hourCounts: number[] | undefined, busyStart?: number,
 
 /** 陪伴节奏一句话说明，优先级：未开启 > 忙时顺延 > 未回复 > 下次时间 > 等待安排。 */
 export function companionPulse(enabled: boolean, rhythm: LifeRhythmState, cognition: LifeCognition, timezone: string): { tone: 'off' | 'wait' | 'on'; text: string } {
-  if (!enabled) return { tone: 'off', text: '主动陪伴未开启，Agent 不会主动问候你' };
-  if (rhythm.busyDeferred) return { tone: 'wait', text: `忙时免打扰顺延中（${formatHour(cognition.busyStartHour)}—${formatHour(cognition.busyEndHour)}），忙完后再跟进` };
-  if (rhythm.unansweredCount > 0) return { tone: 'wait', text: `上次问候暂未回复（连续 ${rhythm.unansweredCount} 次），已自动拉长间隔不催促` };
+  if (!enabled) return { tone: 'off', text: '主动陪伴未开启' };
+  if (rhythm.busyDeferred) return { tone: 'wait', text: `忙时免打扰顺延中（${formatHour(cognition.busyStartHour)}—${formatHour(cognition.busyEndHour)}）` };
+  if (rhythm.unansweredCount > 0) return { tone: 'wait', text: `连续 ${rhythm.unansweredCount} 次未回，已拉长跟进间隔` };
   if (rhythm.nextReachAt) return { tone: 'on', text: `下次问候预计 ${formatDateTime(rhythm.nextReachAt, timezone)}` };
-  return { tone: 'on', text: '正在根据你的作息与近期动态安排时机' };
+  return { tone: 'on', text: '正在安排合适问候时机' };
 }

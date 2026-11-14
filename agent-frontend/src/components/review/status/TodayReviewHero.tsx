@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarCheck, Info, RefreshCw, Sparkles } from 'lucide-react';
+import { CalendarCheck, ChevronDown, Info, RefreshCw, Sparkles } from 'lucide-react';
 import { lifeReviewApi } from '../../../services/lifeReviewApi';
 import type { LifeContent, LifeHabit, LifeSettings } from '../../../types/lifeReview';
 import { dayTitle, formatHour, sortVersions } from '../../../features/review/statusPresentation';
@@ -22,12 +22,15 @@ interface TodayReviewHeroProps {
   onOpenSettings?: (tab?: 'review' | 'context') => void;
 }
 
-/** 今日复盘主卡：未启用引导、准备/更新、生成中与正文直接阅读；历史版本移到「足迹」。 */
+/** 今日复盘主卡：只平铺今日内容或最近有效回顾；旧日未生成仅保留紧凑折叠条，避免大片报错占满首屏。 */
 export function TodayReviewHero({ settings: s, history, habit, today, busy, generating, disabled, act, onOpenSettings }: TodayReviewHeroProps) {
   const [refreshOpen, setRefreshOpen] = useState(false);
+  const [expandFailedPrev, setExpandFailedPrev] = useState(false);
   const ordered = sortVersions(history);
   const todayContent = ordered.find(c => c.day === today);
-  const shown = todayContent ?? ordered[0];
+  const latest = ordered[0];
+  const latestIsFailedPast = Boolean(!todayContent && latest && latest.items.length === 0 && latest.state !== 'PENDING' && latest.state !== 'RUNNING');
+  const shown = todayContent ?? (latestIsFailedPast ? null : latest);
   const hour = habit?.active ? habit.availableHour : 21;
   const blocked = !s.enabled || !s.authorized;
 
@@ -41,7 +44,7 @@ export function TodayReviewHero({ settings: s, history, habit, today, busy, gene
     title="今天的复盘"
     tone="accent"
     icon={<CalendarCheck size={16} />}
-    description={`${dayTitle(today)} · 每天 ${formatHour(hour)} 自动准备${s.feishu ? '，完成后投递到本人飞书' : ''}`}
+    description={`每日 ${formatHour(hour)}${s.feishu ? ' · 同步飞书' : ''}`}
     actions={<>
       <Button size="sm" variant="primary" icon={<Sparkles size={14} />} disabled={disabled || generating} onClick={prepare}>
         {generating ? '正在生成复盘…' : '准备今天的复盘'}
@@ -58,18 +61,39 @@ export function TodayReviewHero({ settings: s, history, habit, today, busy, gene
         <Info size={16} aria-hidden="true" />
         <div>
           <strong>{!s.enabled ? '生活复盘尚未启用' : '生活复盘尚未完成用途授权'}</strong>
-          <p>启用并确认读取范围与模型授权后，即可按设定时间或手动准备今日复盘。</p>
+          <p>授权读取范围与模型后即可使用。</p>
         </div>
         {onOpenSettings && <Button size="sm" variant="outline" onClick={() => onOpenSettings('review')}>前往复盘设置</Button>}
       </div>
     )}
 
-    {!shown && <ReviewEmptyState title="还没有生活复盘" description="准备一份当天复盘后，正文会直接显示在这里，历史版本可以在「足迹」中按日期查看。" />}
-    {shown && !todayContent && <p className={styles.hint}>今天尚无复盘，以下为最近一天（{dayTitle(shown.day)}）的记录。</p>}
+    {!shown && (
+      <ReviewEmptyState
+        title={latest ? '今天还没有复盘' : '还没有生活复盘'}
+        description={`每天 ${formatHour(hour)} 自动生成，也可以现在手动准备。`}
+      />
+    )}
+
+    {shown && !todayContent && <p className={styles.hint}>今天尚未生成，以下为 {dayTitle(shown.day)} 的回顾</p>}
     {shown && (
       <div className={styles.reading}>
         <LifeContentCard key={shown.id} className={styles.embedded} content={shown} timezone={shown.timezone || s.timezone}
           busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />
+      </div>
+    )}
+
+    {latestIsFailedPast && latest && (
+      <div className={styles.prevFailure}>
+        <button type="button" className={styles.prevToggle} aria-expanded={expandFailedPrev} onClick={() => setExpandFailedPrev(v => !v)}>
+          <span>最近一次（{dayTitle(latest.day)}）未生成{latest.message ? `：${latest.message}` : ''}</span>
+          <ChevronDown size={14} className={expandFailedPrev ? styles.chevronOpen : ''} aria-hidden="true" />
+        </button>
+        {expandFailedPrev && (
+          <div className={styles.reading}>
+            <LifeContentCard key={latest.id} className={styles.embedded} content={latest} timezone={latest.timezone || s.timezone}
+              busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />
+          </div>
+        )}
       </div>
     )}
 
@@ -79,7 +103,7 @@ export function TodayReviewHero({ settings: s, history, habit, today, busy, gene
       tone="info"
       confirmText="确认更新"
       busy={busy}
-      description="重新采集已授权范围内截至现在的资料，并生成新版本，可能占用一次模型调用额度。旧版本与已发送副本保留。"
+      description="重新采集截至现在的资料并生成新版本，旧版与已发副本保留。"
       onClose={() => setRefreshOpen(false)}
       onConfirm={() => {
         setRefreshOpen(false);

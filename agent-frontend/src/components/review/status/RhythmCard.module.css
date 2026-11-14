@@ -1,4 +1,4 @@
-.chart { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: end; gap: 3px; height: 96px; padding: 6px 0 0; }
+.chart { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: end; gap: 3px; height: 68px; padding: 6px 0 0; }
 .bar { position: relative; height: 100%; display: flex; align-items: flex-end; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
 .bar:disabled { cursor: default; }
 .bar[data-busy] { background: repeating-linear-gradient(135deg, #f1f5f9 0 4px, #e2e8f0 4px 6px); }

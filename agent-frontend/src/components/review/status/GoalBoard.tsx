@@ -58,7 +58,7 @@ export function GoalBoard() {
   return <StatusCard
     title="个人目标"
     icon={<Target size={16} />}
-    description={`由你维护，模型只引用不改写 · ${active.length}/${MAX_ACTIVE} 个进行中`}
+    description={`${active.length}/${MAX_ACTIVE} 个进行中`}
     actions={<Button size="sm" variant="outline" icon={<Plus size={14} />} disabled={busy || freeSlots === 0}
       onClick={() => setDraft({ ...EMPTY_DRAFT })}>新增目标</Button>}
   >
@@ -66,7 +66,7 @@ export function GoalBoard() {
     {!loading && active.length === 0 && !error && (
       <div className={styles.empty}>
         <strong>还没有设定目标</strong>
-        <p>写下想达成的事和边界，复盘时会作为约束引用，不会自动变成待办。</p>
+        <p>设定后将在复盘与建议中被引用。</p>
       </div>
     )}
     {active.length > 0 && <ul className={styles.goals}>
@@ -74,8 +74,11 @@ export function GoalBoard() {
         <span className={styles.index} aria-hidden="true">{index + 1}</span>
         <div className={styles.goalBody}>
           <strong>{goal.title}</strong>
-          {goal.successCriterion && <p><em>进展标准</em>{goal.successCriterion}</p>}
-          {goal.constraintText && <p><em>执行约束</em>{goal.constraintText}</p>}
+          {(goal.successCriterion || goal.constraintText) && (
+            <p title={[goal.successCriterion, goal.constraintText && `约束：${goal.constraintText}`].filter(Boolean).join(' · ')}>
+              {[goal.successCriterion, goal.constraintText && `约束：${goal.constraintText}`].filter(Boolean).join(' · ')}
+            </p>
+          )}
         </div>
         <div className={styles.goalActions}>
           <Button size="sm" variant="ghost" iconOnly icon={<Pencil size={14} />} aria-label={`编辑目标 ${goal.title}`} disabled={busy}
@@ -85,7 +88,6 @@ export function GoalBoard() {
         </div>
       </li>)}
     </ul>}
-    {active.length > 0 && freeSlots > 0 && <p className={styles.slots}>还可以再添加 {freeSlots} 个目标。</p>}
     {archived.length > 0 && <div className={styles.archived}>
       <button type="button" className={styles.archivedToggle} aria-expanded={showArchived} onClick={() => setShowArchived(v => !v)}>
         已归档 {archived.length} 个{showArchived ? '（收起）' : '（展开）'}
