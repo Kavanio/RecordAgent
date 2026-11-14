@@ -78,3 +78,12 @@ test('formatCompanionChannel 与 formatRhythmSummary 去除技术冗词并保留
   assert.match(ready.text, /22:00/);
   assert.equal(ready.detail, '完整建议说明');
 });
+
+test('zonedClock 按指定时区计算时刻指针与 24 小时进度比例', () => {
+  const fixed = new Date('2026-11-14T02:57:00Z');
+  const shanghai = mod.zonedClock('Asia/Shanghai', fixed);
+  assert.equal(shanghai.hour, 10);
+  assert.equal(shanghai.minute, 57);
+  assert.equal(shanghai.label, '10:57');
+  assert.ok(shanghai.fraction > 0.45 && shanghai.fraction < 0.46);
+});
