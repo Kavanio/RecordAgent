@@ -1,0 +1,50 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7BZGZM3CEHFPGDZ1VN31M7S",
+  "session_id": "ec02bd7e-ce29-4ce8-94fb-5265d234a702",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-14T02:52:29.499508Z",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-frontend/src/components/review/LifeContentCard.module.css",
+    "agent-frontend/src/components/review/LifeContentCard.tsx",
+    "agent-frontend/src/components/review/status/CompanionPulseCard.module.css",
+    "agent-frontend/src/components/review/status/CompanionPulseCard.tsx",
+    "agent-frontend/src/components/review/status/GoalBoard.module.css",
+    "agent-frontend/src/components/review/status/GoalBoard.tsx",
+    "agent-frontend/src/components/review/status/LifeStatusPage.module.css",
+    "agent-frontend/src/components/review/status/LifeStatusPage.tsx",
+    "agent-frontend/src/components/review/status/RhythmCard.module.css",
+    "agent-frontend/src/components/review/status/RhythmCard.tsx",
+    "agent-frontend/src/components/review/status/StatusCard.module.css",
+    "agent-frontend/src/components/review/status/StatusCard.tsx",
+    "agent-frontend/src/components/review/status/StatusInsightView.module.css",
+    "agent-frontend/src/components/review/status/StatusTimelineView.module.css",
+    "agent-frontend/src/components/review/status/TodayReviewHero.module.css",
+    "agent-frontend/src/components/review/status/TodayReviewHero.tsx",
+    "agent-frontend/src/features/review/statusPresentation.ts"
+  ],
+  "agent": "Antigravity",
+  "model": "claude-opus-5-5-medium",
+  "turn_id": "0a4089ca71a0",
+  "checkpoint_transcript_start": 449,
+  "transcript_lines_at_start": 449,
+  "redaction": {
+    "replacements": 16,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 16,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 11
+  }
+}
