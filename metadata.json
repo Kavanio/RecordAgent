@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7BWG3XSDV3FQRPXHBZZRADG",
+  "strategy": "manual-commit",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "agent-frontend/src/components/review/LifeReviewSettings.test.mjs",
+    "agent-frontend/src/components/review/ReviewNavigation.test.mjs",
+    "agent-frontend/src/components/review/status/GoalBoard.test.mjs",
+    "agent-frontend/src/components/review/status/LifeStatusPage.test.mjs",
+    "agent-frontend/src/features/review/statusPresentation.test.mjs"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "redaction": {
+    "replacements": 10,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 10,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
