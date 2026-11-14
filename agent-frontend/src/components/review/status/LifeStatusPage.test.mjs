@@ -219,3 +219,54 @@ test('今天尚无复盘且最近一次为旧日失败记录时默认折叠，�
   await act(async () => toggleBtn.click());
   assert.match(document.body.textContent, /本次没有生成复盘正文/);
 });
+
+test('足迹默认折叠长正文与超过 5 条的记录，支持按需展开详情、完整列表和整栏收起', async () => {
+  state.history = Array.from({ length: 7 }, (_, i) => {
+    const dayNum = 20 - i;
+    const day = `2026-11-${String(dayNum).padStart(2, '0')}`;
+    return {
+      id: `rev-${i}`, themeId: 't1', day, timezone: 'Asia/Shanghai', version: 1, state: 'READY',
+      sourceAsOf: `${day}T13:00:00Z`, availableAt: `${day}T13:00:00Z`, providerId: 'p1', modelName: 'm1',
+      coverage: '', message: '', materials: [], facts: [],
+      items: [{ kind: 'FACT_OBSERVATION', text: `第${dayNum}天唯一复盘摘要`, evidenceIds: [], uncertainty: '' }],
+      questions: [], deliveries: [],
+    };
+  });
+  state.nudges = Array.from({ length: 7 }, (_, i) => ({
+    id: `nudge-${i}`, kind: 'IDLE_CHECKIN', text: `第${i + 1}条完整问候正文内容`, state: 'SENT',
+    createdAt: `2026-11-${String(20 - i).padStart(2, '0')}T10:00:00Z`,
+    sentAt: `2026-11-${String(20 - i).padStart(2, '0')}T10:00:00Z`,
+    feedback: '',
+  }));
+  state.candidates = [];
+
+  await render({ initialTab: 'timeline' });
+  const daysSection = view.query('section[aria-label="复盘时间线"]');
+  const outreachSection = view.query('section[aria-label="主动联系时间线"]');
+
+  assert.match(daysSection.textContent, /11月20日/);
+  assert.match(daysSection.textContent, /第20天唯一复盘摘要/);
+  assert.doesNotMatch(daysSection.textContent, /第19天唯一复盘摘要/);
+  assert.doesNotMatch(daysSection.textContent, /11月15日/);
+
+  assert.doesNotMatch(outreachSection.textContent, /第1条完整问候正文内容/);
+  assert.match(outreachSection.textContent, /展开其余 2 条/);
+
+  const moreDaysBtn = [...daysSection.querySelectorAll('button')].find(b => b.textContent.includes('展开更早 2 天'));
+  await act(async () => moreDaysBtn.click());
+  assert.match(daysSection.textContent, /11月15日/);
+
+  const moreOutreachBtn = [...outreachSection.querySelectorAll('button')].find(b => b.textContent.includes('展开其余 2 条'));
+  await act(async () => moreOutreachBtn.click());
+  assert.equal(outreachSection.querySelectorAll('li').length, 7);
+
+  const firstToggle = outreachSection.querySelector('li button[aria-expanded="false"]');
+  await act(async () => firstToggle.click());
+  assert.match(outreachSection.textContent, /第1条完整问候正文内容/);
+  assert.ok([...outreachSection.querySelectorAll('button')].some(b => b.textContent === '有帮助'));
+
+  await act(async () => view.query('button[aria-label="收起主动联系时间线"]').click());
+  assert.doesNotMatch(view.query('section[aria-label="主动联系时间线"]').textContent, /全部/);
+  await act(async () => view.query('button[aria-label="展开主动联系时间线"]').click());
+  assert.match(view.query('section[aria-label="主动联系时间线"]').textContent, /全部/);
+});

@@ -318,10 +318,17 @@ test('展示基于互动时间戳的作息建议并支持一键采用，且支�
 
   await click('足迹');
   assert.match(document.body.textContent, /天气变化提醒/);
+  const weatherToggle = queryAll('li button[aria-expanded]').find(b => b.textContent.includes('天气变化提醒'));
+  assert.ok(weatherToggle);
+  await act(async () => weatherToggle.click());
   assert.match(document.body.textContent, /杭州当前转为暴雨/);
 
-  const idleEntry = queryAll('li').find(li => li.textContent.includes('好几天没见你来记录或聊近况了'));
+  const idleEntry = queryAll('li').find(li => li.textContent.includes('久未互动轻声问候'));
   assert.ok(idleEntry);
+  const idleToggle = idleEntry.querySelector('button[aria-expanded]');
+  assert.ok(idleToggle);
+  await act(async () => idleToggle.click());
+  assert.match(idleEntry.textContent, /好几天没见你来记录或聊近况了/);
   const helpfulBtn = [...idleEntry.querySelectorAll('button')].find(b => b.textContent === '有帮助');
   assert.ok(helpfulBtn);
   await act(async () => helpfulBtn.click());
@@ -402,6 +409,9 @@ test('服务器探针提醒支持在设置页配置名称与URL，并在状态�
   await click('足迹');
   assert.match(document.body.textContent, /服务器状态提醒/);
   assert.match(document.body.textContent, /服务器恢复提醒/);
+  const serverToggle = queryAll('li button[aria-expanded]').find(b => b.textContent.includes('服务器状态提醒'));
+  assert.ok(serverToggle);
+  await act(async () => serverToggle.click());
   assert.match(document.body.textContent, /HTTP 503 状态异常/);
 });
 
@@ -445,6 +455,9 @@ test('重要邮件提醒支持在设置页配置失败状态，并在状态页�
   await renderStatus();
   await click('足迹');
   assert.match(document.body.textContent, /重要邮件提醒/);
+  const mailToggle = queryAll('li button[aria-expanded]').find(b => b.textContent.includes('重要邮件提醒'));
+  assert.ok(mailToggle);
+  await act(async () => mailToggle.click());
   assert.match(document.body.textContent, /生产数据库主从同步延迟/);
 });
 
