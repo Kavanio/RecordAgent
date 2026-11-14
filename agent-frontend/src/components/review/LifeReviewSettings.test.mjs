@@ -5,7 +5,7 @@ let React, Settings, StatusPage, Card, MessageProvider, stub, view, calls, setti
 before(async () => {
   await startHarness(); React = getReact();
   ({ LifeReviewSettings: Settings } = await loadModule('/src/components/review/LifeReviewSettings.tsx'));
-  ({ LifeStatusPage: StatusPage } = await loadModule('/src/components/review/LifeStatusPage.tsx'));
+  ({ LifeStatusPage: StatusPage } = await loadModule('/src/components/review/status/LifeStatusPage.tsx'));
   ({ LifeContentCard: Card } = await loadModule('/src/components/review/LifeContentCard.tsx'));
   ({ MessageProvider } = await loadModule('/src/components/common/Message.tsx'));
 });
@@ -74,7 +74,7 @@ async function changeInput(input, value) {
   });
 }
 async function render(props = {}) { view = await mount(React.createElement(MessageProvider, null, React.createElement(Settings, props))); }
-async function renderStatus(props = {}) { view = await mount(React.createElement(MessageProvider, null, React.createElement(StatusPage, props))); }
+async function renderStatus(props = {}) { view = await mount(React.createElement(MessageProvider, null, React.createElement(StatusPage, { initialTab: 'today', ...props }))); }
 
 test('首次读取不授权、不生成、不发送，明确展示独立正文范围', async () => {
   await render();
@@ -302,11 +302,6 @@ test('展示基于互动时间戳的作息建议并支持一键采用，且支�
   ];
   await renderStatus();
 
-  const details = queryAll('details').find(d => d.querySelector('summary')?.textContent.includes('主动联系'));
-  assert.ok(details);
-  details.open = true;
-  assert.match(document.body.textContent, /天气变化提醒/);
-  assert.match(document.body.textContent, /杭州当前转为暴雨/);
   await click('采用建议（22:00）');
   const habitWrites = calls.filter(c => c.url.pathname.endsWith('/habit') && c.init?.method === 'PUT');
   assert.equal(habitWrites.length, 1);
@@ -314,7 +309,15 @@ test('展示基于互动时间戳的作息建议并支持一键采用，且支�
     expectedRevision: 0, availableHour: 22, source: '采用近 14 天互动活跃时段建议', active: true,
   });
 
-  await click('有帮助');
+  await click('足迹');
+  assert.match(document.body.textContent, /天气变化提醒/);
+  assert.match(document.body.textContent, /杭州当前转为暴雨/);
+
+  const idleEntry = queryAll('li').find(li => li.textContent.includes('好几天没见你来记录或聊近况了'));
+  assert.ok(idleEntry);
+  const helpfulBtn = [...idleEntry.querySelectorAll('button')].find(b => b.textContent === '有帮助');
+  assert.ok(helpfulBtn);
+  await act(async () => helpfulBtn.click());
   const feedbackWrites = calls.filter(c => c.url.pathname.includes('/nudges/nudge-1/feedback') && c.init?.method === 'POST');
   assert.equal(feedbackWrites.length, 1);
   assert.deepEqual(JSON.parse(feedbackWrites[0].init.body), { decision: 'HELPFUL' });
@@ -389,9 +392,7 @@ test('服务器探针提醒支持在设置页配置名称与URL，并在状态�
 
   await view.unmount(); view = null;
   await renderStatus();
-  const details = queryAll('details').find(d => d.querySelector('summary')?.textContent.includes('主动联系'));
-  assert.ok(details);
-  details.open = true;
+  await click('足迹');
   assert.match(document.body.textContent, /服务器状态提醒/);
   assert.match(document.body.textContent, /服务器恢复提醒/);
   assert.match(document.body.textContent, /HTTP 503 状态异常/);
@@ -435,9 +436,7 @@ test('重要邮件提醒支持在设置页配置失败状态，并在状态页�
 
   await view.unmount(); view = null;
   await renderStatus();
-  const details = queryAll('details').find(d => d.querySelector('summary')?.textContent.includes('主动联系'));
-  assert.ok(details);
-  details.open = true;
+  await click('足迹');
   assert.match(document.body.textContent, /重要邮件提醒/);
   assert.match(document.body.textContent, /生产数据库主从同步延迟/);
 });
@@ -473,8 +472,16 @@ test('状态页展示四维系统性认知、个人画像与经历来源管理�
     pendingDesktopNotices: [],
   };
   await renderStatus();
-  assert.match(document.body.textContent, /不定时主动问候与陪伴/);
+  assert.match(document.body.textContent, /主动陪伴/);
+  assert.match(document.body.textContent, /主动陪伴未开启/);
+
+  await click('开启主动陪伴');
+  const enableCall = calls.find(c => c.url.pathname.endsWith('/companion/enable') && c.init?.method === 'POST');
+  assert.ok(enableCall);
+  assert.equal(JSON.parse(enableCall.init.body).enabled, true);
   assert.match(document.body.textContent, /忙时免打扰顺延中/);
+
+  await click('认知');
   assert.match(document.body.textContent, /正在推进主动陪伴模块重构/);
   assert.match(document.body.textContent, /已保存个人画像/);
   assert.doesNotMatch(document.body.textContent, /私密画像内容/);
@@ -483,12 +490,7 @@ test('状态页展示四维系统性认知、个人画像与经历来源管理�
   assert.equal(query('[aria-label="个人画像内容"]').value, '私密画像内容');
   await act(async () => query('[role="dialog"][aria-label="管理个人画像"] [aria-label="关闭"]').click());
 
-  await click('一键开启主动陪伴');
-  const enableCall = calls.find(c => c.url.pathname.endsWith('/companion/enable') && c.init?.method === 'POST');
-  assert.ok(enableCall);
-  assert.equal(JSON.parse(enableCall.init.body).enabled, true);
-
-  await click('修改认知');
+  await act(async () => query('button[aria-label="修改 近期主线大事与卡点"]').click());
   const focusInput = query('textarea[aria-label="近期主线大事与卡点"]');
   assert.ok(focusInput);
   await changeInput(focusInput, '已完成主动陪伴改造并准备联调');

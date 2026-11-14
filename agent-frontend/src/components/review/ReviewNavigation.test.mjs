@@ -5,7 +5,7 @@ let React, Settings, StatusPage, Provider, MessageProvider, view, stub, calls;
 before(async () => {
   await startHarness(); React = getReact();
   ({ ModelSettingsPage: Settings } = await loadModule('/src/components/model/ModelSettingsPage.tsx'));
-  ({ LifeStatusPage: StatusPage } = await loadModule('/src/components/review/LifeStatusPage.tsx'));
+  ({ LifeStatusPage: StatusPage } = await loadModule('/src/components/review/status/LifeStatusPage.tsx'));
   ({ ModelProviderContext: Provider } = await loadModule('/src/context/ModelContext.tsx'));
   ({ MessageProvider } = await loadModule('/src/components/common/Message.tsx'));
 });
@@ -34,8 +34,8 @@ async function renderSettings(initialTab = 'review', onOpenStatus = () => {}) {
   view = await mount(React.createElement(MessageProvider, null, React.createElement(Provider, null,
     React.createElement(Settings, { onBack() {}, initialTab, onOpenStatus }))));
 }
-async function renderStatus(onOpenSettings = () => {}) {
-  view = await mount(React.createElement(MessageProvider, null, React.createElement(StatusPage, { onOpenSettings })));
+async function renderStatus(onOpenSettings = () => {}, initialTab = 'today') {
+  view = await mount(React.createElement(MessageProvider, null, React.createElement(StatusPage, { onOpenSettings, initialTab })));
 }
 test('设置侧栏生活复盘专注配置与授权，并支持一键前往状态模块', async () => {
   let openedStatus = false;
@@ -50,18 +50,29 @@ test('设置侧栏生活复盘专注配置与授权，并支持一键前往状�
   assert.equal(openedStatus, true);
   assert.ok(calls.every(c => !c.init?.method || c.init.method === 'GET'));
 });
-test('状态模块整合复盘、目标、个人画像、来源管理与主动联系空状态', async () => {
+test('状态模块整合今天/认知/足迹三分段及复盘设置跳转', async () => {
   let openedTab = '';
   await renderStatus((tab) => { openedTab = tab; });
   assert.equal(view.query('h1').textContent, '状态');
-  assert.ok(view.query('section[aria-label="我的复盘"]'));
+  assert.ok(view.query('section[aria-label="今天的复盘"]'));
   assert.ok(view.query('section[aria-label="个人目标"]'));
+  assert.ok(view.query('section[aria-label="作息节律"]'));
+
+  const insightTab = view.query('#status-tab-insight');
+  assert.ok(insightTab);
+  await act(async () => insightTab.click());
   assert.ok(view.query('section[aria-label="个人画像"]'));
   assert.ok(view.query('section[aria-label="经历来源管理"]'));
-  const candidates = view.query('section[aria-label="主动记录与反馈"]');
-  assert.match(candidates.textContent, /暂无主动候选/);
-  assert.match(candidates.textContent, /候选和后续反馈会记录在这里/);
-  assert.ok(candidates.querySelector('[aria-hidden="true"] svg'));
+
+  const timelineTab = view.query('#status-tab-timeline');
+  assert.ok(timelineTab);
+  await act(async () => timelineTab.click());
+  const outreach = view.query('section[aria-label="主动联系时间线"]');
+  assert.match(outreach.textContent, /暂无主动联系或候选记录/);
+  assert.ok(outreach.querySelector('[aria-hidden="true"] svg'));
+
+  const todayTab = view.query('#status-tab-today');
+  await act(async () => todayTab.click());
   const jumpBtn = view.queryAll('button').find(button => button.textContent.trim() === '前往复盘设置');
   assert.ok(jumpBtn);
   await act(async () => jumpBtn.click());
