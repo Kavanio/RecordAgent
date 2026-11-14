@@ -87,3 +87,21 @@ test('zonedClock 按指定时区计算时刻指针与 24 小时进度比例', ()
   assert.equal(shanghai.label, '10:57');
   assert.ok(shanghai.fraction > 0.45 && shanghai.fraction < 0.46);
 });
+
+test('busySegments 支持跨零点区间，rhythmWaveGeometry 生成界限受控的平滑波形', () => {
+  assert.deepEqual(mod.busySegments(9, 18), [{ startPct: 37.5, widthPct: 37.5 }]);
+  assert.equal(mod.busySegments(22, 6).length, 2);
+
+  const counts = Array(24).fill(0);
+  counts[9] = 1;
+  counts[10] = 1;
+  const wave = mod.rhythmWaveGeometry(mod.rhythmBars(counts, 9, 18));
+  assert.equal(wave.hasData, true);
+  assert.equal(wave.points.length, 24);
+  assert.ok(wave.points[9].y < wave.points[0].y);
+  assert.match(wave.strokePath, /^M 0 /);
+  assert.match(wave.areaPath, /L 240 50 L 0 50 Z$/);
+
+  const empty = mod.rhythmWaveGeometry(mod.rhythmBars(undefined, 9, 18));
+  assert.equal(empty.hasData, false);
+});
