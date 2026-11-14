@@ -1,0 +1,44 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7C0ZXFCT220Q4M9XZEAB1F8",
+  "session_id": "ec02bd7e-ce29-4ce8-94fb-5265d234a702",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-14T03:18:07.353795Z",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-frontend/src/components/review/LifeContentCard.module.css",
+    "agent-frontend/src/components/review/LifeContentCard.tsx",
+    "agent-frontend/src/components/review/status/CompanionPulseCard.module.css",
+    "agent-frontend/src/components/review/status/CompanionPulseCard.tsx",
+    "agent-frontend/src/components/review/status/RhythmCard.module.css",
+    "agent-frontend/src/components/review/status/RhythmCard.tsx",
+    "agent-frontend/src/components/review/status/StatusTodayView.module.css",
+    "agent-frontend/src/components/review/status/StatusTodayView.tsx",
+    "agent-frontend/src/components/review/status/TodayReviewHero.module.css",
+    "agent-frontend/src/components/review/status/TodayReviewHero.tsx",
+    "agent-frontend/src/features/review/statusPresentation.ts"
+  ],
+  "agent": "Antigravity",
+  "model": "claude-opus-5-5-medium",
+  "turn_id": "7dc498cdd5b3",
+  "checkpoint_transcript_start": 626,
+  "transcript_lines_at_start": 626,
+  "redaction": {
+    "replacements": 24,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 24,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 14
+  }
+}
