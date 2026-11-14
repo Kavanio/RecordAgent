@@ -46,14 +46,15 @@ export function StatusTimelineView({
   return <div className={styles.layout} role="tabpanel" id="status-panel-timeline" aria-labelledby="status-tab-timeline">
     <StatusCard
       title="复盘时间线"
-      icon={<History size={16} />}
+      icon={<History size={15} />}
+      variant="open"
       description={days.length > 0 ? `${days.length} 天 · ${history.length} 个版本` : '复盘按日留档在这里'}
     >
       {days.length === 0 ? (
         <ReviewEmptyState title="还没有生活复盘" description="在「今天」准备首份复盘后，每天的回顾和历史版本会保留在这里。" />
       ) : (
         <ul className={styles.dayList}>
-          {days.map(day => <li key={day.day}>
+          {days.map(day => <li key={day.day} className={styles.dayNode} data-state={day.latest.state}>
             <button type="button" className={styles.dayItem} onClick={() => setSelectedDay(day.day)}>
               <div className={styles.dayTop}>
                 <strong>{dayTitle(day.day)}</strong>
@@ -81,7 +82,9 @@ export function StatusTimelineView({
 
     <StatusCard
       title="主动联系时间线"
-      icon={<Bell size={16} />}
+      icon={<Bell size={15} />}
+      variant="open"
+      className={styles.outreachPane}
       description={enabledRules.length > 0 ? <span title={enabledRules.join('、')}>已启用 {enabledRules.length} 项提醒 · 未回复不催促</span> : '暂未开启提醒规则'}
     >
       <div className={styles.filters} role="group" aria-label="筛选主动联系记录">

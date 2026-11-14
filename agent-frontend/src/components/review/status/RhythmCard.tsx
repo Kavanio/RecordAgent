@@ -2,12 +2,11 @@ import { useState } from 'react';
 import { Clock3 } from 'lucide-react';
 import { lifeReviewApi } from '../../../services/lifeReviewApi';
 import type { LifeCognition, LifeHabit, LifeHabitSuggestion } from '../../../types/lifeReview';
-import { formatHour, formatRhythmSummary, rhythmBars } from '../../../features/review/statusPresentation';
+import { formatHour, formatRhythmSummary, rhythmBars, zonedClock } from '../../../features/review/statusPresentation';
 import { Button } from '../../common/Button';
 import { Select } from '../../common/Select';
 import { TextInput } from '../../common/TextInput';
 import { ReviewFormModal } from '../ReviewFormModal';
-import { StatusCard } from './StatusCard';
 import styles from './RhythmCard.module.css';
 
 const HOUR_OPTIONS = Array.from({ length: 12 }, (_, idx) => {
@@ -15,8 +14,10 @@ const HOUR_OPTIONS = Array.from({ length: 12 }, (_, idx) => {
   return { value: String(h), label: `每天 ${h}:00${h === 21 ? '（默认）' : ''}` };
 });
 const SUGGESTION_SOURCE = '采用近 14 天互动活跃时段建议';
+const AXIS_HOURS = [0, 3, 6, 9, 12, 15, 18, 21, 23] as const;
 
 interface RhythmCardProps {
+  timezone?: string;
   habit: LifeHabit | null;
   suggestion: LifeHabitSuggestion | null;
   cognition: LifeCognition | null;
@@ -25,8 +26,8 @@ interface RhythmCardProps {
   act: (work: () => Promise<unknown>, message: string) => Promise<void>;
 }
 
-/** 作息节律：静默忙碌底带 + 清晰活跃柱形 + 复盘时间定位针；悬停实时读取小时数据。 */
-export function RhythmCard({ habit, suggestion, cognition, busy, disabled, act }: RhythmCardProps) {
+/** 今日时间地平线（24h Horizon）：统一呈现当前时刻指针、忙碌免打扰区、互动柱分布与自动复盘点。 */
+export function RhythmCard({ timezone = 'Asia/Shanghai', habit, suggestion, cognition, busy, disabled, act }: RhythmCardProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [hour, setHour] = useState(21);
   const [note, setNote] = useState('');
@@ -37,25 +38,58 @@ export function RhythmCard({ habit, suggestion, cognition, busy, disabled, act }
   const hasData = bars.some(bar => bar.count > 0);
   const hovered = hoverHour === null ? null : bars[hoverHour] ?? null;
   const summary = formatRhythmSummary(suggestion);
+  const nowClock = zonedClock(timezone);
 
   function openModal(initialHour = current, initialNote = habit?.source || '') {
     setHour(initialHour); setNote(initialNote); setModalOpen(true);
   }
 
-  return <StatusCard
-    title="作息节律"
-    icon={<Clock3 size={16} />}
-    actions={<Button size="sm" variant="outline" disabled={disabled}
-      aria-label={`设置每日时间（${formatHour(current)}）`} onClick={() => openModal()}>
-      每日 {formatHour(current)}
-    </Button>}
-  >
-    <div className={styles.chartWrap}>
+  return <section className={styles.horizon} aria-label="作息节律">
+    <header className={styles.topRow}>
+      <div className={styles.titleBlock}>
+        <span className={styles.title}><Clock3 size={14} aria-hidden="true" />今日节律</span>
+        <div className={styles.liveReadout}>
+          {hovered ? (
+            <span className={styles.hoverInfo}>
+              <strong>{formatHour(hovered.hour)}</strong>
+              <span>{hovered.count > 0 ? `${hovered.count} 次互动` : '无互动记录'}</span>
+              {hovered.busy && <span>· 忙碌时段</span>}
+              {hovered.hour === current && <span>· 复盘时间</span>}
+            </span>
+          ) : (
+            <div className={styles.legend}>
+              <span><i className={styles.legendNow} />现在 {nowClock.label}</span>
+              {cognition && <span><i className={styles.legendBusy} />忙碌 {formatHour(cognition.busyStartHour)}—{formatHour(cognition.busyEndHour)}</span>}
+              <span><i className={styles.legendActive} />互动分布</span>
+              <span className={styles.summaryInline} title={summary.detail}>· {summary.text}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className={styles.topActions}>
+        {suggested !== null && suggested !== current && (
+          <Button size="sm" variant="ghost" disabled={disabled}
+            onClick={() => void act(() => lifeReviewApi.saveHabit(habit?.revision || 0, suggested, SUGGESTION_SOURCE, true), `已采用建议时间：每天 ${suggested}:00`)}>
+            采用建议 {suggested}:00
+          </Button>
+        )}
+        <Button size="sm" variant="outline" disabled={disabled}
+          aria-label={`设置每日时间（${formatHour(current)}）`} onClick={() => openModal()}>
+          每日 {formatHour(current)}
+        </Button>
+      </div>
+    </header>
+
+    <div className={styles.trackArea}>
+      <div className={styles.nowLine} style={{ left: `${nowClock.fraction * 100}%` }} aria-hidden="true">
+        <span>{nowClock.label}</span>
+      </div>
       <div className={styles.chart} role="img" aria-label={hasData ? '近 14 天各小时互动次数分布' : '暂无足够的互动时间数据'}>
         {bars.map(bar => {
           const selectable = bar.hour >= 12 && bar.hour <= 23 && !disabled;
           const isCurrent = bar.hour === current;
-          const height = bar.count > 0 ? `${Math.max(bar.ratio * 100, 18)}%` : '2px';
+          const height = bar.count > 0 ? `${Math.max(bar.ratio * 100, 22)}%` : '2px';
           return <button key={bar.hour} type="button" className={styles.bar} tabIndex={selectable ? 0 : -1}
             data-busy={bar.busy || undefined}
             data-empty={bar.count === 0 || undefined}
@@ -68,39 +102,14 @@ export function RhythmCard({ habit, suggestion, cognition, busy, disabled, act }
             onFocus={() => setHoverHour(bar.hour)}
             onBlur={() => setHoverHour(null)}
             onClick={() => openModal(bar.hour, bar.hour === suggested ? SUGGESTION_SOURCE : '')}>
-            {isCurrent && <em className={styles.currentPin} aria-hidden="true">{bar.hour}时</em>}
             <span style={{ height }} />
+            {isCurrent && <em className={styles.reviewPin} aria-hidden="true">{bar.hour}时复盘</em>}
           </button>;
         })}
       </div>
-      <div className={styles.axis} aria-hidden="true"><span>0时</span><span>6时</span><span>12时</span><span>18时</span><span>23时</span></div>
-    </div>
-
-    <div className={styles.readout}>
-      {hovered ? (
-        <span className={styles.hoverInfo}>
-          <strong>{formatHour(hovered.hour)}</strong>
-          <span>{hovered.count > 0 ? `${hovered.count} 次互动` : '无互动记录'}</span>
-          {hovered.busy && <span>· 忙碌时段</span>}
-          {hovered.hour === current && <span>· 复盘时间</span>}
-        </span>
-      ) : (
-        <div className={styles.legend}>
-          <span><i className={styles.legendActive} />互动分布</span>
-          {cognition && <span><i className={styles.legendBusy} />忙碌 {formatHour(cognition.busyStartHour)}—{formatHour(cognition.busyEndHour)}</span>}
-          <span><i className={styles.legendCurrent} />复盘 {formatHour(current)}</span>
-        </div>
-      )}
-    </div>
-
-    <div className={styles.footRow}>
-      <p className={styles.note} title={summary.detail}>{summary.text}</p>
-      {suggested !== null && suggested !== current && (
-        <Button size="sm" variant="outline" disabled={disabled}
-          onClick={() => void act(() => lifeReviewApi.saveHabit(habit?.revision || 0, suggested, SUGGESTION_SOURCE, true), `已采用建议时间：每天 ${suggested}:00`)}>
-          采用建议 {suggested}:00
-        </Button>
-      )}
+      <div className={styles.axis} aria-hidden="true">
+        {AXIS_HOURS.map(h => <span key={h}>{h}时</span>)}
+      </div>
     </div>
 
     <ReviewFormModal open={modalOpen} title="设置每日复盘与发送时间" busy={busy} onClose={() => setModalOpen(false)} footer={<>
@@ -121,5 +130,5 @@ export function RhythmCard({ habit, suggestion, cognition, busy, disabled, act }
           placeholder="备注说明（可选，不填可直接保存）" onChange={event => setNote(event.target.value)} />
       </div>
     </ReviewFormModal>
-  </StatusCard>;
+  </section>;
 }

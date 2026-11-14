@@ -32,14 +32,30 @@ export function zonedDay(timezone: string, now = new Date()): string {
   return ['year', 'month', 'day'].map(type => parts.find(part => part.type === type)?.value || '').join('-');
 }
 
-export function zonedHour(timezone: string, now = new Date()): number {
+/** 返回配置时区下的当前时分、时间文案及 24 小时进度比例（0–1），避免依赖本机时区。 */
+export function zonedClock(timezone: string, now = new Date()): { hour: number; minute: number; label: string; fraction: number } {
+  let parts: Intl.DateTimeFormatPart[] = [];
   try {
-    const value = new Intl.DateTimeFormat('en', { timeZone: timezone || 'Asia/Shanghai', hour: 'numeric', hourCycle: 'h23' }).format(now);
-    const hour = Number(value);
-    return Number.isFinite(hour) ? hour % 24 : now.getHours();
+    parts = new Intl.DateTimeFormat('en', { timeZone: timezone || 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now);
   } catch {
-    return now.getHours();
+    try {
+      parts = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now);
+    } catch { /* fall back to local Date */ }
   }
+  const h = Number(parts.find(p => p.type === 'hour')?.value);
+  const m = Number(parts.find(p => p.type === 'minute')?.value);
+  const hour = Number.isFinite(h) ? h % 24 : now.getHours();
+  const minute = Number.isFinite(m) ? m % 60 : now.getMinutes();
+  return {
+    hour,
+    minute,
+    label: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+    fraction: Math.min(0.99, Math.max(0.01, (hour + minute / 60) / 24)),
+  };
+}
+
+export function zonedHour(timezone: string, now = new Date()): number {
+  return zonedClock(timezone, now).hour;
 }
 
 export function greetingFor(hour: number): string {

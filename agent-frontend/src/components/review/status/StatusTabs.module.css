@@ -1,6 +1,7 @@
-.tabs { display: inline-flex; flex-shrink: 0; align-items: center; gap: 2px; padding: 3px; border-radius: 10px; background: var(--bg-surface); border: 1px solid var(--border-subtle); }
-.tabs button { min-height: 30px; padding: 0 16px; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); font: 500 13px var(--font-sans); white-space: nowrap; cursor: pointer; transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease; }
+.tabs { display: inline-flex; flex-shrink: 0; align-items: center; gap: 22px; }
+.tabs button { position: relative; min-height: 34px; padding: 0 2px 8px; border: 0; background: transparent; color: var(--text-muted); font: 500 13.5px var(--font-sans); white-space: nowrap; cursor: pointer; transition: color 160ms ease; }
 .tabs button:hover { color: var(--text-primary); }
-.tabs button[aria-selected='true'] { background: var(--bg-app); color: var(--text-primary); box-shadow: 0 1px 4px #0f172a14; font-weight: 600; }
-.tabs button:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.tabs button[aria-selected='true'] { color: var(--text-primary); font-weight: 600; }
+.tabs button[aria-selected='true']::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--text-primary); }
+.tabs button:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 3px; border-radius: 4px; }
 @media (prefers-reduced-motion: reduce) { .tabs button { transition: none; } }

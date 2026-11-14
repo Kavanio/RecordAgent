@@ -16,7 +16,7 @@ interface CompanionPulseCardProps {
 /** 陪伴节奏卡：直观展示启停状态、当前节奏语与轻量化学习/问候入口。 */
 export function CompanionPulseCard({ companion, timezone, busy, act }: CompanionPulseCardProps) {
   if (!companion) {
-    return <StatusCard title="主动陪伴" icon={<HeartHandshake size={16} />} tone="muted"
+    return <StatusCard title="主动陪伴" icon={<HeartHandshake size={15} />} tone="muted" variant="open"
       description="当前后端未提供陪伴状态，升级后可查看主动问候节奏。" />;
   }
   const { rhythm, cognition } = companion;
@@ -26,7 +26,9 @@ export function CompanionPulseCard({ companion, timezone, busy, act }: Companion
 
   return <StatusCard
     title="主动陪伴"
-    icon={<HeartHandshake size={16} />}
+    icon={<HeartHandshake size={15} />}
+    variant="open"
+    className={styles.section}
     badge={
       <span className={styles.stateBadge} data-on={companion.companionEnabled || undefined}>
         <i aria-hidden="true" />

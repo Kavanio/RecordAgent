@@ -57,7 +57,8 @@ export function GoalBoard() {
 
   return <StatusCard
     title="个人目标"
-    icon={<Target size={16} />}
+    icon={<Target size={15} />}
+    variant="open"
     badge={<span className={styles.count} title={`${active.length}/${MAX_ACTIVE} 个进行中`}>{active.length}/{MAX_ACTIVE}</span>}
     actions={<Button size="sm" variant="ghost" icon={<Plus size={14} />} disabled={busy || freeSlots === 0}
       onClick={() => setDraft({ ...EMPTY_DRAFT })}>新增目标</Button>}

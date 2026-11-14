@@ -8,13 +8,14 @@ interface StatusCardProps {
   description?: ReactNode;
   actions?: ReactNode;
   tone?: 'default' | 'accent' | 'muted';
+  variant?: 'card' | 'open';
   className?: string;
   children?: ReactNode;
 }
 
-/** 「状态」模块统一卡片外壳：标题、轻量状态标、说明与右上角操作。 */
-export function StatusCard({ title, icon, badge, description, actions, tone = 'default', className = '', children }: StatusCardProps) {
-  return <section aria-label={title} className={`${styles.card} ${styles[tone]} ${className}`}>
+/** 「状态」模块分区容器：支持卡片态或去边框开放式排版。 */
+export function StatusCard({ title, icon, badge, description, actions, tone = 'default', variant = 'card', className = '', children }: StatusCardProps) {
+  return <section aria-label={title} className={`${styles.card} ${styles[tone]} ${variant === 'open' ? styles.open : ''} ${className}`}>
     <header className={styles.header}>
       <div className={styles.heading}>
         {icon && <span className={styles.icon} aria-hidden="true">{icon}</span>}
