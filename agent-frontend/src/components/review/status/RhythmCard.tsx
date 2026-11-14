@@ -16,7 +16,7 @@ const HOUR_OPTIONS = Array.from({ length: 12 }, (_, idx) => {
   return { value: String(h), label: `每天 ${h}:00${h === 21 ? '（默认）' : ''}` };
 });
 const SUGGESTION_SOURCE = '采用近 14 天互动活跃时段建议';
-const AXIS_HOURS = [0, 6, 12, 18, 23] as const;
+const AXIS_HOURS = [0, 3, 6, 9, 12, 15, 18, 21, 23] as const;
 
 interface RhythmCardProps {
   timezone?: string;
@@ -61,6 +61,22 @@ export function RhythmCard({ timezone = 'Asia/Shanghai', habit, suggestion, cogn
       <div className={styles.titleRow}>
         <span className={styles.title}><Clock3 size={14} aria-hidden="true" />今日节律</span>
         <span className={styles.nowChip} title="当前配置时区时刻"><i aria-hidden="true" />{nowClock.label}</span>
+        <div className={styles.readout}>
+          {hovered ? (
+            <span className={styles.hoverInfo}>
+              <strong>{formatHour(hovered.hour)}</strong>
+              <span>{hovered.count > 0 ? `${hovered.count} 次互动` : '无互动'}</span>
+              {hovered.busy && <span>· 忙碌时段</span>}
+              {hovered.hour === current && <span>· 复盘时间</span>}
+              {hovered.hour >= 12 && hovered.hour <= 23 && !disabled && <span className={styles.clickHint}>· 点按设此时</span>}
+            </span>
+          ) : (
+            <span className={styles.summary} title={summary.detail}>
+              {cognition ? `忙碌 ${formatHour(cognition.busyStartHour)}—${formatHour(cognition.busyEndHour)} · ` : ''}
+              {summary.text}
+            </span>
+          )}
+        </div>
       </div>
       <div className={styles.actions}>
         {suggested !== null && suggested !== current && (
@@ -75,23 +91,6 @@ export function RhythmCard({ timezone = 'Asia/Shanghai', habit, suggestion, cogn
         </Button>
       </div>
     </header>
-
-    <div className={styles.readout}>
-      {hovered ? (
-        <span className={styles.hoverInfo}>
-          <strong>{formatHour(hovered.hour)}</strong>
-          <span>{hovered.count > 0 ? `${hovered.count} 次互动` : '无互动'}</span>
-          {hovered.busy && <span>· 忙碌时段</span>}
-          {hovered.hour === current && <span>· 复盘时间</span>}
-          {hovered.hour >= 12 && hovered.hour <= 23 && !disabled && <span className={styles.clickHint}>· 点按设此时</span>}
-        </span>
-      ) : (
-        <span className={styles.summary} title={summary.detail}>
-          {cognition ? `忙碌 ${formatHour(cognition.busyStartHour)}—${formatHour(cognition.busyEndHour)} · ` : ''}
-          {summary.text}
-        </span>
-      )}
-    </div>
 
     <div className={styles.trackArea}>
       {hovered && (
