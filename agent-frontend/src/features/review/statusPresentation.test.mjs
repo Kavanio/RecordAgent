@@ -21,11 +21,11 @@ test('groupReviewDays 按归属日和版本倒序聚合，并提取摘要', () =
   assert.equal(mod.reviewExcerpt(days[1].latest), '早点休息');
 });
 
-test('buildOutreachTimeline 合并问候、提醒与候选并按时间倒序排列', () => {
+test('buildOutreachTimeline 合并问候、提醒与候选并按时间倒序排列，并去除重复标题前缀', () => {
   const entries = mod.buildOutreachTimeline(
     [
       { id: 'n1', kind: 'IDLE_CHECKIN', text: '好久不见', state: 'SENT', createdAt: '2026-11-10T08:00:00Z', sentAt: null, feedback: '' },
-      { id: 'n2', kind: 'WEATHER_ALERT', text: '暴雨提醒', state: 'SENT', createdAt: '2026-11-12T08:00:00Z', sentAt: '2026-11-12T08:05:00Z', feedback: 'HELPFUL' },
+      { id: 'n2', kind: 'WEATHER_ALERT', text: '【天气变化提醒】合肥当前转为雾', state: 'UNKNOWN', createdAt: '2026-11-12T08:00:00Z', sentAt: '2026-11-12T08:05:00Z', feedback: 'HELPFUL' },
     ],
     [
       { id: 'c1', topic: 'review-2026-11-11', sourceId: 's', contentId: 'r', state: 'PENDING', dueAt: '2026-11-11T12:00:00Z', expiresAt: '2026-11-12T12:00:00Z', feedback: '', eventKind: 'REVIEW' },
@@ -36,6 +36,10 @@ test('buildOutreachTimeline 合并问候、提醒与候选并按时间倒序排�
     ['c1', 'candidate'],
     ['n1', 'greeting'],
   ]);
+  assert.equal(entries[0].text, '合肥当前转为雾');
+  assert.equal(entries[0].stateLabel, '结果未知');
+  assert.equal(mod.cleanOutreachText('【服务器异常提醒】CPU 飙高', '服务器状态提醒'), 'CPU 飙高');
+  assert.equal(mod.cleanOutreachText('【备注】保持关注', '天气变化提醒'), '【备注】保持关注');
 });
 
 test('isBusyHour 支持跨零点窗口，rhythmBars 输出 24 根柱子', () => {

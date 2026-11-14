@@ -199,3 +199,21 @@ test('点击「认知」可单独编辑某一维并保留其余维度原值，�
     busyEndHour: 18,
   });
 });
+
+test('今天尚无复盘且最近一次为旧日失败记录时默认折叠，点击后才展开详情', async () => {
+  state.history = [{
+    id: 'rev-fail', themeId: 't1', day: '2024-01-01', timezone: 'Asia/Shanghai', version: 1, state: 'DEGRADED',
+    sourceAsOf: '2024-01-01T14:00:00Z', availableAt: '2024-01-01T14:00:00Z', providerId: 'p1', modelName: 'm1',
+    coverage: '', message: '模型连接或服务不可用；未自动重试，参考资料仅在桌面保留。',
+    materials: [], facts: [], items: [], questions: [], deliveries: [],
+  }];
+  await render({ initialTab: 'today' });
+
+  assert.match(document.body.textContent, /今天还没有复盘/);
+  assert.match(document.body.textContent, /最近一次（1月1日 周一）未生成/);
+  assert.doesNotMatch(document.body.textContent, /本次没有生成复盘正文/);
+
+  const toggleBtn = [...document.body.querySelectorAll('button')].find(b => b.textContent.includes('最近一次（1月1日 周一）未生成'));
+  await act(async () => toggleBtn.click());
+  assert.match(document.body.textContent, /本次没有生成复盘正文/);
+});
