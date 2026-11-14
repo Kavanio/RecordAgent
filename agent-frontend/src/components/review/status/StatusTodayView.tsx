@@ -19,21 +19,21 @@ interface StatusTodayViewProps {
   onOpenSettings?: (tab?: 'review' | 'context') => void;
 }
 
-/** 「今天」分段：顶部 24h 今日时间地平线，下方为开放式「今日简报 + 焦点侧栏」布局，摆脱方框堆叠。 */
+/** 「今天」分段：左主视觉卡片聚焦「今天的复盘 + 下一步小步」，右栏按「个人目标 → 活态节律 → 陪伴状态」由重到轻排布。 */
 export function StatusTodayView({
   settings, companion, history, habit, suggestion, today, busy, generating, disabled, act, onOpenSettings,
 }: StatusTodayViewProps) {
   return <div className={styles.page} role="tabpanel" id="status-panel-today" aria-labelledby="status-tab-today">
-    <RhythmCard timezone={settings.timezone} habit={habit} suggestion={suggestion} cognition={companion?.cognition ?? null}
-      busy={busy} disabled={disabled} act={act} />
     <div className={styles.columns}>
       <div className={styles.primary}>
         <TodayReviewHero settings={settings} history={history} habit={habit} today={today}
           busy={busy} generating={generating} disabled={disabled} act={act} onOpenSettings={onOpenSettings} />
       </div>
-      <aside className={styles.secondary} aria-label="陪伴与目标">
-        <CompanionPulseCard companion={companion} timezone={settings.timezone} busy={busy} act={act} />
+      <aside className={styles.secondary} aria-label="目标、节律与陪伴">
         <GoalBoard />
+        <RhythmCard timezone={settings.timezone} habit={habit} suggestion={suggestion} cognition={companion?.cognition ?? null}
+          busy={busy} disabled={disabled} act={act} />
+        <CompanionPulseCard companion={companion} timezone={settings.timezone} busy={busy} act={act} />
       </aside>
     </div>
   </div>;

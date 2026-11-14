@@ -69,7 +69,8 @@ export function TodayReviewHero({ settings: s, history, habit, today, busy, gene
   return <StatusCard
     title={shown && !todayContent ? `${dayTitle(shown.day)} 复盘` : '今天的复盘'}
     tone="accent"
-    variant="open"
+    variant="card"
+    className={styles.heroCard}
     icon={<CalendarCheck size={17} />}
     badge={badgeText ? <span className={styles.versionBadge} data-tone={badgeTone}>{badgeText}</span> : undefined}
     description={description}

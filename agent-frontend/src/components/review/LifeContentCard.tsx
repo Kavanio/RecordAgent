@@ -42,6 +42,31 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
   }
   const zone = c.timezone || timezone;
   const time = (value: string) => lifeReviewTime(value, zone);
+  const observationBlock = observations.length > 0 && (
+    <div key="observations" className={styles.section}>
+      <div className={styles.sectionTitle}>这一天的回顾</div>
+      <div className={styles.itemList}>
+        {observations.map((item, i) => <div key={i} className={styles.item}>
+          <p className={styles.itemText}>{item.text}</p>
+          {item.uncertainty && <p className={styles.note}>{item.uncertainty}</p>}
+        </div>)}
+      </div>
+    </div>
+  );
+  const actionBlock = actions.length > 0 && (
+    <div key="actions" className={`${styles.section} ${compact ? styles.focusBlock : ''}`}>
+      <div className={styles.sectionTitle}>{compact ? '小步建议 · 下一步焦点' : '小步建议'}</div>
+      <div className={styles.actionList}>
+        {actions.map((item, i) => <div key={i} className={styles.actionItem}>
+          <span className={styles.actionStep} aria-hidden="true">{i + 1}</span>
+          <div className={styles.actionBody}>
+            <p className={styles.itemText}>{item.text.replace(/^建议[：:]\s*/, '')}</p>
+            {item.uncertainty && <p className={styles.note}>{item.uncertainty}</p>}
+          </div>
+        </div>)}
+      </div>
+    </div>
+  );
   return <article className={`${styles.card} ${className}`} aria-label={`${c.day} 生活复盘版本${c.version}`}>
     {!compact && (
       <>
@@ -55,27 +80,7 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
     {!hasReport && ready && <div className={styles.notice} role="status"><strong>本次没有生成复盘正文</strong>
       <p>{c.message || '已保存参考资料，可重新准备或补充经历。'}</p>
     </div>}
-    {observations.length > 0 && <div className={styles.section}>
-      <div className={styles.sectionTitle}>这一天的回顾</div>
-      <div className={styles.itemList}>
-        {observations.map((item, i) => <div key={i} className={styles.item}>
-          <p className={styles.itemText}>{item.text}</p>
-          {item.uncertainty && <p className={styles.note}>{item.uncertainty}</p>}
-        </div>)}
-      </div>
-    </div>}
-    {actions.length > 0 && <div className={styles.section}>
-      <div className={styles.sectionTitle}>小步建议</div>
-      <div className={styles.actionList}>
-        {actions.map((item, i) => <div key={i} className={styles.actionItem}>
-          <span className={styles.actionStep} aria-hidden="true">{i + 1}</span>
-          <div className={styles.actionBody}>
-            <p className={styles.itemText}>{item.text.replace(/^建议[：:]\s*/, '')}</p>
-            {item.uncertainty && <p className={styles.note}>{item.uncertainty}</p>}
-          </div>
-        </div>)}
-      </div>
-    </div>}
+    {compact ? [actionBlock, observationBlock] : [observationBlock, actionBlock]}
     {c.questions.map(q => <p key={q} className={styles.question}>{q}</p>)}
     {!hasReport && delivery && <p className={styles.muted}>以上为历史投递记录，不表示正文生成成功；已发送副本无法撤回。</p>}
     {delivery?.state === 'UNKNOWN' && <p className={styles.muted}>飞书可能已收到，请人工核对；此处不会自动重发。已读状态未知。</p>}

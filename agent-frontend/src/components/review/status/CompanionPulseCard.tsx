@@ -37,7 +37,7 @@ export function CompanionPulseCard({ companion, timezone, busy, act }: Companion
     }
     actions={
       companion.companionEnabled ? (
-        <Button size="sm" variant="outline" icon={<Pause size={12} />} disabled={busy}
+        <Button size="sm" variant="ghost" icon={<Pause size={12} />} disabled={busy}
           onClick={() => void act(() => lifeReviewApi.enableCompanion({ enabled: false, feishu: companion.feishuConnected, timezone }),
             '已暂停不定时主动问候')}>
           暂停
@@ -55,17 +55,15 @@ export function CompanionPulseCard({ companion, timezone, busy, act }: Companion
       <span className={styles.dot} aria-hidden="true" />
       <p>{pulse.text}</p>
     </div>
-    <p className={styles.metaLine}>
-      <span className={styles.channelTag} title={channelTitle}>{channel}</span>
-      <span className={styles.metaTimes}>
-        <span>学习 {formatDateTime(rhythm.lastLearnedAt, timezone)}</span>
-        <span aria-hidden="true">·</span>
-        <span>问候 {formatDateTime(rhythm.lastOutreachAt, timezone)}</span>
+    <div className={styles.bottomRow}>
+      <span className={styles.metaQuiet} title={`${channelTitle} · 学习 ${formatDateTime(rhythm.lastLearnedAt, timezone)}`}>
+        <span className={styles.channelTag}>{channel}</span>
+        <span>· 问候 {formatDateTime(rhythm.lastOutreachAt, timezone)}</span>
       </span>
-    </p>
-    <div className={styles.actions}>
-      <Button size="sm" variant="ghost" disabled={busy} onClick={() => void act(() => lifeReviewApi.reachOutCompanion(), '')}>问候一次</Button>
-      <Button size="sm" variant="ghost" disabled={busy} onClick={() => void act(() => lifeReviewApi.learnCompanion(), '已从近期全量记录更新对你的系统性认知')}>更新认知</Button>
+      <div className={styles.actions}>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => void act(() => lifeReviewApi.reachOutCompanion(), '')}>问候一次</Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => void act(() => lifeReviewApi.learnCompanion(), '已从近期全量记录更新对你的系统性认知')}>更新认知</Button>
+      </div>
     </div>
   </StatusCard>;
 }

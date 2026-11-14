@@ -203,6 +203,56 @@ export function rhythmBars(hourCounts: number[] | undefined, busyStart?: number,
   }));
 }
 
+/** 计算免打扰忙碌时段的连续水平带（支持跨零点拆分为两段），供节律背景雾带渲染。 */
+export function busySegments(start?: number, end?: number): { startPct: number; widthPct: number }[] {
+  if (start === undefined || end === undefined || start === end) return [];
+  if (start < end) return [{ startPct: (start / 24) * 100, widthPct: ((end - start) / 24) * 100 }];
+  return [
+    { startPct: (start / 24) * 100, widthPct: ((24 - start) / 24) * 100 },
+    { startPct: 0, widthPct: (end / 24) * 100 },
+  ];
+}
+
+export interface RhythmWaveGeometry {
+  strokePath: string;
+  areaPath: string;
+  ambientPath: string;
+  points: { x: number; y: number }[];
+  hasData: boolean;
+}
+
+/** 生成 24 小时平滑贝塞尔浪潮曲线（viewBox 240×54），保持波峰不越界、零值贴合基线。 */
+export function rhythmWaveGeometry(bars: RhythmBar[]): RhythmWaveGeometry {
+  const baseY = 50;
+  const topY = 10;
+  const clampY = (y: number) => Math.max(topY - 2, Math.min(baseY, y));
+  const fmt = (n: number) => Number(n.toFixed(1));
+  const hasData = bars.some(bar => bar.count > 0);
+  const points = bars.map((bar, index) => {
+    const amp = bar.count > 0 ? Math.max(bar.ratio, 0.28) : 0;
+    return { x: index * 10 + 5, y: hasData ? fmt(baseY - amp * (baseY - topY)) : baseY };
+  });
+  const ambientPath = 'M 0 47 Q 40 43 80 47 T 160 47 T 240 47';
+  if (!hasData || points.length === 0) {
+    return { strokePath: ambientPath, areaPath: `${ambientPath} L 240 50 L 0 50 Z`, ambientPath, points, hasData: false };
+  }
+  const nodes = [{ x: 0, y: points[0].y }, ...points, { x: 240, y: points[points.length - 1].y }];
+  const segs: string[] = [`M ${nodes[0].x} ${nodes[0].y}`];
+  for (let i = 0; i < nodes.length - 1; i += 1) {
+    const p0 = nodes[Math.max(0, i - 1)];
+    const p1 = nodes[i];
+    const p2 = nodes[i + 1];
+    const p3 = nodes[Math.min(nodes.length - 1, i + 2)];
+    const cx1 = fmt(p1.x + (p2.x - p0.x) / 6);
+    const cy1 = fmt(clampY(p1.y + (p2.y - p0.y) / 6));
+    const cx2 = fmt(p2.x - (p3.x - p1.x) / 6);
+    const cy2 = fmt(clampY(p2.y - (p3.y - p1.y) / 6));
+    segs.push(`C ${cx1} ${cy1}, ${cx2} ${cy2}, ${p2.x} ${p2.y}`);
+  }
+  const strokePath = segs.join(' ');
+  return { strokePath, areaPath: `${strokePath} L 240 ${baseY} L 0 ${baseY} Z`, ambientPath, points, hasData: true };
+}
+
 /** 将后端渠道说明收敛为适合仪表盘的极简短标签，保留原值作悬浮详情。 */
 export function formatCompanionChannel(label: string | undefined, connected: boolean): string {
   const raw = (label || '').trim();
