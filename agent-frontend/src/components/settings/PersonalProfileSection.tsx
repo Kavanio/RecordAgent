@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, RefreshCw, Save, Trash2, X } from 'lucide-react';
+import { Check, Lock, RefreshCw, Save, Trash2, UserRoundCheck, X } from 'lucide-react';
 import {
   acceptProfileProposal, checkProfileMaintenance, clearPersonalContextProfile,
   fetchPersonalContext, fetchProfileMaintenance, rejectProfileProposal,
@@ -14,6 +14,7 @@ import { Modal } from '../common/Modal';
 import { formatTokenCount } from '../chat/tokenUsageFormat';
 import { SettingsGroup, SettingsRow } from './SettingsGroup';
 import styles from './PersonalContextSettingsPage.module.css';
+import tileStyles from './PersonalProfileSection.module.css';
 
 const PROFILE_RESULT_LABELS: Record<ProfileMaintenanceStatus['lastResult'], string> = {
   never_checked: '尚未检查', no_evidence: '没有可用的新记忆', no_changes: '画像无需更新',
@@ -27,8 +28,10 @@ interface PersonalProfileSectionProps {
   maintenance?: ProfileMaintenanceStatus | null;
   saving?: boolean;
   showMaintenanceToggle?: boolean;
+  variant?: 'settings' | 'tile';
   onSettingsChange?: (next: PersonalContextSettings) => void;
   onMaintenanceChange?: (next: ProfileMaintenanceStatus) => void;
+  onPendingProposalChange?: (hasPending: boolean) => void;
 }
 
 /** 个人画像与画像更新提案维护组件；支持在个人上下文设置页和「状态」工作区复用，首页不平铺画像私密正文。 */
@@ -37,8 +40,10 @@ export function PersonalProfileSection({
   maintenance: externalMaintenance,
   saving: externalSaving,
   showMaintenanceToggle = true,
+  variant = 'settings',
   onSettingsChange,
   onMaintenanceChange,
+  onPendingProposalChange,
 }: PersonalProfileSectionProps) {
   const { showMessage } = useMessage();
   const controlled = externalSettings !== undefined && externalMaintenance !== undefined;
@@ -64,6 +69,7 @@ export function PersonalProfileSection({
     setLocalMaintenance(next);
     setProposalDraft(next.pendingProposal?.proposedProfile ?? '');
     onMaintenanceChange?.(next);
+    onPendingProposalChange?.(Boolean(next.pendingProposal));
   };
 
   useEffect(() => {
@@ -158,23 +164,61 @@ export function PersonalProfileSection({
   const lastChecked = maintenance.lastCheckedAt
     ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(maintenance.lastCheckedAt)) : null;
 
-  return <>
-    <SettingsGroup title="个人画像">
-      <SettingsRow label={settings.profile.trim() ? '已保存个人画像' : '尚未填写个人画像'} description="管理你的偏好和习惯，内容仅在打开后显示。"
-        control={<Button variant="outline" onClick={() => setManagingProfile(true)}>管理画像</Button>} />
-    </SettingsGroup>
+  const hasProfile = Boolean(settings.profile.trim());
 
-    <SettingsGroup title="画像辅助维护">
-      {showMaintenanceToggle && (
-        <SettingsRow label="自动生成更新建议" description="根据新记忆建议更新个人信息，你确认后才修改。"
-          control={<LeverSwitch checked={maintenance.enabled} disabled={saving || checking} label={maintenance.enabled ? '已开启' : '已关闭'} onChange={(enabled) => void toggleMaintenance(enabled)} />} />
-      )}
-      <SettingsRow label="检查状态" description={`${PROFILE_RESULT_LABELS[maintenance.lastResult]}${lastChecked ? ` · ${lastChecked}` : ''}`}
-        control={<Button variant="outline" size="sm" icon={<RefreshCw size={14} />} disabled={saving || checking || Boolean(proposal)} onClick={() => void checkNow()}>{checking ? '正在检查' : proposal ? '请先审核提案' : '立即检查'}</Button>} />
-      {proposal ? <SettingsRow label="待审核建议" description="有一份更新建议，查看后再决定是否应用。"
-        control={<Button variant="outline" size="sm" onClick={() => setManagingProfile(true)}>审核画像建议</Button>} />
-        : <p className={styles.emptyProposal}>暂无更新建议，开启后最多每天自动检查一次新记忆。</p>}
-    </SettingsGroup>
+  return <>
+    {variant === 'tile' ? (
+      <section className={tileStyles.tile} aria-label="个人画像">
+        <div className={tileStyles.tileHeader}>
+          <div className={tileStyles.tileHeading}>
+            <span className={tileStyles.tileIcon} aria-hidden="true"><UserRoundCheck size={16} /></span>
+            <div className={tileStyles.tileTitles}>
+              <h2>个人画像</h2>
+              <p>{hasProfile ? '已保存个人画像' : '尚未填写个人画像'} · 仅在打开后显示私密正文</p>
+            </div>
+          </div>
+          <span className={tileStyles.badge} data-active={hasProfile}>{hasProfile ? '已填写' : '待填写'}</span>
+        </div>
+
+        <p className={tileStyles.meta}>
+          维护检查：{PROFILE_RESULT_LABELS[maintenance.lastResult]}{lastChecked ? ` · ${lastChecked}` : ''}
+          {hasProfile ? ` · 约 ${formatTokenCount(settings.estimatedTokens)} tokens` : ''}
+        </p>
+
+        {proposal && (
+          <div className={tileStyles.proposalAlert} role="status">
+            <span>有一份新的画像更新建议等待确认</span>
+            <Button variant="outline" size="sm" onClick={() => setManagingProfile(true)}>审核画像建议</Button>
+          </div>
+        )}
+
+        <div className={tileStyles.tileActions}>
+          <Button variant="outline" size="sm" icon={<Lock size={14} />} onClick={() => setManagingProfile(true)}>管理画像</Button>
+          <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} disabled={saving || checking || Boolean(proposal)} onClick={() => void checkNow()}>
+            {checking ? '正在检查' : proposal ? '请先审核提案' : '立即检查'}
+          </Button>
+        </div>
+      </section>
+    ) : (
+      <>
+        <SettingsGroup title="个人画像">
+          <SettingsRow label={hasProfile ? '已保存个人画像' : '尚未填写个人画像'} description="管理你的偏好和习惯，内容仅在打开后显示。"
+            control={<Button variant="outline" onClick={() => setManagingProfile(true)}>管理画像</Button>} />
+        </SettingsGroup>
+
+        <SettingsGroup title="画像辅助维护">
+          {showMaintenanceToggle && (
+            <SettingsRow label="自动生成更新建议" description="根据新记忆建议更新个人信息，你确认后才修改。"
+              control={<LeverSwitch checked={maintenance.enabled} disabled={saving || checking} label={maintenance.enabled ? '已开启' : '已关闭'} onChange={(enabled) => void toggleMaintenance(enabled)} />} />
+          )}
+          <SettingsRow label="检查状态" description={`${PROFILE_RESULT_LABELS[maintenance.lastResult]}${lastChecked ? ` · ${lastChecked}` : ''}`}
+            control={<Button variant="outline" size="sm" icon={<RefreshCw size={14} />} disabled={saving || checking || Boolean(proposal)} onClick={() => void checkNow()}>{checking ? '正在检查' : proposal ? '请先审核提案' : '立即检查'}</Button>} />
+          {proposal ? <SettingsRow label="待审核建议" description="有一份更新建议，查看后再决定是否应用。"
+            control={<Button variant="outline" size="sm" onClick={() => setManagingProfile(true)}>审核画像建议</Button>} />
+            : <p className={styles.emptyProposal}>暂无更新建议，开启后最多每天自动检查一次新记忆。</p>}
+        </SettingsGroup>
+      </>
+    )}
 
     <Modal open={managingProfile} title="管理个人画像" width={760} centered busy={saving} onClose={() => setManagingProfile(false)}>
       <div className={styles.profileDialog}>

@@ -1,0 +1,20 @@
+.error { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; color: #b91c1c; font-size: 12px; }
+.empty { padding: 16px; border: 1px dashed var(--border-medium); border-radius: 10px; text-align: center; }
+.empty strong { color: var(--text-primary); font-size: 13px; font-weight: 500; }
+.empty p { margin: 4px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.goals { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.goal { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 10px; background: var(--bg-surface); }
+.index { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #e0edff; color: #1d4ed8; font-size: 11px; font-weight: 600; }
+.goalBody { min-width: 0; }
+.goalBody strong { display: block; color: var(--text-primary); font-size: 13px; font-weight: 600; line-height: 22px; overflow-wrap: anywhere; }
+.goalBody p { margin: 3px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.goalBody em { margin-right: 6px; color: var(--text-muted); font-style: normal; }
+.goalActions { display: flex; gap: 2px; }
+.slots { margin: 0; color: var(--text-muted); font-size: 11px; }
+.archived { border-top: 1px solid var(--border-subtle); padding-top: 10px; }
+.archivedToggle { padding: 0; border: 0; background: transparent; color: var(--text-secondary); font: 500 12px var(--font-sans); cursor: pointer; }
+.archivedToggle:hover { color: var(--text-primary); }
+.archived ul { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; }
+.archived li { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text-muted); font-size: 12px; }
+.archived li span { min-width: 0; overflow: hidden; text-decoration: line-through; text-overflow: ellipsis; white-space: nowrap; }
+.form { display: flex; flex-direction: column; gap: 14px; }

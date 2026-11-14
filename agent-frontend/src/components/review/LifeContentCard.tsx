@@ -15,9 +15,13 @@ const lifeState = (state: string) => STATES[state] || state;
 interface Props {
   content: LifeContent; timezone: string; busy: boolean; authorized: boolean; feishu: boolean;
   act: (work: () => Promise<unknown>, message: string) => Promise<void>;
+  /** 嵌入其他容器时追加的样式类，例如状态页去掉外框。 */
+  className?: string;
+  /** 已经在按日抽屉内提供参考记录/版本信息切换时隐藏二级抽屉按钮。 */
+  hideDetailButtons?: boolean;
 }
 /** 展示一个不可变复盘版本；补充、发送与生成是不同动作。 */
-export function LifeContentCard({ content: c, timezone, busy, authorized, feishu, act }: Props) {
+export function LifeContentCard({ content: c, timezone, busy, authorized, feishu, act, className = '', hideDetailButtons = false }: Props) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [text, setText] = useState('');
   const [sendOpen, setSendOpen] = useState(false);
@@ -36,7 +40,7 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
   }
   const zone = c.timezone || timezone;
   const time = (value: string) => lifeReviewTime(value, zone);
-  return <article className={styles.card} aria-label={`${c.day} 生活复盘版本${c.version}`}>
+  return <article className={`${styles.card} ${className}`} aria-label={`${c.day} 生活复盘版本${c.version}`}>
     <div className={styles.header}><strong>{c.day} · v{c.version}</strong><span>{lifeState(c.state)}</span></div>
     <p className={styles.muted}>资料截至 {time(c.sourceAsOf)}（{zone}） · 第{c.version}版</p>
     {generating && <div className={styles.notice} role="status"><strong>正在生成复盘正文…</strong>
@@ -64,11 +68,13 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
       </div>
     </div>}
     {c.questions.map(q => <p key={q} className={styles.question}>{q}</p>)}
-    <div className={styles.details}>
-      <Button size="sm" variant="ghost" aria-haspopup="dialog" onClick={() => setDetails('references')}>参考记录</Button>
-      <Button size="sm" variant="ghost" aria-haspopup="dialog" onClick={() => setDetails('version')}>版本信息</Button>
-    </div>
-    {details && <LifeReviewDetails key={details} content={c} timezone={zone} mode={details} onClose={() => setDetails(null)} />}
+    {!hideDetailButtons && <>
+      <div className={styles.details}>
+        <Button size="sm" variant="ghost" aria-haspopup="dialog" onClick={() => setDetails('references')}>参考记录</Button>
+        <Button size="sm" variant="ghost" aria-haspopup="dialog" onClick={() => setDetails('version')}>版本信息</Button>
+      </div>
+      {details && <LifeReviewDetails key={details} content={c} timezone={zone} mode={details} onClose={() => setDetails(null)} />}
+    </>}
     <p className={styles.muted}>{c.deliveries.map(d => `${d.channel === 'DESKTOP' ? '桌面' : '飞书'}：${lifeState(d.state)}`).join(' · ')}</p>
     {!hasReport && delivery && <p className={styles.muted}>以上为历史投递记录，不表示正文生成成功；已发送副本无法撤回。</p>}
     {delivery?.state === 'UNKNOWN' && <p>飞书可能已收到，请人工核对；此处不会自动重发。已读状态未知。</p>}

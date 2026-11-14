@@ -1,0 +1,20 @@
+.chart { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: end; gap: 3px; height: 96px; padding: 6px 0 0; }
+.bar { position: relative; height: 100%; display: flex; align-items: flex-end; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
+.bar:disabled { cursor: default; }
+.bar[data-busy] { background: repeating-linear-gradient(135deg, #f1f5f9 0 4px, #e2e8f0 4px 6px); }
+.bar span { width: 100%; border-radius: 3px 3px 1px 1px; background: #bfdbfe; transition: background-color 160ms ease; }
+.bar:not(:disabled):hover span { background: #60a5fa; }
+.bar[data-suggested] span { background: #93c5fd; }
+.bar[data-current] span { background: #2563eb; }
+.bar[data-current]::after { content: ''; position: absolute; top: -6px; left: 50%; width: 5px; height: 5px; border-radius: 50%; background: #2563eb; transform: translateX(-50%); }
+.bar:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 1px; }
+.axis { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 10px; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--text-secondary); font-size: 11px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; }
+.legendActive { background: #bfdbfe; }
+.legendBusy { background: repeating-linear-gradient(135deg, #f1f5f9 0 3px, #cbd5e1 3px 4px); }
+.legendCurrent { background: #2563eb; }
+.note { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.form { display: flex; flex-direction: column; gap: 12px; }
+@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }

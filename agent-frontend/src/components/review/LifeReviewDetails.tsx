@@ -8,16 +8,14 @@ import styles from './LifeReviewDetails.module.css';
 
 interface Props { content: LifeContent; timezone: string; mode: 'references' | 'version'; onClose: () => void }
 
-/** 同一版本的只读材料与版本详情；打开、筛选均不重新采集或调用模型。 */
-export function LifeReviewDetails({ content: c, timezone, mode, onClose }: Props) {
+/** 同一版本的只读材料与版本详情内容，支持在独立抽屉和按日抽屉内复用。 */
+export function LifeReviewDetailsContent({ content: c, timezone, mode }: Omit<Props, 'onClose'>) {
   const [category, setCategory] = useState('ALL');
   const groups = lifeReferenceGroups(c);
   const count = groups.reduce((total, group) => total + group.entries.length, 0);
   const zone = c.timezone || timezone;
   const time = (value: string) => lifeReviewTime(value, zone);
-  const title = mode === 'references' ? '参考记录' : '版本信息';
-  return <Drawer open title={title} description={`${c.day} · 第${c.version}版`} onClose={onClose}>
-    <div className={styles.body}>
+  return <div className={styles.body}>
       {mode === 'references' ? <>
         <p className={styles.note}>这是本版实际读取的材料快照，不是完整聊天记录，也不会自动追加新消息。材料不等于已确认事实。</p>
         <dl className={styles.metadata}>
@@ -58,6 +56,13 @@ export function LifeReviewDetails({ content: c, timezone, mode, onClose }: Props
           {c.items.map((item, index) => <p className={styles.raw} key={index}>正文第{index + 1}条依据：{item.evidenceIds.join('、') || '未记录'}</p>)}
         </ReviewDisclosure>
       </>}
-    </div>
+    </div>;
+}
+
+/** 同一版本的只读材料与版本详情；打开、筛选均不重新采集或调用模型。 */
+export function LifeReviewDetails({ content: c, timezone, mode, onClose }: Props) {
+  const title = mode === 'references' ? '参考记录' : '版本信息';
+  return <Drawer open title={title} description={`${c.day} · 第${c.version}版`} onClose={onClose}>
+    <LifeReviewDetailsContent content={c} timezone={timezone} mode={mode} />
   </Drawer>;
 }

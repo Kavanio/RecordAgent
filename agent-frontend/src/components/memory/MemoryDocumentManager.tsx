@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Database, Lock } from 'lucide-react';
 import { fetchMemoryDocuments } from '../../services/experienceMemoryService';
 import { memoryDeletionLabel } from '../../features/memory/cleanupPresentation';
 import type { MemoryDocument } from '../../types/experienceMemory';
@@ -14,14 +15,42 @@ const SYNC_LABELS: Record<string, string> = {
   SUCCEEDED: '远端写入已确认', FAILED: '同步失败', UNKNOWN: '远端结果未知', RETRY_WAIT: '等待重试', CANCELLED: '同步已停止',
 };
 
-/** 设置页仅保留管理入口，打开弹窗后才读取来源列表。 */
-export function MemoryDocumentManager() {
+interface MemoryDocumentManagerProps {
+  variant?: 'settings' | 'tile';
+  sourceSummary?: { active: number; total: number } | null;
+}
+
+/** 首页仅保留管理入口，打开弹窗后才读取来源列表。 */
+export function MemoryDocumentManager({ variant = 'settings', sourceSummary = null }: MemoryDocumentManagerProps = {}) {
   const [open, setOpen] = useState(false);
   return <>
-    <SettingsGroup title="经历来源管理">
-      <SettingsRow label="聊天来源" description="查看、纠正或删除记忆来源，原聊天会保留。"
-        control={<Button variant="outline" onClick={() => setOpen(true)}>管理来源</Button>} />
-    </SettingsGroup>
+    {variant === 'tile' ? (
+      <section className={styles.tile} aria-label="经历来源管理">
+        <div className={styles.tileHeader}>
+          <div className={styles.tileHeading}>
+            <span className={styles.tileIcon} aria-hidden="true"><Database size={16} /></span>
+            <div className={styles.tileTitles}>
+              <h2>经历来源管理</h2>
+              <p>聊天来源仅在打开后读取，原聊天会话始终保留。</p>
+            </div>
+          </div>
+          {sourceSummary && (
+            <span className={styles.badge}>
+              有效 {sourceSummary.active} / {sourceSummary.total}
+            </span>
+          )}
+        </div>
+        <p className={styles.meta}>查看已授权登记的聊天来源，支持本地纠正或逐条核对远端删除结果。</p>
+        <div className={styles.tileActions}>
+          <Button variant="outline" size="sm" icon={<Lock size={14} />} onClick={() => setOpen(true)}>管理来源</Button>
+        </div>
+      </section>
+    ) : (
+      <SettingsGroup title="经历来源管理">
+        <SettingsRow label="聊天来源" description="查看、纠正或删除记忆来源，原聊天会保留。"
+          control={<Button variant="outline" onClick={() => setOpen(true)}>管理来源</Button>} />
+      </SettingsGroup>
+    )}
     {open && <Modal open title="经历来源管理" width={720} centered onClose={() => setOpen(false)}>
       <div className={styles.list}><MemorySourceList /></div>
     </Modal>}

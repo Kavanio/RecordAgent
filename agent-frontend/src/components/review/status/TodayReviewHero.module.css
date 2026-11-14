@@ -1,0 +1,10 @@
+.notice { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+.notice strong { display: block; font-size: 13px; font-weight: 600; }
+.notice p { margin: 2px 0 0; font-size: 12px; line-height: 1.6; color: #9a3412; }
+.hint { margin: 0; color: var(--text-secondary); font-size: 12px; }
+.reading { min-width: 0; }
+.reading .embedded { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+@media (max-width: 640px) {
+  .notice { grid-template-columns: 16px minmax(0, 1fr); }
+  .notice > button { grid-column: 1 / -1; justify-self: start; }
+}

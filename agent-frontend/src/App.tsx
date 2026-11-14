@@ -33,7 +33,7 @@ import type {
 import type { SubagentProgressDto, TaskDto } from './types/team';
 import { cancelSubagentTask, fetchSubagentTasks, subscribeSubagentTaskEvents } from './services/taskApi';
 import { fetchProjects, importProject, removeProject as removeProjectApi } from './services/projectApi';
-import { LifeStatusPage } from './components/review/LifeStatusPage';
+import { LifeStatusPage } from './components/review/status/LifeStatusPage';
 import { useCompanionNotifications } from './components/review/useCompanionNotifications';
 
 interface ActiveChatRun {
