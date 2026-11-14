@@ -58,8 +58,8 @@ export function GoalBoard() {
   return <StatusCard
     title="个人目标"
     icon={<Target size={16} />}
-    description={`${active.length}/${MAX_ACTIVE} 个进行中`}
-    actions={<Button size="sm" variant="outline" icon={<Plus size={14} />} disabled={busy || freeSlots === 0}
+    badge={<span className={styles.count} title={`${active.length}/${MAX_ACTIVE} 个进行中`}>{active.length}/{MAX_ACTIVE}</span>}
+    actions={<Button size="sm" variant="ghost" icon={<Plus size={14} />} disabled={busy || freeSlots === 0}
       onClick={() => setDraft({ ...EMPTY_DRAFT })}>新增目标</Button>}
   >
     {error && <p role="alert" className={styles.error}>{error}<Button size="sm" onClick={() => void load()}>重新读取</Button></p>}
@@ -71,14 +71,11 @@ export function GoalBoard() {
     )}
     {active.length > 0 && <ul className={styles.goals}>
       {active.map((goal, index) => <li key={goal.id} className={styles.goal}>
-        <span className={styles.index} aria-hidden="true">{index + 1}</span>
+        <span className={styles.index} aria-hidden="true">0{index + 1}</span>
         <div className={styles.goalBody}>
           <strong>{goal.title}</strong>
-          {(goal.successCriterion || goal.constraintText) && (
-            <p title={[goal.successCriterion, goal.constraintText && `约束：${goal.constraintText}`].filter(Boolean).join(' · ')}>
-              {[goal.successCriterion, goal.constraintText && `约束：${goal.constraintText}`].filter(Boolean).join(' · ')}
-            </p>
-          )}
+          {goal.successCriterion && <p className={styles.criterion}>{goal.successCriterion}</p>}
+          {goal.constraintText && <p className={styles.constraint}><span>边界</span>{goal.constraintText}</p>}
         </div>
         <div className={styles.goalActions}>
           <Button size="sm" variant="ghost" iconOnly icon={<Pencil size={14} />} aria-label={`编辑目标 ${goal.title}`} disabled={busy}
@@ -90,7 +87,7 @@ export function GoalBoard() {
     </ul>}
     {archived.length > 0 && <div className={styles.archived}>
       <button type="button" className={styles.archivedToggle} aria-expanded={showArchived} onClick={() => setShowArchived(v => !v)}>
-        已归档 {archived.length} 个{showArchived ? '（收起）' : '（展开）'}
+        已归档 {archived.length}{showArchived ? ' ▴' : ' ▾'}
       </button>
       {showArchived && <ul>
         {archived.map(goal => <li key={goal.id}>

@@ -5,8 +5,10 @@
 .blockHeader p { margin: 4px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
 .emptyCard { border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-app); }
 .grid, .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.dimCard { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-app); }
+.dimCard { min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; border: 1px solid var(--border-subtle); border-radius: 14px; background: var(--bg-app); }
 .dimHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.dimHeader button { opacity: 0.45; transition: opacity var(--transition-fast); }
+.dimCard:hover .dimHeader button, .dimCard:focus-within .dimHeader button { opacity: 1; }
 .dimTitle { display: inline-flex; align-items: center; gap: 7px; color: var(--text-primary); font-size: 13px; font-weight: 600; }
 .dimTitle svg { color: var(--text-secondary); flex: 0 0 auto; }
 .dimText, .dimFallback { margin: 0; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }

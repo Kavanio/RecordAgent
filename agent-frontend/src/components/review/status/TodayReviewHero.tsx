@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { CalendarCheck, ChevronDown, Info, RefreshCw, Sparkles } from 'lucide-react';
 import { lifeReviewApi } from '../../../services/lifeReviewApi';
 import type { LifeContent, LifeHabit, LifeSettings } from '../../../types/lifeReview';
-import { dayTitle, formatHour, sortVersions } from '../../../features/review/statusPresentation';
+import { lifeReviewTime } from '../../../features/review/lifeReviewPresentation';
+import { dayTitle, formatDateTime, formatHour, sortVersions } from '../../../features/review/statusPresentation';
 import { Button } from '../../common/Button';
 import { ConfirmDialog } from '../../common/ConfirmDialog';
 import { LifeContentCard } from '../LifeContentCard';
@@ -22,7 +23,11 @@ interface TodayReviewHeroProps {
   onOpenSettings?: (tab?: 'review' | 'context') => void;
 }
 
-/** 今日复盘主卡：只平铺今日内容或最近有效回顾；旧日未生成仅保留紧凑折叠条，避免大片报错占满首屏。 */
+const BADGE_LABELS: Record<string, string> = {
+  PENDING: '等待中', RUNNING: '生成中', READY: '已备好', DEGRADED: '未生成', SKIPPED: '未生成', UNKNOWN: '结果未知',
+};
+
+/** 今日复盘主卡：单层极简头部与阅读流；已有今日复盘时只提供单入口更新，避免与“准备”按钮冲突。 */
 export function TodayReviewHero({ settings: s, history, habit, today, busy, generating, disabled, act, onOpenSettings }: TodayReviewHeroProps) {
   const [refreshOpen, setRefreshOpen] = useState(false);
   const [expandFailedPrev, setExpandFailedPrev] = useState(false);
@@ -35,26 +40,39 @@ export function TodayReviewHero({ settings: s, history, habit, today, busy, gene
   const blocked = !s.enabled || !s.authorized;
 
   function prepare() {
-    const readyToday = history.some(c => c.day === today && c.state === 'READY');
-    void act(() => lifeReviewApi.prepare(today, 0, false),
-      readyToday ? '正在查看今天已有版本；需要重新采集资料时请点“更新今天的复盘”' : '已开始后台生成今日复盘，请稍候…');
+    void act(() => lifeReviewApi.prepare(today, 0, false), '已开始后台生成今日复盘，请稍候…');
   }
 
+  const shownZone = shown?.timezone || s.timezone;
+  const badgeText = shown ? `v${shown.version} · ${BADGE_LABELS[shown.state] || shown.state}` : undefined;
+  const badgeTone = shown?.state === 'READY' ? 'ready' : shown?.state === 'PENDING' || shown?.state === 'RUNNING' ? 'wait' : 'muted';
+  const scheduleMeta = `每日 ${formatHour(hour)}${s.feishu ? ' · 飞书同步' : ''}`;
+  const description = shown ? (
+    <span title={`资料截至 ${lifeReviewTime(shown.sourceAsOf, shownZone)}（${shownZone}）`}>
+      截至 {formatDateTime(shown.sourceAsOf, shownZone)} · {scheduleMeta}
+    </span>
+  ) : scheduleMeta;
+
+  const primaryAction = generating ? (
+    <Button size="sm" variant="outline" icon={<Sparkles size={14} />} disabled>正在生成复盘…</Button>
+  ) : todayContent ? (
+    <Button size="sm" variant="outline" icon={<RefreshCw size={13} />} disabled={disabled || todayContent.state === 'UNKNOWN'}
+      onClick={() => setRefreshOpen(true)}>
+      更新今天的复盘
+    </Button>
+  ) : (
+    <Button size="sm" variant="primary" icon={<Sparkles size={14} />} disabled={disabled} onClick={prepare}>
+      准备今天的复盘
+    </Button>
+  );
+
   return <StatusCard
-    title="今天的复盘"
+    title={shown && !todayContent ? `${dayTitle(shown.day)} 复盘` : '今天的复盘'}
     tone="accent"
     icon={<CalendarCheck size={16} />}
-    description={`每日 ${formatHour(hour)}${s.feishu ? ' · 同步飞书' : ''}`}
-    actions={<>
-      <Button size="sm" variant="primary" icon={<Sparkles size={14} />} disabled={disabled || generating} onClick={prepare}>
-        {generating ? '正在生成复盘…' : '准备今天的复盘'}
-      </Button>
-      {todayContent && !generating && (
-        <Button size="sm" variant="outline" icon={<RefreshCw size={14} />} disabled={disabled || todayContent.state === 'UNKNOWN'} onClick={() => setRefreshOpen(true)}>
-          更新今天的复盘
-        </Button>
-      )}
-    </>}
+    badge={badgeText ? <span className={styles.versionBadge} data-tone={badgeTone}>{badgeText}</span> : undefined}
+    description={description}
+    actions={primaryAction}
   >
     {blocked && (
       <div className={styles.notice} role="note">
@@ -74,10 +92,10 @@ export function TodayReviewHero({ settings: s, history, habit, today, busy, gene
       />
     )}
 
-    {shown && !todayContent && <p className={styles.hint}>今天尚未生成，以下为 {dayTitle(shown.day)} 的回顾</p>}
+    {shown && !todayContent && <p className={styles.hint}>今天尚未生成，以下为最近一次有效回顾</p>}
     {shown && (
       <div className={styles.reading}>
-        <LifeContentCard key={shown.id} className={styles.embedded} content={shown} timezone={shown.timezone || s.timezone}
+        <LifeContentCard key={shown.id} className={styles.embedded} compact content={shown} timezone={shownZone}
           busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />
       </div>
     )}

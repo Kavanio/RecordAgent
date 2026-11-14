@@ -78,12 +78,12 @@ export function LifeStatusPage({ onOpenSettings, initialTab }: LifeStatusPagePro
         actions={
           <div className={styles.headerActions}>
             <TopBarAction variant="ghost" icon={<RefreshCw size={14} />} disabled={busy || state.loading}
-              onClick={() => void refreshAll()}>
-              {state.loading ? '正在读取…' : '刷新数据'}
+              title="刷新状态数据" onClick={() => void refreshAll()}>
+              {state.loading ? '读取中…' : '刷新'}
             </TopBarAction>
             {onOpenSettings && (
               <>
-                <TopBarAction variant="ghost" onClick={() => onOpenSettings('context')}>个人上下文设置</TopBarAction>
+                <TopBarAction variant="ghost" title="个人上下文设置" onClick={() => onOpenSettings('context')}>上下文</TopBarAction>
                 <TopBarAction variant="ghost" iconOnly aria-label="生活复盘设置" icon={<Settings2 size={18} />}
                   onClick={() => onOpenSettings('review')}>
                   <span className={styles.visuallyHidden}>生活复盘设置</span>
@@ -116,7 +116,7 @@ export function LifeStatusPage({ onOpenSettings, initialTab }: LifeStatusPagePro
                   <StatusTabs value={tab} onChange={selectTab} />
                   <div className={styles.pills} aria-label="状态摘要">
                     {reviewReady ? (
-                      <span className={styles.pill} data-tone="ok"><i aria-hidden="true" />复盘已授权</span>
+                      <span className={styles.quietStat} data-state="on"><i aria-hidden="true" />复盘已授权</span>
                     ) : (
                       <button type="button" className={styles.pillBtn} data-tone="warn"
                         disabled={!onOpenSettings} onClick={() => onOpenSettings?.('review')}>
@@ -125,7 +125,7 @@ export function LifeStatusPage({ onOpenSettings, initialTab }: LifeStatusPagePro
                     )}
 
                     {state.companion && (
-                      <button type="button" className={styles.pillBtn} data-tone={state.companion.companionEnabled ? 'ok' : 'neutral'}
+                      <button type="button" className={styles.quietBtn} data-state={state.companion.companionEnabled ? 'on' : 'off'}
                         onClick={() => selectTab('today')}>
                         <i aria-hidden="true" />{state.companion.companionEnabled ? '陪伴中' : '陪伴未开启'}
                       </button>
@@ -138,7 +138,7 @@ export function LifeStatusPage({ onOpenSettings, initialTab }: LifeStatusPagePro
                     )}
 
                     {memorySummary && (
-                      <button type="button" className={styles.pillBtn} data-tone="neutral" onClick={() => selectTab('insight')}>
+                      <button type="button" className={styles.quietBtn} onClick={() => selectTab('insight')}>
                         经历来源 {memorySummary.total}
                       </button>
                     )}

@@ -17,11 +17,13 @@ interface Props {
   act: (work: () => Promise<unknown>, message: string) => Promise<void>;
   /** 嵌入其他容器时追加的样式类，例如状态页去掉外框。 */
   className?: string;
+  /** 状态页主卡已合并展示日期/版本/时间时隐藏卡片内部重复头部。 */
+  compact?: boolean;
   /** 已经在按日抽屉内提供参考记录/版本信息切换时隐藏二级抽屉按钮。 */
   hideDetailButtons?: boolean;
 }
-/** 展示一个不可变复盘版本；补充、发送与生成是不同动作。 */
-export function LifeContentCard({ content: c, timezone, busy, authorized, feishu, act, className = '', hideDetailButtons = false }: Props) {
+/** 展示一个不可变复盘版本；以无框极简排版呈现观察与小步建议。 */
+export function LifeContentCard({ content: c, timezone, busy, authorized, feishu, act, className = '', compact = false, hideDetailButtons = false }: Props) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [text, setText] = useState('');
   const [sendOpen, setSendOpen] = useState(false);
@@ -41,8 +43,12 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
   const zone = c.timezone || timezone;
   const time = (value: string) => lifeReviewTime(value, zone);
   return <article className={`${styles.card} ${className}`} aria-label={`${c.day} 生活复盘版本${c.version}`}>
-    <div className={styles.header}><strong>{c.day} · v{c.version}</strong><span>{lifeState(c.state)}</span></div>
-    <p className={styles.muted}>资料截至 {time(c.sourceAsOf)}（{zone}）</p>
+    {!compact && (
+      <>
+        <div className={styles.header}><strong>{c.day} · v{c.version}</strong><span>{lifeState(c.state)}</span></div>
+        <p className={styles.muted}>资料截至 {time(c.sourceAsOf)}（{zone}）</p>
+      </>
+    )}
     {generating && <div className={styles.notice} role="status"><strong>正在生成复盘正文…</strong>
       <p>正在后台采集资料并生成，完成后会自动刷新。</p>
     </div>}
@@ -54,16 +60,19 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
       <div className={styles.itemList}>
         {observations.map((item, i) => <div key={i} className={styles.item}>
           <p className={styles.itemText}>{item.text}</p>
-          {item.uncertainty && <p className={styles.muted}>{item.uncertainty}</p>}
+          {item.uncertainty && <p className={styles.note}>{item.uncertainty}</p>}
         </div>)}
       </div>
     </div>}
     {actions.length > 0 && <div className={styles.section}>
       <div className={styles.sectionTitle}>小步建议</div>
-      <div className={styles.itemList}>
+      <div className={styles.actionList}>
         {actions.map((item, i) => <div key={i} className={styles.actionItem}>
-          <p className={styles.itemText}>{item.text.replace(/^建议[：:]\s*/, '')}</p>
-          {item.uncertainty && <p className={styles.muted}>{item.uncertainty}</p>}
+          <span className={styles.actionStep} aria-hidden="true">{i + 1}</span>
+          <div className={styles.actionBody}>
+            <p className={styles.itemText}>{item.text.replace(/^建议[：:]\s*/, '')}</p>
+            {item.uncertainty && <p className={styles.note}>{item.uncertainty}</p>}
+          </div>
         </div>)}
       </div>
     </div>}
@@ -85,9 +94,9 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
       </div>
       {ready && authorized && (
         <div className={styles.footerActions}>
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => setReplyOpen(true)}>补充经历</Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setReplyOpen(true)}>补充经历</Button>
           {hasReport && feishu && (!delivery || delivery.state === 'FAILED') && <Button size="sm" variant="outline" disabled={busy}
-            onClick={() => setSendOpen(true)}>{delivery ? '重试原副本' : '发送此版本到本人飞书'}</Button>}
+            onClick={() => setSendOpen(true)}>{delivery ? '重试发送' : '发送到飞书'}</Button>}
         </div>
       )}
     </div>

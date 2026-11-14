@@ -1,20 +1,29 @@
-.chart { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: end; gap: 3px; height: 68px; padding: 6px 0 0; }
-.bar { position: relative; height: 100%; display: flex; align-items: flex-end; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
+.chartWrap { display: flex; flex-direction: column; gap: 5px; padding-top: 14px; }
+.chart { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: end; gap: 3px; height: 64px; }
+.bar { position: relative; height: 100%; display: flex; align-items: flex-end; padding: 0 0 3px; border: 0; border-radius: 4px 4px 2px 2px; background: transparent; cursor: pointer; transition: background-color 140ms ease; }
 .bar:disabled { cursor: default; }
-.bar[data-busy] { background: repeating-linear-gradient(135deg, #f1f5f9 0 4px, #e2e8f0 4px 6px); }
-.bar span { width: 100%; border-radius: 3px 3px 1px 1px; background: #bfdbfe; transition: background-color 160ms ease; }
-.bar:not(:disabled):hover span { background: #60a5fa; }
-.bar[data-suggested] span { background: #93c5fd; }
+.bar[data-busy] { background: #f1f5f999; box-shadow: inset 0 -2px 0 #cbd5e1; }
+.bar:not(:disabled):hover { background: #f8fafc; }
+.bar[data-busy]:not(:disabled):hover { background: #e2e8f066; }
+.bar span { position: relative; z-index: 1; width: 100%; border-radius: 3px 3px 1px 1px; background: #60a5fa; transition: background-color 140ms ease, transform 140ms ease; }
+.bar[data-empty] span { background: #e2e8f0; border-radius: 1px; }
+.bar:not(:disabled):hover span { background: #3b82f6; }
+.bar[data-suggested] span { background: #38bdf8; }
 .bar[data-current] span { background: #2563eb; }
-.bar[data-current]::after { content: ''; position: absolute; top: -6px; left: 50%; width: 5px; height: 5px; border-radius: 50%; background: #2563eb; transform: translateX(-50%); }
+.bar[data-current]::before { content: ''; position: absolute; top: 0; bottom: 3px; left: 50%; width: 1.5px; background: #2563eb55; transform: translateX(-50%); }
+.currentPin { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); padding: 0 4px; border-radius: 4px; background: #eff6ff; color: #1d4ed8; font: 600 10px/14px var(--font-sans); white-space: nowrap; pointer-events: none; }
 .bar:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 1px; }
-.axis { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 10px; }
-.legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--text-secondary); font-size: 11px; }
+.axis { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.readout { min-height: 18px; display: flex; align-items: center; }
+.hoverInfo { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 11px; }
+.hoverInfo strong { color: #1d4ed8; font-weight: 600; font-variant-numeric: tabular-nums; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--text-muted); font-size: 11px; }
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
-.legend i { width: 10px; height: 10px; border-radius: 3px; }
-.legendActive { background: #bfdbfe; }
-.legendBusy { background: repeating-linear-gradient(135deg, #f1f5f9 0 3px, #cbd5e1 3px 4px); }
-.legendCurrent { background: #2563eb; }
-.note { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.legend i { width: 8px; height: 8px; border-radius: 2px; }
+.legendActive { background: #60a5fa; }
+.legendBusy { height: 3px !important; width: 10px !important; background: #cbd5e1; }
+.legendCurrent { width: 2px !important; height: 10px !important; background: #2563eb; }
+.footRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.note { margin: 0; color: var(--text-muted); font-size: 11.5px; line-height: 1.55; }
 .form { display: flex; flex-direction: column; gap: 12px; }
-@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .bar, .bar span { transition: none; } }

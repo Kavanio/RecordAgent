@@ -2,6 +2,7 @@ import type {
   LifeCandidate,
   LifeCognition,
   LifeContent,
+  LifeHabitSuggestion,
   LifeNudge,
   LifeRhythmState,
 } from '../../types/lifeReview';
@@ -184,6 +185,34 @@ export function rhythmBars(hourCounts: number[] | undefined, busyStart?: number,
     hour, count, ratio: max > 0 ? count / max : 0,
     busy: busyStart !== undefined && busyEnd !== undefined && isBusyHour(hour, busyStart, busyEnd),
   }));
+}
+
+/** 将后端渠道说明收敛为适合仪表盘的极简短标签，保留原值作悬浮详情。 */
+export function formatCompanionChannel(label: string | undefined, connected: boolean): string {
+  const raw = (label || '').trim();
+  if (!raw) return connected ? '飞书私聊' : '仅桌面';
+  return raw.replace(/^已配置的本人/, '').replace(/^已配置的/, '') || (connected ? '飞书私聊' : '仅桌面');
+}
+
+/** 提炼作息建议的人话摘要，将技术阈值说明收进悬浮 detail。 */
+export function formatRhythmSummary(suggestion: LifeHabitSuggestion | null): { text: string; detail: string } {
+  const rawNote = suggestion?.note || '';
+  if (suggestion?.available) {
+    return {
+      text: `近期在 ${suggestion.suggestedHour}:00 前后较常互动`,
+      detail: rawNote,
+    };
+  }
+  if (suggestion && suggestion.sampleCount > 0) {
+    return {
+      text: `近 ${suggestion.windowDays} 天记录 ${suggestion.sampleCount} 次互动，点 12–23 时柱可设时间`,
+      detail: rawNote || '积累更多晚间互动后将自动推荐最佳时间。',
+    };
+  }
+  return {
+    text: '点选 12–23 时柱子可调整每日复盘时间',
+    detail: rawNote || '仅统计近 14 天消息时间戳，不读取正文。',
+  };
 }
 
 /** 陪伴节奏一句话说明，优先级：未开启 > 忙时顺延 > 未回复 > 下次时间 > 等待安排。 */
