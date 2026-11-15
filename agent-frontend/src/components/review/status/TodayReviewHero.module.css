@@ -1,18 +1,18 @@
-section.heroCard { padding: 22px 24px; border: 1px solid #e2e8f0; border-radius: 18px; box-shadow: 0 6px 24px #0f172a0a; }
-.heroCard header h2 { font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
-.versionBadge { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; background: var(--bg-surface); color: var(--text-secondary); white-space: nowrap; }
+section.heroCard { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; gap: 20px; }
+.heroCard header h2 { font-size: 22px; font-weight: 650; letter-spacing: -.03em; }
+.versionBadge { padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 500; background: #f3f5f8; color: var(--text-secondary); white-space: nowrap; }
 .versionBadge[data-tone='ready'] { background: #ecfdf5; color: #047857; }
 .versionBadge[data-tone='wait'] { background: #eff6ff; color: #1d4ed8; }
-.notice { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 10px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+.notice { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 12px; background: #fff7ed; border: 0; color: #9a3412; }
 .notice strong { display: block; font-size: 13px; font-weight: 600; }
-.notice p { margin: 2px 0 0; font-size: 12px; line-height: 1.5; color: #9a3412; }
-.hint { margin: 0; color: var(--text-secondary); font-size: 12px; }
+.notice p { margin: 2px 0 0; font-size: 12px; line-height: 1.55; color: #9a3412; }
+.hint { margin: 0; color: #64748b; font-size: 12px; }
 .reading { min-width: 0; }
 .reading .embedded { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
-.prevFailure { display: flex; flex-direction: column; gap: 10px; padding-top: 8px; border-top: 1px solid var(--border-subtle); }
-.prevToggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: var(--bg-surface); color: var(--text-secondary); font: 400 12px/1.5 var(--font-sans); text-align: left; cursor: pointer; }
+.prevFailure { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; border: 0; }
+.prevToggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 10px 14px; border: 0; border-radius: 10px; background: #f8fafc; color: var(--text-secondary); font: 450 12px/1.5 var(--font-sans); text-align: left; cursor: pointer; transition: background-color var(--transition-fast), color var(--transition-fast); }
 .prevToggle span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.prevToggle:hover { color: var(--text-primary); }
+.prevToggle:hover { background: #f1f5f9; color: var(--text-primary); }
 .prevToggle svg { flex: 0 0 auto; transition: transform var(--transition-fast); }
 .chevronOpen { transform: rotate(180deg); }
 @media (max-width: 640px) {

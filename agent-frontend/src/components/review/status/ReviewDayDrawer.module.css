@@ -1,8 +1,10 @@
-.wrap { display: flex; flex-direction: column; gap: 14px; }
+.wrap { display: flex; flex-direction: column; gap: 18px; }
 .versions, .views { display: flex; flex-wrap: wrap; gap: 6px; }
-.versions button { min-height: 26px; padding: 0 10px; border: 1px solid var(--border-subtle); border-radius: 999px; background: var(--bg-app); color: var(--text-secondary); font: 500 11px var(--font-sans); cursor: pointer; }
-.versions button[aria-pressed='true'] { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
-.views { padding: 3px; border-radius: 9px; background: var(--bg-surface); align-self: flex-start; }
-.views button { min-height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--text-secondary); font: 500 12px var(--font-sans); cursor: pointer; }
-.views button[aria-selected='true'] { background: var(--bg-app); color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 3px #0f172a0f; }
+.versions button { min-height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: #f3f5f8; color: var(--text-secondary); font: 500 11.5px var(--font-sans); cursor: pointer; transition: background-color var(--transition-fast), color var(--transition-fast); }
+.versions button:hover { background: #e2e8f080; color: var(--text-primary); }
+.versions button[aria-pressed='true'] { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+.views { padding: 3px; border-radius: 999px; background: #f3f5f8; align-self: flex-start; }
+.views button { min-height: 28px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: #64748b; font: 500 12px var(--font-sans); cursor: pointer; transition: background-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast); }
+.views button[aria-selected='true'] { background: var(--bg-app); color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 3px #0f172a12; }
 .wrap .card { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .versions button, .views button { transition: none; } }

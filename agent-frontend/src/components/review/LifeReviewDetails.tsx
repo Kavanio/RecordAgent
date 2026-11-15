@@ -62,7 +62,7 @@ export function LifeReviewDetailsContent({ content: c, timezone, mode }: Omit<Pr
 /** 同一版本的只读材料与版本详情；打开、筛选均不重新采集或调用模型。 */
 export function LifeReviewDetails({ content: c, timezone, mode, onClose }: Props) {
   const title = mode === 'references' ? '参考记录' : '版本信息';
-  return <Drawer open title={title} description={`${c.day} · 第${c.version}版`} onClose={onClose}>
+  return <Drawer open variant="minimal" title={title} description={`${c.day} · 第${c.version}版`} onClose={onClose}>
     <LifeReviewDetailsContent content={c} timezone={timezone} mode={mode} />
   </Drawer>;
 }

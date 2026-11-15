@@ -36,6 +36,7 @@ export function ReviewDayDrawer({ reviewDay, timezone, busy, authorized, feishu,
   return <Drawer
     open
     width={640}
+    variant="minimal"
     title={`${dayTitle(reviewDay.day)} · 复盘详情`}
     description={`${reviewDay.day} · 共 ${reviewDay.versions.length} 个不可变版本`}
     onClose={onClose}

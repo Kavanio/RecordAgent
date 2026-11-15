@@ -13,8 +13,8 @@ interface StatusCardProps {
   children?: ReactNode;
 }
 
-/** 「状态」模块分区容器：支持卡片态或去边框开放式排版。 */
-export function StatusCard({ title, icon, badge, description, actions, tone = 'default', variant = 'card', className = '', children }: StatusCardProps) {
+/** 「状态」模块无边框分区容器：以留白与字号层级组织内容，不渲染外框卡片线。 */
+export function StatusCard({ title, icon, badge, description, actions, tone = 'default', variant = 'open', className = '', children }: StatusCardProps) {
   return <section aria-label={title} className={`${styles.card} ${styles[tone]} ${variant === 'open' ? styles.open : ''} ${className}`}>
     <header className={styles.header}>
       <div className={styles.heading}>

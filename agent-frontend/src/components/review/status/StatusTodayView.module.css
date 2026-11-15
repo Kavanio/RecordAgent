@@ -1,8 +1,8 @@
-.page { display: flex; flex-direction: column; gap: 22px; }
-.columns { display: grid; grid-template-columns: minmax(0, 1.48fr) minmax(280px, 0.92fr); gap: 36px; align-items: start; }
+.page { display: flex; flex-direction: column; gap: 40px; }
+.columns { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(270px, 0.85fr); gap: 56px; align-items: start; }
 .primary { min-width: 0; }
-.secondary { min-width: 0; display: flex; flex-direction: column; gap: 22px; padding: 4px 0 0 32px; border-left: 1px solid #eef2f6; }
+.secondary { min-width: 0; display: flex; flex-direction: column; gap: 38px; padding: 2px 0 0; }
 @media (max-width: 960px) {
-  .columns { grid-template-columns: minmax(0, 1fr); gap: 26px; }
-  .secondary { padding: 22px 0 0; border-left: 0; border-top: 1px solid #eef2f6; }
+  .columns { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  .secondary { padding: 0; }
 }
