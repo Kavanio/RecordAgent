@@ -30,4 +30,4 @@
 .primaryAction { width:100%; min-height:43px; font-weight:600; }
 .manageAction { align-self:center; color:#7c8797; font-size:12px; }
 .error { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0; color:#b42318; font-size:12px; }
-.error button { border:0; background:none; color:#2563eb; cursor:pointer; }
+.error button { border:0; background:none; color:var(--accent-blue-active, #54A0F3); cursor:pointer; }

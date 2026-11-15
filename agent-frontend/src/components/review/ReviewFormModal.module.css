@@ -4,7 +4,7 @@
 .body p, .body label, .body span { font-size: 13px; line-height: 1.65; }
 .body h2 { font-size: 14px; }
 .body input, .body select, .body textarea { max-width: 100%; box-sizing: border-box; font-size: 13.5px; }
-.body input[type='checkbox'] { width: 15px; height: 15px; flex: none; accent-color: #2563eb; vertical-align: middle; }
+.body input[type='checkbox'] { width: 15px; height: 15px; flex: none; accent-color: var(--accent-blue-active, #54A0F3); vertical-align: middle; }
 .body label { display: inline-flex; align-items: flex-start; gap: 8px; }
 .body textarea { display: block; width: 100%; min-height: 104px; padding: 11px 14px; font-family: inherit; color: inherit; line-height: 1.65; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 12px; background: #f8fafc; resize: vertical; outline: none; transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; }
 .body textarea:hover:not(:disabled):not(:focus) { background: #f4f7fa; border-color: rgba(15, 23, 42, 0.14); }

@@ -113,12 +113,12 @@
 }
 
 .jevButtonActive {
-  color: #2563eb;
+  color: var(--accent-blue-active, #54A0F3);
   font-weight: 650;
 }
 
 .jevButtonActive:hover:not(:disabled) {
-  color: #1d4ed8;
+  color: var(--accent-blue-hover, #69AFF7);
 }
 
 .jevButton:disabled {
@@ -180,15 +180,15 @@
 }
 
 .sendBtnActive {
-  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
-  border-color: #2563eb;
+  background: linear-gradient(180deg, var(--accent-blue, #7EBEFB) 0%, var(--accent-blue-hover, #69AFF7) 100%);
+  border-color: rgba(84, 160, 243, 0.42);
   color: #ffffff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(37, 99, 235, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(105, 175, 247, 0.24);
 }
 
 .sendBtnActive:hover {
-  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
-  border-color: #1d4ed8;
+  background: linear-gradient(180deg, var(--accent-blue-hover, #69AFF7) 0%, var(--accent-blue-active, #54A0F3) 100%);
+  border-color: rgba(84, 160, 243, 0.62);
 }
 
 .stopBtn {
@@ -197,18 +197,18 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: 1px solid #2563eb;
+  border: 1px solid rgba(84, 160, 243, 0.42);
   border-radius: var(--radius-full);
-  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(180deg, var(--accent-blue, #7EBEFB) 0%, var(--accent-blue-hover, #69AFF7) 100%);
   color: #ffffff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(37, 99, 235, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(105, 175, 247, 0.24);
   cursor: pointer;
   transition: background var(--transition-fast), opacity var(--transition-fast);
 }
 
 .stopBtn:hover:not(:disabled) {
-  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
-  border-color: #1d4ed8;
+  background: linear-gradient(180deg, var(--accent-blue-hover, #69AFF7) 0%, var(--accent-blue-active, #54A0F3) 100%);
+  border-color: rgba(84, 160, 243, 0.62);
 }
 
 .stopBtn:focus-visible,
