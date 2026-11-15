@@ -1,61 +1,69 @@
-.section { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 14px; border-bottom: 1px solid #eef2f6; }
+.horizon { display: flex; flex-direction: column; gap: 8px; padding: 12px 18px 10px; border-radius: 14px; background: #f8fafc88; border: 1px solid #eef2f6; }
 .header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.titleRow { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+.titleRow { display: flex; align-items: center; gap: 14px; min-width: 0; flex-wrap: wrap; }
 .title { display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary); font-size: 13px; font-weight: 600; white-space: nowrap; }
-.nowChip { display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.nowChip i { width: 5px; height: 5px; border-radius: 50%; background: #2563eb; }
 .actions { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
 
-.readout { min-height: 18px; display: flex; align-items: center; }
-.summary { color: var(--text-muted); font-size: 11.5px; line-height: 1.45; }
-.hoverInfo { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; color: var(--text-secondary); font-size: 11.5px; }
+.readout { min-height: 20px; display: flex; align-items: center; }
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: var(--text-muted); font-size: 11.5px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { width: 8px; height: 8px; border-radius: 2px; }
+.legendNow { width: 2px !important; height: 10px !important; background: #2563eb; border-radius: 999px !important; }
+.legendActive { background: linear-gradient(180deg, #3b82f6 0%, #93c5fd 100%); }
+.legendBusy { height: 3px !important; width: 10px !important; background: #cbd5e1; }
+.summary { color: var(--text-muted); }
+.hoverInfo { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--text-secondary); font-size: 12px; }
 .hoverInfo strong { color: #2563eb; font-weight: 600; font-variant-numeric: tabular-nums; }
 .clickHint { color: #3b82f6; }
 
-.trackArea { position: relative; padding-top: 12px; display: flex; flex-direction: column; gap: 2px; }
-.floatTip { position: absolute; top: -6px; transform: translateX(-50%); padding: 1px 7px; border-radius: 999px; background: #0f172ae6; color: #ffffff; font: 500 10.5px/16px var(--font-sans); font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; z-index: 5; box-shadow: 0 2px 6px #0f172a1f; }
+.trackArea { position: relative; padding-top: 20px; display: flex; flex-direction: column; gap: 4px; }
+.chartWrap { position: relative; }
+.floatTip { position: absolute; top: -18px; transform: translateX(-50%); padding: 1px 7px; border-radius: 999px; background: #0f172ae6; color: #ffffff; font: 600 10px/15px var(--font-sans); font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; z-index: 6; box-shadow: 0 2px 6px #0f172a1f; }
 .floatTip[data-edge='left'] { transform: translateX(-15%); }
 .floatTip[data-edge='right'] { transform: translateX(-85%); }
 
-.waveBox { position: relative; height: 54px; }
-.busyMist { position: absolute; top: 10px; bottom: 7.4%; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, #94a3b80d 0%, #94a3b824 100%); border-bottom: 1.5px solid #cbd5e1; pointer-events: none; }
-.livedWash { position: absolute; top: 8px; bottom: 7.4%; left: 0; background: linear-gradient(90deg, #eff6ff00 0%, #eff6ffaa 100%); pointer-events: none; }
+.livedWash { position: absolute; inset: 0 auto 2px 0; border-radius: 6px 0 0 6px; background: linear-gradient(90deg, #eff6ff00 0%, #eff6ff77 100%); pointer-events: none; }
+.nowLine { position: absolute; top: -4px; bottom: 0; width: 1.5px; background: linear-gradient(180deg, #2563eb 0%, #3b82f644 100%); pointer-events: none; z-index: 4; transform: translateX(-50%); transition: opacity 150ms ease; }
+.nowLine[data-dim] { opacity: 0.25; }
+.nowPill { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); padding: 0 6px; border-radius: 999px; background: #2563eb; color: #ffffff; font: 600 10px/15px var(--font-sans); font-variant-numeric: tabular-nums; white-space: nowrap; box-shadow: 0 2px 6px #2563eb33; }
+.nowPill[data-edge='left'] { transform: translateX(-15%); }
+.nowPill[data-edge='right'] { transform: translateX(-85%); }
+.nowBeacon { position: absolute; bottom: -1px; left: 50%; width: 6px; height: 6px; border-radius: 50%; background: #2563eb; border: 1.5px solid var(--bg-app); transform: translateX(-50%); box-shadow: 0 0 0 3px #3b82f62b; }
+.nowBeacon::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 1.5px solid #3b82f6; opacity: 0; }
 
-.waveSvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-.baseAxisLine { stroke: #e2e8f0; stroke-width: 1; }
-.waveArea { transition: opacity 280ms ease; }
-.waveStroke { fill: none; stroke: #3b82f6; stroke-width: 1.85; stroke-linecap: round; stroke-linejoin: round; }
-.waveAmbient { fill: none; stroke: #cbd5e1; stroke-width: 1.4; stroke-dasharray: 3 3; }
-
-.nowMarker { position: absolute; top: 12px; bottom: 7.4%; width: 1px; background: linear-gradient(180deg, #3b82f600 0%, #3b82f688 60%, #2563eb 100%); transform: translateX(-50%); pointer-events: none; z-index: 3; }
-.nowDot { position: absolute; bottom: -3px; left: 50%; width: 7px; height: 7px; border-radius: 50%; background: #2563eb; border: 1.5px solid var(--bg-app); transform: translateX(-50%); box-shadow: 0 0 0 3px #3b82f630; }
-.nowDot::after { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 1.5px solid #3b82f6; opacity: 0; }
-
-.stems { position: relative; z-index: 4; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); height: 100%; }
-.bar { position: relative; height: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.chart { position: relative; z-index: 3; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); align-items: end; gap: 5px; height: 50px; }
+.bar { position: relative; height: 100%; display: flex; align-items: flex-end; justify-content: center; padding: 0 2px 2px; border: 0; border-radius: 6px 6px 2px 2px; background: transparent; cursor: pointer; transition: background-color 140ms ease; }
 .bar:disabled { cursor: default; }
-.bar:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: -1px; border-radius: 4px; }
+.bar[data-busy] { background: linear-gradient(180deg, transparent 15%, #e2e8f052 100%); box-shadow: inset 0 -2px 0 #cbd5e199; }
+.bar:not(:disabled):hover { background: #ffffffd6; }
+.bar[data-busy]:not(:disabled):hover { background: #e2e8f080; }
 
-.stemLine { position: absolute; bottom: 7.4%; left: 50%; width: 2.5px; border-radius: 999px; background: #93c5fd88; transform: translateX(-50%); transition: background-color 140ms ease, width 140ms ease; }
-.bar[data-hovered] .stemLine { width: 3.5px; background: #3b82f6aa; }
-.peakDot { position: absolute; left: 50%; width: 6px; height: 6px; border-radius: 50%; background: #2563eb; border: 1.5px solid var(--bg-app); transform: translate(-50%, -50%); transition: transform 140ms ease, box-shadow 140ms ease; }
-.bar[data-hovered] .peakDot { transform: translate(-50%, -50%) scale(1.38); box-shadow: 0 0 0 4px #dbeafe; }
-.bar[data-suggested] .peakDot { background: #0ea5e9; }
+.pillar { position: relative; z-index: 1; width: 100%; max-width: 18px; border-radius: 6px 6px 3px 3px; background: linear-gradient(180deg, #3b82f6 0%, #93c5fd 100%); box-shadow: inset 0 1px 0 #ffffff66, 0 2px 6px #3b82f622; transition: height 180ms cubic-bezier(.22, 1, .36, 1), transform 160ms ease, background 140ms ease, box-shadow 160ms ease; transform-origin: bottom; }
+.bar[data-empty] .pillar { border-radius: 999px; background: #e2e8f0; box-shadow: none; }
+.bar[data-empty][data-selectable] .pillar { background: #cbd5e1bb; }
+.bar:not([data-empty]):not(:disabled):hover .pillar, .bar:not([data-empty]):not(:disabled):focus-visible .pillar { transform: translateY(-2px) scaleY(1.04); background: linear-gradient(180deg, #2563eb 0%, #60a5fa 100%); box-shadow: 0 4px 12px #3b82f636; }
+.bar[data-empty][data-selectable]:hover .pillar, .bar[data-empty][data-selectable]:focus-visible .pillar { height: 18px !important; border-radius: 6px 6px 3px 3px; background: linear-gradient(180deg, #93c5fd 0%, #dbeafe 100%); }
+.bar[data-suggested]:not([data-empty]) .pillar { background: linear-gradient(180deg, #0ea5e9 0%, #7dd3fc 100%); }
+.bar[data-current]:not([data-empty]) .pillar { background: linear-gradient(180deg, #1d4ed8 0%, #60a5fa 100%); }
+.bar[data-current]::before { content: ''; position: absolute; top: 2px; bottom: 2px; left: 50%; width: 1.5px; background: #2563eb66; transform: translateX(-50%); }
 
-.reviewDot { position: absolute; bottom: calc(7.4% - 3px); left: 50%; width: 6px; height: 6px; border-radius: 50%; background: var(--bg-app); border: 2px solid #2563eb; transform: translateX(-50%); box-shadow: 0 0 0 2px #eff6ff; }
-.reviewPin { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); padding: 0 5px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font: 600 9.5px/14px var(--font-sans); white-space: nowrap; pointer-events: none; }
-.reviewPin[data-edge='right'] { transform: translateX(-76%); }
+.reviewDot { position: absolute; bottom: -1px; left: 50%; width: 5px; height: 5px; border-radius: 50%; background: var(--bg-app); border: 1.5px solid #2563eb; transform: translateX(-50%); z-index: 2; }
+.reviewPin { position: absolute; bottom: -17px; left: 50%; transform: translateX(-50%); padding: 0 5px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font: 600 10px/14px var(--font-sans); white-space: nowrap; pointer-events: none; z-index: 4; }
+.reviewPin[data-edge='right'] { transform: translateX(-72%); }
+.bar:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 1px; }
 
-.axis { display: flex; justify-content: space-between; padding-top: 15px; color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.axis { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; padding-top: 15px; }
 .note { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
 .form { display: flex; flex-direction: column; gap: 12px; }
 
-@media (prefers-reduced-motion: no-preference) {
-  .waveSvg { animation: waveReveal 480ms cubic-bezier(.22, 1, .36, 1); transform-origin: 50% 92%; }
-  .nowDot::after { animation: nowPulse 2.6s ease-out infinite; }
-  .nowChip i { animation: chipPulse 2.4s ease-in-out infinite; }
+@media (max-width: 760px) {
+  .horizon { padding: 12px; }
+  .summary { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .waveArea, .stemLine, .peakDot { transition: none; } }
-@keyframes waveReveal { from { opacity: 0; transform: scaleY(0.35); } to { opacity: 1; transform: scaleY(1); } }
-@keyframes nowPulse { 0% { transform: scale(0.8); opacity: 0.7; } 100% { transform: scale(2.3); opacity: 0; } }
-@keyframes chipPulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: no-preference) {
+  .bar:not([data-empty]) .pillar { animation: pillarRise 480ms cubic-bezier(.22, 1, .36, 1) backwards; animation-delay: var(--bar-delay, 0ms); }
+  .nowBeacon::after { animation: nowPulse 2.6s ease-out infinite; }
+}
+@media (prefers-reduced-motion: reduce) { .bar, .pillar, .nowLine { transition: none; } }
+@keyframes pillarRise { from { opacity: 0; transform: scaleY(0.15); } to { opacity: 1; transform: scaleY(1); } }
+@keyframes nowPulse { 0% { transform: scale(0.8); opacity: 0.75; } 100% { transform: scale(2.4); opacity: 0; } }

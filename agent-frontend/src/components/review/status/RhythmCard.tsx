@@ -1,10 +1,8 @@
-import { useEffect, useId, useState } from 'react';
+import { type CSSProperties, useEffect, useState } from 'react';
 import { Clock3 } from 'lucide-react';
 import { lifeReviewApi } from '../../../services/lifeReviewApi';
 import type { LifeCognition, LifeHabit, LifeHabitSuggestion } from '../../../types/lifeReview';
-import {
-  busySegments, formatHour, formatRhythmSummary, rhythmBars, rhythmWaveGeometry, zonedClock,
-} from '../../../features/review/statusPresentation';
+import { formatHour, formatRhythmSummary, rhythmBars, zonedClock } from '../../../features/review/statusPresentation';
 import { Button } from '../../common/Button';
 import { Select } from '../../common/Select';
 import { TextInput } from '../../common/TextInput';
@@ -28,9 +26,8 @@ interface RhythmCardProps {
   act: (work: () => Promise<unknown>, message: string) => Promise<void>;
 }
 
-/** 活态 24h 作息节律波：平滑活动波形、呼吸实时时刻信标、忙碌雾带与悬停微交互。 */
+/** 活态 24h 作息地平线：保留清晰 24 小时渐变胶囊柱阵、呼吸实时时刻指针、忙碌柔光区与悬停浮起交互。 */
 export function RhythmCard({ timezone = 'Asia/Shanghai', habit, suggestion, cognition, busy, disabled, act }: RhythmCardProps) {
-  const uid = useId().replace(/:/g, '');
   const [modalOpen, setModalOpen] = useState(false);
   const [hour, setHour] = useState(21);
   const [note, setNote] = useState('');
@@ -45,36 +42,36 @@ export function RhythmCard({ timezone = 'Asia/Shanghai', habit, suggestion, cogn
   const current = habit?.active ? habit.availableHour : 21;
   const suggested = suggestion?.available ? suggestion.suggestedHour : null;
   const bars = rhythmBars(suggestion?.hourCounts, cognition?.busyStartHour, cognition?.busyEndHour);
-  const wave = rhythmWaveGeometry(bars);
-  const mist = busySegments(cognition?.busyStartHour, cognition?.busyEndHour);
+  const hasData = bars.some(bar => bar.count > 0);
   const hovered = hoverHour === null ? null : bars[hoverHour] ?? null;
   const summary = formatRhythmSummary(suggestion);
   const nowClock = zonedClock(timezone, new Date(nowMs));
-  const nowEdge = nowClock.fraction < 0.12 ? 'left' : nowClock.fraction > 0.88 ? 'right' : undefined;
+  const nearNowTip = hovered !== null && Math.abs(((hovered.hour + 0.5) / 24) - nowClock.fraction) < 0.09;
 
   function openModal(initialHour = current, initialNote = habit?.source || '') {
     setHour(initialHour); setNote(initialNote); setModalOpen(true);
   }
 
-  return <section className={styles.section} aria-label="作息节律">
+  return <section className={styles.horizon} aria-label="作息节律">
     <header className={styles.header}>
       <div className={styles.titleRow}>
         <span className={styles.title}><Clock3 size={14} aria-hidden="true" />今日节律</span>
-        <span className={styles.nowChip} title="当前配置时区时刻"><i aria-hidden="true" />{nowClock.label}</span>
         <div className={styles.readout}>
           {hovered ? (
             <span className={styles.hoverInfo}>
               <strong>{formatHour(hovered.hour)}</strong>
-              <span>{hovered.count > 0 ? `${hovered.count} 次互动` : '无互动'}</span>
+              <span>{hovered.count > 0 ? `${hovered.count} 次互动` : '无互动记录'}</span>
               {hovered.busy && <span>· 忙碌时段</span>}
               {hovered.hour === current && <span>· 复盘时间</span>}
               {hovered.hour >= 12 && hovered.hour <= 23 && !disabled && <span className={styles.clickHint}>· 点按设此时</span>}
             </span>
           ) : (
-            <span className={styles.summary} title={summary.detail}>
-              {cognition ? `忙碌 ${formatHour(cognition.busyStartHour)}—${formatHour(cognition.busyEndHour)} · ` : ''}
-              {summary.text}
-            </span>
+            <div className={styles.legend}>
+              <span><i className={styles.legendNow} />现在 {nowClock.label}</span>
+              {cognition && <span><i className={styles.legendBusy} />忙碌 {formatHour(cognition.busyStartHour)}—{formatHour(cognition.busyEndHour)}</span>}
+              <span><i className={styles.legendActive} />互动分布</span>
+              <span className={styles.summary} title={summary.detail}>· {summary.text}</span>
+            </div>
           )}
         </div>
       </div>
@@ -93,49 +90,36 @@ export function RhythmCard({ timezone = 'Asia/Shanghai', habit, suggestion, cogn
     </header>
 
     <div className={styles.trackArea}>
-      {hovered && (
-        <div
-          className={styles.floatTip}
-          style={{ left: `${((hovered.hour + 0.5) / 24) * 100}%` }}
-          data-edge={hovered.hour <= 2 ? 'left' : hovered.hour >= 21 ? 'right' : undefined}
-          aria-hidden="true"
-        >
-          {formatHour(hovered.hour)} · {hovered.count} 次
-        </div>
-      )}
+      <div className={styles.chartWrap}>
+        {hovered && (
+          <div
+            className={styles.floatTip}
+            style={{ left: `${((hovered.hour + 0.5) / 24) * 100}%` }}
+            data-edge={hovered.hour <= 1 ? 'left' : hovered.hour >= 22 ? 'right' : undefined}
+            aria-hidden="true"
+          >
+            {formatHour(hovered.hour)} · {hovered.count > 0 ? `${hovered.count} 次` : '可设复盘'}
+          </div>
+        )}
 
-      <div className={styles.waveBox} role="img" aria-label={wave.hasData ? '近 14 天各小时互动波动与实时时刻' : '暂无足够互动记录的 24 小时基线'}>
-        {mist.map((seg, i) => (
-          <div key={i} className={styles.busyMist} style={{ left: `${seg.startPct}%`, width: `${seg.widthPct}%` }} aria-hidden="true" />
-        ))}
         <div className={styles.livedWash} style={{ width: `${nowClock.fraction * 100}%` }} aria-hidden="true" />
-
-        <svg className={styles.waveSvg} viewBox="0 0 240 54" preserveAspectRatio="none" aria-hidden="true">
-          <defs>
-            <linearGradient id={`waveFill-${uid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity={wave.hasData ? '0.26' : '0.12'} />
-              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.01" />
-            </linearGradient>
-          </defs>
-          <line x1="0" y1="50" x2="240" y2="50" className={styles.baseAxisLine} />
-          <path d={wave.areaPath} fill={`url(#waveFill-${uid})`} className={styles.waveArea} />
-          <path d={wave.strokePath} className={wave.hasData ? styles.waveStroke : styles.waveAmbient} />
-        </svg>
-
-        <div className={styles.nowMarker} style={{ left: `${nowClock.fraction * 100}%` }} data-edge={nowEdge} aria-hidden="true">
-          <span className={styles.nowDot} />
+        <div className={styles.nowLine} style={{ left: `${nowClock.fraction * 100}%` }} data-dim={nearNowTip || undefined} aria-hidden="true">
+          <span className={styles.nowPill} data-edge={nowClock.fraction < 0.08 ? 'left' : nowClock.fraction > 0.92 ? 'right' : undefined}>
+            {nowClock.label}
+          </span>
+          <i className={styles.nowBeacon} />
         </div>
 
-        <div className={styles.stems}>
-          {bars.map((bar, idx) => {
+        <div className={styles.chart} role="img" aria-label={hasData ? '近 14 天各小时互动次数分布' : '暂无足够的互动时间数据'}>
+          {bars.map(bar => {
             const selectable = bar.hour >= 12 && bar.hour <= 23 && !disabled;
             const isCurrent = bar.hour === current;
-            const isHovered = hoverHour === bar.hour;
-            const topPct = (wave.points[idx].y / 54) * 100;
-            const stemHeightPct = Math.max(0, ((50 - wave.points[idx].y) / 54) * 100);
+            const isEmpty = bar.count === 0;
+            const height = bar.count > 0 ? `${Math.max(bar.ratio * 100, 28)}%` : selectable ? '5px' : '3px';
             return <button key={bar.hour} type="button" className={styles.bar} tabIndex={selectable ? 0 : -1}
-              data-active={bar.count > 0 || undefined}
-              data-hovered={isHovered || undefined}
+              data-busy={bar.busy || undefined}
+              data-empty={isEmpty || undefined}
+              data-selectable={selectable || undefined}
               data-current={isCurrent || undefined}
               data-suggested={bar.hour === suggested || undefined}
               disabled={!selectable}
@@ -145,23 +129,17 @@ export function RhythmCard({ timezone = 'Asia/Shanghai', habit, suggestion, cogn
               onFocus={() => setHoverHour(bar.hour)}
               onBlur={() => setHoverHour(null)}
               onClick={() => openModal(bar.hour, bar.hour === suggested ? SUGGESTION_SOURCE : '')}>
-              {(bar.count > 0 || isHovered) && (
-                <>
-                  <i className={styles.stemLine} style={{ height: `${stemHeightPct}%` }} aria-hidden="true" />
-                  <i className={styles.peakDot} style={{ top: `${topPct}%` }} aria-hidden="true" />
-                </>
-              )}
+              <span className={styles.pillar} style={{ height, '--bar-delay': `${bar.hour * 14}ms` } as CSSProperties} />
               {isCurrent && (
                 <>
                   <i className={styles.reviewDot} aria-hidden="true" />
-                  <em className={styles.reviewPin} data-edge={bar.hour >= 21 ? 'right' : undefined} aria-hidden="true">{bar.hour}时复盘</em>
+                  <em className={styles.reviewPin} data-edge={bar.hour >= 22 ? 'right' : undefined} aria-hidden="true">{bar.hour}时复盘</em>
                 </>
               )}
             </button>;
           })}
         </div>
       </div>
-
       <div className={styles.axis} aria-hidden="true">
         {AXIS_HOURS.map(h => <span key={h}>{h}时</span>)}
       </div>
