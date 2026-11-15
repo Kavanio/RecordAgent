@@ -1,0 +1,41 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7F50HWBVKPVWX8FEH61RFX1",
+  "session_id": "4a6e6e00-ecbc-42d8-a388-475e3067042c",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-15T08:26:05.783187Z",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-frontend/src/components/chat/AnalysisPrivacyCard.module.css",
+    "agent-frontend/src/components/chat/PermissionRequestCard.module.css",
+    "agent-frontend/src/components/chat/PromptInput.module.css",
+    "agent-frontend/src/components/chat/ToolApprovalCard.module.css",
+    "agent-frontend/src/components/common/Button.module.css",
+    "agent-frontend/src/components/model/ModelInitPage.module.css",
+    "agent-frontend/src/components/review/ReviewFormModal.module.css",
+    "agent-frontend/src/components/task/TaskReminderWindow.module.css"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-argon-medium",
+  "turn_id": "84f1e78a05f8",
+  "checkpoint_transcript_start": 608,
+  "transcript_lines_at_start": 608,
+  "redaction": {
+    "replacements": 27,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 2,
+      "credentialed_uri": 0,
+      "entropy": 25,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 5
+  }
+}
