@@ -1,0 +1,47 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7EY9ED2DTYZ57BRDTZA1V1D",
+  "session_id": "4a6e6e00-ecbc-42d8-a388-475e3067042c",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-15T06:28:37.228606Z",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-frontend/src/components/memory/MemoryDocumentManager.module.css",
+    "agent-frontend/src/components/review/LifeContentCard.module.css",
+    "agent-frontend/src/components/review/LifeReviewDetails.module.css",
+    "agent-frontend/src/components/review/LifeReviewDetails.tsx",
+    "agent-frontend/src/components/review/status/CompanionPulseCard.module.css",
+    "agent-frontend/src/components/review/status/GoalBoard.module.css",
+    "agent-frontend/src/components/review/status/LifeStatusPage.module.css",
+    "agent-frontend/src/components/review/status/ReviewDayDrawer.module.css",
+    "agent-frontend/src/components/review/status/ReviewDayDrawer.tsx",
+    "agent-frontend/src/components/review/status/RhythmCard.module.css",
+    "agent-frontend/src/components/review/status/StatusCard.module.css",
+    "agent-frontend/src/components/review/status/StatusCard.tsx",
+    "agent-frontend/src/components/review/status/StatusInsightView.module.css",
+    "agent-frontend/src/components/review/status/StatusTabs.module.css",
+    "agent-frontend/src/components/review/status/StatusTimelineView.module.css",
+    "agent-frontend/src/components/review/status/StatusTodayView.module.css",
+    "agent-frontend/src/components/review/status/TodayReviewHero.module.css",
+    "agent-frontend/src/components/review/status/TodayReviewHero.tsx",
+    "agent-frontend/src/components/settings/PersonalProfileSection.module.css"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-argon-medium",
+  "turn_id": "1a027555c66a",
+  "redaction": {
+    "replacements": 22,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 22,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
