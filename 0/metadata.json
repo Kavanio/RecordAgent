@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7EX1F5TW0JYW79GTHN2G6PF",
+  "session_id": "ec02bd7e-ce29-4ce8-94fb-5265d234a702",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-15T06:06:47.228738Z",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-frontend/src/components/review/status/RhythmCard.module.css",
+    "agent-frontend/src/components/review/status/RhythmCard.tsx",
+    "agent-frontend/src/features/review/statusPresentation.ts"
+  ],
+  "agent": "Antigravity",
+  "model": "claude-opus-5-5-medium",
+  "turn_id": "09b7ff8d87f7",
+  "checkpoint_transcript_start": 702,
+  "transcript_lines_at_start": 702,
+  "redaction": {
+    "replacements": 28,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 28,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 16
+  }
+}
