@@ -4,8 +4,10 @@
   z-index: 1000;
   display: flex;
   justify-content: flex-end;
-  background: rgba(15, 23, 42, 0.34);
-  animation: overlayIn 150ms ease-out;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: overlayIn 160ms ease-out;
 }
 
 .panel {
@@ -15,9 +17,9 @@
   display: flex;
   flex-direction: column;
   outline: none;
-  border-left: 1px solid var(--border-medium);
+  border-left: 0;
   background: var(--bg-app);
-  box-shadow: none;
+  box-shadow: -20px 0 56px -8px rgba(15, 23, 42, 0.12), -1px 0 0 rgba(15, 23, 42, 0.05);
   animation: panelIn 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -27,19 +29,19 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
-  padding: 20px 22px 16px;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 24px 28px 14px;
+  border-bottom: 0;
 }
 
-.header h2 { color: var(--text-primary); font-size: 16px; font-weight: 650; letter-spacing: -.015em; }
-.header p { margin-top: 4px; color: var(--text-muted); font-size: 11px; }
-.closeButton { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text-secondary); }
-.closeButton:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.header h2 { color: var(--text-primary); font-size: 17px; font-weight: 650; letter-spacing: -.02em; }
+.header p { margin-top: 4px; color: #64748b; font-size: 12px; }
+.closeButton { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; border: 0; border-radius: 999px; background: transparent; color: #94a3b8; transition: background-color var(--transition-fast), color var(--transition-fast); }
+.closeButton:hover { background: #f1f5f9; color: var(--text-primary); }
 .body { min-height: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
 .minimal { border: 0; }
-.minimal .header { min-height: auto; align-items: center; padding: 26px 28px 12px; border: 0; }
-.minimal .header h2 { font-size: 18px; overflow-wrap: anywhere; }
+.minimal .header { min-height: auto; align-items: center; padding: 26px 28px 14px; border: 0; }
+.minimal .header h2 { font-size: 18px; letter-spacing: -.025em; overflow-wrap: anywhere; }
 
 @keyframes overlayIn { from { opacity: 0; } }
 @keyframes panelIn { from { transform: translateX(24px); opacity: .72; } }
@@ -49,5 +51,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .overlay, .panel { animation: none; }
+  .overlay, .panel, .closeButton { animation: none; transition: none; }
 }

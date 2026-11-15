@@ -1,7 +1,9 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.32);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -9,7 +11,7 @@
   box-sizing: border-box;
   overflow: hidden;
   z-index: 1000;
-  animation: overlayIn 150ms ease-out;
+  animation: overlayIn 160ms ease-out;
 }
 
 .overlayCentered {
@@ -35,9 +37,9 @@
   justify-content: flex-end;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  border-top: 1px solid var(--border-subtle, #e2e8f0);
-  padding-top: 12px;
+  gap: 10px;
+  border-top: 0;
+  padding-top: 6px;
 }
 
 .panel {
@@ -47,15 +49,15 @@
   min-height: 0;
   max-width: calc(100vw - 40px);
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: var(--radius-lg);
-  padding: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 20px;
+  padding: 26px 28px 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   outline: none;
-  box-shadow: none;
-  animation: panelIn 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 24px 64px -12px rgba(15, 23, 42, 0.16), 0 4px 16px -2px rgba(15, 23, 42, 0.06), inset 0 1px 0 #ffffff;
+  animation: panelIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .header {
@@ -82,8 +84,9 @@
 }
 
 .title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 16.5px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
   color: #0f172a;
   margin: 0;
   overflow: hidden;
@@ -96,14 +99,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
   background: transparent;
   border: none;
-  color: #64748b;
+  color: #94a3b8;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
   flex-shrink: 0;
 }
 
@@ -124,7 +127,7 @@
 @keyframes panelIn {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.98);
+    transform: translateY(8px) scale(0.985);
   }
   to {
     opacity: 1;

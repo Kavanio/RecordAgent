@@ -28,37 +28,37 @@
   width: 100%;
   min-width: 0;
   appearance: none;
-  border: 1px solid #dcdfe4;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 12px;
-  background-color: #ffffff;
+  background-color: #f8fafc;
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 500;
   line-height: 1;
   outline: none;
   cursor: pointer;
   box-sizing: border-box;
-  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
 .outline {
-  border-color: #dcdfe4;
-  background-color: #ffffff;
+  border-color: rgba(15, 23, 42, 0.08);
+  background-color: #f8fafc;
 }
 
 .sm {
-  height: 28px;
+  height: 30px;
   padding: 0 28px 0 12px;
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 12px;
 }
 
 .md {
-  height: 32px;
-  padding: 0 30px 0 14px;
+  height: 36px;
+  padding: 0 32px 0 14px;
   border-radius: 12px;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 .lg {
@@ -73,14 +73,15 @@
 }
 
 .outline:hover:not(:disabled) {
-  border-color: #cbd5e1;
-  background-color: #fafbfc;
+  border-color: rgba(15, 23, 42, 0.14);
+  background-color: #f1f5f9;
 }
 
 .outline:focus-visible {
-  border-color: var(--accent-blue);
-  outline: 2px solid rgba(37, 99, 235, 0.2);
-  outline-offset: 1px;
+  border-color: rgba(37, 99, 235, 0.45);
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  outline: none;
 }
 
 .ghost {

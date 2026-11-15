@@ -63,6 +63,8 @@ export function LifeReviewDetailsContent({ content: c, timezone, mode }: Omit<Pr
 export function LifeReviewDetails({ content: c, timezone, mode, onClose }: Props) {
   const title = mode === 'references' ? '参考记录' : '版本信息';
   return <Drawer open variant="minimal" title={title} description={`${c.day} · 第${c.version}版`} onClose={onClose}>
-    <LifeReviewDetailsContent content={c} timezone={timezone} mode={mode} />
+    <div className={styles.standaloneWrap}>
+      <LifeReviewDetailsContent content={c} timezone={timezone} mode={mode} />
+    </div>
   </Drawer>;
 }
