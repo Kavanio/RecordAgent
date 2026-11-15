@@ -51,7 +51,7 @@
 .reviewDot { position: absolute; bottom: -1px; left: 50%; width: 5px; height: 5px; border-radius: 50%; background: #fafbfd; border: 1.5px solid #2563eb; transform: translateX(-50%); z-index: 2; }
 .reviewPin { position: absolute; bottom: -17px; left: 50%; transform: translateX(-50%); padding: 0 6px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; font: 600 10px/14px var(--font-sans); white-space: nowrap; pointer-events: none; z-index: 4; }
 .reviewPin[data-edge='right'] { transform: translateX(-72%); }
-.bar:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 1px; }
+.bar:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
 
 .axis { display: flex; justify-content: space-between; color: #94a3b8; font-size: 10px; font-variant-numeric: tabular-nums; padding-top: 15px; }
 .note { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }

@@ -120,7 +120,7 @@ export function StatusInsightView({ companion, timezone, busy, memorySummary, on
       busy={busy}
       onClose={() => { setEditing(null); setDraft(null); }}
       footer={<>
-        <Button size="sm" onClick={() => { setEditing(null); setDraft(null); }}>取消</Button>
+        <Button size="sm" variant="outline" onClick={() => { setEditing(null); setDraft(null); }}>取消</Button>
         <Button size="sm" variant="primary" disabled={busy || !draft} onClick={() => draft && void act(async () => {
           await lifeReviewApi.saveCognition(draft);
           setEditing(null);

@@ -1,6 +1,6 @@
-.tabs { display: inline-flex; flex-shrink: 0; align-items: center; gap: 2px; padding: 3px; border-radius: 9px; background: var(--bg-surface); }
-.tabs button { min-height: 28px; padding: 0 11px; border: 0; border-radius: 6px; background: transparent; color: var(--text-secondary); font: 500 11px var(--font-sans); white-space: nowrap; cursor: pointer; transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease; }
+.tabs { display: inline-flex; flex-shrink: 0; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; background: #f3f5f8; }
+.tabs button { min-height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: #64748b; font: 500 11.5px var(--font-sans); white-space: nowrap; cursor: pointer; transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease; }
 .tabs button:hover { color: var(--text-primary); }
-.tabs button[aria-pressed='true'] { background: var(--bg-app); color: var(--text-primary); box-shadow: 0 1px 4px #0f172a0d; font-weight: 600; }
-.tabs button:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.tabs button[aria-pressed='true'] { background: var(--bg-app); color: var(--text-primary); box-shadow: 0 1px 3px #0f172a12; font-weight: 600; }
+.tabs button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .tabs button { transition: none; } }

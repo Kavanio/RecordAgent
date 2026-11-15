@@ -63,7 +63,7 @@ export function GoalBoard() {
     actions={<Button size="sm" variant="ghost" icon={<Plus size={14} />} disabled={busy || freeSlots === 0}
       onClick={() => setDraft({ ...EMPTY_DRAFT })}>新增目标</Button>}
   >
-    {error && <p role="alert" className={styles.error}>{error}<Button size="sm" onClick={() => void load()}>重新读取</Button></p>}
+    {error && <p role="alert" className={styles.error}>{error}<Button size="sm" variant="outline" onClick={() => void load()}>重新读取</Button></p>}
     {!loading && active.length === 0 && !error && (
       <div className={styles.empty}>
         <strong>还没有设定目标</strong>
@@ -101,7 +101,7 @@ export function GoalBoard() {
     </div>}
 
     <ReviewFormModal open={draft !== null} title={draft?.id ? '编辑目标' : '新增目标'} busy={busy} onClose={() => setDraft(null)} footer={<>
-      <Button size="sm" onClick={() => setDraft(null)}>取消</Button>
+      <Button size="sm" variant="outline" onClick={() => setDraft(null)}>取消</Button>
       <Button variant="primary" size="sm" disabled={busy || !draft?.title.trim()}
         onClick={() => draft && void save(draft, draft.id ? '目标已更新' : '目标已保存')}>{draft?.id ? '保存修改' : '添加目标'}</Button>
     </>}>

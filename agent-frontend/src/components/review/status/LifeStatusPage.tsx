@@ -106,7 +106,7 @@ export function LifeStatusPage({ onOpenSettings, initialTab }: LifeStatusPagePro
             {state.error && (
               <p role="alert" className={styles.error}>
                 <span>{state.error}</span>
-                <Button size="sm" onClick={() => void refreshAll()}>重新读取</Button>
+                <Button size="sm" variant="outline" onClick={() => void refreshAll()}>重新读取</Button>
               </p>
             )}
 

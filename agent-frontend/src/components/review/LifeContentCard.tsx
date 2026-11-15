@@ -113,7 +113,7 @@ export function LifeContentCard({ content: c, timezone, busy, authorized, feishu
             disabled={busy} onChange={e => setText(e.target.value)} />
         </label>
         <div className={styles.actions}>
-          <Button size="sm" variant="outline" disabled={busy || !text.trim()} onClick={supplement}>记录补充并准备新版本</Button>
+          <Button size="sm" variant="primary" disabled={busy || !text.trim()} onClick={supplement}>记录补充并准备新版本</Button>
         </div>
       </ReviewFormModal>
     )}

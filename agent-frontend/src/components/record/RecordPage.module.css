@@ -147,12 +147,13 @@
 .tabs > button{
   position: relative;
   flex: none;
-  padding: 7px 12px;
-  border-radius: 7px;
+  padding: 6px 14px;
+  border-radius: 9999px;
   border: 0;
   background: none;
-  color: var(--text-muted);
-  font-size: 11px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
   white-space: nowrap;
 }
 .tabs > button:focus-visible{
@@ -160,15 +161,15 @@
   outline-offset: 1px;
 }
 .tabs > .activeTab{
-  background: var(--bg-surface-hover);
-  color: var(--text-primary);
-  font-weight: 650;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 600;
 }
 .tabs > .addTab{
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  color: var(--accent-blue);
+  color: #475569;
 }
 .tabButton{
   touch-action: none;
@@ -183,7 +184,7 @@
   opacity: .35;
 }
 .tabs > .dragTarget{
-  color: var(--accent-blue);
+  color: var(--border-focus);
 }
 .tabs > .dragTarget::before{
   position: absolute;
@@ -358,12 +359,6 @@
 }
 .empty button{
   margin-top: 8px;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--text-primary);
-  color: #fff;
-  font-size: 11px;
 }
 .trashPage{
   position: absolute;
@@ -397,12 +392,23 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  color: var(--text-secondary);
-  font-size: 11px;
+  padding: 0 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 9999px;
+  background: #f8fafc;
+  color: #1e293b;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.trashHeader button:hover:not(:disabled),
+.trashList button:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: rgba(15, 23, 42, 0.14);
+  color: #0f172a;
 }
 .trashHeader .confirmClear{
   background:#fff0ee;
@@ -543,8 +549,8 @@
   transition: background-color 160ms ease, color 160ms ease;
 }
 .tabs > button:hover{
-  background: var(--bg-surface);
-  color: var(--text-primary);
+  background: #f8fafc;
+  color: #0f172a;
 }
 .recordList{
   animation: enter 200ms ease-out;

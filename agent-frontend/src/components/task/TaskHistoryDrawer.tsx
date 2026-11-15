@@ -48,7 +48,7 @@ export function TaskHistoryDrawer({ task, runs, loading, error, busy, onClose, o
 
       {error && <section className={styles.feedback} role="alert">
         <strong>历史记录读取失败</strong><p>{error}</p>
-        <Button size="sm" variant="ghost" icon={<RotateCcw size={13} />} onClick={onReload}>重新加载</Button>
+        <Button size="sm" variant="outline" icon={<RotateCcw size={13} />} onClick={onReload}>重新加载</Button>
       </section>}
       {loading && <div className={styles.loadingState}><LoadingTree label="正在同步执行记录…" /></div>}
       {!loading && !error && runs.length === 0 && <section className={styles.empty}>

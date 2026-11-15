@@ -1,15 +1,15 @@
 .card {
   --approval-bg: #ffffff;
-  --approval-soft: #f5f5f3;
-  --approval-soft-hover: #eeeeeb;
-  --approval-text: #171717;
-  --approval-text-2: #666661;
-  --approval-text-3: #9a9a94;
-  --approval-primary: #1f1f1f;
-  --approval-primary-hover: #111111;
-  --approval-danger: #a54843;
-  --approval-danger-bg: #fbf2f1;
-  --approval-shadow: 0 16px 40px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --approval-soft: #f8fafc;
+  --approval-soft-hover: #f1f5f9;
+  --approval-text: #0f172a;
+  --approval-text-2: #475569;
+  --approval-text-3: #64748b;
+  --approval-primary: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  --approval-primary-hover: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+  --approval-danger: #dc2626;
+  --approval-danger-bg: #fef2f2;
+  --approval-shadow: 0 16px 40px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04);
   --approval-radius: 18px;
 
   position: relative;
@@ -199,17 +199,17 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  background: rgba(0, 0, 0, 0.04);
+  background: #f1f5f9;
   padding: 2px;
-  border-radius: 6px;
+  border-radius: 9999px;
 }
 
 .itemBtn {
   border: 0;
-  padding: 3px 6px;
-  border-radius: 5px;
+  padding: 3px 9px;
+  border-radius: 9999px;
   font-size: 11px;
-  font-weight: 550;
+  font-weight: 500;
   cursor: pointer;
   background: transparent;
   color: var(--approval-text-2);
@@ -393,7 +393,7 @@
 }
 
 .remember input:focus-visible + .check {
-  outline: 2px solid var(--accent-blue, #2563eb);
+  outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
 
@@ -404,14 +404,14 @@
 }
 
 .btn {
-  height: 35px;
-  border: 0;
-  border-radius: 10px;
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
   padding: 0 15px;
   cursor: pointer;
-  transition: background-color 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -420,31 +420,45 @@
 }
 
 .btnSecondary {
-  background: var(--approval-soft);
-  color: #4f4f4b;
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff;
 }
 
 .btnSecondary:hover:not(:disabled) {
-  background: var(--approval-soft-hover);
-  color: #232321;
+  background: #f1f5f9;
+  border-color: rgba(15, 23, 42, 0.14);
+  color: #0f172a;
 }
 
 .btnPrimary {
   background: var(--approval-primary);
   color: #ffffff;
+  border-color: #0f172a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
 .btnPrimary:hover:not(:disabled) {
   background: var(--approval-primary-hover);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 6px rgba(15, 23, 42, 0.18);
 }
 
 .btn:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.975);
 }
 
 .btn:disabled {
-  opacity: 0.55;
+  opacity: 0.45;
   cursor: not-allowed;
+}
+
+.btnPrimary:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  border-color: transparent;
+  box-shadow: none;
+  opacity: 1;
 }
 
 .shortcut {

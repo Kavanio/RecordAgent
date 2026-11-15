@@ -76,9 +76,9 @@
 }
 
 .swapButton:hover:not(:disabled) {
-  border-color: var(--accent-blue);
-  background: var(--bg-app);
-  color: var(--accent-blue);
+  border-color: rgba(15, 23, 42, 0.14);
+  background: #f1f5f9;
+  color: #0f172a;
   transform: rotate(180deg);
 }
 

@@ -1,7 +1,7 @@
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 56px; align-items: start; }
 .sectionToggle { padding: 4px 10px; border: 0; border-radius: 999px; background: transparent; color: #64748b; font: 500 12px var(--font-sans); cursor: pointer; transition: color var(--transition-fast), background-color var(--transition-fast); }
 .sectionToggle:hover { background: #f8fafc; color: var(--text-primary); }
-.sectionToggle:focus-visible, .moreBtn:focus-visible, .outreachToggle:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.sectionToggle:focus-visible, .moreBtn:focus-visible, .outreachToggle:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 .dayList, .outreachList { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .dayList { gap: 4px; margin: 0 -12px; padding: 0; border: 0; }
 .dayNode { position: relative; }
@@ -9,7 +9,7 @@
 .dayNode[data-state='DEGRADED']::before, .dayNode[data-state='SKIPPED']::before, .dayNode[data-state='UNKNOWN']::before { background: #f59e0b; }
 .dayItem { box-sizing: border-box; width: 100%; display: flex; flex-direction: column; gap: 5px; padding: 11px 14px 11px 28px; border: 0; border-radius: 12px; background: transparent; text-align: left; cursor: pointer; transition: background-color var(--transition-fast), transform var(--transition-fast); }
 .dayItem:hover { background: #f8fafc; transform: translateX(2px); }
-.dayItem:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.dayItem:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 .dayTop { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .dayTop strong { color: var(--text-primary); font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
 .dayBadges { display: inline-flex; align-items: center; gap: 6px; color: #64748b; }
@@ -23,7 +23,7 @@
 .filters { display: flex; flex-wrap: wrap; gap: 4px; }
 .filters button { min-height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: #64748b; font: 500 11.5px var(--font-sans); cursor: pointer; transition: background-color var(--transition-fast), color var(--transition-fast); }
 .filters button:hover { background: #f8fafc; color: var(--text-primary); }
-.filters button[aria-pressed='true'] { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+.filters button[aria-pressed='true'] { background: #f1f5f9; color: #0f172a; font-weight: 600; }
 .outreachList { gap: 4px; margin: 0 -10px; }
 .outreachItem { border: 0; }
 .outreachToggle { box-sizing: border-box; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 0; border-radius: 12px; background: transparent; text-align: left; cursor: pointer; transition: background-color var(--transition-fast); }
@@ -41,8 +41,8 @@
 .outreachFoot { display: flex; align-items: center; justify-content: flex-start; gap: 8px; flex-wrap: wrap; color: #64748b; font-size: 11px; }
 .outreachActions { display: inline-flex; gap: 4px; }
 .feedbackDone { color: #64748b; }
-.moreBtn { align-self: flex-start; padding: 6px 14px; border: 0; border-radius: 999px; background: #f3f5f8; color: var(--text-secondary); font: 500 11.5px var(--font-sans); cursor: pointer; transition: background-color var(--transition-fast), color var(--transition-fast); }
-.moreBtn:hover { background: #e2e8f080; color: var(--text-primary); }
+.moreBtn { align-self: flex-start; min-height: 30px; padding: 0 14px; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 9999px; background: #f8fafc; color: #1e293b; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff; font: 500 12px var(--font-sans); cursor: pointer; transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast); }
+.moreBtn:hover { background: #f1f5f9; border-color: rgba(15, 23, 42, 0.14); color: #0f172a; }
 @media (max-width: 960px) {
   .layout { grid-template-columns: minmax(0, 1fr); gap: 36px; }
   .outreachPane { padding-top: 0; border: 0; }

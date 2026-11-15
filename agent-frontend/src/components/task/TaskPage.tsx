@@ -151,7 +151,7 @@ export function TaskPage({ onOpenSettings }: { onOpenSettings: () => void }) {
 
       {!hasSnapshot ? <section className={styles.empty}>
         {syncStatus === 'OFFLINE' ? <p role="status">暂时无法读取任务，请检查后端连接并重试同步。</p> : <LoadingTree label="正在读取任务…" />}
-      </section> : tasks.length === 0 ? <section className={styles.empty}><Search size={28} /><h2>{search ? '没有找到匹配任务' : showDeleted ? '没有已删除任务' : '让提醒按计划发生'}</h2><p>创建日报、周报、月报、久坐提醒或自定义通知，选择桌面或邮件接收。</p>{!showDeleted && <button type="button" className={styles.emptyAction} onClick={() => switchEditor({})}>创建第一个任务</button>}</section>
+      </section> : tasks.length === 0 ? <section className={styles.empty}><Search size={28} /><h2>{search ? '没有找到匹配任务' : showDeleted ? '没有已删除任务' : '让提醒按计划发生'}</h2><p>创建日报、周报、月报、久坐提醒或自定义通知，选择桌面或邮件接收。</p>{!showDeleted && <Button size="sm" variant="primary" onClick={() => switchEditor({})}>创建第一个任务</Button>}</section>
         : <div className={styles.list}>{tasks.map(task => <article key={task.id} className={styles.card}>
           <div className={styles.heading}><h2>{task.spec.title}</h2><span className={styles.badge}>{taskStatus[task.status] ?? task.status}</span></div>
           <p className={styles.rule}>{scheduleText(task.spec)}</p>

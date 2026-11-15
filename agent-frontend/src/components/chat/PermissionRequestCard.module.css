@@ -133,21 +133,22 @@
 .itemDecision button,
 .actions button {
   display: inline-flex;
-  min-height: 32px;
+  min-height: 30px;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 600;
+  gap: 5px;
+  border-radius: 9999px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 500;
   cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .choice {
-  border: 1px solid var(--border-medium);
-  background: var(--bg-app);
-  color: var(--text-secondary);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+  color: #475569;
 }
 
 .denySelected {
@@ -157,9 +158,9 @@
 }
 
 .allowSelected {
-  border: 1px solid var(--accent-blue);
+  border: 1px solid #2563eb;
   background: #eff6ff;
-  color: var(--accent-blue);
+  color: #1d4ed8;
 }
 
 .parameters {
@@ -228,44 +229,56 @@
 }
 
 .remember input {
-  accent-color: var(--accent-blue);
+  accent-color: #0f172a;
 }
 
 .actions {
   justify-content: flex-end;
-  gap: 6px;
+  gap: 8px;
   margin-left: auto;
 }
 
 .actions button:disabled,
 .itemDecision button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.45;
 }
 
 .deny,
 .ghost {
-  border: 1px solid var(--border-medium);
-  background: var(--bg-app);
-  color: var(--text-secondary);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+  color: #1e293b;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff;
 }
 
 .allow {
-  border: 1px solid var(--accent-blue);
-  background: var(--accent-blue);
+  border: 1px solid #0f172a;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
   color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
 .choice:hover:not(:disabled),
 .deny:hover:not(:disabled),
 .ghost:hover:not(:disabled) {
-  border-color: #94a3b8;
-  background: var(--bg-surface);
+  border-color: rgba(15, 23, 42, 0.14);
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .allow:hover:not(:disabled) {
-  border-color: #1d4ed8;
-  background: #1d4ed8;
+  border-color: #1e293b;
+  background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 6px rgba(15, 23, 42, 0.18);
+}
+
+.allow:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  border-color: transparent;
+  box-shadow: none;
+  opacity: 1;
 }
 
 .actions button:focus-visible,

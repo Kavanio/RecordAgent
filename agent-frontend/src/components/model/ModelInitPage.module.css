@@ -101,10 +101,11 @@
 
 .cancelBtn {
   height: 42px;
-  background-color: #f3f4f6;
-  border: none;
+  background-color: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff;
   border-radius: 9999px;
-  color: #374151;
+  color: #1e293b;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -115,34 +116,49 @@
 }
 
 .cancelBtn:hover {
-  background-color: #e5e7eb;
+  background-color: #f1f5f9;
+  border-color: rgba(15, 23, 42, 0.14);
+  color: #0f172a;
 }
 
 .submitBtn {
   height: 42px;
-  background-color: #9ca3af;
-  border: none;
+  background: #e2e8f0;
+  border: 1px solid transparent;
   border-radius: 9999px;
-  color: #ffffff;
+  color: #94a3b8;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.15s ease;
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.12s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .submitBtnActive {
-  background-color: #111827;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  color: #ffffff;
+  border-color: #0f172a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
-.submitBtnActive:hover {
-  background-color: #1f2937;
+.submitBtnActive:hover:not(:disabled) {
+  background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 6px rgba(15, 23, 42, 0.18);
+}
+
+.cancelBtn:active:not(:disabled),
+.submitBtnActive:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .submitBtn:disabled {
-  opacity: 0.7;
+  background: #e2e8f0;
+  color: #94a3b8;
+  border-color: transparent;
+  box-shadow: none;
+  opacity: 1;
   cursor: not-allowed;
 }
 

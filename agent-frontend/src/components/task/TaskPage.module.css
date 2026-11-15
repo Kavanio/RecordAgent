@@ -8,9 +8,9 @@
 .toolbarActions { display:flex; align-items:center; gap:10px; margin-left:auto; }
 .deletedTitle { color:#585c62; font-size:14px; font-weight:600; }
 .tabs { display:flex; align-items:center; gap:5px; }
-.tabs button { border:0; background:transparent; color:#777b82; border-radius:10px; padding:8px 14px; font:inherit; font-size:14px; cursor:pointer; }
-.tabs button:hover { color:#24272b; background:#f7f8f8; }
-.tabs .activeTab { color:#25282c; background:#f2f3f4; font-weight:600; }
+.tabs button { border:0; background:transparent; color:#475569; border-radius:9999px; padding:6px 14px; font:inherit; font-size:13px; font-weight:500; cursor:pointer; transition:background-color var(--transition-fast), color var(--transition-fast); }
+.tabs button:hover { color:#0f172a; background:#f8fafc; }
+.tabs .activeTab { color:#0f172a; background:#f1f5f9; font-weight:600; }
 .search {
   display: flex;
   align-items: center;
@@ -54,26 +54,6 @@
 .empty { display:flex; flex:1; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:60px 24px; color:#777780; text-align:center; }
 .empty h2 { font-size:18px; color:#303038; margin:0; }
 .empty p { font-size:13px; }
-.emptyAction {
-  border: 0;
-  background: transparent;
-  color: var(--accent-blue);
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-fast), opacity var(--transition-fast);
-}
-.emptyAction:hover {
-  color: #1d4ed8;
-  text-decoration: underline;
-}
-.emptyAction:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 2px;
-}
 .deleteConfirmBody { display: flex; flex-direction: column; gap: 12px; }
 .deleteConfirmText { font-size: 14px; color: var(--text-primary); line-height: 1.5; margin: 0; }
 .deleteConfirmText strong { font-weight: 600; color: #0f172a; }

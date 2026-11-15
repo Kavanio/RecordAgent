@@ -31,12 +31,12 @@
 .sectionSide { margin-top: 1px; }
 .workspace button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 3px; }
 .dateNavigation { display: flex; align-items: center; gap: 2px; margin-top: -4px; }
-.dateArrow, .todayAction, .datePicker { height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--text-secondary); transition: background-color 150ms ease; }
+.dateArrow, .todayAction, .datePicker { height: 28px; border: 0; border-radius: 9999px; background: transparent; color: var(--text-secondary); transition: background-color 150ms ease, color 150ms ease; }
 .dateArrow { width: 28px; display: grid; place-items: center; padding: 0; }
-.todayAction { padding: 0 8px; font: 500 11px var(--font-sans); }
+.todayAction { padding: 0 10px; font: 500 11.5px var(--font-sans); }
 .datePicker { position: relative; min-width: 54px; display: grid; place-items: center; overflow: hidden; font-size: 11px; font-variant-numeric: tabular-nums; }
 .datePicker input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-.dateArrow:hover:not(:disabled), .todayAction:hover, .datePicker:hover { background: var(--bg-surface-hover); }
+.dateArrow:hover:not(:disabled), .todayAction:hover, .datePicker:hover { background: #f1f5f9; color: #0f172a; }
 .datePicker:focus-within { outline: 2px solid var(--border-focus); outline-offset: 1px; }
 .dateArrow:disabled { color: var(--text-muted); opacity: .4; cursor: default; }
 .timelineEmpty { min-height: 100px; display: flex; align-items: center; gap: 14px; padding: 18px; border-radius: 10px; background: var(--bg-surface); color: #6f8da2; }
@@ -45,7 +45,6 @@
 .timelineEmpty p { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin: 5px 0 0; }
 .timelineEmpty > svg { flex-shrink: 0; }
 .timelineError, .heatmapError { min-height: 88px; display: flex; align-items: center; justify-content: space-between; gap: 16px; color: #9a4038; font-size: 12px; }
-.timelineError button, .heatmapError button { border: 0; background: transparent; color: inherit; font: 500 12px var(--font-sans); }
 .recentList { display: flex; flex-direction: column; gap: 5px; }
 .sessionRow { width: 100%; display: grid; grid-template-columns: 62px minmax(0, 1fr) auto 12px; align-items: center; gap: 12px; padding: 15px 12px; border: 0; background: transparent; color: var(--text-muted); text-align: left; border-radius: 9px; transition: background-color 150ms ease, transform 150ms ease; }
 .sessionRow:hover { background: var(--bg-surface); transform: translateY(-1px); }

@@ -146,7 +146,7 @@ export function RhythmCard({ timezone = 'Asia/Shanghai', habit, suggestion, cogn
     </div>
 
     <ReviewFormModal open={modalOpen} title="设置每日复盘与发送时间" busy={busy} onClose={() => setModalOpen(false)} footer={<>
-      {habit?.active && <Button size="sm" disabled={disabled} onClick={() => void act(async () => {
+      {habit?.active && <Button size="sm" variant="outline" disabled={disabled} onClick={() => void act(async () => {
         await lifeReviewApi.saveHabit(habit.revision, 21, '恢复默认 21:00', false);
         setModalOpen(false);
       }, '已恢复默认每天 21:00')}>恢复默认 21:00</Button>}

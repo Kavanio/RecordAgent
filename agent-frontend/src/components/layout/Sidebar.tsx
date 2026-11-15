@@ -7,6 +7,7 @@ import {
 import { BooksIcon, CalendarDotsIcon, StudentIcon, WalletIcon } from '@phosphor-icons/react';
 import type { ChatSession, Project, SessionSummaryDto } from '../../types/chat';
 import { FormField } from '../common/FormField';
+import { Button } from '../common/Button';
 import { TextInput } from '../common/TextInput';
 import { Modal } from '../common/Modal';
 import { useMessage } from '../common/Message';
@@ -746,9 +747,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 required
               />
               {canPickProjectDirectory() && (
-                <button type="button" className={styles.browseBtn} onClick={() => void openImportDialog()} disabled={isPickingProject || isImportingProject}>
+                <Button type="button" variant="outline" onClick={() => void openImportDialog()} disabled={isPickingProject || isImportingProject}>
                   重新选择
-                </button>
+                </Button>
               )}
             </div>
           </FormField>
@@ -763,17 +764,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </FormField>
 
           <div className={styles.modalActions}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={() => setIsImportModalOpen(false)}
-              disabled={isImportingProject}
-            >
-              取消
-            </button>
-            <button type="submit" className={styles.submitBtn} disabled={!importPath.trim() || isImportingProject}>
+            <Button type="button" variant="outline" onClick={() => setIsImportModalOpen(false)} disabled={isImportingProject}>取消</Button>
+            <Button type="submit" variant="primary" disabled={!importPath.trim() || isImportingProject}>
               {isImportingProject ? '正在导入…' : '导入并新建会话'}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
@@ -790,23 +784,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             “{deleteSession?.title || '新对话'}”及其全部聊天记录将被永久删除，此操作无法撤销。
           </p>
           <div className={styles.modalActions}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={closeDeleteSession}
-              disabled={isDeletingSession}
-              autoFocus
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              className={styles.deleteConfirmBtn}
-              onClick={() => void confirmDeleteSession()}
-              disabled={isDeletingSession}
-            >
+            <Button type="button" variant="outline" onClick={closeDeleteSession} disabled={isDeletingSession} autoFocus>取消</Button>
+            <Button type="button" variant="danger" onClick={() => void confirmDeleteSession()} disabled={isDeletingSession}>
               {isDeletingSession ? '正在删除…' : '删除会话'}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>
@@ -827,23 +808,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             此操作只解除项目登记，不会删除磁盘文件；关联会话会保留为普通会话。
           </p>
           <div className={styles.modalActions}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={closeRemoveProject}
-              disabled={isRemovingProject}
-              autoFocus
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              className={styles.deleteConfirmBtn}
-              onClick={() => void confirmRemoveProject()}
-              disabled={isRemovingProject}
-            >
+            <Button type="button" variant="outline" onClick={closeRemoveProject} disabled={isRemovingProject} autoFocus>取消</Button>
+            <Button type="button" variant="danger" onClick={() => void confirmRemoveProject()} disabled={isRemovingProject}>
               {isRemovingProject ? '正在移除…' : '移除项目'}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>

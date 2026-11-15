@@ -546,65 +546,12 @@
   min-width: 0;
 }
 
-.browseBtn {
-  flex-shrink: 0;
-  height: 36px;
-  padding: 0 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #334155;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.browseBtn:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #94a3b8;
-}
-
-.browseBtn:disabled,
-.submitBtn:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
 .modalActions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 8px;
-}
-
-.cancelBtn {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid #d9d9e3;
-  background: #ffffff;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.cancelBtn:hover:not(:disabled) {
-  background-color: #f5f6f8;
-}
-
-.submitBtn {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: none;
-  background: #2563eb;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.submitBtn:hover {
-  background-color: #1d4ed8;
 }
 
 .deleteModalBody {
@@ -619,34 +566,6 @@
   font-size: 13px;
   line-height: 1.6;
   overflow-wrap: anywhere;
-}
-
-.deleteConfirmBtn {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: none;
-  background: #dc2626;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.deleteConfirmBtn:hover:not(:disabled) {
-  background: #b91c1c;
-}
-
-.cancelBtn:disabled,
-.deleteConfirmBtn:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.cancelBtn:focus-visible,
-.deleteConfirmBtn:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 2px;
 }
 
 /* 底部用户信息 */

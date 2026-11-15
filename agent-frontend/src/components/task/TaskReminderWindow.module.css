@@ -27,7 +27,7 @@
 .timerHint { margin:10px 0 0; color:#8590a1; font-size:12px; }
 .empty { flex:1; display:grid; place-items:center; color:#8590a1; font-size:13px; }
 .footer { display:flex; flex-direction:column; align-items:stretch; gap:8px; flex:none; }
-.primaryAction { width:100%; min-height:43px; border-radius:10px; font-weight:600; }
+.primaryAction { width:100%; min-height:43px; font-weight:600; }
 .manageAction { align-self:center; color:#7c8797; font-size:12px; }
 .error { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0; color:#b42318; font-size:12px; }
-.error button { border:0; background:none; color:#3176d5; cursor:pointer; }
+.error button { border:0; background:none; color:#2563eb; cursor:pointer; }
