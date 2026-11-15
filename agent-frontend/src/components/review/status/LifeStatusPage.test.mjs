@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, test } from 'node:test';
 import { act, getReact, jsonResponse, loadModule, mount, startHarness, stopHarness, useFetchStub } from '../../../testing/harness.mjs';
 
-let React, LifeStatusPage, MessageProvider, stub, view, writes, state;
+let React, LifeStatusPage, MessageProvider, zonedDay, stub, view, writes, state;
 
 before(async () => {
   await startHarness();
   React = getReact();
   ({ LifeStatusPage } = await loadModule('/src/components/review/status/LifeStatusPage.tsx'));
   ({ MessageProvider } = await loadModule('/src/components/common/Message.tsx'));
+  ({ zonedDay } = await loadModule('/src/features/review/statusPresentation.ts'));
 });
 after(stopHarness);
 
@@ -271,10 +272,11 @@ test('足迹默认折叠长正文与超过 5 条的记录，支持按需展开�
   assert.match(view.query('section[aria-label="主动联系时间线"]').textContent, /全部/);
 });
 
-test('今日主卡优先聚焦小步建议，作息节律绘制平滑波形并在聚焦时浮现读数', async () => {
+test('今日主卡优先聚焦小步建议，作息节律绘制24小时胶囊柱阵并在聚焦时浮现读数', async () => {
+  const today = zonedDay('Asia/Shanghai');
   state.history = [{
-    id: 'rev-focus', themeId: 't1', day: '2026-11-14', timezone: 'Asia/Shanghai', version: 1, state: 'READY',
-    sourceAsOf: '2026-11-14T10:00:00Z', availableAt: '2026-11-14T10:00:00Z', providerId: 'p1', modelName: 'm1',
+    id: 'rev-focus', themeId: 't1', day: today, timezone: 'Asia/Shanghai', version: 1, state: 'READY',
+    sourceAsOf: `${today}T10:00:00+08:00`, availableAt: `${today}T10:00:00+08:00`, providerId: 'p1', modelName: 'm1',
     coverage: '', message: '', materials: [], facts: [],
     items: [
       { kind: 'FACT_OBSERVATION', text: '今天上午完成需求拆解', evidenceIds: [], uncertainty: '' },
@@ -290,7 +292,7 @@ test('今日主卡优先聚焦小步建议，作息节律绘制平滑波形并�
   assert.ok(actionPos !== -1 && obsPos !== -1 && actionPos < obsPos);
 
   const rhythmSection = view.query('section[aria-label="作息节律"]');
-  assert.ok(rhythmSection.querySelector('svg path'));
+  assert.equal(rhythmSection.querySelectorAll('button[aria-label^="设为每天 "]').length, 24);
   await act(async () => view.query('button[aria-label="设为每天 20:00 复盘"]').focus());
   assert.match(rhythmSection.textContent, /20:00 · 9 次/);
   assert.match(rhythmSection.textContent, /9 次互动/);

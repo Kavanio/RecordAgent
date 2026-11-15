@@ -66,6 +66,7 @@ test('companionPulse 按优先级输出状态文案', () => {
 
 test('formatCompanionChannel 与 formatRhythmSummary 去除技术冗词并保留详述', () => {
   assert.equal(mod.formatCompanionChannel('已配置的本人飞书私聊', true), '飞书私聊');
+  assert.equal(mod.formatCompanionChannel('未连接飞书（仅桌面主对话与系统通知）', false), '仅桌面');
   assert.equal(mod.formatCompanionChannel('', false), '仅桌面');
 
   const raw = '近 14 天统计到 1 个活跃日、共 2 次互动时间戳（需至少 3 个活跃日且 12—23 点不少于 5 次互动才生成作息建议）。';
@@ -86,22 +87,4 @@ test('zonedClock 按指定时区计算时刻指针与 24 小时进度比例', ()
   assert.equal(shanghai.minute, 57);
   assert.equal(shanghai.label, '10:57');
   assert.ok(shanghai.fraction > 0.45 && shanghai.fraction < 0.46);
-});
-
-test('busySegments 支持跨零点区间，rhythmWaveGeometry 生成界限受控的平滑波形', () => {
-  assert.deepEqual(mod.busySegments(9, 18), [{ startPct: 37.5, widthPct: 37.5 }]);
-  assert.equal(mod.busySegments(22, 6).length, 2);
-
-  const counts = Array(24).fill(0);
-  counts[9] = 1;
-  counts[10] = 1;
-  const wave = mod.rhythmWaveGeometry(mod.rhythmBars(counts, 9, 18));
-  assert.equal(wave.hasData, true);
-  assert.equal(wave.points.length, 24);
-  assert.ok(wave.points[9].y < wave.points[0].y);
-  assert.match(wave.strokePath, /^M 0 /);
-  assert.match(wave.areaPath, /L 240 50 L 0 50 Z$/);
-
-  const empty = mod.rhythmWaveGeometry(mod.rhythmBars(undefined, 9, 18));
-  assert.equal(empty.hasData, false);
 });
