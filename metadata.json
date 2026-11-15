@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7EZBD3NFRSW4H787D4Z6HZV",
+  "strategy": "manual-commit",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-frontend/src/components/common/Button.module.css",
+    "agent-frontend/src/components/common/ConfirmDialog.module.css",
+    "agent-frontend/src/components/common/Drawer.module.css",
+    "agent-frontend/src/components/common/FormField.module.css",
+    "agent-frontend/src/components/common/Modal.module.css",
+    "agent-frontend/src/components/common/Select.module.css",
+    "agent-frontend/src/components/common/TextInput.module.css",
+    "agent-frontend/src/components/review/LifeReviewDetails.module.css",
+    "agent-frontend/src/components/review/LifeReviewDetails.tsx",
+    "agent-frontend/src/components/review/ReviewFormModal.module.css",
+    "agent-frontend/src/components/review/status/ReviewDayDrawer.module.css",
+    "agent-frontend/src/components/settings/PersonalContextSettingsPage.module.css"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 24,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 24,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
