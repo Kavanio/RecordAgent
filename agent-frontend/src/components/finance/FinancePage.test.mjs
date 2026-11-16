@@ -1,14 +1,22 @@
 import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, test } from 'node:test';
-import { JSDOM } from 'jsdom';
-import { createServer } from 'vite';
+import {
+  act,
+  deferred,
+  getReact,
+  jsonResponse,
+  loadModule,
+  mount,
+  startHarness,
+  stopHarness,
+  useFetchStub,
+} from '../../testing/harness.mjs';
 
 // 运行真实组件，以可控响应覆盖失败和竞态；不会读写用户财务数据。
-let server, dom, React, createRoot, FinancePage, MessageProvider, gsap;
-let root, container, respond, reducedMotion = true;
+let domWindow, React, FinancePage, MessageProvider, gsap, fetchStub;
+let mounted, container, respond, reducedMotion = true;
 const mediaQueries = [];
-const originalFetch = globalThis.fetch;
-const response = (data) => ({ ok: true, json: async () => ({ code: 200, data }) });
+const response = jsonResponse;
 const overview = {
   totalAssets: 12345, monthIncome: 6000, monthExpense: 1200, monthYield: 15,
   accounts: [{ id: 'wallet', name: '日常账户', accountType: 'wechat_balance', currency: 'CNY', balance: 12345, interestEnabled: false, annualRatePercent: 0, lastAccrualDate: '2026-09-25', version: 1 }],
@@ -22,22 +30,11 @@ const insights = (range = 'month') => ({ range, from: '2026-09-01', to: '2026-09
   accounts: [{ accountId: 'wallet', accountName: '日常账户', accountType: 'wechat_balance', amount: 1200, income: 6000 }],
   transactions: [{ id: 'meal', note: '午餐', category: '餐饮', date: '2026-09-25', amount: 1200, source: 'finance' }],
   categories: [{ category: '餐饮', amount: 1200 }] });
-function deferred() {
-  let resolve, reject;
-  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
-  return { promise, resolve, reject };
-}
 
 before(async () => {
-  dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/', pretendToBeVisual: true });
-  for (const key of ['window', 'document', 'HTMLElement', 'HTMLInputElement', 'SVGElement', 'Event', 'MouseEvent', 'FormData']) globalThis[key] = dom.window[key];
-  globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
-  globalThis.requestAnimationFrame = dom.window.requestAnimationFrame.bind(dom.window);
-  globalThis.cancelAnimationFrame = dom.window.cancelAnimationFrame.bind(dom.window);
-  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-  Object.defineProperty(dom.window.HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 800 });
-  globalThis.ResizeObserver = class { observe() {} disconnect() {} };
-  dom.window.matchMedia = (query) => {
+  ({ window: domWindow } = await startHarness({ globals: ['SVGElement', 'ResizeObserver'] }));
+  Object.defineProperty(domWindow.HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => 800 });
+  domWindow.matchMedia = (query) => {
     const listeners = new Set();
     const matches = () => query.includes('no-preference') ? !reducedMotion : reducedMotion;
     const result = { media: query, matches: matches(), addListener: (fn) => listeners.add(fn), removeListener: (fn) => listeners.delete(fn),
@@ -46,20 +43,18 @@ before(async () => {
     mediaQueries.push(result);
     return result;
   };
-  React = await import('react');
-  ({ createRoot } = await import('react-dom/client'));
+  React = getReact();
   ({ gsap } = await import('gsap'));
-  server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' });
-  ({ FinancePage } = await server.ssrLoadModule('/src/components/finance/FinancePage.tsx'));
-  ({ MessageProvider } = await server.ssrLoadModule('/src/components/common/Message.tsx'));
+  ({ FinancePage } = await loadModule('/src/components/finance/FinancePage.tsx'));
+  ({ MessageProvider } = await loadModule('/src/components/common/Message.tsx'));
+  fetchStub = useFetchStub((url, init) => respond(url, init));
 });
 after(async () => {
   gsap?.ticker.sleep();
-  await server?.close();
-  dom?.window.close();
-  globalThis.fetch = originalFetch;
+  fetchStub?.restore();
+  await stopHarness();
 });
-beforeEach(() => {
+beforeEach(async () => {
   reducedMotion = true;
   respond = (url) => {
     if (url.pathname.endsWith('/overview')) return response(overview);
@@ -68,23 +63,22 @@ beforeEach(() => {
     if (url.pathname.endsWith('/expense-insights')) return response(insights(url.searchParams.get('range')));
     throw new Error(`未预期请求：${url}`);
   };
-  globalThis.fetch = async (url, init) => respond(new URL(String(url)), init);
-  container = document.createElement('div');
-  document.body.append(container);
-  root = createRoot(container);
+  mounted = await mount();
+  container = mounted.container;
 });
 afterEach(async () => {
-  await React.act(async () => root.unmount());
-  container.remove();
+  await mounted?.unmount();
 });
+const root = { render: (node) => mounted.render(node) };
+const dom = { get window() { return domWindow; } };
 async function render() {
-  await React.act(async () => root.render(React.createElement(React.StrictMode, null,
-    React.createElement(MessageProvider, null, React.createElement(FinancePage)))));
+  await mounted.render(React.createElement(React.StrictMode, null,
+    React.createElement(MessageProvider, null, React.createElement(FinancePage))));
 }
 async function click(name) {
   const button = [...document.querySelectorAll('button')].find((item) => (item.getAttribute('aria-label') || item.textContent) === name);
   assert.ok(button, `找不到按钮：${name}`);
-  await React.act(async () => button.click());
+  await act(async () => button.click());
 }
 const summary = () => container.querySelector('[aria-label="本月财务概览"]');
 const trend = () => [...container.querySelectorAll('section')].find((item) => item.querySelector('h2')?.textContent === '收支趋势');
@@ -93,9 +87,9 @@ const totals = () => [...trend().querySelectorAll('dd')].map((item) => item.quer
 const analysis = () => container.querySelector('section[aria-label="支出分析"]');
 async function selectCategory(value) {
   const select = [...document.querySelectorAll('select')].find((item) => [...item.options].some((option) => option.value === '__custom_category__'));
-  await React.act(async () => {
+  await act(async () => {
     select.value = value;
-    select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    select.dispatchEvent(new domWindow.Event('change', { bubbles: true }));
   });
 }
 
@@ -458,4 +452,47 @@ test('账户收入切换显示真实金额，悬浮与键盘可读取占比，�
   assert.match(analysis().textContent, /午餐/);
   await click('分析本周');
   assert.ok(analysis().querySelector('[aria-label="账户收入柱状图"]'), '期间切换保留收入模式');
+});
+
+test('余额非零的资产账户禁止直接删除并引导调整余额；清零后可确认停用删除并保留统计', async () => {
+  const normal = respond;
+  let accounts = [
+    { id: 'wallet', name: '日常账户', accountType: 'wechat_balance', currency: 'CNY', balance: 12345, interestEnabled: false, annualRatePercent: 0, lastAccrualDate: '2026-09-25', version: 1 },
+    { id: 'empty-card', name: '停用银行卡', accountType: 'bank', currency: 'CNY', balance: 0, interestEnabled: false, annualRatePercent: 0, lastAccrualDate: '2026-09-25', version: 1 },
+  ];
+  const deleteCalls = [];
+  respond = (url, init) => {
+    if (init?.method === 'DELETE' && url.pathname.endsWith('/accounts/empty-card')) {
+      deleteCalls.push(url.pathname);
+      accounts = accounts.filter((item) => item.id !== 'empty-card');
+      return response('资产账户已删除，历史流水与统计已保留');
+    }
+    if (url.pathname.endsWith('/overview')) {
+      return response({ ...overview, accounts });
+    }
+    return normal(url);
+  };
+
+  await render();
+  await click('查看全部资产详情');
+  assert.match(document.body.textContent, /全部资产概览/);
+
+  // 1. 余额不为 0 的账户点击删除 -> 弹出提示，不发起 DELETE，且可跳转调整余额
+  await click('删除日常账户');
+  assert.equal(deleteCalls.length, 0);
+  assert.match(document.body.textContent, /余额不为 0，暂不可删除/);
+  await click('去调整余额');
+  assert.match(document.body.textContent, /调整资产余额/);
+  await click('取消');
+
+  // 2. 余额为 0 的账户点击删除 -> 二次确认后发起 DELETE 并刷新列表与提示
+  await click('查看全部资产详情');
+  await click('删除停用银行卡');
+  assert.match(document.body.textContent, /确认删除资产账户/);
+  assert.match(document.body.textContent, /历史流水与收支统计将完整保留/);
+  await click('删除账户');
+
+  assert.deepEqual(deleteCalls, ['/agent/finance/accounts/empty-card']);
+  assert.match(document.body.textContent, /资产账户已删除，历史流水与统计已保留/);
+  assert.doesNotMatch(document.body.textContent, /停用银行卡/);
 });

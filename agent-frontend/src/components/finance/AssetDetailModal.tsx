@@ -1,9 +1,10 @@
 import React from 'react';
-import { PlusIcon, SlidersHorizontalIcon } from '@phosphor-icons/react';
+import { PlusIcon, SlidersHorizontalIcon, TrashIcon } from '@phosphor-icons/react';
 import type { FinanceAccount, FinanceAccountType } from '../../types/finance';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
 import { AccountTypeIcon } from './AccountTypeIcon';
+import { formatFinanceMoney, isZeroBalanceAccount } from './financeDeleteDescriptions';
 import styles from './AssetDetailModal.module.css';
 
 const ACCOUNT_LABELS: Record<FinanceAccountType, string> = {
@@ -18,10 +19,6 @@ const ACCOUNT_LABELS: Record<FinanceAccountType, string> = {
   cash: '现金',
 };
 
-function money(value: number): string {
-  return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
-}
-
 interface AssetDetailModalProps {
   open: boolean;
   accounts: FinanceAccount[];
@@ -29,6 +26,7 @@ interface AssetDetailModalProps {
   onClose: () => void;
   onAddAccount?: () => void;
   onAdjustAccount?: (account: FinanceAccount) => void;
+  onDeleteAccount?: (account: FinanceAccount) => void;
 }
 
 function accountToneClass(type: FinanceAccountType): string {
@@ -46,6 +44,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
   onClose,
   onAddAccount,
   onAdjustAccount,
+  onDeleteAccount,
 }) => {
   const yieldCount = accounts.filter((item) => item.interestEnabled).length;
 
@@ -68,8 +67,11 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
 
         {/* 账户明细列表：平铺流式排版，无边框、无卡片、无进度条 */}
         <div className={styles.list}>
-          {accounts.map((account) => {
+          {accounts.length === 0 ? (
+            <p className={styles.emptyList}>暂无资产账户，点击左下角“添加账户”新建。</p>
+          ) : accounts.map((account) => {
             const ratio = totalAssets > 0 ? (account.balance / totalAssets) * 100 : 0;
+            const isZeroBalance = isZeroBalanceAccount(account);
             return (
               <div key={account.id} className={styles.row}>
                 <div className={styles.left}>
@@ -77,7 +79,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                     <AccountTypeIcon type={account.accountType} size={16} />
                   </div>
                   <div className={styles.nameBlock}>
-                    <span className={styles.accountName}>{account.name}</span>
+                    <span className={styles.accountName} title={account.name}>{account.name}</span>
                     <div className={styles.descLine}>
                       <span className={styles.accountDesc}>{ACCOUNT_LABELS[account.accountType] ?? '账户'}</span>
                       {account.interestEnabled && (
@@ -90,7 +92,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                 </div>
 
                 <div className={styles.right}>
-                  <strong className={styles.accountAmount}>{money(account.balance)}</strong>
+                  <strong className={styles.accountAmount}>{formatFinanceMoney(account.balance, account.currency)}</strong>
                   <div className={styles.accountMeta}>
                     <span className={styles.accountRatio}>{ratio.toFixed(1)}%</span>
                     {onAdjustAccount && <button
@@ -99,6 +101,13 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                       onClick={() => onAdjustAccount(account)}
                       aria-label={`调整${account.name}余额`}
                     ><SlidersHorizontalIcon size={11} />调整</button>}
+                    {onDeleteAccount && <button
+                      type="button"
+                      className={`${styles.adjustBtn} ${styles.deleteBtn}`}
+                      onClick={() => onDeleteAccount(account)}
+                      aria-label={`删除${account.name}`}
+                      title={isZeroBalance ? `删除账户：${account.name}` : '余额不为 0，请先清零后再删除'}
+                    ><TrashIcon size={11} />删除</button>}
                   </div>
                 </div>
               </div>
