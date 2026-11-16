@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7GWMBX9D0AWM9A04YCHAXST",
+  "strategy": "manual-commit",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-backend/server-network/src/main/java/butvan/agent/network/automation/service/FinancialReportSections.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/finance/controller/FinanceController.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/finance/repository/FinanceRepository.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/finance/service/FinanceService.java",
+    "agent-backend/server-network/src/main/resources/db/migration/V35__add_finance_account_archived.sql",
+    "agent-backend/server-network/src/test/java/butvan/agent/network/finance/controller/FinanceAccountDeleteApiIntegrationTest.java",
+    "agent-backend/server-network/src/test/java/butvan/agent/network/finance/service/FinanceServiceIntegrationTest.java"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 2,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 1,
+      "credentialed_uri": 0,
+      "entropy": 1,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
