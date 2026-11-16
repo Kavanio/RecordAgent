@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7GWMCDVMREGT5MY1ZATNRJM",
+  "strategy": "manual-commit",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-frontend/src/components/finance/AssetDetailModal.module.css",
+    "agent-frontend/src/components/finance/AssetDetailModal.tsx",
+    "agent-frontend/src/components/finance/FinancePage.test.mjs",
+    "agent-frontend/src/components/finance/FinancePage.tsx",
+    "agent-frontend/src/components/finance/financeDeleteDescriptions.ts",
+    "agent-frontend/src/components/finance/useFinanceData.ts",
+    "agent-frontend/src/services/financeApi.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "redaction": {
+    "replacements": 2,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 1,
+      "credentialed_uri": 0,
+      "entropy": 1,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
