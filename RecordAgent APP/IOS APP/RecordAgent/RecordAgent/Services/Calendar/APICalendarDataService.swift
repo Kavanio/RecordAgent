@@ -176,19 +176,37 @@ actor APICalendarDataService: CalendarDataServiceProtocol {
         guard let start = Calendar.current.date(byAdding: .day, value: -6, to: end) else {
             return []
         }
+        let fromStr = Self.dayString(start)
+        let toStr = Self.dayString(end)
         let summaries: [BackendDaySummaryResponse] = try await client.sendResult(
             "/agent/daily-events/days",
             query: [
-                URLQueryItem(name: "from", value: Self.dayString(start)),
-                URLQueryItem(name: "to", value: Self.dayString(end)),
+                URLQueryItem(name: "from", value: fromStr),
+                URLQueryItem(name: "to", value: toStr),
             ]
         )
+        let studyStats: BackendStudyTrendResponse? = try? await client.sendResult(
+            "/agent/study-sessions/statistics",
+            query: [
+                URLQueryItem(name: "from", value: fromStr),
+                URLQueryItem(name: "to", value: toStr),
+                URLQueryItem(name: "timezone", value: TimeZone.current.identifier),
+            ]
+        )
+        var focusByDay: [String: Int] = [:]
+        for item in studyStats?.days ?? [] {
+            focusByDay[item.date] = Int(max(0, item.durationSeconds / 60))
+        }
         return try summaries.map { summary in
             guard let itemDate = Self.date(summary.date) else {
                 throw APIClientError.invalidResponse
             }
             let cents = Int(((summary.expenseTotal ?? 0) * 100).rounded())
-            return HomeTrendPoint(date: itemDate, expenseInCents: cents, focusMinutes: 0)
+            return HomeTrendPoint(
+                date: itemDate,
+                expenseInCents: cents,
+                focusMinutes: focusByDay[summary.date] ?? 0
+            )
         }
     }
 
@@ -365,6 +383,15 @@ private struct BackendDaySummaryResponse: Decodable {
     let expenseTotal: Double?
     let headline: String?
     let items: [BackendCalendarItemResponse]?
+}
+
+private struct BackendStudyTrendResponse: Decodable {
+    let days: [BackendStudyDayStat]
+}
+
+private struct BackendStudyDayStat: Decodable {
+    let date: String
+    let durationSeconds: Int64
 }
 
 private struct BackendCalendarItemResponse: Decodable {

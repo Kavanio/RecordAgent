@@ -134,6 +134,36 @@ actor APIClient {
         return envelope.data
     }
 
+    func sendMultipartResult<T: Decodable>(
+        _ path: String, fieldName: String = "file", filename: String, mimeType: String, fileData: Data
+    ) async throws -> T {
+        let base = try APIConfiguration.baseURL()
+        let server = base.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let current = keychain.getAPISession(server: server) else {
+            throw APIClientError.unauthenticated
+        }
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var payload = Data()
+        payload.append(Data("--\(boundary)\r\n".utf8))
+        payload.append(Data("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(filename)\"\r\n".utf8))
+        payload.append(Data("Content-Type: \(mimeType)\r\n\r\n".utf8))
+        payload.append(fileData)
+        payload.append(Data("\r\n--\(boundary)--\r\n".utf8))
+
+        let token = current.token.trimmingCharacters(in: .whitespacesAndNewlines)
+        let response = try await perform(
+            path, base: base, method: "POST", body: payload,
+            token: token.isEmpty ? nil : token,
+            contentType: "multipart/form-data; boundary=\(boundary)"
+        )
+        if response.1.statusCode == 401 {
+            invalidateSession()
+            throw APIClientError.unauthenticated
+        }
+        let data = try accepted(response)
+        return try Self.decodeResult(T.self, from: data)
+    }
+
     static func decodeResult<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         let envelope = try decoder.decode(APIResultEnvelope<T>.self, from: data)
         guard envelope.code == 200 else {
@@ -170,7 +200,7 @@ actor APIClient {
 
     private func perform(
         _ path: String, base: URL, method: String, query: [URLQueryItem] = [], body: Data? = nil,
-        token: String?, idempotencyKey: UUID? = nil
+        token: String?, idempotencyKey: UUID? = nil, contentType: String = "application/json"
     ) async throws -> (Data, HTTPURLResponse) {
         guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
         else { throw APIClientError.invalidServer }
@@ -182,7 +212,7 @@ actor APIClient {
         request.httpBody = body
         request.timeoutInterval = 12
         request.setValue("*/*", forHTTPHeaderField: "Accept")
-        if body != nil { request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
+        if body != nil { request.setValue(contentType, forHTTPHeaderField: "Content-Type") }
         if let idempotencyKey {
             request.setValue(idempotencyKey.uuidString, forHTTPHeaderField: "Idempotency-Key")
         }
