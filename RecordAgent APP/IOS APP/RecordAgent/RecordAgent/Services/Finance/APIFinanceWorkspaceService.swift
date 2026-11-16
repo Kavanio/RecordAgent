@@ -9,14 +9,15 @@ actor APIFinanceWorkspaceService: FinanceWorkspaceServiceProtocol {
         let overview: BackendFinanceOverviewResponse = try await client.sendResult("/agent/finance/overview")
         let allTransactions: [BackendFinanceTransactionResponse] = try await client.sendResult(
             "/agent/finance/transactions")
-        let monthTransactions = allTransactions.filter { $0.date.hasPrefix(month) }
+        let monthTransactions = allTransactions.filter {
+            $0.date.hasPrefix(month) && $0.normalizedCashflowType != nil
+        }
         var expenseCents: Int64 = 0
         var incomeCents: Int64 = 0
         for tx in monthTransactions {
-            let cents = Int64((tx.amount * 100).rounded())
-            switch tx.transactionType.uppercased() {
-            case "EXPENSE": expenseCents += cents
-            case "INCOME": incomeCents += cents
+            switch tx.normalizedCashflowType {
+            case "expense": expenseCents += tx.amountInCents
+            case "income": incomeCents += tx.amountInCents
             default: break
             }
         }
@@ -45,17 +46,17 @@ actor APIFinanceWorkspaceService: FinanceWorkspaceServiceProtocol {
     ) async throws -> FinanceWorkspacePage<FinanceTransaction> {
         let all: [BackendFinanceTransactionResponse] = try await client.sendResult("/agent/finance/transactions")
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let filtered = all.filter { tx in
-            guard tx.date.hasPrefix(month) else { return false }
-            if type != .all, tx.transactionType.lowercased() != type.rawValue { return false }
-            if let accountID, tx.accountId != accountID { return false }
+        let filtered = all.compactMap { tx -> FinanceTransaction? in
+            guard tx.date.hasPrefix(month), let mapped = tx.toDomain() else { return nil }
+            if type != .all, mapped.type != type.rawValue { return nil }
+            if let accountID, mapped.accountId != accountID { return nil }
             if !trimmedQuery.isEmpty {
-                let categoryMatch = (tx.category ?? "").lowercased().contains(trimmedQuery)
-                let noteMatch = (tx.note ?? "").lowercased().contains(trimmedQuery)
-                if !categoryMatch && !noteMatch { return false }
+                let categoryMatch = mapped.category.lowercased().contains(trimmedQuery)
+                let noteMatch = mapped.note.lowercased().contains(trimmedQuery)
+                if !categoryMatch && !noteMatch { return nil }
             }
-            return true
-        }.map { $0.toDomain() }
+            return mapped
+        }
 
         let pageSize = 50
         let start = min(max(0, offset), filtered.count)

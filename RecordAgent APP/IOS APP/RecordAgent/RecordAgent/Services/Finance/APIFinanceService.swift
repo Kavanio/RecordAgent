@@ -96,7 +96,7 @@ struct BackendFinanceAccountResponse: Decodable {
 
 struct BackendFinanceTransactionResponse: Decodable {
     let id: String
-    let accountId: String
+    let accountId: String?
     let date: String
     let time: String?
     let transactionType: String
@@ -104,14 +104,28 @@ struct BackendFinanceTransactionResponse: Decodable {
     let note: String?
     let amount: Double
 
-    func toDomain() -> FinanceTransaction {
-        FinanceTransaction(
+    /// 后端流水类型映射为 iOS 消费的收支口径：yield 计入收入，划账与校准不参与收支统计。
+    var normalizedCashflowType: String? {
+        switch transactionType.lowercased() {
+        case "expense": return "expense"
+        case "income", "yield": return "income"
+        default: return nil
+        }
+    }
+
+    var amountInCents: Int64 {
+        max(0, Int64((amount * 100).rounded()))
+    }
+
+    func toDomain() -> FinanceTransaction? {
+        guard let normalizedType = normalizedCashflowType else { return nil }
+        return FinanceTransaction(
             id: id,
-            accountId: accountId,
-            type: transactionType.lowercased(),
+            accountId: accountId ?? "",
+            type: normalizedType,
             category: category ?? "",
             note: note ?? "",
-            amountInCents: Int64((amount * 100).rounded()),
+            amountInCents: amountInCents,
             date: date,
             time: time ?? "00:00",
             balanceInCents: 0,

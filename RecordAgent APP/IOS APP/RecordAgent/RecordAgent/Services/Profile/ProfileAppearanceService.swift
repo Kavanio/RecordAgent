@@ -103,7 +103,19 @@ actor APIProfileAppearanceService: ProfileAppearanceServiceProtocol {
             cachedAvatar = nil
             cachedCover = nil
         }
-        let response: BackendAppearanceResponse = try await client.sendResult("/agent/account/appearance")
+        let response: BackendAppearanceResponse? = try? await client.sendResult("/agent/account/appearance")
+        guard let response else {
+            let local = try? await legacy.load(account: account)
+            let status: BackendLegacyAvatarStatus? = try? await client.sendResult("/agent/account/status")
+            let avatar: Data? = (status?.avatarVersion?.isEmpty == false)
+                ? (try? await client.send("/agent/account/avatar/content"))
+                : local?.avatarData
+            return ProfileAppearance(
+                nickname: local?.nickname,
+                avatarData: avatar,
+                coverData: local?.coverData
+            )
+        }
         let avatar: Data?
         if let version = response.avatarVersion, !version.isEmpty {
             if cached?.avatarVersion == version, let cachedAvatar {
@@ -189,6 +201,10 @@ private struct BackendAppearanceResponse: Decodable {
     let avatarVersion: String?
     let coverVersion: String?
     let version: Int64
+}
+
+private struct BackendLegacyAvatarStatus: Decodable {
+    let avatarVersion: String?
 }
 
 private struct UpdateAppearanceRequest: Encodable {

@@ -84,8 +84,8 @@ struct ProfileView: View {
             .alert(
                 "profile.edit.saveFailed",
                 isPresented: Binding(
-                    get: { appearanceModel.error != nil },
-                    set: { if !$0 { appearanceModel.error = nil } }
+                    get: { appearanceModel.saveError != nil },
+                    set: { if !$0 { appearanceModel.saveError = nil } }
                 )
             ) { Button("common.confirm", role: .cancel) {} }
         }

@@ -92,6 +92,29 @@ final class FinanceInsightsTests: XCTestCase {
         XCTAssertFalse(model.isLoadingInsights)
     }
 
+    func testBackendTransactionNormalizesYieldAndSkipsTransfersAndAdjustments() throws {
+        let json = """
+        [
+          {"id":"1","accountId":null,"date":"2026-11-01","time":"10:00:00","transactionType":"expense","category":"餐饮","note":"午餐","amount":12.34},
+          {"id":"2","accountId":"a1","date":"2026-11-02","time":null,"transactionType":"yield","category":"收益","note":null,"amount":1.25},
+          {"id":"3","accountId":"a1","date":"2026-11-03","time":"09:00:00","transactionType":"transfer_out","category":"划账","note":"","amount":100.00},
+          {"id":"4","accountId":"a1","date":"2026-11-04","time":"09:00:00","transactionType":"adjustment_increase","category":"余额校准","note":"","amount":50.00}
+        ]
+        """
+        let decoded = try APIClient.decoder.decode(
+            [BackendFinanceTransactionResponse].self, from: Data(json.utf8))
+        let entries = decoded.compactMap { $0.toDomain() }
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries[0].type, "expense")
+        XCTAssertEqual(entries[0].amountInCents, 1234)
+        XCTAssertEqual(entries[1].type, "income")
+        XCTAssertEqual(entries[1].amountInCents, 125)
+        let insights = try FinanceInsights(
+            period: try period("2026-11-01", .year), entries: entries, accounts: [])
+        XCTAssertEqual(insights.expense, 1234)
+        XCTAssertEqual(insights.income, 125)
+    }
+
     func testLoaderFetchesEveryPageWithoutListFiltersAndRejectsBrokenPagination() async throws {
         let period = try period("2026-01-01", .month)
         let service = PagedAnalysisService(
