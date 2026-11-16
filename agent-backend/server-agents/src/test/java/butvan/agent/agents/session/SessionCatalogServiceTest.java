@@ -13,9 +13,13 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SessionCatalogServiceTest {
 
@@ -110,12 +114,18 @@ class SessionCatalogServiceTest {
         assertEquals(feishuSession.id(), catalog.resolveOrCreateCompanionSession(true).id());
 
         String turnId = transcripts.appendProactiveAssistantMessage(desktopSession.id(), "晚上好，看你今天忙了一整天，歇下来了吗？");
-        catalog.touch(desktopSession.id(), "晚上好，看你今天忙了一整天，歇下来了吗？");
+        String userTurnId = transcripts.appendUserMessage(desktopSession.id(), "刚忙完");
+        transcripts.appendAssistantMessage(desktopSession.id(), userTurnId, "辛苦啦", null,
+                butvan.agent.agents.session.dto.TranscriptMessageDto.MessageStatus.COMPLETED, 1200L, List.of(), null);
+        catalog.touch(desktopSession.id(), "辛苦啦");
         var messages = transcripts.list(desktopSession.id());
-        assertEquals(1, messages.size());
+        assertEquals(3, messages.size());
         assertEquals(turnId, messages.getFirst().turnId());
         assertEquals(butvan.agent.agents.session.dto.TranscriptMessageDto.MessageRole.ASSISTANT, messages.getFirst().role());
         assertEquals("晚上好，看你今天忙了一整天，歇下来了吗？", messages.getFirst().content());
+        assertTrue(messages.getFirst().proactive());
+        assertNotNull(messages.getFirst().createdAt());
+        assertFalse(messages.getLast().proactive());
     }
 
 }
