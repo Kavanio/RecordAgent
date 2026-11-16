@@ -10,6 +10,10 @@ final class APIAuthService: AuthServiceProtocol, Sendable {
         self.keychain = keychain
     }
 
+    func connect(serverAddress: String, token: String) async throws -> AuthSession {
+        try await client.connect(serverAddress: serverAddress, token: token)
+    }
+
     func loginWithPassword(email: String, password: String) async throws -> AuthSession {
         try await authenticate(
             "/api/v1/auth/password-login", body: ["email": email, "password": password])
@@ -38,7 +42,6 @@ final class APIAuthService: AuthServiceProtocol, Sendable {
     }
 
     func logout() async throws {
-        _ = try await client.send("/api/v1/auth/logout", method: "POST")
         keychain.clearAPISession()
     }
 

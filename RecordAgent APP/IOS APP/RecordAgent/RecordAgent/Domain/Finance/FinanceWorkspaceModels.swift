@@ -32,6 +32,30 @@ struct FinanceTransaction: Decodable, Identifiable, Equatable, Sendable {
         case id, accountId, type, category, note, amountInCents, date, time, balanceInCents, balanceAfterInCents
     }
 
+    init(
+        id: String,
+        accountId: String,
+        type: String,
+        category: String,
+        note: String,
+        amountInCents: Int64,
+        date: String,
+        time: String,
+        balanceInCents: Int64,
+        balanceAfterInCents: Int64?
+    ) {
+        self.id = id
+        self.accountId = accountId
+        self.type = type
+        self.category = category
+        self.note = note
+        self.amountInCents = amountInCents
+        self.date = date
+        self.time = time
+        self.balanceInCents = balanceInCents
+        self.balanceAfterInCents = balanceAfterInCents
+    }
+
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(String.self, forKey: .id)
