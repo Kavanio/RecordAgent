@@ -1,0 +1,53 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7J7GRWZ0STCV8BVM0HW38RM",
+  "strategy": "manual-commit",
+  "branch": "desktop/ios-sync-api",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-backend/server-network/src/main/java/butvan/agent/network/controller/AccountController.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/dto/account/AccountAppearanceResponse.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/dto/account/UpdateAccountAppearanceRequest.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/file/service/FileAssetService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/insight/controller/DailyInsightController.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/insight/dto/DailyInsightDtos.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/insight/model/DailyInsightModels.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/insight/service/DailyInsightService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/mobiletask/controller/MobileTaskController.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/mobiletask/dto/MobileTaskDtos.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/mobiletask/model/MobileTaskModels.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/mobiletask/repository/MobileTaskRepository.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/mobiletask/service/MobileTaskService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/record/model/RecordModels.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/record/repository/RecordRepository.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/record/service/RecordService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/service/account/AccountAvatarService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/service/account/AccountConfigData.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/service/account/AccountService.java",
+    "agent-backend/server-network/src/main/resources/db/migration/V36__create_mobile_tasks.sql",
+    "agent-backend/server-network/src/test/java/butvan/agent/network/insight/controller/DailyInsightApiIntegrationTest.java",
+    "agent-backend/server-network/src/test/java/butvan/agent/network/mobiletask/controller/MobileTaskApiIntegrationTest.java"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 16,
+    "layers": {
+      "betterleaks": 4,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 10,
+      "credentialed_uri": 0,
+      "entropy": 2,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
