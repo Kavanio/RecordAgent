@@ -168,6 +168,20 @@ public class RecordRepository {
         return jdbcTemplate.update("DELETE FROM record_entry WHERE owner_id = ? AND trashed_at IS NOT NULL", ownerId);
     }
 
+    /** 统计当前用户未归档、未回收资料的篇数与纯文本字符数。 */
+    public butvan.agent.network.record.model.RecordModels.RecordStats summarizeActiveStats(String ownerId) {
+        return jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) AS doc_count,
+                       COALESCE(SUM(LENGTH(TRIM(COALESCE(content_text, '')))), 0) AS word_count
+                FROM record_entry
+                WHERE owner_id = ? AND archived = 0 AND trashed_at IS NULL
+                """,
+                (rs, rowNum) -> new butvan.agent.network.record.model.RecordModels.RecordStats(
+                        rs.getInt("doc_count"),
+                        rs.getLong("word_count")),
+                ownerId);
+    }
+
     /** 导入完整备份前清除当前用户的记录数据。 */
     public int clearAll(String ownerId) { return jdbcTemplate.update("DELETE FROM record_entry WHERE owner_id = ?", ownerId); }
 

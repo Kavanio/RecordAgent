@@ -31,40 +31,71 @@ public class AccountAvatarService {
 
     /** 校验并替换当前用户头像；旧头像在新文件可用后回收。 */
     public FileAsset replace(String ownerId, MultipartFile file) {
-        if (file == null || file.isEmpty()) throw new IllegalArgumentException("请选择头像图片");
-        if (file.getSize() > MAX_FILE_SIZE) throw new IllegalArgumentException("头像图片不能超过 5 MB");
+        return replaceForRole(ownerId, FileAssetService.ROLE_AVATAR, file);
+    }
+
+    /** 校验并替换当前用户个人页背景图；旧背景图在新文件可用后回收。 */
+    public FileAsset replaceCover(String ownerId, MultipartFile file) {
+        return replaceForRole(ownerId, FileAssetService.ROLE_COVER, file);
+    }
+
+    /** 移除当前用户头像或背景图绑定。 */
+    public void removeForRole(String ownerId, String role) {
+        listForRole(ownerId, role).forEach(asset -> deletePrevious(ownerId, role, asset));
+    }
+
+    /** 校验并替换指定账户图片角色（头像或背景图）。 */
+    public FileAsset replaceForRole(String ownerId, String role, MultipartFile file) {
+        if (file == null || file.isEmpty()) throw new IllegalArgumentException("请选择图片文件");
+        if (file.getSize() > MAX_FILE_SIZE) throw new IllegalArgumentException("图片不能超过 5 MB");
 
         byte[] content = readContent(file);
         ImageFormat format = inspect(content);
-        List<FileAsset> previous = list(ownerId);
+        List<FileAsset> previous = listForRole(ownerId, role);
         FileAsset created = fileAssetService.createAndBind(ownerId, FileAssetService.DOMAIN_ACCOUNT, ownerId,
-                FileAssetService.ROLE_AVATAR, normalizedName(file.getOriginalFilename(), format.extension()),
+                role, normalizedName(file.getOriginalFilename(), format.extension()),
                 format.mediaType(), new ByteArrayInputStream(content), MAX_FILE_SIZE);
-        previous.forEach(asset -> deletePrevious(ownerId, asset));
+        previous.forEach(asset -> deletePrevious(ownerId, role, asset));
         return created;
     }
 
     /** 返回当前头像；异常历史数据存在多条时以最新上传的文件为准。 */
     public FileAsset current(String ownerId) {
-        List<FileAsset> avatars = list(ownerId);
-        return avatars.isEmpty() ? null : avatars.getLast();
+        return currentForRole(ownerId, FileAssetService.ROLE_AVATAR);
+    }
+
+    /** 返回当前背景图；无设置时返回 null。 */
+    public FileAsset currentCover(String ownerId) {
+        return currentForRole(ownerId, FileAssetService.ROLE_COVER);
+    }
+
+    public FileAsset currentForRole(String ownerId, String role) {
+        List<FileAsset> assets = listForRole(ownerId, role);
+        return assets.isEmpty() ? null : assets.getLast();
     }
 
     public Resource content(String ownerId) {
-        FileAsset avatar = requireCurrent(ownerId);
-        return new InputStreamResource(fileAssetService.open(ownerId, avatar.id(),
-                FileAssetService.DOMAIN_ACCOUNT, ownerId, FileAssetService.ROLE_AVATAR));
+        return contentForRole(ownerId, FileAssetService.ROLE_AVATAR);
     }
 
-    private List<FileAsset> list(String ownerId) {
-        return fileAssetService.list(ownerId, FileAssetService.DOMAIN_ACCOUNT, ownerId,
-                FileAssetService.ROLE_AVATAR);
+    public Resource coverContent(String ownerId) {
+        return contentForRole(ownerId, FileAssetService.ROLE_COVER);
     }
 
-    private FileAsset requireCurrent(String ownerId) {
-        FileAsset avatar = current(ownerId);
-        if (avatar == null) throw new IllegalArgumentException("尚未设置头像");
-        return avatar;
+    public Resource contentForRole(String ownerId, String role) {
+        FileAsset asset = requireCurrent(ownerId, role);
+        return new InputStreamResource(fileAssetService.open(ownerId, asset.id(),
+                FileAssetService.DOMAIN_ACCOUNT, ownerId, role));
+    }
+
+    private List<FileAsset> listForRole(String ownerId, String role) {
+        return fileAssetService.list(ownerId, FileAssetService.DOMAIN_ACCOUNT, ownerId, role);
+    }
+
+    private FileAsset requireCurrent(String ownerId, String role) {
+        FileAsset asset = currentForRole(ownerId, role);
+        if (asset == null) throw new IllegalArgumentException("尚未设置图片");
+        return asset;
     }
 
     private byte[] readContent(MultipartFile file) {
@@ -112,12 +143,11 @@ public class AccountAvatarService {
         return base + "." + extension;
     }
 
-    private void deletePrevious(String ownerId, FileAsset asset) {
+    private void deletePrevious(String ownerId, String role, FileAsset asset) {
         try {
-            fileAssetService.unbind(ownerId, asset.id(), FileAssetService.DOMAIN_ACCOUNT, ownerId,
-                    FileAssetService.ROLE_AVATAR);
+            fileAssetService.unbind(ownerId, asset.id(), FileAssetService.DOMAIN_ACCOUNT, ownerId, role);
         } catch (RuntimeException exception) {
-            log.warn("旧头像回收失败，将保留文件资产供后续清理：fileId={}", asset.id(), exception);
+            log.warn("旧图片回收失败，将保留文件资产供后续清理：role={}, fileId={}", role, asset.id(), exception);
         }
     }
 

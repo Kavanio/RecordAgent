@@ -5,6 +5,7 @@ import butvan.agent.network.annotation.ApiLog;
 import butvan.agent.network.common.Result;
 import butvan.agent.network.insight.dto.DailyInsightDtos;
 import butvan.agent.network.insight.dto.DailyInsightDtos.DailyInsightResponse;
+import butvan.agent.network.insight.dto.DailyInsightDtos.ProfileOverviewResponse;
 import butvan.agent.network.insight.service.DailyInsightService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,7 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.DateTimeException;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 
 /** 跨领域每日洞察的 HTTP 适配层。 */
 @RestController
@@ -32,6 +35,24 @@ public class DailyInsightController {
             @RequestParam String timezone) {
         return Result.success(DailyInsightDtos.from(dailyInsightService.getDailyInsight(
                 currentUserProvider.currentUserId(), date, parseTimezone(timezone))));
+    }
+
+    /** 查询指定自然月的个人统计总览（用于移动端“我的”页面）。 */
+    @ApiLog("查询个人月度统计总览")
+    @GetMapping("/profile")
+    public Result<ProfileOverviewResponse> profile(
+            @RequestParam String month,
+            @RequestParam(defaultValue = "Asia/Shanghai") String timezone) {
+        return Result.success(DailyInsightDtos.from(dailyInsightService.getProfileOverview(
+                currentUserProvider.currentUserId(), parseMonth(month), parseTimezone(timezone))));
+    }
+
+    private YearMonth parseMonth(String value) {
+        try {
+            return YearMonth.parse(value);
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException("统计月份格式应为 YYYY-MM");
+        }
     }
 
     private ZoneId parseTimezone(String value) {
