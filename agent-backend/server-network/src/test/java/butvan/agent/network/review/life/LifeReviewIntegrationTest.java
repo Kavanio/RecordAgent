@@ -482,8 +482,9 @@ class LifeReviewIntegrationTest {
                         null, null, null));
         outreach.tick("owner");
         verify(channel, never()).send(anyString(), anyString(), anyString());
+        verify(dailyContext, times(1)).getSummary(eq(DAY), eq(true), eq(false));
 
-        // 4. 早上 10:00 (02:00Z)：天气转为暴雨 18°C，触发一次 WEATHER_ALERT，重复 tick 不重复发送
+        // 4. 早上 10:00 (02:00Z)：天气转为暴雨 18°C，触发一次 WEATHER_ALERT，重复 tick 不重复发送且 60 秒内节流跳过重复查询
         TIME.set(Instant.parse("2026-10-30T02:00:00Z"));
         when(dailyContext.getSummary(eq(DAY), eq(true), eq(false))).thenReturn(
                 new butvan.agent.network.dailycontext.dto.DailyContextDtos.SummaryResponse(
@@ -494,6 +495,7 @@ class LifeReviewIntegrationTest {
         outreach.tick("owner");
         outreach.tick("owner");
         verify(channel, times(1)).send(eq("target"), anyString(), contains("【天气变化提醒】杭州当前转为暴雨"));
+        verify(dailyContext, times(2)).getSummary(eq(DAY), eq(true), eq(false));
 
         // 5. 下午 14:00 (06:00Z)：天气转晴 22°C，触发一次 WEATHER_RECOVERY 恢复通知；
         //    同时今日 CNY 支出 360 元（高于前 4 个活跃日均 50 元的 2 倍且 ≥ 200 元），触发一次 EXPENSE_ALERT

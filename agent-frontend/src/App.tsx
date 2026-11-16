@@ -5,7 +5,8 @@ import type { RecordEntry, RecordType } from './types/record';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ModelProviderContext } from './context/ModelContext';
 import { StudyRealtimeProvider } from './context/StudyRealtimeContext';
-import { mapTranscriptToChatMessage } from './features/chat/transcriptMessages';
+import { SidebarLayoutProvider } from './context/SidebarLayoutContext';
+import { mapTranscriptMessages } from './features/chat/transcriptMessages';
 import { useConversationSelection } from './components/chat/useConversationSelection';
 import { ChannelConversationView } from './components/chat/ChannelConversationView';
 import { Sidebar } from './components/layout/Sidebar';
@@ -18,46 +19,17 @@ import { StudyWindowLayer } from './components/study/StudyWindowLayer';
 import { SystemStudyWindow } from './components/study/SystemStudyWindow';
 import { ModelSettingsPage } from './components/model/ModelSettingsPage';
 import { ModelInitPage } from './components/model/ModelInitPage';
-import { MessageProvider } from './components/common/Message';
-import { useMessage } from './components/common/Message';
+import { MessageProvider, useMessage } from './components/common/Message';
 import { LoadingTree } from './components/common/LoadingTree';
-import {
-  fetchModelConfig,
-  fetchSupportedVendors,
-  streamAgentChat,
-  fetchSessions,
-  fetchSessionDetail,
-  createSessionApi,
-  updateSessionTitleApi,
-  deleteSessionApi,
-  submitPermissionDecisions,
-  fetchPendingPermission,
-  generateSessionTitle,
-  fetchSessionPermissionMode,
-  updateSessionPermissionMode,
-  cancelAgentChatRun,
-} from './services/api';
+import { useBootSplashHold } from './components/reset/bootSplashContext';
+import { fetchModelConfig, fetchSupportedVendors, streamAgentChat, fetchSessions, fetchSessionDetail, createSessionApi, updateSessionTitleApi, deleteSessionApi, submitPermissionDecisions, fetchPendingPermission, generateSessionTitle, fetchSessionPermissionMode, updateSessionPermissionMode, cancelAgentChatRun } from './services/api';
 import type { PermissionDecisionInput, PermissionToolPayload } from './services/api';
-import type {
-  AgentAnalysisContextRequest,
-  ChatImageAttachment,
-  ChatSession,
-  ChatMessage,
-  Project,
-  SessionSummaryDto,
-  SessionPermissionMode,
-} from './types/chat';
+import type { AgentAnalysisContextRequest, ChatImageAttachment, ChatSession, ChatMessage, Project, SessionSummaryDto, SessionPermissionMode } from './types/chat';
 import type { SubagentProgressDto, TaskDto } from './types/team';
-import {
-  cancelSubagentTask,
-  fetchSubagentTasks,
-  subscribeSubagentTaskEvents,
-} from './services/taskApi';
+import { cancelSubagentTask, fetchSubagentTasks, subscribeSubagentTaskEvents } from './services/taskApi';
 import { fetchProjects, importProject, removeProject as removeProjectApi } from './services/projectApi';
-import { lifeReviewApi } from './services/lifeReviewApi';
-import { fetchFeishuConversations } from './services/feishuConversationService';
-import { deliverTaskNotification } from './services/taskDesktop';
-import type { LifeCompanionView } from './types/lifeReview';
+import { LifeStatusPage } from './components/review/status/LifeStatusPage';
+import { useCompanionNotifications } from './components/review/useCompanionNotifications';
 
 interface ActiveChatRun {
   runId: string;
@@ -112,7 +84,7 @@ export const MainLayout: React.FC<{
   const { activeSessionId, setActiveSessionId, feishuSession, selectFeishuSession } = useConversationSelection();
   const [recordInitialType, setRecordInitialType] = useState<RecordType>('quick');
   const [recordTarget, setRecordTarget] = useState<RecordEntry | null | undefined>(undefined);
-  const [activeFeature, setActiveFeature] = useState<'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task'>('chat');
+  const [activeFeature, setActiveFeature] = useState<'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task' | 'status'>('chat');
   const [pendingPermissions, setPendingPermissions] = useState<Record<string, PendingPermissionState>>({});
   const [isPermissionSubmitting, setIsPermissionSubmitting] = useState(false);
   const [subagentTasks, setSubagentTasks] = useState<TaskDto[]>([]);
@@ -127,7 +99,6 @@ export const MainLayout: React.FC<{
   const lastRoutingNoticeRef = useRef<{ code: string; shownAt: number } | null>(null);
   const [sessionLoadErrors, setSessionLoadErrors] = useState<Record<string, string>>({});
   const activeSessionIdRef = useRef(activeSessionId);
-  const ackedCompanionNoticesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId;
@@ -170,95 +141,7 @@ export const MainLayout: React.FC<{
     activeChatRunsRef.current.clear();
   }, []);
 
-  useEffect(() => {
-    let stopped = false;
-    const processCompanionView = (companion: LifeCompanionView | null | undefined) => {
-      if (stopped || !companion?.pendingDesktopNotices?.length) return;
-      for (const notice of companion.pendingDesktopNotices) {
-        if (notice.acknowledged || ackedCompanionNoticesRef.current.has(notice.id)) continue;
-        ackedCompanionNoticesRef.current.add(notice.id);
-        void lifeReviewApi.ackDesktopNotice(notice.id).catch(() => {});
-
-        const ts = Date.parse(notice.createdAt) || Date.now();
-        void deliverTaskNotification({
-          id: notice.id,
-          taskId: 'companion',
-          title: notice.title || 'Agent 主动问候',
-          content: notice.content,
-          plannedAt: ts,
-          createdAt: ts,
-          source: 'COMPANION',
-          status: 'RUNNING',
-          desktopStatus: 'PENDING',
-          emailStatus: 'SKIPPED',
-          confirmation: 'NONE',
-          sound: true,
-          error: '',
-        }).catch(() => {});
-
-        showMessage('info', `💬 ${notice.title || 'Agent 主动问候'}：${notice.content.slice(0, 120)}`, {
-          duration: 10000,
-          action: {
-            label: '去回复',
-            onClick: () => {
-              setIsSettingsOpen(false);
-              setActiveFeature('chat');
-              if (!notice.sessionId) return;
-              void fetchFeishuConversations()
-                .then((feishuList) => {
-                  const matchedFeishu = feishuList.find((s) => s.id === notice.sessionId);
-                  if (matchedFeishu) {
-                    selectFeishuSession(matchedFeishu);
-                  } else {
-                    setActiveSessionId(notice.sessionId);
-                  }
-                })
-                .catch(() => {
-                  setActiveSessionId(notice.sessionId);
-                });
-            },
-          },
-        });
-
-        if (notice.sessionId) {
-          void fetchSessionDetail(notice.sessionId).then((detail) => {
-            if (!detail || stopped) return;
-            const messages = detail.messages.map(mapTranscriptToChatMessage);
-            setSessions((previous) => previous.map((session) => session.id === notice.sessionId
-              ? { ...session, title: detail.summary.title, lastMessagePreview: detail.summary.lastMessagePreview, messages, usageSummary: detail.usageSummary, isLoaded: true }
-              : session));
-          }).catch(() => {});
-        }
-      }
-    };
-
-    const pollCompanionNotices = async () => {
-      try {
-        const companion = await lifeReviewApi.companion();
-        processCompanionView(companion);
-      } catch {
-        // 静默忽略未启动或未配置状态
-      }
-    };
-
-    const onCompanionOutreachUpdated = (event: Event) => {
-      const custom = event as CustomEvent<LifeCompanionView>;
-      if (custom.detail) {
-        processCompanionView(custom.detail);
-      } else {
-        void pollCompanionNotices();
-      }
-    };
-
-    window.addEventListener('companion-outreach-updated', onCompanionOutreachUpdated);
-    void pollCompanionNotices();
-    const timer = window.setInterval(() => { void pollCompanionNotices(); }, 15000);
-    return () => {
-      stopped = true;
-      window.removeEventListener('companion-outreach-updated', onCompanionOutreachUpdated);
-      window.clearInterval(timer);
-    };
-  }, [showMessage, selectFeishuSession, setActiveSessionId, setIsSettingsOpen]);
+  useCompanionNotifications({ showMessage, setIsSettingsOpen, setActiveFeature, setActiveSessionId, fetchSessionDetail, setSessions });
 
   const syncSessionDetail = useCallback(async (sessionId: string, generateTitle = false) => {
     setSessionLoadErrors((previous) => {
@@ -277,7 +160,7 @@ export const MainLayout: React.FC<{
     }
 
     // 立即刷新消息与 Token 用量（毫秒级响应，避免被标题生成阻塞）
-    const messages = detail.messages.map(mapTranscriptToChatMessage);
+    const messages = mapTranscriptMessages(detail.messages);
     setSessions((previous) => previous.map((session) => session.id === sessionId
       ? {
           ...session,
@@ -1151,7 +1034,11 @@ export const MainLayout: React.FC<{
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden' }}>
       {isSettingsOpen ? (
-        <ModelSettingsPage onBack={() => setIsSettingsOpen(false)} initialTab={settingsTab} />
+        <ModelSettingsPage
+          onBack={() => setIsSettingsOpen(false)}
+          initialTab={settingsTab}
+          onOpenStatus={() => { setIsSettingsOpen(false); setActiveFeature('status'); }}
+        />
       ) : (
         <>
           <Sidebar
@@ -1174,6 +1061,8 @@ export const MainLayout: React.FC<{
           />
           {activeFeature === 'task' ? (
             <TaskPage onOpenSettings={() => { setSettingsTab('task'); setIsSettingsOpen(true); }} />
+          ) : activeFeature === 'status' ? (
+            <LifeStatusPage onOpenSettings={(tab = 'review') => { setSettingsTab(tab); setIsSettingsOpen(true); }} />
           ) : activeFeature === 'calendar' ? (
             <CalendarView />
           ) : activeFeature === 'finance' ? (
@@ -1183,7 +1072,7 @@ export const MainLayout: React.FC<{
           ) : activeFeature === 'study' ? (
             <StudyPage />
           ) : (
-            <ChannelConversationView session={feishuSession} allowDesktopReply>
+            <ChannelConversationView session={feishuSession}>
               <ChatWorkspace
                 onOpenFeature={setActiveFeature}
                 onOpenRecords={(entry, initialType = 'quick') => { setRecordTarget(entry); setRecordInitialType(initialType); setActiveFeature('record'); }}
@@ -1231,35 +1120,26 @@ export const MainLayout: React.FC<{
   );
 };
 
-
 const PrimaryApp: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState('config');
   const [needsInit, setNeedsInit] = useState<boolean>(false);
   const [vendors, setVendors] = useState<string[]>(['gemini', 'openai', 'dashscope', 'deepseek', 'anthropic', 'ollama']);
   const [loading, setLoading] = useState<boolean>(true);
+  const hasBootSplash = useBootSplashHold('primary-app', loading);
 
   const checkConfig = async () => {
     setLoading(true);
     try {
-      // 1. 从后端获取支持的厂商列表
-      const supportedVendors = await fetchSupportedVendors();
-      if (supportedVendors && supportedVendors.length > 0) {
-        setVendors(supportedVendors);
-      }
-
-      // 2. 从后端获取当前本地 config.json 中的模型配置
-      const config = await fetchModelConfig();
-      
-      // 判断逻辑：若无配置，或字段内容为空（vendor/name/apiKey为空），则判定需要初始化
-      if (!config || 
-          !config.vendor || !config.vendor.trim() || 
-          !config.name || !config.name.trim() || 
-          (config.vendor !== 'ollama' && (!config.apiKey || !config.apiKey.trim()))) {
-        setNeedsInit(true);
-      } else {
-        setNeedsInit(false);
-      }
+      const [supportedVendors, config] = await Promise.all([
+        fetchSupportedVendors(),
+        fetchModelConfig(),
+      ]);
+      if (supportedVendors && supportedVendors.length > 0) setVendors(supportedVendors);
+      // 若无配置或关键字段为空，则判定需要初始化
+      const incomplete = !config || !config.vendor?.trim() || !config.name?.trim()
+        || (config.vendor !== 'ollama' && !config.apiKey?.trim());
+      setNeedsInit(incomplete);
     } catch (e) {
       console.error('检查模型配置状态失败:', e);
       setNeedsInit(false);
@@ -1273,34 +1153,20 @@ const PrimaryApp: React.FC = () => {
   }, []);
 
   if (loading) {
-    return (
-      <div className="bootScreen">
-        <LoadingTree size="large" label="正在启动 ButvanAgent…" />
-      </div>
+    return hasBootSplash ? null : (
+      <div className="bootScreen"><LoadingTree size="large" label="正在启动 ButvanAgent…" /></div>
     );
   }
 
-  // 若未初始化配置（字段为空），全屏展示初始化设置页面 ModelInitPage
   if (needsInit) {
-    return (
-      <ModelInitPage
-        vendors={vendors}
-        onSuccess={() => {
-          setNeedsInit(false);
-          checkConfig();
-        }}
-      />
-    );
+    return <ModelInitPage vendors={vendors} onSuccess={() => { setNeedsInit(false); checkConfig(); }} />;
   }
 
   return (
     <ModelProviderContext>
-      <MainLayout
-        isSettingsOpen={isSettingsOpen}
-        setIsSettingsOpen={setIsSettingsOpen}
-        settingsTab={settingsTab}
-        setSettingsTab={setSettingsTab}
-      />
+      <SidebarLayoutProvider disabled={isSettingsOpen}>
+        <MainLayout isSettingsOpen={isSettingsOpen} setIsSettingsOpen={setIsSettingsOpen} settingsTab={settingsTab} setSettingsTab={setSettingsTab} />
+      </SidebarLayoutProvider>
     </ModelProviderContext>
   );
 };

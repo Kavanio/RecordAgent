@@ -1,28 +1,30 @@
 .input {
   width: 100%;
   padding: 10px 14px;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: var(--radius-lg);
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 13px;
+  font-size: 13.5px;
   outline: none;
-  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
   box-sizing: border-box;
 }
 
 .input::placeholder {
-  color: #9ca3af;
+  color: #94a3b8;
 }
 
-.input:hover:not(:disabled) {
-  border-color: #94a3b8;
+.input:hover:not(:disabled):not(:focus) {
+  background: #f4f7fa;
+  border-color: rgba(15, 23, 42, 0.14);
 }
 
 .input:focus {
   border-color: #2563eb;
   background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .input:disabled {
@@ -34,9 +36,9 @@
   border-color: #ef4444;
 }
 
-.input.ghost { border-color: transparent; background: transparent; }
-.input.ghost:hover:not(:disabled):not(:focus):not(.invalid) { border-color: transparent; }
-.input.ghost:focus { border-color: #2563eb; background: #ffffff; }
+.input.ghost { border-color: transparent; background: transparent; box-shadow: none; }
+.input.ghost:hover:not(:disabled):not(:focus):not(.invalid) { border-color: transparent; background: transparent; }
+.input.ghost:focus { border-color: #2563eb; background: #ffffff; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
 .input.ghost.invalid { border-color: #ef4444; }
 
 .numberWrapper {

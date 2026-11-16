@@ -175,6 +175,7 @@ export interface ChatMessage {
   usage?: TurnTokenUsage | null;
   tools?: ToolExecution[];
   subagentProgress?: SubagentProgressDto[];
+  proactive?: boolean;
 }
 
 /** 服务端按当前用户读取业务数据，前端只提交受控分析意图。 */
@@ -232,6 +233,7 @@ export interface TranscriptMessageDto {
   tools?: TranscriptToolExecutionDto[];
   thinking?: string | null;
   usage?: TurnTokenUsage | null;
+  proactive?: boolean;
 }
 
 export interface SessionDetailDto {

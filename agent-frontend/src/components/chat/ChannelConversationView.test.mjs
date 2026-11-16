@@ -75,16 +75,3 @@ test('selection keeps desktop runtime identity separate and clears feishu on des
   await host.click('桌面');
   assert.equal(host.query('output').textContent, 'desktop:');
 });
-
-test('allows direct desktop replying in the feishu primary conversation when allowDesktopReply is enabled', async () => {
-  respond(() => jsonResponse(detail('a', '飞书主对话消息')));
-  host = await mount(
-    React.createElement(Message, null,
-      React.createElement(Models, null,
-        React.createElement(ChannelView, { session: session('a'), allowDesktopReply: true },
-          React.createElement('textarea', { defaultValue: '客户端未发送草稿', 'aria-label': '客户端输入框' })))),
-  );
-  assert.match(host.text(), /飞书主对话消息/);
-  assert.match(host.text(), /飞书与桌面互通主对话/);
-  assert.ok(host.query('[aria-label="发送消息"]'), '桌面端开启互通后提供输入框与发送按钮');
-});

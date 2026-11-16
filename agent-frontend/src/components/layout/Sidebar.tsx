@@ -1,35 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Bell,
-  SquarePen,
-  Search,
-  X,
-  Trash2,
-  Folder,
-  Plus,
-  FolderPlus,
-  MessageSquare,
-  ChevronRight,
-  ChevronDown,
-  MoreHorizontal,
-  Pencil,
-  User,
-  Settings,
-  AlertTriangle,
+  Bell, SquarePen, Search, X, Trash2, Folder, Plus, FolderPlus, MessageSquare,
+  ChevronRight, ChevronDown, MoreHorizontal, Pencil, User, Settings, AlertTriangle, Sparkles, PanelLeft,
 } from 'lucide-react';
 import { BooksIcon, CalendarDotsIcon, StudentIcon, WalletIcon } from '@phosphor-icons/react';
 import type { ChatSession, Project, SessionSummaryDto } from '../../types/chat';
 import { FormField } from '../common/FormField';
+import { Button } from '../common/Button';
 import { TextInput } from '../common/TextInput';
 import { Modal } from '../common/Modal';
 import { useMessage } from '../common/Message';
 import { EmailBindingModal } from '../account/EmailBindingModal';
 import { fetchAccountStatus, getAccountAvatarUrl } from '../../services/api';
 import { canPickProjectDirectory, pickProjectDirectory } from '../../services/projectPicker';
-import { readPreference, writePreference } from '../../services/desktopPreferences';
+import { useSidebarLayout } from '../../context/sidebarLayout';
 import { TIME_GROUP_ORDER, TIME_GROUP_LABELS, getTimeGroup, sortByUpdatedDesc } from '../../features/chat/sessionTimeGroups';
 import { FeishuConversationSection } from './FeishuConversationSection';
+import { useSidebarWidth } from './useSidebarWidth';
 import styles from './Sidebar.module.css';
 
 function getAvatarText(email: string | null): string {
@@ -45,14 +33,9 @@ function getAvatarText(email: string | null): string {
   return email.slice(0, 1).toUpperCase() || 'U';
 }
 
-const SIDEBAR_DEFAULT_WIDTH = 260;
-const SIDEBAR_MIN_WIDTH = 220;
-const SIDEBAR_MAX_WIDTH = 400;
-const SIDEBAR_WIDTH_KEY = 'butvan.sidebarWidth';
-
 interface SidebarProps {
-  activeFeature: 'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task';
-  onSelectFeature: (feature: 'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task') => void;
+  activeFeature: 'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task' | 'status';
+  onSelectFeature: (feature: 'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task' | 'status') => void;
   /** 用户头像 URL；未配置时使用邮箱前两位作为默认头像 */
   avatarUrl?: string;
   projects: Project[];
@@ -99,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [editingTitle, setEditingTitle] = useState('');
 
   // 项目分区展开/收起
-  const [isProjectsExpanded, setIsProjectsExpanded] = useState(true);
+  const [isProjectsExpanded, setIsProjectsExpanded] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
 
   // 会话搜索与悬停菜单
@@ -129,56 +112,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isPickingProject, setIsPickingProject] = useState(false);
   const [isImportingProject, setIsImportingProject] = useState(false);
 
-  // 侧边栏拖拽调整宽度
+  // 侧边栏折叠与拖拽调整宽度
   const sidebarRef = useRef<HTMLElement>(null);
-  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
-    try {
-      const saved = Number(readPreference(SIDEBAR_WIDTH_KEY));
-      if (saved >= SIDEBAR_MIN_WIDTH && saved <= SIDEBAR_MAX_WIDTH) {
-        return saved;
-      }
-    } catch {
-      // 忽略本地存储异常，使用默认宽度
-    }
-    return SIDEBAR_DEFAULT_WIDTH;
-  });
-  const sidebarWidthRef = useRef(sidebarWidth);
-  sidebarWidthRef.current = sidebarWidth;
-  const [isResizing, setIsResizing] = useState(false);
-
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const onMouseMove = (e: MouseEvent) => {
-      const rect = sidebarRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const next = Math.min(
-        SIDEBAR_MAX_WIDTH,
-        Math.max(SIDEBAR_MIN_WIDTH, Math.round(e.clientX - rect.left))
-      );
-      setSidebarWidth(next);
-    };
-
-    const onMouseUp = () => {
-      setIsResizing(false);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      try {
-        writePreference(SIDEBAR_WIDTH_KEY, String(sidebarWidthRef.current));
-      } catch {
-        // 忽略本地存储异常
-      }
-    };
-
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [isResizing]);
+  const { collapsed, canToggle, collapse } = useSidebarLayout();
+  const { sidebarWidth, isResizing, startResizing, resetWidth } = useSidebarWidth(sidebarRef);
 
   // Esc 关闭弹窗与用户菜单
   useEffect(() => {
@@ -437,21 +374,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside ref={sidebarRef} className={styles.sidebar} style={{ width: sidebarWidth }}>
-      {/* Overlay 标题栏在侧边栏上方没有内容时，保留可拖拽的原生窗口区域。 */}
-      <div className={styles.titlebarDragRegion} data-tauri-drag-region aria-hidden="true" />
+    <aside
+      ref={sidebarRef}
+      className={`${styles.sidebar}${collapsed ? ` ${styles.sidebarCollapsed}` : ''}${isResizing ? ` ${styles.sidebarResizing}` : ''}`}
+      style={{ width: collapsed ? 0 : sidebarWidth }}
+      aria-hidden={collapsed}
+      inert={collapsed}
+    >
+      {/* 顶部栏：留出 macOS 窗口控制区，并在右侧提供收起侧边栏按钮 */}
+      <div className={styles.sidebarTopBar} data-tauri-drag-region>
+        {canToggle && (
+          <button type="button" className={styles.collapseBtn} onClick={collapse}
+            aria-expanded={!collapsed} aria-label="收起侧边栏" aria-keyshortcuts="Meta+B Control+B" title="收起侧边栏（⌘B）">
+            <PanelLeft size={16} strokeWidth={1.7} aria-hidden="true" />
+          </button>
+        )}
+      </div>
       {/* 右缘拖拽手柄：调整侧边栏宽度，双击恢复默认宽度 */}
-      <div
-        className={`${styles.resizeHandle} ${isResizing ? styles.resizeHandleActive : ''}`}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          setIsResizing(true);
-        }}
-        onDoubleClick={() => setSidebarWidth(SIDEBAR_DEFAULT_WIDTH)}
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="拖拽调整侧边栏宽度"
-      />
+      {!collapsed && (
+        <div
+          className={`${styles.resizeHandle} ${isResizing ? styles.resizeHandleActive : ''}`}
+          onMouseDown={(e) => { e.preventDefault(); startResizing(); }}
+          onDoubleClick={resetWidth}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="拖拽调整侧边栏宽度"
+        />
+      )}
       {/*
         DIRECTION CONTRACT
         THESIS: 按 ChatGPT 官方会话历史的布局与交互重构侧边栏：搜索、时间分组、悬停菜单；新建聊天为列表标题行上的编辑图标。
@@ -492,46 +441,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <nav className={styles.featureNav} aria-label="功能导航">
-          <button
-            type="button"
-            className={`${styles.featureTab} ${activeFeature === 'calendar' ? styles.featureTabActive : ''}`}
-            onClick={() => onSelectFeature('calendar')}
-            aria-current={activeFeature === 'calendar' ? 'page' : undefined}
-          >
-            <CalendarDotsIcon size={14} />
-            <span>日历</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.featureTab} ${activeFeature === 'finance' ? styles.featureTabActive : ''}`}
-            onClick={() => onSelectFeature('finance')}
-            aria-current={activeFeature === 'finance' ? 'page' : undefined}
-          >
-            <WalletIcon size={14} />
-            <span>财务</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.featureTab} ${activeFeature === 'record' ? styles.featureTabActive : ''}`}
-            onClick={() => onSelectFeature('record')}
-            aria-current={activeFeature === 'record' ? 'page' : undefined}
-          >
-            <BooksIcon size={14} />
-            <span>资料</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.featureTab} ${activeFeature === 'study' ? styles.featureTabActive : ''}`}
-            onClick={() => onSelectFeature('study')}
-            aria-current={activeFeature === 'study' ? 'page' : undefined}
-          >
-            <StudentIcon size={14} />
-            <span>记录</span>
-          </button>
-          <button type="button" className={`${styles.featureTab} ${activeFeature === 'task' ? styles.featureTabActive : ''}`}
-            onClick={() => onSelectFeature('task')} aria-current={activeFeature === 'task' ? 'page' : undefined}>
-            <Bell size={14} /><span>任务</span>
-          </button>
+          {([
+            { id: 'calendar', label: '日历', Icon: CalendarDotsIcon },
+            { id: 'finance', label: '财务', Icon: WalletIcon },
+            { id: 'record', label: '资料', Icon: BooksIcon },
+            { id: 'study', label: '记录', Icon: StudentIcon },
+            { id: 'task', label: '任务', Icon: Bell },
+            { id: 'status', label: '状态', Icon: Sparkles },
+          ] as const).map(({ id, label, Icon }) => (
+            <button key={id} type="button" className={`${styles.featureTab} ${activeFeature === id ? styles.featureTabActive : ''}`}
+              onClick={() => onSelectFeature(id)} aria-current={activeFeature === id ? 'page' : undefined}>
+              <Icon size={14} /><span>{label}</span>
+            </button>
+          ))}
         </nav>
 
         <div className={styles.scrollArea}>
@@ -787,9 +709,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 required
               />
               {canPickProjectDirectory() && (
-                <button type="button" className={styles.browseBtn} onClick={() => void openImportDialog()} disabled={isPickingProject || isImportingProject}>
+                <Button type="button" variant="outline" onClick={() => void openImportDialog()} disabled={isPickingProject || isImportingProject}>
                   重新选择
-                </button>
+                </Button>
               )}
             </div>
           </FormField>
@@ -804,17 +726,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </FormField>
 
           <div className={styles.modalActions}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={() => setIsImportModalOpen(false)}
-              disabled={isImportingProject}
-            >
-              取消
-            </button>
-            <button type="submit" className={styles.submitBtn} disabled={!importPath.trim() || isImportingProject}>
+            <Button type="button" variant="outline" onClick={() => setIsImportModalOpen(false)} disabled={isImportingProject}>取消</Button>
+            <Button type="submit" variant="primary" disabled={!importPath.trim() || isImportingProject}>
               {isImportingProject ? '正在导入…' : '导入并新建会话'}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
@@ -831,23 +746,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             “{deleteSession?.title || '新对话'}”及其全部聊天记录将被永久删除，此操作无法撤销。
           </p>
           <div className={styles.modalActions}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={closeDeleteSession}
-              disabled={isDeletingSession}
-              autoFocus
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              className={styles.deleteConfirmBtn}
-              onClick={() => void confirmDeleteSession()}
-              disabled={isDeletingSession}
-            >
+            <Button type="button" variant="outline" onClick={closeDeleteSession} disabled={isDeletingSession} autoFocus>取消</Button>
+            <Button type="button" variant="danger" onClick={() => void confirmDeleteSession()} disabled={isDeletingSession}>
               {isDeletingSession ? '正在删除…' : '删除会话'}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>
@@ -868,23 +770,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             此操作只解除项目登记，不会删除磁盘文件；关联会话会保留为普通会话。
           </p>
           <div className={styles.modalActions}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={closeRemoveProject}
-              disabled={isRemovingProject}
-              autoFocus
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              className={styles.deleteConfirmBtn}
-              onClick={() => void confirmRemoveProject()}
-              disabled={isRemovingProject}
-            >
+            <Button type="button" variant="outline" onClick={closeRemoveProject} disabled={isRemovingProject} autoFocus>取消</Button>
+            <Button type="button" variant="danger" onClick={() => void confirmRemoveProject()} disabled={isRemovingProject}>
               {isRemovingProject ? '正在移除…' : '移除项目'}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>

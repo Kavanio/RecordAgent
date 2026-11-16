@@ -23,7 +23,7 @@
 .deckNavigation { display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px; align-items: center; gap: 6px; }
 .arrowButton { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-md); background: var(--bg-app); color: var(--text-secondary); }
 .arrowButton:hover:not(:disabled) { background: var(--bg-surface); color: var(--text-primary); }
-.arrowButton:focus-visible, .accountSelectors button:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 1px; }
+.arrowButton:focus-visible, .accountSelectors button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 1px; }
 .arrowButton:disabled { color: var(--border-medium); cursor: default; }
 .accountSelectors { min-width: 0; display: flex; gap: 5px; overflow-x: auto; padding: 2px; scrollbar-width: none; }
 .accountSelectors::-webkit-scrollbar { display: none; }

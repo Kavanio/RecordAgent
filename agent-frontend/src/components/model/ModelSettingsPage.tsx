@@ -63,6 +63,7 @@ import styles from './ModelSettingsPage.module.css';
 interface ModelSettingsPageProps {
   onBack: () => void;
   initialTab?: string;
+  onOpenStatus?: () => void;
 }
 const VENDOR_DEFAULT_URLS: Record<string, string> = {
   dashscope: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
@@ -112,18 +113,8 @@ function formatAbsoluteTime(timestamp?: number): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, initialTab = 'config' }) => {
-  const {
-    providers,
-    activeProviderId,
-    activeModelId,
-    selectActiveModel,
-    addModelItem,
-    updateModelItem,
-    deleteModelItem,
-    testConnectionByUrl,
-    getAllModels,
-  } = useModel();
+export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, initialTab = 'config', onOpenStatus }) => {
+  const { providers, activeProviderId, activeModelId, selectActiveModel, addModelItem, updateModelItem, deleteModelItem, testConnectionByUrl, getAllModels } = useModel();
 
   const { showMessage } = useMessage();
 
@@ -457,42 +448,18 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
 
         <div className={styles.navGroup}>
           <div className={styles.groupLabel}>通用</div>
-          <button
-            className={`${styles.navItem} ${activeTab === 'config' ? styles.navItemActive : ''}`}
-            onClick={() => setActiveTab('config')}
-          >
-            <Sliders size={14} /> 配置 (模型 API Key)
-          </button>
-          <button
-            className={`${styles.navItem} ${activeTab === 'account' ? styles.navItemActive : ''}`}
-            onClick={() => setActiveTab('account')}
-          >
-            <UserRound size={14} /> 个人资料
-          </button>
-          <button
-            className={`${styles.navItem} ${activeTab === 'usage' ? styles.navItemActive : ''}`}
-            onClick={() => setActiveTab('usage')}
-          >
-            <ChartNoAxesColumnIncreasing size={14} /> Token 用量
-          </button>
-          <button
-            className={`${styles.navItem} ${activeTab === 'backend' ? styles.navItemActive : ''}`}
-            onClick={() => setActiveTab('backend')}
-          >
-            <Network size={14} /> 后端连接
-          </button>
-          <button
-            className={`${styles.navItem} ${activeTab === 'context' ? styles.navItemActive : ''}`}
-            onClick={() => setActiveTab('context')}
-          >
-            <BrainCircuit size={14} /> 个人上下文
-          </button>
-          <button
-            className={`${styles.navItem} ${activeTab === 'commands' ? styles.navItemActive : ''}`}
-            onClick={() => setActiveTab('commands')}
-          >
-            <Command size={14} /> 指令配置
-          </button>
+          {[
+            { id: 'config', label: '配置 (模型 API Key)', icon: Sliders },
+            { id: 'account', label: '个人资料', icon: UserRound },
+            { id: 'usage', label: 'Token 用量', icon: ChartNoAxesColumnIncreasing },
+            { id: 'backend', label: '后端连接', icon: Network },
+            { id: 'context', label: '个人上下文', icon: BrainCircuit },
+            { id: 'commands', label: '指令配置', icon: Command },
+          ].map(({ id, label, icon: Icon }) => (
+            <button key={id} className={`${styles.navItem} ${activeTab === id ? styles.navItemActive : ''}`} onClick={() => setActiveTab(id)}>
+              <Icon size={14} /> {label}
+            </button>
+          ))}
         </div>
 
         <div className={styles.navGroup}>
@@ -1093,7 +1060,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
 
         {activeTab === 'task' && <TaskSettings />}
 
-        {activeTab === 'review' && <LifeReviewSettings />}
+        {activeTab === 'review' && <LifeReviewSettings onOpenStatus={onOpenStatus} />}
 
         {activeTab === 'backend' && <BackendConnectionSettings />}
 

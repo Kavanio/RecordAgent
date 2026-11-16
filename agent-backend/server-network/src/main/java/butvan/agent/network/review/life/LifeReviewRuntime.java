@@ -8,6 +8,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import jakarta.annotation.PreDestroy;
 import java.time.*;
+import java.util.Objects;
 import java.util.concurrent.*;
 
 /** 单独有界后台线程；准备与投递分开，重启不自动重放在途模型或渠道请求。 */
@@ -20,6 +21,9 @@ public class LifeReviewRuntime {
     private final LifeOutreachService outreach;
     private final ResetBarrier barrier;
     private final Clock automationClock;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private LifeCompanionService companion;
+    private final ConcurrentMap<String, String> skipNotices = new ConcurrentHashMap<>();
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "life-review-worker"); t.setDaemon(true); return t;
     });
@@ -41,6 +45,7 @@ public class LifeReviewRuntime {
         if (barrier.blocked()) return;
         try (var lease = barrier.enter()) {
             for (var s : repository.enabled()) {
+                String noticeKey = "tick:" + s.owner();
                 try {
                     var local = automationClock.instant().atZone(ZoneId.of(s.timezone()));
                     int triggerHour = repository.habit(s.owner())
@@ -50,15 +55,36 @@ public class LifeReviewRuntime {
                     if (local.getHour() >= triggerHour && repository.latest(s.owner(), local.toLocalDate()).isEmpty())
                         reviews.prepare(s.owner(), new LifeReviewDtos.Prepare(local.toLocalDate(), 0, false));
                     outreach.tick(s.owner());
-                } catch (RuntimeException e) { log.warn("生活复盘调度跳过：{}", e.getClass().getSimpleName()); }
+                    skipNotices.remove(noticeKey);
+                } catch (RuntimeException e) { warnOnce(noticeKey, "生活复盘调度跳过：{}", e); }
             }
-        } catch (RuntimeException e) { log.warn("生活复盘后台暂停：{}", e.getClass().getSimpleName()); }
+            skipNotices.remove("tick:global");
+        } catch (RuntimeException e) { warnOnce("tick:global", "生活复盘后台暂停：{}", e); }
     }
-    /** 模型生成使用独立单线程，避免等待模型期间阻塞现实信号监测。 */
+    /** 模型生成与主动陪伴学习使用独立单线程，避免等待模型期间阻塞现实信号监测。 */
     void generate() {
         if (barrier.blocked()) return;
-        try { reviews.tick(); }
-        catch (RuntimeException e) { log.warn("生活复盘生成调度暂停：{}", e.getClass().getSimpleName()); }
+        try {
+            reviews.tick();
+            if (companion != null) {
+                for (var s : repository.enabled()) {
+                    String noticeKey = "companion:" + s.owner();
+                    try {
+                        companion.tick(s.owner());
+                        skipNotices.remove(noticeKey);
+                    }
+                    catch (RuntimeException e) { warnOnce(noticeKey, "主动陪伴调度跳过：{}", e); }
+                }
+            }
+            skipNotices.remove("generate:global");
+        }
+        catch (RuntimeException e) { warnOnce("generate:global", "生活复盘生成调度暂停：{}", e); }
+    }
+    private void warnOnce(String key, String template, RuntimeException e) {
+        String signature = e.getClass().getSimpleName() + ":" + Objects.toString(e.getMessage(), "");
+        if (!signature.equals(skipNotices.put(key, signature))) {
+            log.warn(template, e.getClass().getSimpleName());
+        }
     }
     @PreDestroy public void close() { worker.shutdownNow(); generationWorker.shutdownNow(); }
 }

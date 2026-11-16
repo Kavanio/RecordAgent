@@ -195,23 +195,24 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 0 7px;
+  padding: 0 9px;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 9999px;
   background: transparent;
-  color: var(--text-muted);
-  font-size: 9px;
-  font-weight: 600;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .actions button:hover {
-  background: var(--bg-surface);
-  color: var(--text-primary);
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .actions .doneButton {
-  background: #edf3ff;
-  color: var(--accent-blue);
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 600;
 }
 
 @media (prefers-reduced-motion: reduce) {

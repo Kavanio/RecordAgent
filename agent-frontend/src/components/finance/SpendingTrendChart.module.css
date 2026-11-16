@@ -6,11 +6,11 @@
 .scaleBadge:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
 .scaleBadgeActive { background: rgba(37, 99, 235, 0.08); color: #2563eb; font-weight: 600; }
 .heading p { margin-top: 5px; color: var(--text-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
-.rangeSwitch { display: inline-flex; flex-shrink: 0; gap: 3px; padding: 3px; border-radius: var(--radius-md); background: var(--bg-surface); }
-.rangeSwitch button { min-width: 48px; height: 30px; padding: 0 12px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: 500 11px var(--font-sans); cursor: pointer; transition: background-color 180ms ease, color 180ms ease; }
-.rangeSwitch button:hover { color: var(--text-primary); background: var(--bg-surface-hover); }
-.rangeSwitch .rangeActive { color: var(--text-primary); background: var(--bg-app); font-weight: 600; }
-.rangeSwitch button:focus-visible, .chartHost svg:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.rangeSwitch { display: inline-flex; flex-shrink: 0; gap: 2px; padding: 3px; border-radius: 999px; background: #f3f5f8; }
+.rangeSwitch button { min-width: 48px; height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: #64748b; font: 500 11.5px var(--font-sans); cursor: pointer; transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease; }
+.rangeSwitch button:hover { color: var(--text-primary); }
+.rangeSwitch .rangeActive { color: var(--text-primary); background: var(--bg-app); box-shadow: 0 1px 3px #0f172a12; font-weight: 600; }
+.rangeSwitch button:focus-visible, .chartHost svg:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
 .summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; }
 .periodTotals { display: flex; flex-wrap: wrap; gap: 20px 40px; min-width: 0; }
 .periodTotals dt { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 10px; }

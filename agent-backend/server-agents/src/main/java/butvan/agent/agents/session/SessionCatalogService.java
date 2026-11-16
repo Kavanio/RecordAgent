@@ -81,14 +81,15 @@ public class SessionCatalogService {
     }
 
     /**
-     * 解析或创建当前用户的唯一日常主对话（优先绑定飞书主会话，无飞书时复用最新普通会话）。
+     * 按渠道解析或创建日常陪伴会话，严格保持桌面与飞书渠道隔离：
+     * feishuChannel=true 返回飞书会话（仅用于飞书推送信道），false 返回可编辑的桌面普通会话。
      */
-    public synchronized SessionSummaryDto resolveOrCreateCompanionSession(boolean preferFeishu) {
-        List<SessionSummaryDto> feishuSessions = listActive(SessionChannel.FEISHU);
-        if (!feishuSessions.isEmpty()) {
-            return feishuSessions.getFirst();
-        }
-        if (preferFeishu) {
+    public synchronized SessionSummaryDto resolveOrCreateCompanionSession(boolean feishuChannel) {
+        if (feishuChannel) {
+            List<SessionSummaryDto> feishuSessions = listActive(SessionChannel.FEISHU);
+            if (!feishuSessions.isEmpty()) {
+                return feishuSessions.getFirst();
+            }
             return createFeishuSession();
         }
         return listActive(SessionChannel.DESKTOP).stream()

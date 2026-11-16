@@ -33,4 +33,26 @@ class LifeReviewRuntimeTest {
             generating.get(2, TimeUnit.SECONDS);
         } finally { runtime.close(); }
     }
+
+    @Test void repeatedSkipExceptionDeduplicatesNoticeAndRecoversOnSuccess() {
+        var repository = mock(LifeReviewRepository.class);
+        var reviews = mock(LifeReviewService.class);
+        var outreach = mock(LifeOutreachService.class);
+        var barrier = mock(ResetBarrier.class);
+        when(repository.enabled()).thenReturn(List.of(LifeReviewModels.Settings.defaults("owner")));
+        doThrow(new IllegalArgumentException("模型接收方已变化，请重新授权"))
+                .doThrow(new IllegalArgumentException("模型接收方已变化，请重新授权"))
+                .doNothing()
+                .when(outreach).tick("owner");
+        var runtime = new LifeReviewRuntime(repository, reviews, outreach, barrier,
+                Clock.fixed(Instant.parse("2026-11-01T06:00:00Z"), ZoneOffset.UTC));
+        try {
+            assertDoesNotThrow(runtime::tick);
+            assertDoesNotThrow(runtime::tick);
+            assertDoesNotThrow(runtime::tick);
+            verify(outreach, times(3)).tick("owner");
+        } finally {
+            runtime.close();
+        }
+    }
 }

@@ -1,0 +1,16 @@
+.section { padding-top: 0; border: 0; }
+.stateBadge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: #f3f5f8; color: #64748b; font-size: 11px; font-weight: 500; }
+.stateBadge i { width: 5px; height: 5px; border-radius: 50%; background: #94a3b8; }
+.stateBadge[data-on] { background: #ecfdf5; color: #047857; }
+.stateBadge[data-on] i { background: #10b981; }
+.pulse { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; border-radius: 14px; background: #fafbfd; }
+.pulse p { margin: 0; color: var(--text-primary); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.dot { width: 6px; height: 6px; flex: 0 0 auto; margin-top: 7px; border-radius: 50%; background: #94a3b8; }
+.pulse[data-tone='on'] .dot { background: #10b981; box-shadow: 0 0 0 3px #d1fae5; }
+.pulse[data-tone='wait'] .dot { background: #f59e0b; box-shadow: 0 0 0 3px #fef3c7; }
+.bottomRow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 8px; }
+.metaQuiet { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; color: #64748b; font-size: 11.5px; }
+.channelTag { padding: 2px 7px; border-radius: 6px; background: #f3f5f8; color: var(--text-secondary); white-space: nowrap; }
+.actions { display: inline-flex; flex-wrap: wrap; gap: 2px; margin-left: -6px; }
+@media (prefers-reduced-motion: no-preference) { .pulse[data-tone='on'] .dot { animation: breathe 2.4s ease-in-out infinite; } }
+@keyframes breathe { 50% { box-shadow: 0 0 0 5px #d1fae5; } }

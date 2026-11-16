@@ -185,14 +185,15 @@ public class FinanceService {
     /** 当前账本可回溯的账户余额，账户名称使用当前名称，避免同名账户合并。 */
     public record ReportAsset(String id, String name, String currency, BigDecimal balance) {}
 
-    /** 只读回溯日末余额；不补计收益、不写快照，不把当前余额冒充历史余额。 */
+    /** 只读回溯日末余额；不补计收益、不写快照，不把当前余额冒充历史余额；停用账户仅在停用前日期保留。 */
     @Transactional(readOnly = true)
     public List<ReportAsset> getReportAssets(String ownerId, LocalDate date, java.time.ZoneId zone) {
         requireOwner(ownerId);
         if (date == null || zone == null) throw new IllegalArgumentException("日期与时区不能为空");
         Map<String, BigDecimal> balances = repository.findBalancesAt(ownerId, date);
-        return repository.findAccounts(ownerId).stream()
+        return repository.findAccountsForReport(ownerId).stream()
                 .filter(account -> !account.createdAt().atZone(zone).toLocalDate().isAfter(date))
+                .filter(account -> account.archivedAt() == null || account.archivedAt().atZone(zone).toLocalDate().isAfter(date))
                 .map(account -> new ReportAsset(account.id(), account.name(), account.currency(), balances.get(account.id())))
                 .toList();
     }
@@ -261,6 +262,28 @@ public class FinanceService {
                 interestEnabled, rate.stripTrailingZeros(), LocalDate.now(), now);
         return repository.findAccount(ownerId, id)
                 .orElseThrow(() -> new IllegalStateException("账户创建后无法读取"));
+    }
+
+    /**
+     * 停用并归档余额为零的资产账户，保留历史流水与统计口径。
+     * 当前余额不为 0 时拒绝停用，避免未结清资金直接从总资产消失。
+     */
+    @Transactional
+    public void deleteAccount(String ownerId, String accountId) {
+        requireOwner(ownerId);
+        if (accountId == null || accountId.isBlank()) throw new IllegalArgumentException("资产账户不能为空");
+        String id = accountId.trim();
+        var state = repository.findAccountArchiveState(ownerId, id)
+                .orElseThrow(() -> new IllegalArgumentException("资产账户不存在"));
+        if (state.archived()) {
+            throw new IllegalArgumentException("资产账户不存在");
+        }
+        if (state.balanceMinor() != 0L) {
+            throw new IllegalArgumentException("账户当前余额不为 0，请先通过划账或余额校准将余额清零后再删除");
+        }
+        if (repository.archiveZeroBalanceAccount(ownerId, id, Instant.now()) != 1) {
+            throw new IllegalArgumentException("账户状态已变化，请刷新后重试");
+        }
     }
 
     /** 手动校准单个账户余额，并写入不参与真实收支统计的特别流水。 */
@@ -366,8 +389,8 @@ public class FinanceService {
         if (!"manual".equals(existing.source()) || !TRANSACTION_TYPES.contains(existing.transactionType())) {
             throw new IllegalArgumentException("仅支持修改手工收入或支出流水");
         }
-        FinanceAccount oldAccount = repository.findAccount(ownerId, existing.accountId())
-                .orElseThrow(() -> new IllegalStateException("原资产账户不存在"));
+        FinanceAccount oldAccount = requireActiveAccount(ownerId, existing.accountId(),
+                "原资产账户不存在", "原资产账户已停用删除，无法修改关联流水");
         FinanceAccount newAccount = repository.findAccount(ownerId, accountId)
                 .orElseThrow(() -> new IllegalArgumentException("资产账户不存在"));
 
@@ -433,8 +456,8 @@ public class FinanceService {
             return id;
         }
 
-        FinanceAccount account = repository.findAccount(ownerId, existing.accountId())
-                .orElseThrow(() -> new IllegalStateException("资产账户不存在"));
+        FinanceAccount account = requireActiveAccount(ownerId, existing.accountId(),
+                "资产账户不存在", "关联的资产账户已停用删除，无法删除该流水");
         accrueYield(ownerId, account, today);
         long amountMinor = toMinor(existing.amount());
         long reversalDelta = "expense".equals(transactionType) || "adjustment_decrease".equals(transactionType)
@@ -450,10 +473,10 @@ public class FinanceService {
     private void deleteTransferPair(String ownerId, FinanceTransaction existing, LocalDate today, Instant now) {
         FinanceTransaction partner = repository.findTransferPartner(ownerId, existing)
                 .orElseThrow(() -> new IllegalArgumentException("这笔划账缺少配对的另一条流水，请先通过账户余额校准修正"));
-        FinanceAccount existingAccount = repository.findAccount(ownerId, existing.accountId())
-                .orElseThrow(() -> new IllegalStateException("资产账户不存在"));
-        FinanceAccount partnerAccount = repository.findAccount(ownerId, partner.accountId())
-                .orElseThrow(() -> new IllegalStateException("资产账户不存在"));
+        FinanceAccount existingAccount = requireActiveAccount(ownerId, existing.accountId(),
+                "资产账户不存在", "关联的资产账户已停用删除，无法删除该划账流水");
+        FinanceAccount partnerAccount = requireActiveAccount(ownerId, partner.accountId(),
+                "资产账户不存在", "关联的资产账户已停用删除，无法删除该划账流水");
         accrueYield(ownerId, existingAccount, today);
         if (!existingAccount.id().equals(partnerAccount.id())) accrueYield(ownerId, partnerAccount, today);
 
@@ -598,6 +621,17 @@ public class FinanceService {
         String result = currency == null || currency.isBlank() ? "CNY" : currency.trim().toUpperCase();
         if (!result.matches("[A-Z]{3}")) throw new IllegalArgumentException("货币代码不合法");
         return result;
+    }
+
+    private FinanceAccount requireActiveAccount(
+            String ownerId, String accountId, String missingMessage, String archivedMessage) {
+        return repository.findAccount(ownerId, accountId).orElseGet(() -> {
+            boolean archived = repository.findAccountArchiveState(ownerId, accountId)
+                    .map(FinanceRepository.AccountArchiveState::archived)
+                    .orElse(false);
+            if (archived) throw new IllegalArgumentException(archivedMessage);
+            throw new IllegalArgumentException(missingMessage);
+        });
     }
 
     private void requireOwner(String ownerId) {

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { Database, Lock } from 'lucide-react';
 import { fetchMemoryDocuments } from '../../services/experienceMemoryService';
 import { memoryDeletionLabel } from '../../features/memory/cleanupPresentation';
 import type { MemoryDocument } from '../../types/experienceMemory';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
+import { LoadingTree } from '../common/LoadingTree';
 import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
 import { MemoryDocumentDialog } from './MemoryDocumentDialog';
 import styles from './MemoryDocumentManager.module.css';
@@ -13,14 +15,41 @@ const SYNC_LABELS: Record<string, string> = {
   SUCCEEDED: '远端写入已确认', FAILED: '同步失败', UNKNOWN: '远端结果未知', RETRY_WAIT: '等待重试', CANCELLED: '同步已停止',
 };
 
-/** 设置页仅保留管理入口，打开弹窗后才读取来源列表。 */
-export function MemoryDocumentManager() {
+interface MemoryDocumentManagerProps {
+  variant?: 'settings' | 'tile';
+  sourceSummary?: { active: number; total: number } | null;
+}
+
+/** 首页仅保留管理入口，打开弹窗后才读取来源列表。 */
+export function MemoryDocumentManager({ variant = 'settings', sourceSummary = null }: MemoryDocumentManagerProps = {}) {
   const [open, setOpen] = useState(false);
   return <>
-    <SettingsGroup title="经历来源管理">
-      <SettingsRow label="聊天来源" description="查看、纠正或删除记忆来源，原聊天会保留。"
-        control={<Button variant="outline" onClick={() => setOpen(true)}>管理来源</Button>} />
-    </SettingsGroup>
+    {variant === 'tile' ? (
+      <section className={styles.tile} aria-label="经历来源管理">
+        <div className={styles.tileHeader}>
+          <div className={styles.tileHeading}>
+            <span className={styles.tileIcon} aria-hidden="true"><Database size={16} /></span>
+            <div className={styles.tileTitles}>
+              <h2>经历来源管理</h2>
+              <p>仅在打开后读取，支持纠正与删除核对</p>
+            </div>
+          </div>
+          {sourceSummary && (
+            <span className={styles.badge}>
+              有效 {sourceSummary.active} / {sourceSummary.total}
+            </span>
+          )}
+        </div>
+        <div className={styles.tileActions}>
+          <Button variant="outline" size="sm" icon={<Lock size={14} />} onClick={() => setOpen(true)}>管理来源</Button>
+        </div>
+      </section>
+    ) : (
+      <SettingsGroup title="经历来源管理">
+        <SettingsRow label="聊天来源" description="查看、纠正或删除记忆来源，原聊天会保留。"
+          control={<Button variant="outline" onClick={() => setOpen(true)}>管理来源</Button>} />
+      </SettingsGroup>
+    )}
     {open && <Modal open title="经历来源管理" width={720} centered onClose={() => setOpen(false)}>
       <div className={styles.list}><MemorySourceList /></div>
     </Modal>}
@@ -46,7 +75,7 @@ function MemorySourceList() {
   useEffect(() => { void load(); }, []);
   return <SettingsGroup title="经历来源管理" description="只列出授权后登记的聊天，远端删除结果需逐条核对。">
     <SettingsRow label="来源记录" control={<Button variant="outline" disabled={busy} onClick={() => void load()}>刷新来源</Button>} />
-    {busy && !items.length && <p className={styles.state} role="status">正在读取来源…</p>}
+    {busy && !items.length && <div className={styles.more}><LoadingTree size="small" label="正在读取来源…" /></div>}
     {error && <p className={styles.state} role="alert">{error}</p>}
     {!busy && !error && !items.length && <p className={styles.state}>暂无经历来源，接入并授权后的新聊天才会出现在这里。</p>}
     {items.map((item) => <SettingsRow key={item.id} label={`${item.channel === 'DESKTOP' ? '桌面' : '飞书'} · ${new Date(item.occurredAt).toLocaleString('zh-CN')}`}

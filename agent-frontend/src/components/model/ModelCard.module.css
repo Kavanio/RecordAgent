@@ -140,12 +140,13 @@
   gap: 5px;
   font-size: 12px;
   font-weight: 500;
-  color: #475569;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: var(--radius-sm);
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff;
+  border-radius: 9999px;
   min-height: 30px;
-  padding: 5px 10px;
+  padding: 5px 12px;
   cursor: pointer;
   transition: all var(--transition-fast);
   white-space: nowrap;
@@ -153,13 +154,13 @@
 
 .testBtn:hover:not(:disabled),
 .selectBtn:hover {
-  background: #f8fafc;
-  border-color: #2563eb;
-  color: #2563eb;
+  background: #f1f5f9;
+  border-color: rgba(15, 23, 42, 0.14);
+  color: #0f172a;
 }
 
 .testBtn:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -172,9 +173,9 @@
   color: #1d4ed8;
   background: #eff6ff;
   border: 1px solid #bfdbfe;
-  border-radius: var(--radius-sm);
+  border-radius: 9999px;
   min-height: 30px;
-  padding: 5px 10px;
+  padding: 5px 12px;
   white-space: nowrap;
 }
 
@@ -182,12 +183,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
   background: transparent;
   border: 1px solid transparent;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -200,7 +201,7 @@
 }
 
 .deleteBtn:hover {
-  color: #ef4444;
+  color: #dc2626;
   background: #fef2f2;
   border-color: #fecaca;
 }

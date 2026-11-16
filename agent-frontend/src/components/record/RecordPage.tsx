@@ -280,7 +280,7 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
   };
 
   if (editing && loadedQuery === null && tabs.length === 0) return <main className={styles.workspace}><div className={styles.editorLoading}><h1>准备资料编辑器</h1>
-    {loading ? <Skeleton variant="document" label="正在读取资料分类…" /> : <div className={styles.loadError} role="alert"><span>{loadError}</span><Button onClick={() => void load()}>重新加载资料</Button><Button variant="ghost" onClick={() => setEditing(null)}>返回资料</Button></div>}
+    {loading ? <Skeleton variant="document" label="正在读取资料分类…" /> : <div className={styles.loadError} role="alert"><span>{loadError}</span><Button variant="outline" onClick={() => void load()}>重新加载资料</Button><Button variant="ghost" onClick={() => setEditing(null)}>返回资料</Button></div>}
   </div></main>;
 
   if (editing) return <RecordEditor date={editing.entry?.recordDate ?? todayKey} entry={editing.entry}
@@ -342,7 +342,7 @@ export function RecordPage({ initialEntry, initialType = 'quick' }: { initialEnt
             <button className={entry.favorite ? styles.favorite : undefined} aria-pressed={entry.favorite} onClick={async (event) => { event.stopPropagation(); try { await updateRecordFlags(entry.id, entry.version, { favorite: !entry.favorite }); await load(); } catch (reason) { showMessage('error', reason instanceof Error ? reason.message : '收藏失败'); } }} aria-label={entry.favorite ? '取消收藏' : '收藏'}><HeartIcon size={14} weight={entry.favorite ? 'fill' : 'regular'} /></button>
             <button aria-label={confirmDeleteId === entry.id ? '确认删除资料' : '删除资料'} className={confirmDeleteId === entry.id ? styles.confirmDelete : ''} disabled={deletingId === entry.id} onClick={(event) => { event.stopPropagation(); void remove(entry); }}>{confirmDeleteId === entry.id ? (deletingId === entry.id ? '删除中…' : '确认删除') : <TrashIcon size={14} />}</button>
           </div>
-        </article>) : <div className={styles.empty}><FileTextIcon size={20} /><strong>{query.trim() ? '没有找到匹配的资料' : '从第一篇记录开始'}</strong><span>{query.trim() ? '试试其他关键词，或清空搜索查看全部内容。' : '一个想法、一段心得，都值得留下。'}</span><Button size="sm" onClick={query.trim() ? () => setQuery('') : beginCreate}>{query.trim() ? '清空搜索' : '新增第一篇资料'}</Button></div>}</div>
+        </article>) : <div className={styles.empty}><FileTextIcon size={20} /><strong>{query.trim() ? '没有找到匹配的资料' : '从第一篇记录开始'}</strong><span>{query.trim() ? '试试其他关键词，或清空搜索查看全部内容。' : '一个想法、一段心得，都值得留下。'}</span><Button size="sm" variant="primary" onClick={query.trim() ? () => setQuery('') : beginCreate}>{query.trim() ? '清空搜索' : '新增第一篇资料'}</Button></div>}</div>
       </section>
     </div>
 

@@ -113,12 +113,12 @@
 }
 
 .jevButtonActive {
-  color: var(--accent-blue);
+  color: var(--accent-blue-active, #54A0F3);
   font-weight: 650;
 }
 
 .jevButtonActive:hover:not(:disabled) {
-  color: #1d4ed8;
+  color: var(--accent-blue-hover, #69AFF7);
 }
 
 .jevButton:disabled {
@@ -172,19 +172,23 @@
   width: 32px;
   height: 32px;
   border-radius: var(--radius-full);
-  background-color: #9ca3af;
-  border: none;
-  color: #ffffff;
+  background: #e2e8f0;
+  border: 1px solid transparent;
+  color: #94a3b8;
   cursor: pointer;
-  transition: background-color var(--transition-fast);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast), color var(--transition-fast);
 }
 
 .sendBtnActive {
-  background-color: var(--accent-dark);
+  background: linear-gradient(180deg, var(--accent-blue, #7EBEFB) 0%, var(--accent-blue-hover, #69AFF7) 100%);
+  border-color: rgba(84, 160, 243, 0.42);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(105, 175, 247, 0.24);
 }
 
 .sendBtnActive:hover {
-  background-color: #27272a;
+  background: linear-gradient(180deg, var(--accent-blue-hover, #69AFF7) 0%, var(--accent-blue-active, #54A0F3) 100%);
+  border-color: rgba(84, 160, 243, 0.62);
 }
 
 .stopBtn {
@@ -193,21 +197,23 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: none;
+  border: 1px solid rgba(84, 160, 243, 0.42);
   border-radius: var(--radius-full);
-  background-color: var(--accent-dark);
+  background: linear-gradient(180deg, var(--accent-blue, #7EBEFB) 0%, var(--accent-blue-hover, #69AFF7) 100%);
   color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 2px rgba(105, 175, 247, 0.24);
   cursor: pointer;
-  transition: background-color var(--transition-fast), opacity var(--transition-fast);
+  transition: background var(--transition-fast), opacity var(--transition-fast);
 }
 
 .stopBtn:hover:not(:disabled) {
-  background-color: #27272a;
+  background: linear-gradient(180deg, var(--accent-blue-hover, #69AFF7) 0%, var(--accent-blue-active, #54A0F3) 100%);
+  border-color: rgba(84, 160, 243, 0.62);
 }
 
 .stopBtn:focus-visible,
 .sendBtn:focus-visible {
-  outline: 2px solid var(--accent-primary);
+  outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
 

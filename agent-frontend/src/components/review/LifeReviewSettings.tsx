@@ -2,18 +2,12 @@ import { useState } from 'react';
 import { lifeReviewApi } from '../../services/lifeReviewApi';
 import type { LifeSource } from '../../types/lifeReview';
 import { Button } from '../common/Button';
-import { ConfirmDialog } from '../common/ConfirmDialog';
 import { Select } from '../common/Select';
 import { TextInput } from '../common/TextInput';
 import { SettingsGroup, SettingsRow } from '../settings/SettingsGroup';
 import { SettingsPageLayout } from '../settings/SettingsPageLayout';
-import { LifeCompanionSection } from './LifeCompanionSection';
-import { LifeContentCard } from './LifeContentCard';
-import { LifeGoalSettings } from './LifeGoalSettings';
-import { LifeOutreachSection } from './LifeOutreachSection';
 import { LifeSignalSettingsRows } from './LifeSignalSettingsRows';
 import { ReviewDisclosure } from './ReviewDisclosure';
-import { ReviewEmptyState } from './ReviewEmptyState';
 import { ReviewFormModal } from './ReviewFormModal';
 import { useLifeReview } from './useLifeReview';
 import styles from './LifeReviewSettings.module.css';
@@ -26,41 +20,27 @@ const SOURCES: { id: LifeSource; label: string }[] = [
   { id: 'FINANCE', label: '财务数值（含资产统计）' },
 ];
 
-/** 生活复盘独立设置入口；保存、用途授权与主动投递明确分开。 */
-export function LifeReviewSettings() {
+interface LifeReviewSettingsProps {
+  onOpenStatus?: () => void;
+}
+
+/** 生活复盘独立设置入口；专注配置范围、提醒信号与用途授权，日常复盘内容与认知维护位于左侧「状态」模块。 */
+export function LifeReviewSettings({ onOpenStatus }: LifeReviewSettingsProps = {}) {
   const state = useLifeReview();
   const { settings: s, busy, act, patch } = state;
-  const [editor, setEditor] = useState<'settings' | 'consent' | 'habit' | null>(null);
-  const [hour, setHour] = useState(12);
-  const [habitSource, setHabitSource] = useState('');
-  const [refreshOpen, setRefreshOpen] = useState(false);
+  const [editor, setEditor] = useState<'settings' | 'consent' | null>(null);
 
   function closeEditor() {
     state.discard();
     setEditor(null);
   }
 
-  const disabled = busy || state.dirty || !s?.enabled || !s.authorized;
   const provider = state.providers.find(p => p.id === s?.providerId);
-
-  function today() {
-    const parts = new Intl.DateTimeFormat('en', {
-      timeZone: s?.timezone || 'Asia/Shanghai',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(new Date());
-    return ['year', 'month', 'day']
-      .map(type => parts.find(part => part.type === type)?.value || '')
-      .join('-');
-  }
-  const orderedHistory = [...state.history].sort((a, b) => b.day.localeCompare(a.day) || b.version - a.version);
-  const todayContent = orderedHistory.find(c => c.day === today());
 
   return (
     <SettingsPageLayout
       title="生活复盘"
-      description="回顾近期经历，在一份复盘里阅读和补充。"
+      description="配置生活复盘读取范围、固定模型、主动提醒与用途授权。"
       actions={
         <Button
           size="sm"
@@ -82,14 +62,6 @@ export function LifeReviewSettings() {
       )}
       {s && (
         <>
-          {state.companion && (
-            <LifeCompanionSection
-              companion={state.companion}
-              timezone={s.timezone}
-              busy={busy}
-              act={act}
-            />
-          )}
           <SettingsGroup title="复盘设置" description="查看已保存的范围与运行状态，需要调整时再打开配置。">
             <SettingsRow
               label={s.enabled ? '生活复盘已启用' : '生活复盘未启用'}
@@ -222,7 +194,7 @@ export function LifeReviewSettings() {
                     撤销授权
                   </Button>
                 ) : (
-                  <Button size="sm" disabled={busy || !s.enabled || !s.revision} onClick={() => setEditor('consent')}>
+                  <Button size="sm" disabled={busy || state.dirty || !s.enabled || !s.revision} onClick={() => setEditor('consent')}>
                     核对并授权
                   </Button>
                 )
@@ -257,86 +229,19 @@ export function LifeReviewSettings() {
             </ReviewFormModal>
           </SettingsGroup>
 
-          <LifeGoalSettings />
-
-          <SettingsGroup title="我的复盘" description="每份内容标明归属日、覆盖截止点与版本。补充产生新版本，保留已发送副本；准备中可稍后刷新。">
+          <SettingsGroup title="状态与内容" description="每日复盘正文、个人目标、Agent 系统性认知、个人画像、经历来源管理与主动联系记录已集中在左侧「状态」模块维护。">
             <SettingsRow
-              label="准备今天"
-              description={state.generating ? '正在后台调用模型生成复盘，完成后会自动刷新…' : `每日 ${state.habit?.active ? state.habit.availableHour : 21}:00 自动准备。已有当天版本时直接查看；更新资料请点“更新今天的复盘”。`}
+              label="日常状态与复盘"
+              description={`每日 ${state.habit?.active ? state.habit.availableHour : 21}:00 自动准备复盘；当前已保存 ${state.history.length} 份复盘版本。`}
               control={
-                <div className={styles.choices}>
-                  <Button size="sm" variant="primary" disabled={disabled || state.generating} onClick={() => {
-                    const day = today();
-                    const readyToday = state.history.some(c => c.day === day && c.state === 'READY');
-                    void act(() => lifeReviewApi.prepare(day, 0, false), readyToday ? '正在查看今天已有版本；需要重新采集资料时请点“更新今天的复盘”' : '已开始后台生成今日复盘，请稍候…');
-                  }}>
-                    {state.generating ? '正在生成复盘…' : '准备今天的复盘'}
+                onOpenStatus ? (
+                  <Button size="sm" variant="outline" disabled={busy || state.dirty} onClick={onOpenStatus}>
+                    前往状态
                   </Button>
-                  {todayContent && !state.generating && <Button size="sm" disabled={disabled || todayContent.state === 'UNKNOWN'} onClick={() => setRefreshOpen(true)}>
-                    更新今天的复盘
-                  </Button>}
-                  <Button size="sm" disabled={disabled} onClick={() => {
-                    setHour(state.habit?.active ? state.habit.availableHour : 21);
-                    setHabitSource(state.habit?.source || '');
-                    setEditor('habit');
-                  }}>
-                    设置每日时间（{state.habit?.active ? `${state.habit.availableHour}:00` : '21:00'}）
-                  </Button>
-                  <Button size="sm" disabled={busy || state.dirty} onClick={() => void state.load()}>
-                    刷新内容与状态
-                  </Button>
-                </div>
+                ) : null
               }
             />
-            {state.history.length === 0 && (
-              <ReviewEmptyState title="还没有生活复盘" description="准备一份当天复盘后，内容和历史版本会保留在这里。" />
-            )}
-            {!todayContent && orderedHistory.length > 0 && <p className={styles.muted}>今天尚无复盘，以下为最近一天的记录。</p>}
-            {orderedHistory.slice(0, 1).map(c => (
-              <LifeContentCard key={c.id} content={c} timezone={c.timezone || s.timezone} busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />
-            ))}
-            {state.history.length > 1 && (
-              <ReviewDisclosure variant="inline" title={`历史版本（${state.history.length - 1}）`} description="旧版保留原内容；展开查看，不会重新生成。">
-                {orderedHistory.slice(1).map(c => (
-                  <LifeContentCard key={c.id} content={c} timezone={c.timezone || s.timezone} busy={busy} authorized={!disabled} feishu={s.feishu} act={act} />
-                ))}
-              </ReviewDisclosure>
-            )}
-            {state.archives.map((a, i) => (
-              <details key={i}>
-                <summary>重置前的只读外发副本 {i + 1}</summary>
-                <p className={styles.archive}>{a}</p>
-              </details>
-            ))}
           </SettingsGroup>
-          <ConfirmDialog open={refreshOpen} title="更新今天的复盘" tone="info" confirmText="确认更新" busy={busy}
-            description="重新采集已授权范围内截至现在的资料，并生成新版本，可能占用一次模型调用额度。旧版本与已发送副本保留。"
-            onClose={() => setRefreshOpen(false)} onConfirm={() => {
-              setRefreshOpen(false);
-              if (todayContent) void act(() => lifeReviewApi.prepare(today(), todayContent.version, true), '已安排更新今天的复盘');
-            }} />
-
-          <LifeOutreachSection
-            settings={s}
-            habit={state.habit}
-            habitSuggestion={state.habitSuggestion}
-            candidates={state.candidates}
-            nudges={state.nudges}
-            busy={busy}
-            disabled={disabled}
-            habitModalOpen={editor === 'habit'}
-            hour={hour}
-            habitSource={habitSource}
-            onHourChange={setHour}
-            onHabitSourceChange={setHabitSource}
-            onOpenHabitModal={(initialHour, initialSource) => {
-              setHour(initialHour);
-              setHabitSource(initialSource);
-              setEditor('habit');
-            }}
-            onCloseHabitModal={closeEditor}
-            act={act}
-          />
         </>
       )}
     </SettingsPageLayout>

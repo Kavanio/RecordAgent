@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '../common/Button';
+import { LoadingTree } from '../common/LoadingTree';
 import { MessageProvider } from '../common/Message';
 import { BackendConnectionSettings } from '../settings/BackendConnectionSettings';
 import { fetchBackendConnection, getApiBaseUrl, isTauri, restartApplication } from '../../services/api';
 import { fetchAgentReset, resetBlocked, retryAgentReset, subscribeAgentReset } from '../../services/agentResetService';
 import type { AgentResetStatus } from '../../types/agentReset';
+import { useBootSplashHold } from './bootSplashContext';
 import styles from './AgentResetBoundary.module.css';
 
 /** 启动先确认屏障；状态代次改变时卸载旧应用树，丢弃会话、图片草稿和迟到组件响应。 */
@@ -15,12 +17,31 @@ export function AgentResetBoundary({ children }: { children: ReactNode }) {
   const [canRestart, setCanRestart] = useState(false);
   const [connectionSettingsOpen, setConnectionSettingsOpen] = useState(false);
   const seenBlocked = useRef(false);
+  const checkingInitial = !status && !error && !connectionSettingsOpen;
+  const hasBootSplash = useBootSplashHold('reset-boundary', checkingInitial);
   useEffect(() => {
     let mounted = true;
-    let timer: ReturnType<typeof setTimeout>;
+    let pollingBlocked = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const clearPoll = () => {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+    };
+    const schedulePoll = () => {
+      clearPoll();
+      if (mounted && pollingBlocked) timer = setTimeout(() => void refresh(), 2000);
+    };
     const unsubscribe = subscribeAgentReset(next => {
       if (!mounted) return;
-      if (resetBlocked(next)) seenBlocked.current = true;
+      pollingBlocked = resetBlocked(next);
+      if (pollingBlocked) {
+        seenBlocked.current = true;
+        schedulePoll();
+      } else {
+        clearPoll();
+      }
       if (next.status === 'LOCAL_COMPLETE' && seenBlocked.current) setReceipt(true);
       setStatus(previous => previous && (previous.generation > next.generation
         || (previous.generation === next.generation && previous.status === 'LOCAL_COMPLETE')) ? previous : next);
@@ -28,12 +49,16 @@ export function AgentResetBoundary({ children }: { children: ReactNode }) {
     });
     async function refresh() {
       try { await fetchAgentReset(); }
-      catch (cause) { if (mounted) setError(cause instanceof Error ? cause.message : '无法确认重置状态'); }
-      finally { if (mounted) timer = setTimeout(() => void refresh(), 2000); }
+      catch (cause) {
+        if (mounted) {
+          setError(cause instanceof Error ? cause.message : '无法确认重置状态');
+          schedulePoll();
+        }
+      }
     }
     void refresh();
     void fetchBackendConnection().then(info => { if (mounted) setCanRestart(info.mode === 'sidecar'); }).catch(() => undefined);
-    return () => { mounted = false; clearTimeout(timer); unsubscribe(); };
+    return () => { mounted = false; clearPoll(); unsubscribe(); };
   }, []);
   async function retry() {
     if (!status?.resetId) return;
@@ -57,6 +82,13 @@ export function AgentResetBoundary({ children }: { children: ReactNode }) {
       </section>
     </main>
   </MessageProvider>;
+  if (checkingInitial) {
+    return hasBootSplash ? null : (
+      <div className="bootScreen" data-tauri-drag-region>
+        <LoadingTree size="large" label="正在启动 ButvanAgent…" />
+      </div>
+    );
+  }
   if (status && !resetBlocked(status) && !receipt) return <Fragment key={status.generation}>{children}</Fragment>;
   return <main className={styles.page} aria-label="Agent 恢复出厂进度">
     <section className={styles.card}>

@@ -3,23 +3,69 @@
 .sidebar {
   box-sizing: border-box;
   position: relative;
+  flex-shrink: 0;
   width: 260px;
   height: 100vh;
   background-color: #e3edf3;
   display: flex;
   flex-direction: column;
-  padding: calc(12px + var(--window-titlebar-inset)) 12px 4px;
+  padding: 0 12px 4px;
   user-select: none;
+  transition: width 200ms cubic-bezier(0.22, 1, 0.36, 1), padding 200ms cubic-bezier(0.22, 1, 0.36, 1), opacity 150ms ease;
 }
 
-/* macOS Overlay 标题栏的侧边栏拖拽区域；非 macOS 下高度为 0。 */
-.titlebarDragRegion {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--window-titlebar-inset);
-  z-index: 20;
+.sidebarResizing {
+  transition: none;
+}
+
+.sidebarCollapsed {
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
+  }
+}
+
+/* 顶部工作区控制条：兼容 macOS Overlay 标题栏并对齐主顶栏 48px 高度 */
+.sidebarTopBar {
+  flex: 0 0 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.collapseBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: #5f6673;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.collapseBtn:hover {
+  background-color: #d8e4ec;
+  color: #111827;
+}
+
+.collapseBtn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
 }
 
 /* 右缘拖拽手柄 */
@@ -546,65 +592,12 @@
   min-width: 0;
 }
 
-.browseBtn {
-  flex-shrink: 0;
-  height: 36px;
-  padding: 0 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #334155;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.browseBtn:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #94a3b8;
-}
-
-.browseBtn:disabled,
-.submitBtn:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
 .modalActions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 8px;
-}
-
-.cancelBtn {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid #d9d9e3;
-  background: #ffffff;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.cancelBtn:hover:not(:disabled) {
-  background-color: #f5f6f8;
-}
-
-.submitBtn {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: none;
-  background: #2563eb;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.submitBtn:hover {
-  background-color: #1d4ed8;
 }
 
 .deleteModalBody {
@@ -619,34 +612,6 @@
   font-size: 13px;
   line-height: 1.6;
   overflow-wrap: anywhere;
-}
-
-.deleteConfirmBtn {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: none;
-  background: #dc2626;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.deleteConfirmBtn:hover:not(:disabled) {
-  background: #b91c1c;
-}
-
-.cancelBtn:disabled,
-.deleteConfirmBtn:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.cancelBtn:focus-visible,
-.deleteConfirmBtn:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 2px;
 }
 
 /* 底部用户信息 */

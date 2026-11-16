@@ -159,8 +159,17 @@
 
 .accountMeta { display: inline-flex; align-items: center; gap: 7px; }
 
-.adjustBtn { display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); font: 600 9.5px var(--font-sans); cursor: pointer; }
-.adjustBtn:hover { background: var(--bg-surface-hover); color: var(--text-primary); }
+.adjustBtn { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border: 0; border-radius: 9999px; background: transparent; color: var(--text-muted); font: 600 9.5px var(--font-sans); cursor: pointer; }
+.adjustBtn:hover { background: #f1f5f9; color: #0f172a; }
+.deleteBtn:hover { background: #fef2f2; color: #b91c1c; }
+
+.emptyList {
+  margin: 0;
+  padding: 28px 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
 
 .footer {
   display: flex;
@@ -173,17 +182,17 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 8px;
+  padding: 5px 10px;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
-  font: 500 11px var(--font-sans);
+  color: #475569;
+  font: 500 12px var(--font-sans);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: 9999px;
   transition: color var(--transition-fast), background-color var(--transition-fast);
 }
 
 .addBtn:hover {
-  color: var(--accent-blue);
-  background: var(--bg-surface);
+  color: #0f172a;
+  background: #f1f5f9;
 }

@@ -19,4 +19,5 @@
 .draggable .resizeHandle { cursor: nwse-resize; }
 .compact .content { margin-top: 10px; }
 .compact .timer { margin-top: 5px; font-size: 34px; }
-.compact .finishButton { min-height: 30px; margin-top: auto; margin-right: 20px; padding: 0 10px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-surface); }
+.compact .finishButton { min-height: 30px; margin-top: auto; margin-right: 20px; padding: 0 12px; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 9999px; background: #f8fafc; color: #1e293b; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff; font-weight: 500; }
+.compact .finishButton:hover { background: #f1f5f9; border-color: rgba(15, 23, 42, 0.14); color: #0f172a; }

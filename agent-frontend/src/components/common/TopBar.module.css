@@ -2,22 +2,25 @@
   position: relative;
   z-index: 60;
   box-sizing: border-box;
-  flex: 0 0 48px;
+  flex: 0 0 auto;
+  min-height: 48px;
   height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   min-width: 0;
-  padding: 0 12px 0 18px;
+  padding: 0 12px 0 max(18px, var(--sidebar-collapsed-left-inset, 0px));
   border-bottom: 1px solid var(--border-subtle);
   background: var(--bg-app);
+  transition: padding-left 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .identity {
   display: flex;
   align-items: center;
   gap: 9px;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -57,10 +60,12 @@
 
 .icon {
   display: inline-flex;
+  flex-shrink: 0;
   color: var(--text-secondary);
 }
 
 .title {
+  flex-shrink: 0;
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 650;
@@ -69,6 +74,7 @@
 }
 
 .subtitle {
+  min-width: 0;
   overflow: hidden;
   color: var(--text-muted);
   font-size: 11px;
@@ -77,16 +83,35 @@
   white-space: nowrap;
 }
 
+.center {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
 .actions {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   margin-left: auto;
 }
 
 .search { flex: 0 1 290px; min-width: 120px; margin-left: auto; }
+@media (max-width: 1120px) {
+  .topBar.withCenter {
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: 7px 12px 8px max(18px, var(--sidebar-collapsed-left-inset, 0px));
+  }
+  .topBar.withCenter .center {
+    order: 3;
+    flex: 1 0 100%;
+  }
+}
 @media (max-width: 760px) {
   .topBar {
     height: auto;
@@ -94,7 +119,11 @@
     flex-wrap: wrap;
     column-gap: 12px;
     row-gap: 0;
-    padding: 4px 12px;
+    padding: 4px 12px 4px max(12px, var(--sidebar-collapsed-left-inset, 0px));
+  }
+  .topBar.withCenter {
+    row-gap: 6px;
+    padding: 6px 12px 8px max(12px, var(--sidebar-collapsed-left-inset, 0px));
   }
   .subtitle { display: none; }
   .search { order: 3; flex-basis: 100%; padding-bottom: 4px; }

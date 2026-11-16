@@ -49,7 +49,7 @@ public final class FinancialReportSections {
         String detail = "期末口径：" + currentDate + " 对比 " + previousDate + "。\n"
                 + "按当前账本回溯日末余额，名称使用当前名称，收益只包含已入账部分；回填或编辑历史流水会改变回溯结果。\n"
                 + "账户创建前标为未出现；新增初始资金、转账与余额校准会影响资产，但不属于真实收入或支出。\n"
-                + "当前没有账户删除接口与历史快照，已从数据库移除的账户无法还原；不将缺失记录判为零余额或亏损。\n"
+                + "账户档案与历史快照不可还原；停用前或已从数据库移除的缺失记录不判为零余额或亏损。\n"
                 + (current == null ? "本期资产暂不可用。\n" : "")
                 + (previous == null ? "上期资产暂不可用。\n" : "")
                 + (ids.isEmpty() && current != null && previous != null ? "两个期末均无可回溯账户。\n" : "");

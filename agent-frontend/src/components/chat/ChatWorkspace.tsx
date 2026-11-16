@@ -59,14 +59,9 @@ import {
 } from '../../features/slash-command/analysisCommands';
 import { buildSlashStatusData } from '../../features/slash-command/slashCommandStatus';
 import { parseDirectRecordReferenceQuery } from '../../features/record/recordReferenceInput';
-import {
-  Bot,
-  FolderTree,
-  MessageSquare,
-  PanelRight,
-  ChartNoAxesColumnIncreasing,
-} from 'lucide-react';
+import { Bot, FolderTree, MessageSquare, PanelRight, ChartNoAxesColumnIncreasing } from 'lucide-react';
 import { AssistantMessageItem } from './AssistantMessageItem';
+import { SidebarExpandButton } from '../layout/SidebarToggleButton';
 import styles from './ChatWorkspace.module.css';
 
 interface ChatWorkspaceProps {
@@ -910,6 +905,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       {/* 顶部工作区：当前会话信息与右侧面板开关 */}
       <div className={styles.workspaceHeader} data-tauri-drag-region>
         <div className={styles.workspaceIdentity}>
+          <SidebarExpandButton />
           {projectPath ? (
             <FolderTree size={16} aria-hidden="true" />
           ) : (

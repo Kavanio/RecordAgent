@@ -81,6 +81,14 @@ export function createFinanceAccount(input: CreateFinanceAccountInput): Promise<
   return financeRequest<FinanceAccount>('/agent/finance/accounts', jsonInit(input));
 }
 
+/** 停用并删除余额为零的资产账户，保留历史流水与统计。 */
+export function deleteFinanceAccount(accountId: string): Promise<string> {
+  return financeRequest<string>(
+    `/agent/finance/accounts/${encodeURIComponent(accountId)}`,
+    { method: 'DELETE' },
+  );
+}
+
 /** 手动校准单个资产账户余额，并生成不参与真实收支统计的审计流水。 */
 export function createFinanceBalanceAdjustment(
   accountId: string,

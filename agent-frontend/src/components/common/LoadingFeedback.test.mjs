@@ -1,31 +1,33 @@
 import assert from 'node:assert/strict';
-import { after, afterEach, before, beforeEach, test } from 'node:test';
-import { JSDOM } from 'jsdom';
-import { createServer } from 'vite';
+import { after, afterEach, before, test } from 'node:test';
 import { readFile } from 'node:fs/promises';
+import { startHarness, stopHarness, loadModule, mount, act } from '../../testing/harness.mjs';
 
-let dom, server, React, createRoot, Modal, Skeleton, LoadingOverlay, LoadingTree, ChartSkeleton, root, container;
+let React, Modal, Skeleton, LoadingOverlay, LoadingTree, ChartSkeleton, view;
+
 before(async () => {
-  dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' });
-  for (const key of ['window', 'document', 'HTMLElement']) globalThis[key] = dom.window[key];
-  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-  React = await import('react');
-  ({ createRoot } = await import('react-dom/client'));
-  server = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' });
-  ({ Modal } = await server.ssrLoadModule('/src/components/common/Modal.tsx'));
-  ({ Skeleton } = await server.ssrLoadModule('/src/components/common/Skeleton.tsx'));
-  ({ LoadingOverlay } = await server.ssrLoadModule('/src/components/common/LoadingOverlay.tsx'));
-  ({ LoadingTree } = await server.ssrLoadModule('/src/components/common/LoadingTree.tsx'));
-  ({ ChartSkeleton } = await server.ssrLoadModule('/src/components/common/ChartSkeleton.tsx'));
+  ({ react: React } = await startHarness());
+  ({ Modal } = await loadModule('/src/components/common/Modal.tsx'));
+  ({ Skeleton } = await loadModule('/src/components/common/Skeleton.tsx'));
+  ({ LoadingOverlay } = await loadModule('/src/components/common/LoadingOverlay.tsx'));
+  ({ LoadingTree } = await loadModule('/src/components/common/LoadingTree.tsx'));
+  ({ ChartSkeleton } = await loadModule('/src/components/common/ChartSkeleton.tsx'));
 });
-after(async () => { await server?.close(); dom?.window.close(); });
-beforeEach(() => { container = document.createElement('div'); document.body.append(container); root = createRoot(container); });
-afterEach(async () => { await React.act(async () => root.unmount()); container.remove(); });
-const render = element => React.act(async () => root.render(element));
+
+after(stopHarness);
+afterEach(async () => {
+  await view?.unmount();
+  view = null;
+});
+
+async function render(element) {
+  if (!view) view = await mount(element);
+  else await view.render(element);
+}
 
 test('大树从根部沿单条闭合外缘成型，追光与底稿共用同一轮廓', async () => {
   await render(React.createElement(LoadingTree));
-  const svg = container.querySelector('svg');
+  const svg = view.query('svg');
   const outline = svg.querySelector('[data-tree-part="outline"]');
   const trace = svg.querySelector('[data-tree-part="trace"]');
   assert.match(outline.getAttribute('d'), /^M28 102/);
@@ -38,8 +40,8 @@ test('大树从根部沿单条闭合外缘成型，追光与底稿共用同一�
   assert.equal(svg.querySelector('[data-tree-part="leaves"]').children.length, 4);
   assert.equal(svg.getAttribute('aria-hidden'), 'true');
   assert.equal(svg.getAttribute('focusable'), 'false');
-  assert.equal(container.querySelectorAll('[role="status"]').length, 1);
-  assert.match(container.textContent, /正在加载/);
+  assert.equal(view.queryAll('[role="status"]').length, 1);
+  assert.match(view.text(), /正在加载/);
 });
 
 test('多个大树实例使用独立渐变 ID，重渲染不重建 SVG，尺寸和自定义文案保持兼容', async () => {
@@ -47,10 +49,13 @@ test('多个大树实例使用独立渐变 ID，重渲染不重建 SVG，尺寸�
     React.createElement(LoadingTree, { size: 'large', label, className: 'custom-tree' }),
     React.createElement(LoadingTree, { size: 'small', label: '' }));
   await render(trees('正在读取资料…'));
-  const svgs = [...container.querySelectorAll('svg')];
-  const ids = [...container.querySelectorAll('defs [id]')].map(item => item.id);
+  const svgs = view.queryAll('svg');
+  const ids = view.queryAll('defs [id]').map(item => item.id);
   assert.equal(new Set(ids).size, ids.length);
   assert.equal(ids.length, 4);
+  for (const id of ids) {
+    assert.match(id, /^[a-zA-Z0-9_-]+$/);
+  }
   for (const svg of svgs) {
     const ownIds = new Set([...svg.querySelectorAll('defs [id]')].map(item => item.id));
     for (const item of svg.querySelectorAll('[fill^="url"], [stroke^="url"]')) {
@@ -58,17 +63,19 @@ test('多个大树实例使用独立渐变 ID，重渲染不重建 SVG，尺寸�
       assert.ok(ownIds.has(reference.slice(5, -1)), '每个渐变引用必须来自自身实例');
     }
   }
-  assert.ok(container.firstElementChild.classList.contains('custom-tree'));
-  assert.equal(container.lastElementChild.textContent, '');
+  assert.ok(view.container.firstElementChild.classList.contains('custom-tree'));
+  assert.equal(view.container.lastElementChild.textContent, '');
   await render(trees('正在更新资料…'));
-  assert.equal(container.querySelector('svg'), svgs[0]);
-  assert.deepEqual([...container.querySelectorAll('defs [id]')].map(item => item.id), ids);
-  assert.match(container.firstElementChild.textContent, /正在更新资料/);
+  assert.equal(view.query('svg'), svgs[0]);
+  assert.deepEqual(view.queryAll('defs [id]').map(item => item.id), ids);
+  assert.match(view.container.firstElementChild.textContent, /正在更新资料/);
 });
 
-test('描边阶段统一周期，先画外缘、保留成型时段；减少动态效果时完整静态展示', async () => {
+test('描边阶段统一周期，各尺寸统一保留叶片与颜色；减少动态效果时完整静态展示', async () => {
+  const css = await readFile(new URL('./LoadingTree.module.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(css, /\.small\s+\.leaves/);
   const style = document.createElement('style');
-  style.textContent = await readFile(new URL('./LoadingTree.module.css', import.meta.url), 'utf8');
+  style.textContent = css;
   document.head.append(style);
   try {
     const rules = [...style.sheet.cssRules];
@@ -97,43 +104,43 @@ test('描边阶段统一周期，先画外缘、保留成型时段；减少动�
 
 test('图表占位使用细网格、窄柱与淡曲线，不伪造坐标数值或可聚焦数据点', async () => {
   await render(React.createElement(ChartSkeleton, { label: '正在读取趋势…' }));
-  assert.equal(container.querySelectorAll('[role="status"]').length, 1);
-  assert.equal(container.querySelectorAll('svg line').length, 5);
-  assert.equal(container.querySelectorAll('svg path').length, 2);
-  assert.equal(container.querySelectorAll('svg text, button, [tabindex="0"]').length, 0);
-  assert.doesNotMatch(container.textContent, /[0-9¥]/);
+  assert.equal(view.queryAll('[role="status"]').length, 1);
+  assert.equal(view.queryAll('svg line').length, 5);
+  assert.equal(view.queryAll('svg path').length, 2);
+  assert.equal(view.queryAll('svg text, button, [tabindex="0"]').length, 0);
+  assert.doesNotMatch(view.text(), /[0-9¥]/);
   await render(React.createElement(ChartSkeleton, { variant: 'bars', decorative: true }));
-  assert.equal(container.querySelectorAll('svg path').length, 0);
-  assert.equal(container.querySelector('[role="status"]'), null);
+  assert.equal(view.queryAll('svg path').length, 0);
+  assert.equal(view.query('[role="status"]'), null);
 });
 
 test('文章、横向轨迹与热力图骨架只保留真实布局特征，不输出假内容', async () => {
   await render(React.createElement(Skeleton, { variant: 'document', label: '正在读取资料…' }));
-  assert.equal(container.firstElementChild.children.length, 4);
-  assert.equal(container.querySelectorAll('button, input').length, 0);
+  assert.equal(view.container.firstElementChild.children.length, 4);
+  assert.equal(view.queryAll('button, input').length, 0);
   await render(React.createElement(Skeleton, { variant: 'timeline', label: '正在读取轨迹…' }));
-  assert.equal(container.firstElementChild.children.length, 3);
+  assert.equal(view.container.firstElementChild.children.length, 3);
   await render(React.createElement(Skeleton, { variant: 'heatmap', label: '正在生成热力图…' }));
-  assert.equal(container.querySelectorAll('svg rect').length, 53 * 7);
-  assert.equal(container.querySelector('svg').getAttribute('aria-hidden'), 'true');
+  assert.equal(view.queryAll('svg rect').length, 53 * 7);
+  assert.equal(view.query('svg').getAttribute('aria-hidden'), 'true');
 });
 
 test('骨架有单一中文状态语义，装饰模式不生成重复播报', async () => {
   await render(React.createElement(Skeleton, { variant: 'metrics', label: '正在读取统计…' }));
-  assert.equal(container.querySelector('[role="status"]').getAttribute('aria-label'), '正在读取统计…');
-  assert.equal(container.firstElementChild.children.length, 4);
+  assert.equal(view.query('[role="status"]').getAttribute('aria-label'), '正在读取统计…');
+  assert.equal(view.container.firstElementChild.children.length, 4);
   await render(React.createElement(Skeleton, { variant: 'text', decorative: true }));
-  assert.equal(container.querySelector('[role="status"]'), null);
-  assert.equal(container.firstElementChild.getAttribute('aria-hidden'), 'true');
+  assert.equal(view.query('[role="status"]'), null);
+  assert.equal(view.container.firstElementChild.getAttribute('aria-hidden'), 'true');
 });
 
 test('局部等待层可在完成后归还焦点，非活动状态完全移除', async () => {
   const button = document.createElement('button'); document.body.append(button); button.focus();
   await render(React.createElement(LoadingOverlay, { active: true, label: '正在同步…' }));
-  assert.equal(document.activeElement, container.firstElementChild);
-  assert.match(container.querySelector('[role="status"]').textContent, /正在同步/);
+  assert.equal(document.activeElement, view.container.firstElementChild);
+  assert.match(view.query('[role="status"]').textContent, /正在同步/);
   await render(React.createElement(LoadingOverlay, { active: false }));
-  assert.equal(container.children.length, 0);
+  assert.equal(view.container.children.length, 0);
   assert.equal(document.activeElement, button);
   button.remove();
 });
@@ -145,17 +152,17 @@ test('Modal 默认仍可关闭，忙碌时屏蔽 Escape/遮罩且 Tab 不逃逸�
   await render(modal(true));
   const panel = document.querySelector('[role="dialog"]');
   assert.ok(panel.querySelector('input').closest('[inert]'));
-  await React.act(async () => {
+  await act(async () => {
     window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
     panel.parentElement.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true }));
   });
   assert.equal(closed, 0);
   const tab = new window.KeyboardEvent('keydown', { key: 'Tab', cancelable: true });
-  await React.act(async () => window.dispatchEvent(tab));
+  await act(async () => window.dispatchEvent(tab));
   assert.equal(tab.defaultPrevented, true);
   assert.equal(document.activeElement, panel);
   await render(modal(false));
   assert.equal(panel.querySelector('input').closest('[inert]'), null);
-  await React.act(async () => window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' })));
+  await act(async () => window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' })));
   assert.equal(closed, 1);
 });
