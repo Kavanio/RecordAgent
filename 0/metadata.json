@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7J8BSRNNP7Y0KGTW9GC3QNM",
+  "session_id": "5721fc11-bf27-4700-b474-27f639058c21",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-16T13:22:23.316077Z",
+  "branch": "ios-app/direct-backend",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/Library/APILibraryService.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/Profile/ProfileOverviewServiceProtocol.swift"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-hydrogen-medium",
+  "turn_id": "da748c6b4d78",
+  "checkpoint_transcript_start": 426,
+  "transcript_lines_at_start": 426,
+  "redaction": {
+    "replacements": 19,
+    "layers": {
+      "betterleaks": 4,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 10,
+      "credentialed_uri": 0,
+      "entropy": 5,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 10
+  }
+}
