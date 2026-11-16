@@ -41,7 +41,7 @@ actor APIFinanceService: FinanceServiceProtocol {
         let body = try APIClient.encoder.encode(
             CreateAccountRequest(
                 name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-                accountType: "SAVINGS",
+                accountType: "other",
                 currency: "CNY",
                 initialBalance: Double(openingBalanceInCents) / 100.0,
                 interestEnabled: false,
@@ -62,7 +62,7 @@ actor APIFinanceService: FinanceServiceProtocol {
         let body = try encoder.encode(
             CreateTransactionRequest(
                 accountId: draft.accountId,
-                transactionType: draft.type.uppercased(),
+                transactionType: draft.type.lowercased(),
                 category: draft.category.trimmingCharacters(in: .whitespacesAndNewlines),
                 note: draft.note,
                 amount: Double(draft.amountInCents) / 100.0,

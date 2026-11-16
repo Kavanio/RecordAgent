@@ -120,13 +120,13 @@ actor APICalendarDataService: CalendarDataServiceProtocol {
 
         switch draft.kind {
         case .todo:
-            let recurrence = (draft.period?.rawValue ?? "none").uppercased()
+            let recurrence = (draft.period?.rawValue ?? "none").lowercased()
             let body = try APIClient.encoder.encode(
                 CreateTodoRequest(
                     eventDate: date,
                     title: trimmedTitle,
                     time: draft.hasSpecificTime ? formattedTime : nil,
-                    priority: "MEDIUM",
+                    priority: "medium",
                     recurrence: recurrence,
                     recurrenceWeekday: draft.period == .weekly ? draft.recurrenceWeekday : nil,
                     recurrenceMonthDay: nil

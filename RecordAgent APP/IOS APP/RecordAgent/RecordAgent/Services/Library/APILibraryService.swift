@@ -90,8 +90,21 @@ actor APILibraryService: LibraryServiceProtocol {
                 version: version + 1
             )
         }
+        let existing = try? await document(id: id)
+        var currentVersion = Int(version)
+        if existing?.trashed == true {
+            let restored: BackendRecordResponse = try await client.sendResult(
+                "/agent/records/\(id)/restore",
+                method: "POST",
+                query: [URLQueryItem(name: "expectedVersion", value: String(currentVersion))]
+            )
+            currentVersion = restored.version
+            if restored.favorite == favorite {
+                return restored.toDocument()
+            }
+        }
         let body = try APIClient.encoder.encode(
-            UpdateFlagsRequest(pinned: nil, favorite: favorite, archived: nil, expectedVersion: Int(version))
+            UpdateFlagsRequest(pinned: nil, favorite: favorite, archived: nil, expectedVersion: currentVersion)
         )
         let record: BackendRecordResponse = try await client.sendResult(
             "/agent/records/\(id)/flags", method: "PATCH", body: body)
