@@ -5,7 +5,8 @@ import type { RecordEntry, RecordType } from './types/record';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ModelProviderContext } from './context/ModelContext';
 import { StudyRealtimeProvider } from './context/StudyRealtimeContext';
-import { mapTranscriptToChatMessage } from './features/chat/transcriptMessages';
+import { SidebarLayoutProvider } from './context/SidebarLayoutContext';
+import { mapTranscriptMessages } from './features/chat/transcriptMessages';
 import { useConversationSelection } from './components/chat/useConversationSelection';
 import { ChannelConversationView } from './components/chat/ChannelConversationView';
 import { Sidebar } from './components/layout/Sidebar';
@@ -21,15 +22,9 @@ import { ModelInitPage } from './components/model/ModelInitPage';
 import { MessageProvider, useMessage } from './components/common/Message';
 import { LoadingTree } from './components/common/LoadingTree';
 import { useBootSplashHold } from './components/reset/bootSplashContext';
-import {
-  fetchModelConfig, fetchSupportedVendors, streamAgentChat, fetchSessions, fetchSessionDetail,
-  createSessionApi, updateSessionTitleApi, deleteSessionApi, submitPermissionDecisions,
-  fetchPendingPermission, generateSessionTitle, fetchSessionPermissionMode, updateSessionPermissionMode, cancelAgentChatRun,
-} from './services/api';
+import { fetchModelConfig, fetchSupportedVendors, streamAgentChat, fetchSessions, fetchSessionDetail, createSessionApi, updateSessionTitleApi, deleteSessionApi, submitPermissionDecisions, fetchPendingPermission, generateSessionTitle, fetchSessionPermissionMode, updateSessionPermissionMode, cancelAgentChatRun } from './services/api';
 import type { PermissionDecisionInput, PermissionToolPayload } from './services/api';
-import type {
-  AgentAnalysisContextRequest, ChatImageAttachment, ChatSession, ChatMessage, Project, SessionSummaryDto, SessionPermissionMode,
-} from './types/chat';
+import type { AgentAnalysisContextRequest, ChatImageAttachment, ChatSession, ChatMessage, Project, SessionSummaryDto, SessionPermissionMode } from './types/chat';
 import type { SubagentProgressDto, TaskDto } from './types/team';
 import { cancelSubagentTask, fetchSubagentTasks, subscribeSubagentTaskEvents } from './services/taskApi';
 import { fetchProjects, importProject, removeProject as removeProjectApi } from './services/projectApi';
@@ -165,7 +160,7 @@ export const MainLayout: React.FC<{
     }
 
     // 立即刷新消息与 Token 用量（毫秒级响应，避免被标题生成阻塞）
-    const messages = detail.messages.map(mapTranscriptToChatMessage);
+    const messages = mapTranscriptMessages(detail.messages);
     setSessions((previous) => previous.map((session) => session.id === sessionId
       ? {
           ...session,
@@ -1125,7 +1120,6 @@ export const MainLayout: React.FC<{
   );
 };
 
-
 const PrimaryApp: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState('config');
@@ -1170,7 +1164,9 @@ const PrimaryApp: React.FC = () => {
 
   return (
     <ModelProviderContext>
-      <MainLayout isSettingsOpen={isSettingsOpen} setIsSettingsOpen={setIsSettingsOpen} settingsTab={settingsTab} setSettingsTab={setSettingsTab} />
+      <SidebarLayoutProvider disabled={isSettingsOpen}>
+        <MainLayout isSettingsOpen={isSettingsOpen} setIsSettingsOpen={setIsSettingsOpen} settingsTab={settingsTab} setSettingsTab={setSettingsTab} />
+      </SidebarLayoutProvider>
     </ModelProviderContext>
   );
 };

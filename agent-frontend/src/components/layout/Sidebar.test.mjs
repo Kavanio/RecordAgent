@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test, before, after, beforeEach, afterEach } from 'node:test';
 import { startHarness, stopHarness, loadModule, mount, useFetchStub, jsonResponse, act } from '../../testing/harness.mjs';
 
-let React, Sidebar, MessageProvider, view, stub;
+let React, Sidebar, SidebarLayoutProvider, TopBar, MessageProvider, view, stub;
 let removed, removeResult, selectedFeature;
 const project = {
   id: 'project-1',
@@ -15,6 +15,8 @@ const project = {
 before(async () => {
   ({ react: React } = await startHarness());
   ({ Sidebar } = await loadModule('/src/components/layout/Sidebar.tsx'));
+  ({ SidebarLayoutProvider } = await loadModule('/src/context/SidebarLayoutContext.tsx'));
+  ({ TopBar } = await loadModule('/src/components/common/TopBar.tsx'));
   ({ MessageProvider } = await loadModule('/src/components/common/Message.tsx'));
 });
 
@@ -110,5 +112,70 @@ test('功能导航包含状态入口并支持点击切换', async () => {
   assert.ok(statusBtn);
   await click(statusBtn);
   assert.equal(selectedFeature, 'status');
+});
+
+test('支持通过按钮与快捷键折叠收起和重新展开侧边栏并持久化状态', async () => {
+  await view.unmount();
+  view = await mount(React.createElement(
+    MessageProvider,
+    null,
+    React.createElement(
+      SidebarLayoutProvider,
+      null,
+      React.createElement(
+        'div',
+        { style: { display: 'flex' } },
+        React.createElement(Sidebar, {
+          activeFeature: 'chat',
+          onSelectFeature() {},
+          projects: [],
+          sessions: [],
+          activeSessionId: '',
+          onSelectSession() {},
+          onNewGeneralChat() {},
+          onNewProjectChat() {},
+          onImportProject: async () => ({ success: true }),
+          onRemoveProject: async () => ({ success: true }),
+          onDeleteSession: async () => ({ success: true }),
+          onOpenSettings() {},
+          onOpenAccountSettings() {},
+        }),
+        React.createElement(TopBar, { title: '财务' }),
+      ),
+    ),
+  ));
+
+  const aside = () => document.querySelector('aside');
+  assert.equal(aside()?.getAttribute('aria-hidden'), 'false');
+  assert.equal(document.querySelector('[aria-label="展开侧边栏"]'), null);
+
+  await click(document.querySelector('[aria-label="收起侧边栏"]'));
+  assert.equal(aside()?.getAttribute('aria-hidden'), 'true');
+  assert.equal(aside()?.style.width, '0px');
+  assert.equal(document.documentElement.dataset.sidebarCollapsed, 'true');
+  assert.equal(localStorage.getItem('butvan.sidebarCollapsed'), 'true');
+  assert.ok(document.querySelector('[aria-label="展开侧边栏"]'));
+
+  await click(document.querySelector('[aria-label="展开侧边栏"]'));
+  assert.equal(aside()?.getAttribute('aria-hidden'), 'false');
+  assert.equal(document.documentElement.dataset.sidebarCollapsed, 'false');
+  assert.equal(localStorage.getItem('butvan.sidebarCollapsed'), 'false');
+  assert.equal(document.querySelector('[aria-label="展开侧边栏"]'), null);
+
+  await act(async () => {
+    window.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'b', code: 'KeyB', metaKey: true, bubbles: true, cancelable: true }));
+  });
+  assert.equal(aside()?.getAttribute('aria-hidden'), 'true');
+
+  // 富文本可编辑区域内的 Cmd+B（加粗）不能触发侧边栏切换
+  const editable = document.createElement('div');
+  editable.setAttribute('contenteditable', 'true');
+  editable.isContentEditable = true;
+  document.body.appendChild(editable);
+  await act(async () => {
+    editable.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'b', code: 'KeyB', metaKey: true, bubbles: true, cancelable: true }));
+  });
+  assert.equal(aside()?.getAttribute('aria-hidden'), 'true');
+  editable.remove();
 });
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { lifeReviewApi } from '../../services/lifeReviewApi';
 import { deliverTaskNotification } from '../../services/taskDesktop';
-import { mapTranscriptToChatMessage } from '../../features/chat/transcriptMessages';
+import { mapTranscriptMessages } from '../../features/chat/transcriptMessages';
 import type { ChatSession, SessionDetailDto } from '../../types/chat';
 import type { LifeCompanionView } from '../../types/lifeReview';
 
@@ -74,7 +74,7 @@ export function useCompanionNotifications({
         if (notice.sessionId) {
           void fetchSessionDetail(notice.sessionId).then((detail) => {
             if (!detail || stopped) return;
-            const messages = detail.messages.map(mapTranscriptToChatMessage);
+            const messages = mapTranscriptMessages(detail.messages);
             setSessions((previous) => previous.map((session) => (session.id === notice.sessionId
               ? {
                   ...session,

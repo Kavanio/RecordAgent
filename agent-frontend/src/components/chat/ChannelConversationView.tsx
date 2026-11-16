@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChatWorkspace } from './ChatWorkspace';
 import { fetchFeishuConversation } from '../../services/feishuConversationService';
-import { mapTranscriptToChatMessage } from '../../features/chat/transcriptMessages';
+import { mapTranscriptMessages } from '../../features/chat/transcriptMessages';
 import type { ChatMessage, SessionDetailDto, SessionSummaryDto } from '../../types/chat';
 import styles from './ChannelConversationView.module.css';
 
@@ -39,7 +39,7 @@ function FeishuReadOnlyWorkspace({ session }: { session: SessionSummaryDto }) {
       .then(value => {
         if (!cancelled) {
           setDetail(value);
-          setMessages(value.messages.map(mapTranscriptToChatMessage));
+          setMessages(mapTranscriptMessages(value.messages));
         }
       })
       .catch(reason => {

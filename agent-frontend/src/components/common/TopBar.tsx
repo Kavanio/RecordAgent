@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { CaretLeftIcon } from '@phosphor-icons/react';
+import { SidebarExpandButton } from '../layout/SidebarToggleButton';
 import styles from './TopBar.module.css';
 
 interface TopBarProps {
@@ -26,6 +27,7 @@ export const TopBar = ({
 }: TopBarProps) => (
   <header className={`${styles.topBar}${center ? ` ${styles.withCenter}` : ''}`} data-tauri-drag-region>
     <div className={styles.identity}>
+      <SidebarExpandButton />
       {onBack && (
         <>
           <button
