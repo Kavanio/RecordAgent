@@ -27,6 +27,12 @@ private struct ServerError: Decodable {
     let code: String
 }
 
+private struct APIResultEnvelope<T: Decodable>: Decodable {
+    let code: Int
+    let message: String?
+    let data: T?
+}
+
 extension Notification.Name {
     static let apiSessionExpired = Notification.Name("recordagent.api.sessionExpired")
 }
@@ -102,6 +108,41 @@ actor APIClient {
             invalidateSession()
             return nil
         }
+    }
+
+    func sendResult<T: Decodable>(
+        _ path: String, method: String = "GET", query: [URLQueryItem] = [],
+        body: Data? = nil, authenticated: Bool = true, idempotencyKey: UUID? = nil
+    ) async throws -> T {
+        let data = try await send(
+            path, method: method, query: query, body: body, authenticated: authenticated,
+            idempotencyKey: idempotencyKey)
+        return try Self.decodeResult(T.self, from: data)
+    }
+
+    func sendOptionalResult<T: Decodable>(
+        _ path: String, method: String = "GET", query: [URLQueryItem] = [],
+        body: Data? = nil, authenticated: Bool = true, idempotencyKey: UUID? = nil
+    ) async throws -> T? {
+        let data = try await send(
+            path, method: method, query: query, body: body, authenticated: authenticated,
+            idempotencyKey: idempotencyKey)
+        let envelope = try Self.decoder.decode(APIResultEnvelope<T>.self, from: data)
+        guard envelope.code == 200 else {
+            throw APIClientError.server(code: String(envelope.code), status: envelope.code)
+        }
+        return envelope.data
+    }
+
+    static func decodeResult<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        let envelope = try decoder.decode(APIResultEnvelope<T>.self, from: data)
+        guard envelope.code == 200 else {
+            throw APIClientError.server(code: String(envelope.code), status: envelope.code)
+        }
+        guard let value = envelope.data else {
+            throw APIClientError.invalidResponse
+        }
+        return value
     }
 
     static var encoder: JSONEncoder { JSONEncoder() }

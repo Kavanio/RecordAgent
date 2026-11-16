@@ -25,7 +25,7 @@ protocol FinanceServiceProtocol: Sendable {
     func createTransaction(_ draft: FinanceTransactionDraft) async throws
 }
 
-/// 财务 API 的请求、响应和自然日映射集中在服务层。
+/// 财务 API 对接 `agent-backend` 的 `/agent/finance`。
 actor APIFinanceService: FinanceServiceProtocol {
     private let client: APIClient
     private var submission = FinanceSubmissionState()
@@ -33,16 +33,24 @@ actor APIFinanceService: FinanceServiceProtocol {
     init(client: APIClient) { self.client = client }
 
     func accounts() async throws -> [FinanceAccount] {
-        let data = try await client.send("/api/v1/finance/accounts")
-        return try APIClient.decoder.decode([FinanceAccount].self, from: data)
+        let overview: BackendFinanceOverviewResponse = try await client.sendResult("/agent/finance/overview")
+        return overview.accounts.map { $0.toDomain() }
     }
 
     func createAccount(name: String, openingBalanceInCents: Int64) async throws -> FinanceAccount {
-        let body = try APIClient.encoder.encode(CreateAccountRequest(
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            openingBalanceInCents: openingBalanceInCents))
-        let data = try await client.send("/api/v1/finance/accounts", method: "POST", body: body)
-        return try APIClient.decoder.decode(FinanceAccount.self, from: data)
+        let body = try APIClient.encoder.encode(
+            CreateAccountRequest(
+                name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                accountType: "SAVINGS",
+                currency: "CNY",
+                initialBalance: Double(openingBalanceInCents) / 100.0,
+                interestEnabled: false,
+                annualRatePercent: nil
+            )
+        )
+        let created: BackendFinanceAccountResponse = try await client.sendResult(
+            "/agent/finance/accounts", method: "POST", body: body)
+        return created.toDomain()
     }
 
     func createTransaction(_ draft: FinanceTransactionDraft) async throws {
@@ -51,32 +59,93 @@ actor APIFinanceService: FinanceServiceProtocol {
         let time = String(format: "%02d:%02d:00", parts.hour ?? 0, parts.minute ?? 0)
         let encoder = APIClient.encoder
         encoder.outputFormatting = [.sortedKeys]
-        let body = try encoder.encode(CreateTransactionRequest(
-            accountId: draft.accountId, type: draft.type,
-            category: draft.category.trimmingCharacters(in: .whitespacesAndNewlines),
-            note: draft.note, amountInCents: draft.amountInCents,
-            date: date, time: time, timeZone: TimeZone.current.identifier))
+        let body = try encoder.encode(
+            CreateTransactionRequest(
+                accountId: draft.accountId,
+                transactionType: draft.type.uppercased(),
+                category: draft.category.trimmingCharacters(in: .whitespacesAndNewlines),
+                note: draft.note,
+                amount: Double(draft.amountInCents) / 100.0,
+                date: date,
+                time: time,
+                categoryColor: nil
+            )
+        )
         let key = submission.key(for: body, preferred: draft.requestId)
-        _ = try await client.send("/api/v1/finance/transactions", method: "POST", body: body, idempotencyKey: key)
+        let _: BackendFinanceTransactionResponse = try await client.sendResult(
+            "/agent/finance/transactions", method: "POST", body: body, idempotencyKey: key)
         submission.completed(key)
-
     }
+}
+
+struct BackendFinanceAccountResponse: Decodable {
+    let id: String
+    let name: String
+    let balance: Double
+    let version: Int
+
+    func toDomain() -> FinanceAccount {
+        FinanceAccount(
+            id: id,
+            name: name,
+            balanceInCents: Int64((balance * 100).rounded()),
+            version: Int64(version)
+        )
+    }
+}
+
+struct BackendFinanceTransactionResponse: Decodable {
+    let id: String
+    let accountId: String
+    let date: String
+    let time: String?
+    let transactionType: String
+    let category: String?
+    let note: String?
+    let amount: Double
+
+    func toDomain() -> FinanceTransaction {
+        FinanceTransaction(
+            id: id,
+            accountId: accountId,
+            type: transactionType.lowercased(),
+            category: category ?? "",
+            note: note ?? "",
+            amountInCents: Int64((amount * 100).rounded()),
+            date: date,
+            time: time ?? "00:00",
+            balanceInCents: 0,
+            balanceAfterInCents: nil
+        )
+    }
+}
+
+struct BackendFinanceOverviewResponse: Decodable {
+    let totalAssets: Double
+    let monthIncome: Double
+    let monthExpense: Double
+    let accounts: [BackendFinanceAccountResponse]
+    let transactions: [BackendFinanceTransactionResponse]
 }
 
 private struct CreateAccountRequest: Encodable {
     let name: String
-    let openingBalanceInCents: Int64
+    let accountType: String
+    let currency: String
+    let initialBalance: Double
+    let interestEnabled: Bool
+    let annualRatePercent: Double?
 }
 
 private struct CreateTransactionRequest: Encodable {
     let accountId: String
-    let type: String
+    let transactionType: String
     let category: String
     let note: String
-    let amountInCents: Int64
+    let amount: Double
     let date: String
     let time: String
-    let timeZone: String
+    let categoryColor: String?
 }
 
 /// 保存尚未确认成功的单个请求 ID；同内容重试复用键，成功后新的提交生成新键。
