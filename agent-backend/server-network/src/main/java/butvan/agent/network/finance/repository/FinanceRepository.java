@@ -29,9 +29,17 @@ public class FinanceRepository {
     public record DailyIncomeTotal(LocalDate date, BigDecimal amount) {
     }
 
+    /** 账户当前归档状态与余额（单位：分），供停用校验与历史流水保护使用。 */
+    public record AccountArchiveState(String id, long balanceMinor, boolean archived) {
+    }
+
+    /** 报告历史回溯使用的账户生命周期记录。 */
+    public record ReportAccount(String id, String name, String currency, Instant createdAt, Instant archivedAt) {
+    }
+
     private final JdbcTemplate jdbcTemplate;
 
-    /** 账户收支分别统计 expense 与 income / yield；划账、余额校准和旧日历花销不参与。 */
+    /** 账户收支分别统计 expense 与 income / yield；划账、余额校准和旧日历花销不参与，已停用且当期无收支的账户不再展示。 */
     public List<AccountExpense> findAccountExpenses(String ownerId, LocalDate from, LocalDate to) {
         return jdbcTemplate.query("""
                 SELECT a.id AS account_id, a.name AS account_name, a.account_type AS account_type,
@@ -41,7 +49,10 @@ public class FinanceRepository {
                 LEFT JOIN finance_transaction t ON t.account_id = a.id AND t.owner_id = a.owner_id
                     AND t.transaction_type IN ('expense', 'income', 'yield') AND t.transaction_date BETWEEN ? AND ?
                 WHERE a.owner_id = ?
-                GROUP BY a.id, a.name, a.account_type, a.created_at
+                GROUP BY a.id, a.name, a.account_type, a.archived, a.created_at
+                HAVING a.archived = 0
+                    OR COALESCE(SUM(CASE WHEN t.transaction_type = 'expense' THEN t.amount_minor ELSE 0 END), 0) > 0
+                    OR COALESCE(SUM(CASE WHEN t.transaction_type IN ('income', 'yield') THEN t.amount_minor ELSE 0 END), 0) > 0
                 ORDER BY amount_minor DESC, a.created_at, a.id
                 """, (rs, rowNum) -> new AccountExpense(rs.getString("account_id"),
                 rs.getString("account_name"), rs.getString("account_type"), BigDecimal.valueOf(rs.getLong("amount_minor"), 2),
@@ -83,22 +94,64 @@ public class FinanceRepository {
                 """, ownerId, transactionType, category, now.toString(), color);
     }
 
-    /** 查询用户全部账户。 */
+    /** 查询用户全部未停用账户。 */
     public List<FinanceAccount> findAccounts(String ownerId) {
         return jdbcTemplate.query("""
                 SELECT id, name, account_type, currency, balance_minor, interest_enabled,
                        annual_rate_percent, last_accrual_date, version, created_at, updated_at
+                FROM finance_account WHERE owner_id = ? AND archived = 0 ORDER BY created_at, id
+                """, (rs, rowNum) -> mapAccount(rs), ownerId);
+    }
+
+    /** 按所有者查找未停用账户。 */
+    public Optional<FinanceAccount> findAccount(String ownerId, String accountId) {
+        return jdbcTemplate.query("""
+                SELECT id, name, account_type, currency, balance_minor, interest_enabled,
+                       annual_rate_percent, last_accrual_date, version, created_at, updated_at
+                FROM finance_account WHERE owner_id = ? AND id = ? AND archived = 0
+                """, (rs, rowNum) -> mapAccount(rs), ownerId, accountId).stream().findFirst();
+    }
+
+    /** 查询账户是否归档及当前余额（含已停用账户），供停用与历史流水保护校验使用。 */
+    public Optional<AccountArchiveState> findAccountArchiveState(String ownerId, String accountId) {
+        return jdbcTemplate.query("""
+                SELECT id, balance_minor, archived
+                FROM finance_account WHERE owner_id = ? AND id = ?
+                """, (rs, rowNum) -> new AccountArchiveState(
+                rs.getString("id"), rs.getLong("balance_minor"), rs.getBoolean("archived")),
+                ownerId, accountId).stream().findFirst();
+    }
+
+    /** 读取全部账户的创建与停用时间，供报告回溯历史日末余额。 */
+    public List<ReportAccount> findAccountsForReport(String ownerId) {
+        return jdbcTemplate.query("""
+                SELECT id, name, currency, created_at, archived_at
                 FROM finance_account WHERE owner_id = ? ORDER BY created_at, id
-                """, (rs, rowNum) -> new FinanceAccount(
+                """, (rs, rowNum) -> {
+            String archivedAtText = rs.getString("archived_at");
+            return new ReportAccount(
+                    rs.getString("id"), rs.getString("name"), rs.getString("currency"),
+                    Instant.parse(rs.getString("created_at")),
+                    archivedAtText == null ? null : Instant.parse(archivedAtText));
+        }, ownerId);
+    }
+
+    /** 原子停用余额为零的未归档账户；账户不存在、已停用或余额不为零时返回 0。 */
+    public int archiveZeroBalanceAccount(String ownerId, String accountId, Instant now) {
+        return jdbcTemplate.update("""
+                UPDATE finance_account
+                SET archived = 1, archived_at = ?, interest_enabled = 0, annual_rate_percent = '0',
+                    version = version + 1, updated_at = ?
+                WHERE owner_id = ? AND id = ? AND archived = 0 AND balance_minor = 0
+                """, now.toString(), now.toString(), ownerId, accountId);
+    }
+
+    private FinanceAccount mapAccount(java.sql.ResultSet rs) throws java.sql.SQLException {
+        return new FinanceAccount(
                 rs.getString("id"), rs.getString("name"), rs.getString("account_type"), rs.getString("currency"),
                 BigDecimal.valueOf(rs.getLong("balance_minor"), 2), rs.getBoolean("interest_enabled"),
                 new BigDecimal(rs.getString("annual_rate_percent")), LocalDate.parse(rs.getString("last_accrual_date")),
-                rs.getInt("version"), Instant.parse(rs.getString("created_at")), Instant.parse(rs.getString("updated_at"))), ownerId);
-    }
-
-    /** 按所有者查找账户。 */
-    public Optional<FinanceAccount> findAccount(String ownerId, String accountId) {
-        return findAccounts(ownerId).stream().filter(account -> account.id().equals(accountId)).findFirst();
+                rs.getInt("version"), Instant.parse(rs.getString("created_at")), Instant.parse(rs.getString("updated_at")));
     }
 
     /** 新建账户。 */
@@ -113,22 +166,22 @@ public class FinanceRepository {
                 annualRatePercent.toPlainString(), today.toString(), now.toString(), now.toString());
     }
 
-    /** 原子更新账户余额和结息日期。 */
+    /** 原子更新未停用账户余额和结息日期。 */
     public void updateBalanceAndAccrualDate(
             String ownerId, String accountId, long balanceMinor, LocalDate accrualDate, Instant now) {
         int updated = jdbcTemplate.update("""
                 UPDATE finance_account
                 SET balance_minor = ?, last_accrual_date = ?, version = version + 1, updated_at = ?
-                WHERE owner_id = ? AND id = ?
+                WHERE owner_id = ? AND id = ? AND archived = 0
                 """, balanceMinor, accrualDate.toString(), now.toString(), ownerId, accountId);
         if (updated != 1) throw new IllegalArgumentException("资产账户不存在");
     }
 
-    /** 原子调整账户余额，余额不足时拒绝支出。 */
+    /** 原子调整未停用账户余额，余额不足时拒绝支出。 */
     public boolean adjustBalance(String ownerId, String accountId, long deltaMinor, Instant now) {
         return jdbcTemplate.update("""
                 UPDATE finance_account SET balance_minor = balance_minor + ?, version = version + 1, updated_at = ?
-                WHERE owner_id = ? AND id = ? AND balance_minor + ? >= 0
+                WHERE owner_id = ? AND id = ? AND archived = 0 AND balance_minor + ? >= 0
                 """, deltaMinor, now.toString(), ownerId, accountId, deltaMinor) == 1;
     }
 

@@ -1,8 +1,9 @@
 import {
   Activity, CalendarClock, CalendarDays, CircleHelp,
-  GraduationCap, LoaderCircle, Search, WalletCards, X,
+  GraduationCap, Search, WalletCards, X,
 } from 'lucide-react';
 import type { CSSProperties } from 'react';
+import { LoadingTree } from '../common/LoadingTree';
 import { RECORD_REFERENCE_PRESENTATIONS } from '../../features/record/recordReferencePresentation';
 import type { SlashCommandDefinition } from '../../features/slash-command/slashCommands';
 import type { DailyInsight } from '../../types/dailyInsight';
@@ -60,19 +61,19 @@ export function SlashCommandResult({ result, statusData, onClose }: SlashCommand
               : result.kind === 'spending' ? <SpendingContent data={result.data} />
                 : result.kind === 'study-report' ? <StudyReportContent data={result.data} period={result.period} />
                   : result.kind === 'find-record' ? <RecordSearchContent data={result.data} query={result.query} hasMore={result.hasMore} />
-                    : <p className={result.kind === 'error' ? styles.error : styles.loading}>{result.message}</p>}
+                    : result.kind === 'loading' ? <div className={styles.loading}><LoadingTree size="small" label={result.message} /></div>
+                      : <p className={styles.error}>{result.message}</p>}
     </section>
   );
 }
 
 function ResultIcon({ kind }: { kind: SlashCommandResultData['kind'] }) {
-  if (kind === 'status') return <Activity size={15} strokeWidth={1.6} aria-hidden="true" />;
+  if (kind === 'status' || kind === 'loading') return <Activity size={15} strokeWidth={1.6} aria-hidden="true" />;
   if (kind === 'today') return <CalendarDays size={15} strokeWidth={1.6} aria-hidden="true" />;
   if (kind === 'agenda') return <CalendarClock size={15} strokeWidth={1.6} aria-hidden="true" />;
   if (kind === 'spending') return <WalletCards size={15} strokeWidth={1.6} aria-hidden="true" />;
   if (kind === 'study-report') return <GraduationCap size={15} strokeWidth={1.6} aria-hidden="true" />;
   if (kind === 'find-record') return <Search size={15} strokeWidth={1.6} aria-hidden="true" />;
-  if (kind === 'loading') return <LoaderCircle className={styles.spinner} size={15} strokeWidth={1.6} aria-hidden="true" />;
   return <CircleHelp size={15} strokeWidth={1.6} aria-hidden="true" />;
 }
 

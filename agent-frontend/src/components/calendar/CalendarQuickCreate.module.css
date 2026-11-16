@@ -194,8 +194,8 @@
 
 .field > input:focus,
 .field > textarea:focus {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 2px rgba(47, 105, 218, 0.12);
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
 }
 
 .formActions {
@@ -203,30 +203,6 @@
   justify-content: flex-end;
   gap: 8px;
   margin-top: 3px;
-}
-
-.cancelButton,
-.submitButton {
-  height: 34px;
-  padding: 0 13px;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.cancelButton {
-  background: transparent;
-  color: var(--text-secondary);
-}
-
-.submitButton {
-  background: var(--accent-blue);
-  color: var(--text-inverse);
-}
-
-.submitButton:hover {
-  background: #285fc6;
 }
 
 @media (max-width: 620px) {

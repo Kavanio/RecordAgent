@@ -1,8 +1,8 @@
 import { TopBarAction } from '../common/TopBarAction';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { ArrowClockwiseIcon, ArrowsLeftRightIcon, CaretRightIcon, PencilSimpleIcon, PlusIcon, SparkleIcon, WalletIcon } from '@phosphor-icons/react';
-import { createFinanceAccount, createFinanceBalanceAdjustment, createFinanceTransaction, createFinanceTransfer, deleteFinanceTransaction, fetchFinanceCategories, fetchFinanceExpenseChart, fetchFinanceExpenseInsights, fetchFinanceOverview, fetchFinanceTransactions, updateFinanceTransaction } from '../../services/financeApi';
-import type { CreateFinanceAccountInput, CreateFinanceBalanceAdjustmentInput, CreateFinanceTransactionInput, CreateFinanceTransferInput, FinanceAccount, FinanceCategoryOptions, FinanceChartRange, FinanceExpenseChart, FinanceExpenseInsights, FinanceOverview, FinanceTransaction } from '../../types/finance';
+import { createFinanceAccount, createFinanceBalanceAdjustment, createFinanceTransaction, createFinanceTransfer, deleteFinanceAccount, deleteFinanceTransaction, updateFinanceTransaction } from '../../services/financeApi';
+import type { CreateFinanceAccountInput, CreateFinanceBalanceAdjustmentInput, CreateFinanceTransactionInput, CreateFinanceTransferInput, FinanceAccount, FinanceTransaction } from '../../types/finance';
 import { Button } from '../common/Button';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { Skeleton } from '../common/Skeleton';
@@ -20,28 +20,19 @@ import { TransferModal } from './TransferModal';
 import { AssetDetailModal } from './AssetDetailModal';
 import { FinanceSummary } from './FinanceSummary';
 import { ExpenseInsightsPanel } from './ExpenseInsightsPanel';
-
-function money(value: number): string {
-  return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(value);
-}
+import { buildBlockedDeleteAccountDescription, buildDeleteAccountDescription, buildDeleteTransactionDescription, formatFinanceMoney, isZeroBalanceAccount } from './financeDeleteDescriptions';
+import { useFinanceData } from './useFinanceData';
 
 /** 独立财务工作台：统一完成资产建档、收支记账和自动收益查看。 */
 export const FinancePage: React.FC = () => {
   const { showMessage } = useMessage();
-  const [overview, setOverview] = useState<FinanceOverview | null>(null);
-  const [categoryOptions, setCategoryOptions] = useState<FinanceCategoryOptions>({ expense: [], income: [] });
-  const [chart, setChart] = useState<FinanceExpenseChart | null>(null);
-  const [chartRange, setChartRange] = useState<FinanceChartRange>('month');
-  const [insights, setInsights] = useState<FinanceExpenseInsights | null>(null);
-  const [insightsRange, setInsightsRange] = useState<FinanceChartRange>('month');
-  const [isInsightsLoading, setIsInsightsLoading] = useState(true);
-  const [insightsError, setInsightsError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [overviewError, setOverviewError] = useState<string | null>(null);
-  const [categoriesError, setCategoriesError] = useState<string | null>(null);
-  const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
-  const [isChartLoading, setIsChartLoading] = useState(true);
-  const [chartError, setChartError] = useState<string | null>(null);
+  const {
+    overview, categoryOptions, chart, chartRange, setChartRange,
+    insights, insightsRange, setInsightsRange, isInsightsLoading, insightsError,
+    isLoading, overviewError, categoriesError, isCategoriesLoading,
+    isChartLoading, chartError, allTransactions, isTransactionsLoading, transactionsError,
+    load, loadCategories, loadChart, loadInsights, loadAllTransactions,
+  } = useFinanceData();
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<FinanceTransaction | null>(null);
@@ -51,92 +42,10 @@ export const FinancePage: React.FC = () => {
   const [isTransactionDrawerOpen, setIsTransactionDrawerOpen] = useState(false);
   const [isAssetDetailModalOpen, setIsAssetDetailModalOpen] = useState(false);
   const [adjustmentAccount, setAdjustmentAccount] = useState<FinanceAccount | null>(null);
-  const [allTransactions, setAllTransactions] = useState<FinanceTransaction[]>([]);
-  const [isTransactionsLoading, setIsTransactionsLoading] = useState(false);
-  const [transactionsError, setTransactionsError] = useState<string | null>(null);
-  const chartRequestId = useRef(0);
-  const insightsRequestId = useRef(0);
-  const overviewRequestId = useRef(0);
-  const categoriesRequestId = useRef(0);
-
-  const load = useCallback(async () => {
-    const requestId = ++overviewRequestId.current;
-    setIsLoading(true);
-    setOverviewError(null);
-    try {
-      const nextOverview = await fetchFinanceOverview();
-      if (requestId === overviewRequestId.current) setOverview(nextOverview);
-    } catch (cause) {
-      if (requestId === overviewRequestId.current) setOverviewError(cause instanceof Error ? cause.message : '财务数据加载失败，请稍后重试。');
-    } finally {
-      if (requestId === overviewRequestId.current) setIsLoading(false);
-    }
-  }, []);
-
-  // 分类失败只影响表单中的历史分类，不阻塞资产、流水和图表。
-  const loadCategories = useCallback(async () => {
-    const requestId = ++categoriesRequestId.current;
-    setIsCategoriesLoading(true);
-    setCategoriesError(null);
-    try {
-      const nextCategories = await fetchFinanceCategories();
-      if (requestId === categoriesRequestId.current) setCategoryOptions(nextCategories);
-    } catch (cause) {
-      if (requestId === categoriesRequestId.current) setCategoriesError(cause instanceof Error ? cause.message : '历史分类加载失败');
-    } finally {
-      if (requestId === categoriesRequestId.current) setIsCategoriesLoading(false);
-    }
-  }, []);
-
-  const loadChart = useCallback(async (range: FinanceChartRange) => {
-    const requestId = ++chartRequestId.current;
-    setIsChartLoading(true);
-    setChartError(null);
-    try {
-      const nextChart = await fetchFinanceExpenseChart(range);
-      if (requestId === chartRequestId.current) setChart(nextChart);
-    } catch (cause) {
-      if (requestId === chartRequestId.current) {
-        setChartError(cause instanceof Error ? cause.message : '支出趋势加载失败，请稍后重试。');
-      }
-    } finally {
-      if (requestId === chartRequestId.current) setIsChartLoading(false);
-    }
-  }, []);
-
-  const loadInsights = useCallback(async (range: FinanceChartRange) => {
-    const requestId = ++insightsRequestId.current;
-    setIsInsightsLoading(true);
-    setInsightsError(null);
-    try {
-      const nextInsights = await fetchFinanceExpenseInsights(range);
-      if (requestId === insightsRequestId.current) setInsights(nextInsights);
-    } catch (cause) {
-      if (requestId === insightsRequestId.current) setInsightsError(cause instanceof Error ? cause.message : '支出分析加载失败，请稍后重试。');
-    } finally {
-      if (requestId === insightsRequestId.current) setIsInsightsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void load(); }, [load]);
-  useEffect(() => { void loadCategories(); }, [loadCategories]);
-  useEffect(() => { void loadChart(chartRange); }, [chartRange, loadChart]);
-  useEffect(() => { void loadInsights(insightsRange); }, [insightsRange, loadInsights]);
-  useEffect(() => () => {
-    overviewRequestId.current += 1;
-    categoriesRequestId.current += 1;
-    chartRequestId.current += 1;
-    insightsRequestId.current += 1;
-  }, []);
+  const [deleteAccountTarget, setDeleteAccountTarget] = useState<FinanceAccount | null>(null);
+  const [blockedAccountTarget, setBlockedAccountTarget] = useState<FinanceAccount | null>(null);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const recentTransactions = overview?.transactions.slice(0, 5) ?? [];
-
-  const loadAllTransactions = useCallback(async () => {
-    setIsTransactionsLoading(true);
-    setTransactionsError(null);
-    try { setAllTransactions(await fetchFinanceTransactions()); }
-    catch (cause) { setTransactionsError(cause instanceof Error ? cause.message : '全部流水加载失败，请稍后重试。'); }
-    finally { setIsTransactionsLoading(false); }
-  }, []);
 
   const openTransactionDrawer = () => {
     setIsTransactionDrawerOpen(true);
@@ -168,39 +77,6 @@ export const FinancePage: React.FC = () => {
     setEditingTransaction(null);
   };
 
-  /** 划账的两条流水共用日期、时间与金额，删除文案据此找到对方账户名称。 */
-  const findTransferPartner = (transaction: FinanceTransaction) => allTransactions.find((item) =>
-    item.id !== transaction.id
-    && (item.transactionType === 'transfer_out' || item.transactionType === 'transfer_in')
-    && item.transactionType !== transaction.transactionType
-    && item.date === transaction.date
-    && item.time === transaction.time
-    && item.amount === transaction.amount);
-
-  /** 删除确认文案逐类型说明余额会怎么回滚，避免用户误删成新的错账。 */
-  const deleteDescription = (transaction: FinanceTransaction): string => {
-    const amount = money(transaction.amount);
-    const partnerName = findTransferPartner(transaction)?.accountName;
-    switch (transaction.transactionType) {
-      case 'expense':
-        return transaction.source === 'calendar'
-          ? '这是从日历记录同步的旧花销，删除后会同时从日历和记录中移除，不影响资产账户余额。'
-          : `删除后 ${amount} 会退回「${transaction.accountName}」。`;
-      case 'income':
-        return `删除后 ${amount} 会从「${transaction.accountName}」扣回；余额不足时删除会被拒绝。`;
-      case 'transfer_out':
-        return `这会同时删除对应的转入记录，${amount} 会退回「${transaction.accountName}」${partnerName ? `，并从「${partnerName}」扣回。` : '。'}`;
-      case 'transfer_in':
-        return `这会同时删除对应的转出记录，${amount} 会从「${transaction.accountName}」扣回${partnerName ? `，并退回「${partnerName}」。` : '。'}`;
-      case 'adjustment_increase':
-        return `删除后余额校准的影响一并回滚，「${transaction.accountName}」余额将减少 ${amount}。`;
-      case 'adjustment_decrease':
-        return `删除后余额校准的影响一并回滚，「${transaction.accountName}」余额将增加 ${amount}。`;
-      default:
-        return '';
-    }
-  };
-
   const confirmDeleteTransaction = async () => {
     if (!deleteTarget || isDeleting) return;
     setIsDeleting(true);
@@ -213,6 +89,33 @@ export const FinancePage: React.FC = () => {
     } finally {
       setIsDeleting(false);
       setDeleteTarget(null);
+    }
+  };
+
+  const requestDeleteAccount = (account: FinanceAccount) => {
+    if (!isZeroBalanceAccount(account)) {
+      setBlockedAccountTarget(account);
+      return;
+    }
+    setDeleteAccountTarget(account);
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (!deleteAccountTarget || isDeletingAccount) return;
+    setIsDeletingAccount(true);
+    try {
+      await deleteFinanceAccount(deleteAccountTarget.id);
+      await Promise.all([
+        load(),
+        loadInsights(insightsRange),
+        ...(isTransactionDrawerOpen ? [loadAllTransactions()] : []),
+      ]);
+      showMessage('success', '资产账户已删除，历史流水与统计已保留');
+    } catch (cause) {
+      showMessage('error', cause instanceof Error ? cause.message : '资产账户删除失败，请稍后重试。');
+    } finally {
+      setIsDeletingAccount(false);
+      setDeleteAccountTarget(null);
     }
   };
 
@@ -312,7 +215,7 @@ export const FinancePage: React.FC = () => {
                 <TransactionTypeIcon type={transaction.transactionType} category={transaction.category} />
                 <span className={styles.transactionBody}><strong>{transaction.note}</strong><small>{transaction.accountName} · {transaction.category} · {transaction.date.slice(5)} {transaction.time.slice(0, 5)}</small></span>
                 <div className={styles.transactionActions}>
-                  <strong className={amountClass}>{isOutflow ? '-' : '+'}{money(transaction.amount)}</strong>
+                  <strong className={amountClass}>{isOutflow ? '-' : '+'}{formatFinanceMoney(transaction.amount)}</strong>
                   {transaction.source === 'manual' && (isExpense || transaction.transactionType === 'income') && <button
                     type="button"
                     className={styles.transactionEditButton}
@@ -379,9 +282,37 @@ export const FinancePage: React.FC = () => {
       confirmText="删除流水"
       confirmVariant="danger"
       busy={isDeleting}
-      description={deleteTarget ? deleteDescription(deleteTarget) : ''}
+      description={deleteTarget ? buildDeleteTransactionDescription(deleteTarget, allTransactions) : ''}
       onClose={() => { if (!isDeleting) setDeleteTarget(null); }}
       onConfirm={() => void confirmDeleteTransaction()}
+    />
+
+    <ConfirmDialog
+      open={deleteAccountTarget !== null}
+      title="确认删除资产账户"
+      tone="danger"
+      confirmText="删除账户"
+      confirmVariant="danger"
+      busy={isDeletingAccount}
+      description={deleteAccountTarget ? buildDeleteAccountDescription(deleteAccountTarget) : ''}
+      onClose={() => { if (!isDeletingAccount) setDeleteAccountTarget(null); }}
+      onConfirm={() => void confirmDeleteAccount()}
+    />
+
+    <ConfirmDialog
+      open={blockedAccountTarget !== null}
+      title="余额不为 0，暂不可删除"
+      tone="warning"
+      cancelText="知道了"
+      confirmText="去调整余额"
+      description={blockedAccountTarget ? buildBlockedDeleteAccountDescription(blockedAccountTarget) : ''}
+      onClose={() => setBlockedAccountTarget(null)}
+      onConfirm={() => {
+        if (!blockedAccountTarget) return;
+        const target = blockedAccountTarget;
+        setBlockedAccountTarget(null);
+        openBalanceAdjustment(target);
+      }}
     />
 
     <AssetDetailModal
@@ -391,6 +322,7 @@ export const FinancePage: React.FC = () => {
       onClose={() => setIsAssetDetailModalOpen(false)}
       onAddAccount={openAccountModal}
       onAdjustAccount={openBalanceAdjustment}
+      onDeleteAccount={requestDeleteAccount}
     />
 
     <AssetAdjustmentModal

@@ -85,7 +85,7 @@ public class TranscriptService {
                 try {
                     var value = objectMapper.readValue(line, TranscriptMessageDto.class);
                     records.addLast(new TranscriptMessageDto(value.id(), value.turnId(), value.role(),
-                            value.content(), value.createdAt(), value.status(), null, List.of(), null, null));
+                            value.content(), value.createdAt(), value.status(), null, List.of(), null, null, value.proactive()));
                     if (records.size() > Math.max(1, Math.min(24, limit))) records.removeFirst();
                 } catch (IOException exception) {
                     log.warn("跳过有界历史中的损坏记录：sessionId={}", sessionId);
@@ -162,16 +162,19 @@ public class TranscriptService {
      */
     public synchronized String appendProactiveAssistantMessage(String sessionId, String content) {
         String turnId = UUID.randomUUID().toString();
-        appendAssistantMessage(
-                sessionId,
+        append(sessionId, new TranscriptMessageDto(
+                UUID.randomUUID().toString(),
                 turnId,
+                TranscriptMessageDto.MessageRole.ASSISTANT,
                 content == null ? "" : content.strip(),
-                null,
+                Instant.now(),
                 TranscriptMessageDto.MessageStatus.COMPLETED,
                 0L,
                 List.of(),
-                null
-        );
+                null,
+                null,
+                true
+        ));
         return turnId;
     }
 

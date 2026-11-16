@@ -84,6 +84,10 @@ public class LifeReviewController {
     public Result<CompanionView> companion() {
         return Result.success(requireCompanion().view(user.currentUserId()));
     }
+    @ApiLog("订阅主动陪伴状态与桌面通知实时流") @GetMapping(value = "/companion/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter companionStream() {
+        return requireCompanion().subscribe(user.currentUserId());
+    }
     @ApiLog("修改并保存系统性用户认知") @PutMapping("/companion/cognition")
     public Result<CompanionView> saveCognition(@RequestBody SaveCognitionRequest input) {
         return Result.success(requireCompanion().saveCognition(user.currentUserId(), input));

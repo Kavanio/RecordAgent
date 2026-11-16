@@ -49,13 +49,9 @@ public class ReviewModelCatalog {
     }
 
     /**
-     * 当未指定固定模型或指定为 ACTIVE 时，自动选用当前已启用的首个可用模型连接，换模型无需重新授权。
+     * 解析当前已启用的首个具体模型连接（返回真实固化的 Provider ID、Model ID 与指纹，不使用动态别名）。
      */
-    public ModelIdentity resolveOrActive(String providerId, String modelName) {
-        if (providerId != null && !providerId.isBlank() && !"ACTIVE".equalsIgnoreCase(providerId)
-                && modelName != null && !modelName.isBlank()) {
-            return resolve(providerId, modelName);
-        }
+    public ModelIdentity resolveFirstEnabled() {
         try {
             var path = config.getConfigPath();
             if (Files.isRegularFile(path) && Files.size(path) <= 2_000_000) {
@@ -63,20 +59,26 @@ public class ReviewModelCatalog {
                 if (data != null && data.getProviders() != null) {
                     for (var provider : data.getProviders()) {
                         if (provider == null || !Boolean.TRUE.equals(provider.getIsEnabled())
+                                || provider.getId() == null || provider.getId().isBlank()
+                                || provider.getApiKey() == null || provider.getApiKey().isBlank()
                                 || provider.getModels() == null || provider.getModels().isEmpty()) continue;
                         var firstModel = provider.getModels().stream().filter(java.util.Objects::nonNull).findFirst().orElse(null);
                         if (firstModel == null) continue;
                         String resolvedName = firstModel.getModelName() == null || firstModel.getModelName().isBlank()
                                 ? firstModel.getName() : firstModel.getModelName();
                         if (resolvedName != null && !resolvedName.isBlank()) {
-                            return new ModelIdentity("ACTIVE", resolvedName, "openai", "ACTIVE");
+                            try {
+                                return resolve(provider.getId(), resolvedName);
+                            } catch (IllegalArgumentException ignored) {
+                                // 跳过类型不受支持的供应商，继续检查下一个已启用连接
+                            }
                         }
                     }
                 }
             }
-        } catch (Exception ignored) {
-            // 回退到动态主模型标识
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("模型配置读取失败，请检查模型设置");
         }
-        return new ModelIdentity("ACTIVE", modelName == null || modelName.isBlank() ? "当前聊天主模型" : modelName, "openai", "ACTIVE");
+        throw new IllegalArgumentException("当前没有可用的已启用模型连接，请先在模型设置中启用并保存");
     }
 }

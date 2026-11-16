@@ -16,7 +16,7 @@ export const LoadingTree: React.FC<LoadingTreeProps> = ({
   size = 'medium',
   className = '',
 }) => {
-  const id = useId();
+  const id = useId().replace(/[^a-zA-Z0-9_-]/g, '_');
   const inkId = `${id}-tree-ink`;
   const washId = `${id}-tree-wash`;
   return (

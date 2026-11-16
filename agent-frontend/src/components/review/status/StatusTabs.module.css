@@ -1,0 +1,6 @@
+.tabs { display: inline-flex; flex-shrink: 0; align-items: center; gap: 2px; padding: 2px; border-radius: 999px; background: #f3f5f8; }
+.tabs button { position: relative; min-height: 26px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: #64748b; font: 500 12.5px var(--font-sans); letter-spacing: -.01em; white-space: nowrap; cursor: pointer; transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; }
+.tabs button:hover { color: var(--text-primary); }
+.tabs button[aria-selected='true'] { background: var(--bg-app); color: var(--text-primary); font-weight: 600; box-shadow: 0 1px 3px #0f172a12; }
+.tabs button:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .tabs button { transition: none; } }

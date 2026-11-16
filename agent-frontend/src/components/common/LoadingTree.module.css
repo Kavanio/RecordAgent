@@ -6,6 +6,8 @@
   justify-content: center;
   gap: 12px;
   color: #507f78;
+  font-family: var(--font-sans);
+  font-weight: 400;
   text-align: center;
 }
 .tree {
@@ -45,7 +47,6 @@
 .label { max-width: 32ch; color: #64748b; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .small { gap: 6px; }
 .small .label { font-size: 12px; }
-.small .leaves { display: none; }
 
 /* 外缘与追光同步匀速描绘约 1.8 秒；枝叶、停留和淡出同步放慢。 */
 @keyframes outlineDraw {

@@ -1,22 +1,23 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
   min-width: 0;
 }
 
 .label {
   font-size: 13px;
   font-weight: 600;
-  color: #334155;
+  letter-spacing: -0.01em;
+  color: #1e293b;
 }
 
 .required {
-  color: #dc2626;
+  color: #ef4444;
 }
 
 .hint {
   font-size: 12px;
   color: #64748b;
-  line-height: 1.4;
+  line-height: 1.5;
 }

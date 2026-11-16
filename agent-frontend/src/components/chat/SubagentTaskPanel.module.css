@@ -7,6 +7,7 @@
 .refresh:hover:not(:disabled) { border-color: var(--border-medium); color: var(--text-primary); }
 .refresh:disabled { cursor: wait; }
 .refreshing { animation: spin 0.8s linear infinite; }
+.loadingState { display: flex; justify-content: center; padding: 28px 16px; }
 .empty, .error { padding: 16px; }
 .error { color: #b91c1c; }
 .taskList { display: flex; flex-direction: column; gap: 8px; padding: 12px; }

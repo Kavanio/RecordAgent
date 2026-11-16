@@ -5,6 +5,7 @@ import { AgentResponse } from './AgentResponse';
 import { SubagentActivity } from './SubagentActivity';
 import { MarkdownContent } from '../common/MarkdownContent';
 import { TokenUsageTrigger } from './TokenUsageTrigger';
+import { formatMessageTimestampSeconds } from '../../features/chat/transcriptMessages';
 import styles from './ChatWorkspace.module.css';
 
 interface AssistantMessageItemProps {
@@ -62,32 +63,45 @@ export const AssistantMessageItem: React.FC<AssistantMessageItemProps> = ({
         </div>
       )}
 
-      {(msg.content || msg.usage) && (
-        <div className={styles.messageFooter}>
-          {/* 消息底部操作工具栏：复制、赞、踩、全屏/分享 */}
-          {msg.content && (
-            <div className={styles.messageActions}>
-              <button className={styles.actionBtn} title="复制内容" aria-label="复制内容" onClick={handleCopy}>
-                <Copy size={14} />
-              </button>
-              <button className={styles.actionBtn} title="即将推出" aria-label="赞（即将推出）" disabled>
-                <ThumbsUp size={14} />
-              </button>
-              <button className={styles.actionBtn} title="即将推出" aria-label="踩（即将推出）" disabled>
-                <ThumbsDown size={14} />
-              </button>
-              <button className={styles.actionBtn} title="即将推出" aria-label="全屏/扩展（即将推出）" disabled>
-                <Maximize2 size={14} />
-              </button>
-            </div>
-          )}
-          <TokenUsageTrigger
-            usage={msg.usage}
-            active={tokenUsageActive}
-            onOpen={() => onOpenTokenUsage(msg.id)}
-          />
-        </div>
-      )}
+      {(msg.content || msg.usage || msg.proactive) && (() => {
+        const proactiveTimestamp = msg.proactive ? formatMessageTimestampSeconds(msg.createdAt) : '';
+        if (!msg.content && !msg.usage && !proactiveTimestamp) return null;
+        return (
+          <div className={styles.messageFooter}>
+            {/* 消息底部操作工具栏：复制、赞、踩、全屏/分享 */}
+            {msg.content && (
+              <div className={styles.messageActions}>
+                <button className={styles.actionBtn} title="复制内容" aria-label="复制内容" onClick={handleCopy}>
+                  <Copy size={14} />
+                </button>
+                <button className={styles.actionBtn} title="即将推出" aria-label="赞（即将推出）" disabled>
+                  <ThumbsUp size={14} />
+                </button>
+                <button className={styles.actionBtn} title="即将推出" aria-label="踩（即将推出）" disabled>
+                  <ThumbsDown size={14} />
+                </button>
+                <button className={styles.actionBtn} title="即将推出" aria-label="全屏/扩展（即将推出）" disabled>
+                  <Maximize2 size={14} />
+                </button>
+              </div>
+            )}
+            <TokenUsageTrigger
+              usage={msg.usage}
+              active={tokenUsageActive}
+              onOpen={() => onOpenTokenUsage(msg.id)}
+            />
+            {proactiveTimestamp && (
+              <time
+                className={styles.proactiveTime}
+                dateTime={new Date(msg.createdAt).toISOString()}
+                title={`推送时间：${proactiveTimestamp}`}
+              >
+                {proactiveTimestamp}
+              </time>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 };

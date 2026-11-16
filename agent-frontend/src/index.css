@@ -1,7 +1,8 @@
 @import './styles/theme.css';
 
-:root { --window-titlebar-inset: 0px; }
+:root { --window-titlebar-inset: 0px; --sidebar-collapsed-left-inset: 0px; }
 :root[data-window-chrome='macos-overlay'] { --window-titlebar-inset: 38px; }
+:root[data-window-chrome='macos-overlay'][data-sidebar-collapsed='true'] { --sidebar-collapsed-left-inset: 84px; }
 
 #root {
   width: 100vw;

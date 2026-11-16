@@ -99,16 +99,8 @@
 
 .loading {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #71717a;
-  font-size: 12px;
-  padding: 4px 2px;
-}
-
-.spinner {
-  animation: command-result-spin 900ms linear infinite;
-  color: #71717a;
+  justify-content: center;
+  padding: 16px 8px;
 }
 
 .insightDate {
@@ -155,8 +147,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-@keyframes command-result-spin { to { transform: rotate(360deg); } }
 
 .queryContent {
   min-width: 0;

@@ -1,0 +1,32 @@
+.page { display: flex; flex-direction: column; gap: 42px; }
+.block { display: flex; flex-direction: column; gap: 18px; }
+.blockHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.blockHeader h2 { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--text-primary); font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
+.blockHeader h2 svg { color: #64748b; }
+.blockHeader p { margin: 4px 0 0; color: #64748b; font-size: 12px; line-height: 1.6; }
+.emptyCard { border: 0; border-radius: 16px; background: #fafbfd; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; border: 0; }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.dimCard { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 20px 22px; border: 0; border-radius: 16px; background: #fafbfd; transition: background-color 180ms ease, transform 180ms ease; }
+.dimCard:hover { background: #f4f7fb; transform: translateY(-1px); }
+.dimHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.dimHeader button { opacity: 0.35; transition: opacity var(--transition-fast); }
+.dimCard:hover .dimHeader button, .dimCard:focus-within .dimHeader button { opacity: 1; }
+.dimTitle { display: inline-flex; align-items: center; gap: 7px; color: var(--text-primary); font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
+.dimTitle svg { color: #64748b; flex: 0 0 auto; }
+.dimText, .dimFallback { margin: 0; font-size: 14px; line-height: 1.8; letter-spacing: -.006em; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dimText { color: var(--text-primary); }
+.dimFallback { color: #94a3b8; }
+.busyWindow { align-self: flex-start; padding: 3px 10px; border-radius: 999px; background: #eef2f6; color: var(--text-secondary); font-size: 11px; font-weight: 500; }
+.modalForm { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.textarea { box-sizing: border-box; width: 100%; padding: 10px 12px; border: 1px solid var(--border-medium); border-radius: 10px; font: 400 13px/1.6 var(--font-sans); color: var(--text-primary); background: var(--bg-app); resize: vertical; }
+.textarea:focus { outline: none; border-color: var(--border-focus); }
+.hours { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--text-secondary); font-weight: 400; }
+@media (max-width: 760px) {
+  .grid, .tiles { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dimCard, .dimHeader button { transition: none; }
+  .dimCard:hover { transform: none; }
+}

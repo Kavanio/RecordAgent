@@ -31,7 +31,7 @@
 .state { min-height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 11px; text-align: center; }
 .state strong { color: var(--text-primary); font-size: 12px; }
 .state p { max-width: 320px; margin-top: 5px; line-height: 1.5; }
-.state button { margin-top: 12px; padding: 6px 10px; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-app); color: var(--text-secondary); font: 600 10px var(--font-sans); }
+.state button { margin-top: 12px; }
 
 @media (max-width: 520px) {
   .filters { grid-template-columns: 1fr; }

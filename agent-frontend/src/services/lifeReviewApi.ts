@@ -1,4 +1,4 @@
-import { apiFetch, getApiBaseUrl, type ApiResponse } from './api';
+import { apiEventSourceUrl, apiFetch, getApiBaseUrl, type ApiResponse } from './api';
 import type {
   LifeSettings,
   LifeContent,
@@ -75,4 +75,59 @@ export const lifeReviewApi = {
     return view;
   },
   ackDesktopNotice: (id: string) => request<void>(`/companion/desktop-notices${idPath(id)}/ack`, 'POST'),
+  subscribeCompanion: (onSnapshot: (value: LifeCompanionView) => void) => {
+    let source: EventSource | null = null;
+    let stopped = false;
+    let failures = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const clear = () => {
+      if (retryTimer !== undefined) clearTimeout(retryTimer);
+      retryTimer = undefined;
+      source?.close();
+      source = null;
+    };
+    const connect = () => {
+      if (stopped || typeof EventSource === 'undefined') return;
+      clear();
+      try {
+        const current = new EventSource(apiEventSourceUrl(`${getApiBaseUrl()}/agent/life-reviews/companion/stream`));
+        source = current;
+        const onPayload = (event: MessageEvent<string>) => {
+          if (stopped || source !== current) return;
+          try {
+            const view = JSON.parse(event.data) as LifeCompanionView;
+            failures = 0;
+            onSnapshot(view);
+          } catch {
+            // 忽略无法解析的损坏事件帧
+          }
+        };
+        current.addEventListener('snapshot', onPayload as EventListener);
+        current.addEventListener('updated', onPayload as EventListener);
+        current.addEventListener('heartbeat', () => {
+          if (!stopped && source === current) failures = 0;
+        });
+        current.onerror = () => {
+          if (stopped || source !== current) return;
+          clear();
+          failures += 1;
+          const delay = Math.min(30_000, 1000 * 2 ** Math.min(failures - 1, 5));
+          retryTimer = setTimeout(connect, delay);
+        };
+      } catch {
+        clear();
+      }
+    };
+    const onOnline = () => connect();
+    if (typeof window !== 'undefined') window.addEventListener('online', onOnline);
+    connect();
+    return {
+      reconnect: connect,
+      close() {
+        stopped = true;
+        clear();
+        if (typeof window !== 'undefined') window.removeEventListener('online', onOnline);
+      },
+    };
+  },
 };

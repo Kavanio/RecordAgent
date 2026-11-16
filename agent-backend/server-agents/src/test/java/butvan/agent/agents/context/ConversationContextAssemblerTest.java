@@ -1,6 +1,7 @@
 package butvan.agent.agents.context;
 
 import butvan.agent.agents.storage.AgentStorageProperties;
+import butvan.agent.agents.review.CompanionContextPort;
 import butvan.agent.agents.review.LifeReviewContextPort;
 import butvan.agent.agents.review.TaskReportContextPort;
 import butvan.agent.agents.usage.TokenCounter;
@@ -175,6 +176,28 @@ class ConversationContextAssemblerTest {
         assertTrue(envelope.memoryTokens() > 0 && envelope.estimatedTokens() <= 850);
 
         valid.set(false);
+        assertTrue(envelope.blocks().stream()
+                .filter(b -> b.kind() == ContextKind.MEMORY)
+                .noneMatch(b -> b.stillCurrent().getAsBoolean()));
+    }
+
+    @Test
+    void injectsCompanionCognitionWithinBudgetWithoutModifyingProfile() {
+        var enabled = new java.util.concurrent.atomic.AtomicBoolean(true);
+        ConversationContextAssembler assembler = assembler();
+        CompanionContextPort companion = (owner, query) -> java.util.Optional.of(
+                new butvan.agent.agents.memory.MemoryRecallPort.Fragment(
+                        "陪伴四维认知 v1",
+                        "近期主线与卡点：正在推进主动陪伴模块重构",
+                        enabled::get));
+        var beans = new StaticListableBeanFactory(java.util.Map.of("companionContext", companion));
+        assembler.setCompanionContext(beans.getBeanProvider(CompanionContextPort.class));
+
+        ContextEnvelope envelope = assembler.assemble(new ContextRequest("local-default", "最近进展如何？"));
+        assertTrue(envelope.rendered().contains("正在推进主动陪伴模块重构"));
+        assertTrue(envelope.memoryTokens() > 0 && envelope.estimatedTokens() <= 850);
+
+        enabled.set(false);
         assertTrue(envelope.blocks().stream()
                 .filter(b -> b.kind() == ContextKind.MEMORY)
                 .noneMatch(b -> b.stillCurrent().getAsBoolean()));

@@ -3,8 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { AgentResetBoundary } from './components/reset/AgentResetBoundary'
-import { initApiBaseUrl } from './services/api'
-import { initDesktopPreferences } from './services/desktopPreferences'
+import { AppBootGate } from './components/reset/AppBootGate'
 
 // macOS 使用 Tauri Overlay 标题栏时，前端为标题栏内容预留同一套安全内边距。
 if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
@@ -12,11 +11,13 @@ if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
   document.documentElement.dataset.windowChrome = 'macos-overlay';
 }
 
-// 桌面端先加载长期偏好并等待后端 sidecar 就绪，再渲染应用；浏览器开发环境立即返回
-Promise.all([initDesktopPreferences(), initApiBaseUrl()]).then(() => {
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <AgentResetBoundary><App /></AgentResetBoundary>
-    </StrictMode>,
-  )
-})
+// 首帧立即挂载统一启动加载屏，异步完成偏好、后端连接与重置屏障检查，避免白屏或重置页闪现。
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <AppBootGate>
+      <AgentResetBoundary>
+        <App />
+      </AgentResetBoundary>
+    </AppBootGate>
+  </StrictMode>,
+)

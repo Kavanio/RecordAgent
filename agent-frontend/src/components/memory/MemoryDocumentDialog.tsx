@@ -4,6 +4,7 @@ import type { MemoryDocumentDetail, MemoryOperation } from '../../types/experien
 import { cleanupProgressDescription, knownCleanupRecorded, memoryDeletionLabel } from '../../features/memory/cleanupPresentation';
 import { Button } from '../common/Button';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { LoadingTree } from '../common/LoadingTree';
 import { Modal } from '../common/Modal';
 import { useMessage } from '../common/Message';
 import styles from './MemoryDocumentDialog.module.css';
@@ -72,7 +73,7 @@ export function MemoryDocumentDialog({ id, onClose, onChanged }: Props) {
   return <>
     <Modal open title="经历来源详情" width={480} busy={busy} onClose={onClose}>
       <div className={styles.content}>
-        {loading && <p role="status">正在读取来源详情…</p>}
+        {loading && <div className={styles.loadingState}><LoadingTree size="small" label="正在读取来源详情…" /></div>}
         {error && <p role="alert">{error}</p>}
         {detail && <>
           <div className={styles.meta}>

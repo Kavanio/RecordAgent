@@ -153,8 +153,8 @@
 .cancelButton,
 .confirmButton {
   min-height: 30px;
-  padding: 5px 10px;
-  border-radius: 6px;
+  padding: 0 14px;
+  border-radius: 9999px;
   font: 500 12px/1 var(--font-sans);
   cursor: pointer;
 }

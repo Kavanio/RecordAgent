@@ -16,8 +16,24 @@ public record TranscriptMessageDto(
         Long durationMillis,
         List<ToolExecutionDto> tools,
         String thinking,
-        TurnTokenUsage usage
+        TurnTokenUsage usage,
+        boolean proactive
 ) {
+
+    public TranscriptMessageDto(
+            String id,
+            String turnId,
+            MessageRole role,
+            String content,
+            Instant createdAt,
+            MessageStatus status,
+            Long durationMillis,
+            List<ToolExecutionDto> tools,
+            String thinking,
+            TurnTokenUsage usage
+    ) {
+        this(id, turnId, role, content, createdAt, status, durationMillis, tools, thinking, usage, false);
+    }
 
     public TranscriptMessageDto {
         content = content == null ? "" : content;

@@ -129,22 +129,6 @@ public class ModelReviewGenerator implements ReviewGenerator {
         } catch (Exception exception) {
             throw new ReviewGenerationException(ReviewGenerationException.Kind.UNAVAILABLE, "模型配置读取失败", exception);
         }
-        if ("ACTIVE".equalsIgnoreCase(request.providerId())) {
-            for (var candidate : data.getProviders()) {
-                if (candidate == null || !Boolean.TRUE.equals(candidate.getIsEnabled())
-                        || candidate.getApiKey() == null || candidate.getApiKey().isBlank()
-                        || candidate.getModels() == null || candidate.getModels().isEmpty()) continue;
-                var firstModel = candidate.getModels().stream().filter(java.util.Objects::nonNull).findFirst().orElse(null);
-                if (firstModel == null) continue;
-                String activeModelName = firstModel.getModelName() == null || firstModel.getModelName().isBlank()
-                        ? firstModel.getName() : firstModel.getModelName();
-                if (activeModelName != null && !activeModelName.isBlank()) {
-                    return new ModelSelector(candidate.getType(), activeModelName, candidate.getApiKey(), 0.2, false,
-                            candidate.getBaseUrl(), candidate.getProtocol());
-                }
-            }
-            throw new ReviewGenerationException(ReviewGenerationException.Kind.UNAVAILABLE, "当前没有可用的已启用模型连接");
-        }
         var provider = data.getProviders().stream()
                 .filter(item -> item != null && request.providerId().equals(item.getId()))
                 .findFirst()

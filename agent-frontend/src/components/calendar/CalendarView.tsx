@@ -538,7 +538,7 @@ export const CalendarView: React.FC = () => {
         onChanged={refreshSelectedAndMonth}
       />
       </div>
-      <LoadingOverlay active={isPreparingFinance} label="正在读取财务账户与分类…" />
+      <LoadingOverlay active={isPreparingFinance} label="正在读取财务账户与分类…" size="large" />
       <TransactionModal
         open={isFinanceTransactionModalOpen}
         accounts={financeAccounts}

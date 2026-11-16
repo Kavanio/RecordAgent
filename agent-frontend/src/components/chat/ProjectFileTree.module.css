@@ -122,6 +122,12 @@
   line-height: 1.65;
 }
 
+.loadingState {
+  display: flex;
+  justify-content: center;
+  padding: 28px 15px;
+}
+
 .error {
   display: flex;
   flex-direction: column;

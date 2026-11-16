@@ -153,7 +153,6 @@ public class LifeOutreachService {
         repository.expire(owner, now);
         var local = now.atZone(ZoneId.of(s.timezone()));
         if (signals != null) signals.checkSignals(s, local, now);
-        if (companion != null) companion.tick(owner);
         if (local.getHour() < 12 || !local.toLocalTime().isBefore(LocalTime.of(23, 30))) return;
         for (var c : repository.candidates(owner)) {
             if (!c.state().equals("PENDING")) continue;

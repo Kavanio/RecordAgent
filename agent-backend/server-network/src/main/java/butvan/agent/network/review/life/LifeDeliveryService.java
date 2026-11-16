@@ -32,6 +32,10 @@ public class LifeDeliveryService {
     private AgentService agentService;
     @Autowired(required = false)
     private TranscriptService transcriptService;
+    @Autowired(required = false)
+    private LifeCompanionStreamService companionStream;
+    @Autowired(required = false)
+    private org.springframework.beans.factory.ObjectProvider<LifeCompanionService> companionProvider;
 
     /** 只允许当前授权生成的已完成版本；重试不会重新读取资料或重新生成。 */
     public void send(String owner, String contentId, boolean retry) {
@@ -139,7 +143,8 @@ public class LifeDeliveryService {
     private void syncToCompanionSession(String owner, String kind, String title, String text) {
         if (companionStore == null || sessionCatalog == null || text == null || text.isBlank()) return;
         try {
-            var session = sessionCatalog.resolveOrCreateCompanionSession(!channels.isEmpty() && channels.getFirst().target().available());
+            // 桌面端去回复统一落入可编辑的桌面日常陪伴会话，严守飞书会话在桌面只读的隔离约束。
+            var session = sessionCatalog.resolveOrCreateCompanionSession(false);
             if (session == null) return;
             if (agentService != null) {
                 agentService.appendProactiveMessageToSession(session.id(), text);
@@ -148,6 +153,10 @@ public class LifeDeliveryService {
                 sessionCatalog.touch(session.id(), text);
             }
             companionStore.appendDesktopNotice(owner, session.id(), kind, title, text, automationClock.instant());
+            var companion = companionProvider == null ? null : companionProvider.getIfAvailable();
+            if (companionStream != null && companion != null) {
+                companionStream.publish(owner, companion.view(owner));
+            }
         } catch (RuntimeException ignored) {
         }
     }

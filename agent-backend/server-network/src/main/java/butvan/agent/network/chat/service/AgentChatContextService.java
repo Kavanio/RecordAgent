@@ -5,13 +5,10 @@ import butvan.agent.agents.agent.AgentImages;
 import butvan.agent.agents.agent.AgentUserCall;
 import butvan.agent.agents.memory.MemorySourceRegistry;
 import butvan.agent.agents.model.ModelHolder;
-import butvan.agent.agents.session.SessionCatalogService;
-import butvan.agent.agents.session.dto.SessionChannel;
 import butvan.agent.network.chat.dto.AgentChatRequest;
 import butvan.agent.network.record.model.RecordModels.RecordEntry;
 import butvan.agent.network.record.service.RecordService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -27,8 +24,6 @@ public class AgentChatContextService {
     private static final int MAX_REFERENCE_CHARACTERS = 50_000;
     private final RecordService recordService;
     private final ModelHolder modelHolder;
-    @Autowired(required = false)
-    private SessionCatalogService sessionCatalogService;
 
     /** 校验资料所有权与状态，在服务端读取正文并构建内部 Agent 请求。 */
     public AgentUserCall prepare(String ownerId, AgentChatRequest request) {
@@ -40,11 +35,10 @@ public class AgentChatContextService {
             if (content == null || content.isBlank()) content = AgentImages.IMAGE_ONLY_PROMPT;
             if (context == null || context.isBlank()) context = content;
         }
-        MemorySourceRegistry.Channel channel = resolveSessionChannel(request.sessionId());
         List<String> referenceIds = normalizedReferenceIds(request.recordReferenceIds());
         if (referenceIds.isEmpty()) {
             return new AgentUserCall(request.sessionId(), content, context, List.of(),
-                    request.runId(), null, images, channel);
+                    request.runId(), null, images, MemorySourceRegistry.Channel.DESKTOP);
         }
 
         String question = request.context() == null || request.context().isBlank()
@@ -80,20 +74,7 @@ public class AgentChatContextService {
         }
         expanded.append("用户问题：").append(question);
         return new AgentUserCall(request.sessionId(), request.content(), expanded.toString(), ragContexts,
-                request.runId(), null, images, channel);
-    }
-
-    private MemorySourceRegistry.Channel resolveSessionChannel(String sessionId) {
-        if (sessionCatalogService != null && sessionId != null && !sessionId.isBlank()) {
-            try {
-                if (sessionCatalogService.getChannel(sessionId) == SessionChannel.FEISHU) {
-                    return MemorySourceRegistry.Channel.FEISHU;
-                }
-            } catch (RuntimeException ignored) {
-                // 会话有效性校验交由后续 AgentService 统一处理
-            }
-        }
-        return MemorySourceRegistry.Channel.DESKTOP;
+                request.runId(), null, images, MemorySourceRegistry.Channel.DESKTOP);
     }
 
     /**

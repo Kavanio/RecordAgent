@@ -14,7 +14,10 @@ import butvan.agent.agents.usage.ApproximateTokenCounter;
 import butvan.agent.network.config.database.LocalDatabaseConfiguration;
 import butvan.agent.network.record.service.RecordService;
 import butvan.agent.network.review.life.LifeCompanionModels.*;
+import butvan.agent.network.review.model.ReviewModels.Fact;
 import butvan.agent.network.review.model.ReviewModels.ModelIdentity;
+import butvan.agent.network.review.model.ReviewModels.SourceStatus;
+import butvan.agent.network.review.service.ReviewFactCollector;
 import butvan.agent.network.review.service.ReviewGoalService;
 import butvan.agent.network.review.service.ReviewModelCatalog;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -55,6 +58,9 @@ class LifeCompanionServiceTest {
             LifeAuthorizationService.class,
             LifeDeliveryService.class,
             LifeCompanionStore.class,
+            LifeCompanionCollector.class,
+            LifeCompanionSynthesisService.class,
+            LifeCompanionStreamService.class,
             LifeCompanionService.class
     })
     static class App {
@@ -95,6 +101,7 @@ class LifeCompanionServiceTest {
     @MockitoBean RecordService records;
     @MockitoBean ReviewGoalService goals;
     @MockitoBean LifeActivityService activity;
+    @MockitoBean ReviewFactCollector factCollector;
 
     @jakarta.annotation.Resource LifeCompanionService companion;
     @jakarta.annotation.Resource LifeCompanionStore store;
@@ -106,18 +113,24 @@ class LifeCompanionServiceTest {
         TIME.set(START);
         repository.reset("owner");
         store.reset("owner");
-        when(modelCatalog.resolveOrActive(anyString(), anyString()))
-                .thenReturn(new ModelIdentity("ACTIVE", "qwen-max", "openai", "fp-active"));
+        when(modelCatalog.resolveFirstEnabled())
+                .thenReturn(new ModelIdentity("provider-1", "qwen-max", "openai", "fp-1"));
+        when(modelCatalog.resolve("provider-1", "qwen-max"))
+                .thenReturn(new ModelIdentity("provider-1", "qwen-max", "openai", "fp-1"));
         when(feishuChannel.target()).thenReturn(new PersonalDeliveryPort.Target(true, "feishu-user", "本人飞书"));
         when(feishuChannel.send(anyString(), anyString(), anyString()))
                 .thenReturn(new PersonalDeliveryPort.Attempt("SENT", "msg-1"));
 
-        SessionSummaryDto primarySession = new SessionSummaryDto(
-                "feishu-main-1", SessionKind.GENERAL, null, "飞书主对话", "",
+        SessionSummaryDto desktopSession = new SessionSummaryDto(
+                "desktop-main-1", SessionKind.GENERAL, null, "日常陪伴", "",
                 START, START, SessionStatus.ACTIVE);
-        when(sessions.resolveOrCreateCompanionSession(anyBoolean())).thenReturn(primarySession);
-        when(sessions.listActive()).thenReturn(List.of(primarySession));
-        when(transcripts.recent(eq("feishu-main-1"), anyInt())).thenReturn(List.of(
+        SessionSummaryDto feishuSession = new SessionSummaryDto(
+                "feishu-main-1", SessionKind.GENERAL, null, "飞书对话", "",
+                START, START, SessionStatus.ACTIVE);
+        when(sessions.resolveOrCreateCompanionSession(false)).thenReturn(desktopSession);
+        when(sessions.resolveOrCreateCompanionSession(true)).thenReturn(feishuSession);
+        when(sessions.listActive()).thenReturn(List.of(desktopSession, feishuSession));
+        when(transcripts.recent(eq("desktop-main-1"), anyInt())).thenReturn(List.of(
                 new TranscriptMessageDto("m-1", "turn-1", TranscriptMessageDto.MessageRole.USER,
                         "这周正在把主动陪伴与认知模块重构完", START.minusSeconds(3600),
                         TranscriptMessageDto.MessageStatus.COMPLETED, null, List.of(), null, null)
@@ -129,23 +142,40 @@ class LifeCompanionServiceTest {
         ));
         when(goals.list("owner")).thenReturn(List.of());
         when(activity.lastInteractionAt(eq("owner"), any(), any())).thenReturn(Optional.of(START.minusSeconds(3600)));
+        when(factCollector.collect(eq("owner"), any(), any(), any(), any())).thenReturn(new ReviewFactCollector.Collected(
+                List.of(
+                        new Fact("TODO", "completed_count", "all", "", "项", 3),
+                        new Fact("STUDY", "focus_minutes", "all", "", "分钟", 90),
+                        new Fact("FINANCE", "expense_total", "all", "CNY", "元", 128)
+                ),
+                List.of(new SourceStatus("TODO", "AVAILABLE"), new SourceStatus("STUDY", "AVAILABLE"), new SourceStatus("FINANCE", "AVAILABLE"))
+        ));
     }
 
     @Test
     void enableCompanionLearnsCognitionAndAdaptsToBusyHoursBeforeFollowingUp() {
         CompanionView enabled = companion.enableCompanion("owner", new EnableCompanionRequest(
-                true, true, true, true, false, "", "", false, "", 993, "", "", "", "", "ACTIVE", "ACTIVE", "Asia/Shanghai"
+                true, true, true, true, false, "", "", false, "", 993, "", "", "", "", "", "", "Asia/Shanghai"
         ));
         assertTrue(enabled.companionEnabled());
-        assertEquals("feishu-main-1", enabled.primarySessionId());
+        assertEquals("desktop-main-1", enabled.primarySessionId());
         assertTrue(enabled.cognition().activeFocusAndBlockers().contains("跑了五公里"));
+        assertTrue(enabled.cognition().activeFocusAndBlockers().contains("completed_count=3"));
+        assertTrue(enabled.cognition().activeFocusAndBlockers().contains("focus_minutes=90"));
+        assertTrue(enabled.cognition().activeFocusAndBlockers().contains("expense_total=128"));
         assertTrue(enabled.cognition().pendingHooksAndCuriosities().contains("主动陪伴与认知模块"));
-        assertTrue(personalContext.get("owner").content().contains("主动陪伴与认知模块"));
+        // 严守画像修订边界：后台学习不得静默覆盖 PROFILE.md，仅通过受控上下文端口按需注入
+        assertTrue(personalContext.get("owner").content().isBlank());
+        var fragment = companion.recallCognition("owner", "最近有什么进展？");
+        assertTrue(fragment.isPresent());
+        assertTrue(fragment.get().content().contains("主动陪伴与认知模块"));
+        assertTrue(fragment.get().stillCurrent().getAsBoolean());
 
-        // 手动触发一次主动问候：应写入唯一主对话 transcript、生成桌面通知并发送飞书
+        // 手动触发一次主动问候：应写入桌面主对话与飞书隔离对话 transcript、生成桌面通知并发送飞书
         CompanionView afterReach = companion.reachOutNow("owner", null);
         assertEquals(1, afterReach.rhythm().unansweredCount());
         assertEquals(1, afterReach.pendingDesktopNotices().size());
+        verify(transcripts, atLeastOnce()).appendProactiveAssistantMessage(eq("desktop-main-1"), anyString());
         verify(transcripts, atLeastOnce()).appendProactiveAssistantMessage(eq("feishu-main-1"), anyString());
         verify(feishuChannel, atLeastOnce()).send(eq("feishu-user"), anyString(), anyString());
 
@@ -180,8 +210,26 @@ class LifeCompanionServiceTest {
         CompanionView followedUp = companion.view("owner");
         assertFalse(followedUp.rhythm().busyDeferred());
         assertEquals(2, followedUp.rhythm().unansweredCount());
-        verify(transcripts, times(1)).appendProactiveAssistantMessage(eq("feishu-main-1"),
+        verify(transcripts, times(1)).appendProactiveAssistantMessage(eq("desktop-main-1"),
                 argThat(msg -> msg.contains("忙") || msg.contains("进展")));
+
+        // 同一天达到自动触达上限 1 次后不再二次打扰；用户发送消息后立即重置未回复计数与忙时顺延状态
+        TIME.set(Instant.parse("2026-11-09T13:30:00Z")); // 21:30 Asia/Shanghai
+        companion.tick("owner");
+        assertEquals(2, companion.view("owner").rhythm().unansweredCount());
+
+        // 22:30 Asia/Shanghai 进入安静时段（22:00-09:00）同样不触发
+        TIME.set(Instant.parse("2026-11-09T14:30:00Z"));
+        companion.tick("owner");
+        verify(transcripts, times(1)).appendProactiveAssistantMessage(eq("desktop-main-1"),
+                argThat(msg -> msg.contains("忙") || msg.contains("进展")));
+
+        // 用户在任意渠道主动发言：立即重置未回复计数
+        companion.onUserTurnRecorded("owner", "desktop-main-1",
+                butvan.agent.agents.memory.MemorySourceRegistry.Channel.DESKTOP);
+        CompanionView afterReply = companion.view("owner");
+        assertEquals(0, afterReply.rhythm().unansweredCount());
+        assertFalse(afterReply.rhythm().busyDeferred());
     }
 
     private static Path tempDir() {

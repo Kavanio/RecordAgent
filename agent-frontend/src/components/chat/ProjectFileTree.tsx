@@ -149,7 +149,7 @@ export const ProjectFileTree: React.FC<ProjectFileTreeProps> = ({ projectId, pro
           </button>
         </div>
       ) : isLoading && tree.length === 0 ? (
-        <LoadingTree size="small" label="正在读取项目文件…" />
+        <div className={styles.loadingState}><LoadingTree size="small" label="正在读取项目文件…" /></div>
       ) : tree.length === 0 ? (
         <p className={styles.empty}>项目目录为空或暂无可展示文件。</p>
       ) : (
