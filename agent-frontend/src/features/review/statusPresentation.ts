@@ -203,6 +203,13 @@ export function rhythmBars(hourCounts: number[] | undefined, busyStart?: number,
   }));
 }
 
+/** 计算非零互动柱的可视高度百分比（14%–100%）：保留频次梯度，避免低频截平或单次互动拉满。 */
+export function rhythmBarHeight(count: number, maxCount: number): number {
+  if (count <= 0 || maxCount <= 0) return 0;
+  const scaleMax = Math.max(maxCount, 6);
+  return Number((14 + (Math.min(count, scaleMax) / scaleMax) * 86).toFixed(1));
+}
+
 /** 将后端渠道说明收敛为适合仪表盘的极简短标签，保留原值作悬浮详情。 */
 export function formatCompanionChannel(label: string | undefined, connected: boolean): string {
   const raw = (label || '').trim();

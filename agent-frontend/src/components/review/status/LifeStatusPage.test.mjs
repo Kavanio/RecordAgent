@@ -297,6 +297,14 @@ test('今日主卡优先聚焦小步建议，作息节律绘制24小时胶囊柱
 
   const rhythmSection = view.query('section[aria-label="作息节律"]');
   assert.equal(rhythmSection.querySelectorAll('button[aria-label^="设为每天 "]').length, 24);
+  const bar20Height = Number.parseFloat(view.query('button[aria-label="设为每天 20:00 复盘"] span').style.height);
+  const bar21Height = Number.parseFloat(view.query('button[aria-label="设为每天 21:00 复盘"] span').style.height);
+  assert.ok(bar20Height > bar21Height);
+  const bar8 = view.query('button[aria-label="设为每天 8:00 复盘"]');
+  await act(async () => bar8.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true })));
+  assert.match(rhythmSection.textContent, /08:00/);
+  await act(async () => bar8.click());
+  assert.equal(document.body.querySelector('[role="dialog"]'), null);
   await act(async () => view.query('button[aria-label="设为每天 20:00 复盘"]').focus());
   assert.match(rhythmSection.textContent, /20:00 · 9 次/);
   assert.match(rhythmSection.textContent, /9 次互动/);

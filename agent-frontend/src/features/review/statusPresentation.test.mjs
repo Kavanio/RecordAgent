@@ -55,6 +55,13 @@ test('isBusyHour 支持跨零点窗口，rhythmBars 输出 24 根柱子', () => 
   assert.equal(bars[22].ratio, 0.5);
   assert.equal(bars[10].busy, true);
   assert.equal(bars[21].busy, false);
+
+  assert.equal(mod.rhythmBarHeight(0, 10), 0);
+  assert.ok(mod.rhythmBarHeight(1, 10) < mod.rhythmBarHeight(2, 10));
+  assert.ok(mod.rhythmBarHeight(2, 10) < mod.rhythmBarHeight(5, 10));
+  assert.equal(mod.rhythmBarHeight(10, 10), 100);
+  assert.ok(mod.rhythmBarHeight(1, 1) < 50);
+  assert.ok(mod.rhythmBarHeight(1, 2) < mod.rhythmBarHeight(2, 2));
 });
 
 test('companionPulse 按优先级输出状态文案', () => {

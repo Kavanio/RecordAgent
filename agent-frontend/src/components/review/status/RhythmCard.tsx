@@ -2,7 +2,7 @@ import { type CSSProperties, useEffect, useState } from 'react';
 import { Clock3 } from 'lucide-react';
 import { lifeReviewApi } from '../../../services/lifeReviewApi';
 import type { LifeCognition, LifeHabit, LifeHabitSuggestion } from '../../../types/lifeReview';
-import { formatHour, formatRhythmSummary, rhythmBars, zonedClock } from '../../../features/review/statusPresentation';
+import { formatHour, formatRhythmSummary, rhythmBarHeight, rhythmBars, zonedClock } from '../../../features/review/statusPresentation';
 import { Button } from '../../common/Button';
 import { Select } from '../../common/Select';
 import { TextInput } from '../../common/TextInput';
@@ -42,7 +42,8 @@ export function RhythmCard({ timezone = 'Asia/Shanghai', habit, suggestion, cogn
   const current = habit?.active ? habit.availableHour : 21;
   const suggested = suggestion?.available ? suggestion.suggestedHour : null;
   const bars = rhythmBars(suggestion?.hourCounts, cognition?.busyStartHour, cognition?.busyEndHour);
-  const hasData = bars.some(bar => bar.count > 0);
+  const maxCount = bars.reduce((peak, bar) => Math.max(peak, bar.count), 0);
+  const hasData = maxCount > 0;
   const hovered = hoverHour === null ? null : bars[hoverHour] ?? null;
   const summary = formatRhythmSummary(suggestion);
   const nowClock = zonedClock(timezone, new Date(nowMs));
@@ -115,21 +116,25 @@ export function RhythmCard({ timezone = 'Asia/Shanghai', habit, suggestion, cogn
             const selectable = bar.hour >= 12 && bar.hour <= 23 && !disabled;
             const isCurrent = bar.hour === current;
             const isEmpty = bar.count === 0;
-            const height = bar.count > 0 ? `${Math.max(bar.ratio * 100, 28)}%` : selectable ? '5px' : '3px';
+            const height = bar.count > 0 ? `${rhythmBarHeight(bar.count, maxCount)}%` : selectable ? '5px' : '3px';
+            const strength = bar.count > 0 ? Number((0.45 + 0.55 * bar.ratio).toFixed(2)) : 1;
             return <button key={bar.hour} type="button" className={styles.bar} tabIndex={selectable ? 0 : -1}
               data-busy={bar.busy || undefined}
               data-empty={isEmpty || undefined}
               data-selectable={selectable || undefined}
               data-current={isCurrent || undefined}
               data-suggested={bar.hour === suggested || undefined}
-              disabled={!selectable}
+              aria-disabled={!selectable || undefined}
               aria-label={`设为每天 ${bar.hour}:00 复盘`}
               onMouseEnter={() => setHoverHour(bar.hour)}
               onMouseLeave={() => setHoverHour(null)}
               onFocus={() => setHoverHour(bar.hour)}
               onBlur={() => setHoverHour(null)}
-              onClick={() => openModal(bar.hour, bar.hour === suggested ? SUGGESTION_SOURCE : '')}>
-              <span className={styles.pillar} style={{ height, '--bar-delay': `${bar.hour * 14}ms` } as CSSProperties} />
+              onClick={() => {
+                if (!selectable) return;
+                openModal(bar.hour, bar.hour === suggested ? SUGGESTION_SOURCE : '');
+              }}>
+              <span className={styles.pillar} style={{ height, '--bar-delay': `${bar.hour * 14}ms`, '--bar-strength': strength } as CSSProperties} />
               {isCurrent && (
                 <>
                   <i className={styles.reviewDot} aria-hidden="true" />
@@ -141,7 +146,7 @@ export function RhythmCard({ timezone = 'Asia/Shanghai', habit, suggestion, cogn
         </div>
       </div>
       <div className={styles.axis} aria-hidden="true">
-        {AXIS_HOURS.map(h => <span key={h}>{h}时</span>)}
+        {AXIS_HOURS.map(h => <span key={h} style={{ gridColumn: h + 1 }}>{h}时</span>)}
       </div>
     </div>
 
