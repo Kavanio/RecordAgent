@@ -102,6 +102,14 @@ public class FinanceController {
                 request.initialBalance(), request.interestEnabled(), request.annualRatePercent())));
     }
 
+    /** 停用并归档余额为零的资产账户，保留历史流水与统计口径。 */
+    @ApiLog("停用并删除资产账户")
+    @DeleteMapping("/accounts/{accountId}")
+    public Result<String> deleteAccount(@PathVariable String accountId) {
+        financeService.deleteAccount(currentUserProvider.currentUserId(), accountId);
+        return Result.success("资产账户已删除，历史流水与统计已保留");
+    }
+
     @ApiLog("手动校准资产账户余额")
     @PostMapping("/accounts/{accountId}/adjustments")
     public Result<TransactionResponse> adjustAccountBalance(

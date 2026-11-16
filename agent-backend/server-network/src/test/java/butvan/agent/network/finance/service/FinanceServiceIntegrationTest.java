@@ -561,6 +561,63 @@ class FinanceServiceIntegrationTest {
         assertEquals(new BigDecimal("90.00"), balanceOf(owner, account.id()));
     }
 
+    @Test
+    void deletingZeroBalanceAccountArchivesItAndPreservesHistoricalLedger() {
+        String owner = "finance-archive-account-user";
+        LocalDate today = LocalDate.now();
+        var active = financeService.createAccount(owner, "微信余额", "wechat_balance", "CNY",
+                new BigDecimal("100.00"), false, BigDecimal.ZERO);
+        var retired = financeService.createAccount(owner, "旧银行卡", "bank", "CNY",
+                new BigDecimal("100.00"), true, new BigDecimal("1.85"));
+        var emptyUnused = financeService.createAccount(owner, "空账户", "other", "CNY",
+                BigDecimal.ZERO, false, BigDecimal.ZERO);
+
+        var expense = financeService.createTransaction(owner, retired.id(), "expense", "餐饮", "旧卡消费",
+                new BigDecimal("40.00"), today, LocalTime.of(12, 0));
+        var transfer = financeService.transfer(owner, retired.id(), active.id(), new BigDecimal("60.00"),
+                "清卡转出", today, LocalTime.of(13, 0));
+
+        // 余额不为 0 时拒绝删除，且跨用户无法删除
+        var nonZeroError = assertThrows(IllegalArgumentException.class,
+                () -> financeService.deleteAccount(owner, active.id()));
+        assertEquals("账户当前余额不为 0，请先通过划账或余额校准将余额清零后再删除", nonZeroError.getMessage());
+        assertThrows(IllegalArgumentException.class,
+                () -> financeService.deleteAccount("other-user", emptyUnused.id()));
+
+        // 清零后的账户与空账户均可停用删除
+        financeService.deleteAccount(owner, retired.id());
+        financeService.deleteAccount(owner, emptyUnused.id());
+
+        var overview = financeService.getOverview(owner);
+        assertEquals(1, overview.accounts().size());
+        assertEquals(active.id(), overview.accounts().getFirst().id());
+        assertEquals(new BigDecimal("160.00"), overview.totalAssets());
+        assertEquals(new BigDecimal("40.00"), overview.monthExpense());
+        assertEquals(3, overview.transactions().size());
+        assertEquals("旧银行卡", overview.transactions().stream()
+                .filter(tx -> tx.id().equals(expense.id())).findFirst().orElseThrow().accountName());
+
+        // 当期无收支的已停用账户不出现在账户收支图；当期有支出的已停用账户保留历史统计
+        var insights = financeService.getExpenseInsights(owner, "month");
+        assertEquals(new BigDecimal("40.00"), insights.totalExpense());
+        assertEquals(2, insights.accounts().size());
+        assertEquals(0, insights.accounts().stream().filter(a -> a.accountId().equals(emptyUnused.id())).count());
+
+        // 停用后禁止再次删除、新记账或修改/回滚原账户流水
+        assertThrows(IllegalArgumentException.class, () -> financeService.deleteAccount(owner, retired.id()));
+        assertThrows(IllegalArgumentException.class, () -> financeService.createTransaction(
+                owner, retired.id(), "expense", "餐饮", "停用后记账", BigDecimal.ONE, today, LocalTime.NOON));
+        assertThrows(IllegalArgumentException.class, () -> financeService.adjustAccountBalance(
+                owner, retired.id(), "increase", BigDecimal.ONE, "停用后校准"));
+        assertThrows(IllegalArgumentException.class, () -> financeService.deleteTransaction(owner, expense.id()));
+        assertThrows(IllegalArgumentException.class, () -> financeService.deleteTransaction(owner, transfer.get(1).id()));
+
+        // 报告回溯当天不再包含已停用账户
+        var reportAssets = financeService.getReportAssets(owner, today, java.time.ZoneId.systemDefault());
+        assertEquals(1, reportAssets.size());
+        assertEquals(active.id(), reportAssets.getFirst().id());
+    }
+
     private BigDecimal balanceOf(String ownerId, String accountId) {
         return financeService.getOverview(ownerId).accounts().stream()
                 .filter(account -> account.id().equals(accountId)).findFirst().orElseThrow().balance();
