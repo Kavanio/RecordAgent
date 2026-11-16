@@ -24,6 +24,7 @@ public class FileAssetService {
     public static final String DOMAIN_ACCOUNT = "ACCOUNT";
     public static final String ROLE_ATTACHMENT = "ATTACHMENT";
     public static final String ROLE_AVATAR = "AVATAR";
+    public static final String ROLE_COVER = "COVER";
     private static final String LOCAL_BACKEND = "LOCAL";
     private static final String AVAILABLE = "AVAILABLE";
 

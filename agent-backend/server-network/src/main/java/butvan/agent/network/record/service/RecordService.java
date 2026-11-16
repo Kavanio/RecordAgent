@@ -55,6 +55,11 @@ public class RecordService {
         return new RecordReferencePage(items, hasMore, offset + items.size());
     }
 
+    /** 查询活跃资料篇数与纯文本字数汇总。 */
+    public butvan.agent.network.record.model.RecordModels.RecordStats summarizeActiveStats(String ownerId) {
+        return repository.summarizeActiveStats(ownerId);
+    }
+
     /** 查询日历摘要。 */
     public List<DaySummary> summarizeDays(String ownerId, LocalDate from, LocalDate to) {
         requireRange(from, to);
