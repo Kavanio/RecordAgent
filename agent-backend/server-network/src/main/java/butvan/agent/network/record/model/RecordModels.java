@@ -61,4 +61,7 @@ public final class RecordModels {
 
     /** 首页分类 Tab；systemKey 为空时表示用户自定义 Tab。 */
     public record RecordTab(String id, String name, String systemKey, int sortOrder) { }
+
+    /** 活跃资料篇数与正文总字数汇总。 */
+    public record RecordStats(int count, long wordCount) { }
 }

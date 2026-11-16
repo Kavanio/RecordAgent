@@ -85,12 +85,12 @@ actor LocalProfileAppearanceService: ProfileAppearanceServiceProtocol {
     }
 }
 
-/// 个人资料以服务端为权威；首次迁移时读取旧设备副本供用户重新保存。
+/// 个人资料外观对接 `agent-backend` 的 `/agent/account/appearance`、`/avatar` 与 `/cover`。
 actor APIProfileAppearanceService: ProfileAppearanceServiceProtocol {
     private let client: APIClient
     private let legacy = LocalProfileAppearanceService()
     private var cachedAccount: String?
-    private var cached: AppearanceResponse?
+    private var cached: BackendAppearanceResponse?
     private var cachedAvatar: Data?
     private var cachedCover: Data?
 
@@ -103,65 +103,113 @@ actor APIProfileAppearanceService: ProfileAppearanceServiceProtocol {
             cachedAvatar = nil
             cachedCover = nil
         }
-        let data = try await client.send("/api/v1/me/appearance")
-        let response = try APIClient.decoder.decode(AppearanceResponse.self, from: data)
+        let response: BackendAppearanceResponse? = try? await client.sendResult("/agent/account/appearance")
+        guard let response else {
+            let local = try? await legacy.load(account: account)
+            let status: BackendLegacyAvatarStatus? = try? await client.sendResult("/agent/account/status")
+            let avatar: Data? = (status?.avatarVersion?.isEmpty == false)
+                ? (try? await client.send("/agent/account/avatar/content"))
+                : local?.avatarData
+            return ProfileAppearance(
+                nickname: local?.nickname,
+                avatarData: avatar,
+                coverData: local?.coverData
+            )
+        }
         let avatar: Data?
-        if let id = response.avatarFileId { avatar = try await fileData(id) } else { avatar = nil }
+        if let version = response.avatarVersion, !version.isEmpty {
+            if cached?.avatarVersion == version, let cachedAvatar {
+                avatar = cachedAvatar
+            } else {
+                avatar = try? await client.send("/agent/account/avatar/content")
+            }
+        } else {
+            avatar = nil
+        }
         let cover: Data?
-        if let id = response.coverFileId { cover = try await fileData(id) } else { cover = nil }
-        let previous: ProfileAppearance?
-        if response.version == 0 { previous = try? await legacy.load(account: account) }
-        else { previous = nil }
+        if let version = response.coverVersion, !version.isEmpty {
+            if cached?.coverVersion == version, let cachedCover {
+                cover = cachedCover
+            } else {
+                cover = try? await client.send("/agent/account/cover/content")
+            }
+        } else {
+            cover = nil
+        }
+        let hasRemote = response.version > 0 || response.nickname != nil
+            || response.avatarVersion != nil || response.coverVersion != nil
+        let previous = hasRemote ? nil : (try? await legacy.load(account: account))
         cached = response
         cachedAvatar = avatar ?? previous?.avatarData
         cachedCover = cover ?? previous?.coverData
-        return ProfileAppearance(nickname: previous?.nickname ?? response.nickname,
-            avatarData: cachedAvatar, coverData: cachedCover)
+        return ProfileAppearance(
+            nickname: response.nickname ?? previous?.nickname,
+            avatarData: cachedAvatar,
+            coverData: cachedCover
+        )
     }
 
     func save(_ appearance: ProfileAppearance, account: String) async throws {
         if cachedAccount != account || cached == nil { _ = try await load(account: account) }
-        guard let current = cached else { throw APIClientError.invalidResponse }
-        let avatarID = try await fileID(for: appearance.avatarData,
-            previousData: cachedAvatar, previousID: current.avatarFileId)
-        let coverID = try await fileID(for: appearance.coverData,
-            previousData: cachedCover, previousID: current.coverFileId)
-        let body = try APIClient.encoder.encode(UpdateAppearanceRequest(
-            nickname: appearance.nickname, avatarFileId: avatarID,
-            coverFileId: coverID, expectedVersion: current.version))
-        let result = try await client.send("/api/v1/me/appearance", method: "PATCH", body: body)
-        cached = try APIClient.decoder.decode(AppearanceResponse.self, from: result)
+        guard var current = cached else { throw APIClientError.invalidResponse }
+
+        let clearAvatar = appearance.avatarData == nil && current.avatarVersion != nil
+        let clearCover = appearance.coverData == nil && current.coverVersion != nil
+        let body = try APIClient.encoder.encode(
+            UpdateAppearanceRequest(
+                nickname: appearance.nickname,
+                clearAvatar: clearAvatar,
+                clearCover: clearCover,
+                expectedVersion: current.version
+            )
+        )
+        current = try await client.sendResult("/agent/account/appearance", method: "PATCH", body: body)
+
+        if let avatar = appearance.avatarData, avatar != cachedAvatar || current.avatarVersion == nil {
+            try validateJPEG(avatar)
+            current = try await client.sendMultipartResult(
+                "/agent/account/avatar",
+                filename: "avatar.jpg",
+                mimeType: "image/jpeg",
+                fileData: avatar
+            )
+        }
+        if let cover = appearance.coverData, cover != cachedCover || current.coverVersion == nil {
+            try validateJPEG(cover)
+            current = try await client.sendMultipartResult(
+                "/agent/account/cover",
+                filename: "cover.jpg",
+                mimeType: "image/jpeg",
+                fileData: cover
+            )
+        }
+
+        cached = current
         cachedAvatar = appearance.avatarData
         cachedCover = appearance.coverData
     }
 
-    private func fileData(_ id: String) async throws -> Data {
-        try await client.send("/api/v1/files/\(id)/content")
-    }
-
-    private func fileID(for data: Data?, previousData: Data?, previousID: String?) async throws -> String? {
-        guard let data else { return nil }
-        if data == previousData, let previousID { return previousID }
+    private func validateJPEG(_ data: Data) throws {
         guard data.count <= 2_000_000, data.starts(with: [0xFF, 0xD8]) else {
             throw ProfileAppearanceError.invalidImage
         }
-        let body = try APIClient.encoder.encode(UploadImageRequest(jpegBase64: data.base64EncodedString()))
-        let response = try await client.send("/api/v1/files", method: "POST", body: body)
-        return try APIClient.decoder.decode(UploadedImageResponse.self, from: response).id
     }
 }
 
-private struct AppearanceResponse: Decodable {
-    let nickname: String
-    let avatarFileId: String?
-    let coverFileId: String?
+private struct BackendAppearanceResponse: Decodable {
+    let nickname: String?
+    let avatarVersion: String?
+    let coverVersion: String?
     let version: Int64
 }
+
+private struct BackendLegacyAvatarStatus: Decodable {
+    let avatarVersion: String?
+}
+
 private struct UpdateAppearanceRequest: Encodable {
     let nickname: String?
-    let avatarFileId: String?
-    let coverFileId: String?
+    let clearAvatar: Bool
+    let clearCover: Bool
     let expectedVersion: Int64
 }
-private struct UploadImageRequest: Encodable { let jpegBase64: String }
-private struct UploadedImageResponse: Decodable { let id: String }

@@ -10,4 +10,6 @@ public class AccountConfigData {
     private boolean emailVerified;
     private String boundAt;
     private boolean emailNotificationsEnabled = true;
+    private String nickname;
+    private long appearanceVersion;
 }

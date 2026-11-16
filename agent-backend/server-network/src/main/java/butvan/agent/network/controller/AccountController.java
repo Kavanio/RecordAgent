@@ -3,10 +3,13 @@ package butvan.agent.network.controller;
 import butvan.agent.agents.identity.CurrentUserProvider;
 import butvan.agent.network.annotation.ApiLog;
 import butvan.agent.network.common.Result;
+import butvan.agent.network.dto.account.AccountAppearanceResponse;
 import butvan.agent.network.dto.account.AccountStatusResponse;
 import butvan.agent.network.dto.account.BindEmailRequest;
 import butvan.agent.network.dto.account.SendVerificationCodeRequest;
+import butvan.agent.network.dto.account.UpdateAccountAppearanceRequest;
 import butvan.agent.network.file.model.FileAsset;
+import butvan.agent.network.file.service.FileAssetService;
 import butvan.agent.network.service.account.AccountAvatarService;
 import butvan.agent.network.service.account.AccountService;
 import lombok.RequiredArgsConstructor;
@@ -64,13 +67,67 @@ public class AccountController {
     @ApiLog("读取本地账户头像")
     @GetMapping("/avatar/content")
     public ResponseEntity<Resource> avatarContent() {
-        FileAsset avatar = avatarService.current(ownerId());
-        if (avatar == null) throw new IllegalArgumentException("尚未设置头像");
+        return imageContentResponse(FileAssetService.ROLE_AVATAR);
+    }
+
+    /** 查询个人资料外观（昵称、头像版本与背景图版本）。 */
+    @ApiLog("查询个人资料外观")
+    @GetMapping("/appearance")
+    public Result<AccountAppearanceResponse> appearance() {
+        return Result.success(currentAppearance());
+    }
+
+    /** 更新个人昵称或移除头像/背景图。 */
+    @ApiLog("更新个人资料外观")
+    @PatchMapping("/appearance")
+    public Result<AccountAppearanceResponse> updateAppearance(@RequestBody UpdateAccountAppearanceRequest request) {
+        AccountService.AppearanceState state = accountService.updateAppearance(request.nickname(), request.expectedVersion());
+        if (request.clearAvatar()) {
+            avatarService.removeForRole(ownerId(), FileAssetService.ROLE_AVATAR);
+        }
+        if (request.clearCover()) {
+            avatarService.removeForRole(ownerId(), FileAssetService.ROLE_COVER);
+        }
+        return Result.success(buildAppearance(state));
+    }
+
+    /** 上传并替换当前用户个人页背景图。 */
+    @ApiLog("上传个人页背景图")
+    @PostMapping(value = "/cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<AccountAppearanceResponse> uploadCover(@RequestPart("file") MultipartFile file) {
+        avatarService.replaceCover(ownerId(), file);
+        return Result.success("背景图已更新", currentAppearance());
+    }
+
+    /** 读取当前用户个人页背景图内容。 */
+    @ApiLog("读取个人页背景图")
+    @GetMapping("/cover/content")
+    public ResponseEntity<Resource> coverContent() {
+        return imageContentResponse(FileAssetService.ROLE_COVER);
+    }
+
+    private ResponseEntity<Resource> imageContentResponse(String role) {
+        FileAsset asset = avatarService.currentForRole(ownerId(), role);
+        if (asset == null) throw new IllegalArgumentException("尚未设置图片");
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(avatar.mediaType()))
-                .contentLength(avatar.sizeBytes())
+                .contentType(MediaType.parseMediaType(asset.mediaType()))
+                .contentLength(asset.sizeBytes())
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePrivate().immutable())
-                .body(avatarService.content(ownerId()));
+                .body(avatarService.contentForRole(ownerId(), role));
+    }
+
+    private AccountAppearanceResponse currentAppearance() {
+        return buildAppearance(accountService.getAppearanceState());
+    }
+
+    private AccountAppearanceResponse buildAppearance(AccountService.AppearanceState state) {
+        FileAsset avatar = avatarService.current(ownerId());
+        FileAsset cover = avatarService.currentCover(ownerId());
+        return new AccountAppearanceResponse(
+                state.nickname(),
+                avatar == null ? null : avatar.id(),
+                cover == null ? null : cover.id(),
+                state.version());
     }
 
     private AccountStatusResponse statusWithAvatar() {

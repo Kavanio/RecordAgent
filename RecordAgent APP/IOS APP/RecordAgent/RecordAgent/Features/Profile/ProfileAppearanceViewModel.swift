@@ -6,6 +6,7 @@ final class ProfileAppearanceViewModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var isSaving = false
     @Published var error: Error?
+    @Published var saveError: Error?
 
     private let service: any ProfileAppearanceServiceProtocol
     private var revision = 0
@@ -41,13 +42,16 @@ final class ProfileAppearanceViewModel: ObservableObject {
         revision += 1
         isLoading = false
         isSaving = true
+        saveError = nil
         defer { isSaving = false }
         do {
             try await service.save(updated, account: account)
             appearance = updated
             error = nil
+            saveError = nil
             return true
         } catch {
+            if !(error is CancellationError) { saveError = error }
             return false
         }
     }

@@ -89,6 +89,19 @@ class DailyInsightApiIntegrationTest {
                 .andExpect(jsonPath("$.data.finance.expenseCategories.餐饮").value(12.34))
                 .andExpect(jsonPath("$.data.study.durationSeconds").value(3600))
                 .andExpect(jsonPath("$.data.study.sessionCount").value(1));
+
+        mockMvc.perform(get("/agent/insights/profile")
+                        .param("month", "2026-09")
+                        .param("timezone", "Asia/Shanghai"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.month").value("2026-09"))
+                .andExpect(jsonPath("$.data.totalAssetsInCents").value(8766))
+                .andExpect(jsonPath("$.data.totalExpenseInCents").value(1234))
+                .andExpect(jsonPath("$.data.totalRecordMinutes").value(60))
+                .andExpect(jsonPath("$.data.documentCount").value(1))
+                .andExpect(jsonPath("$.data.documentWordCount").value(6))
+                .andExpect(jsonPath("$.data.monthlyCompletedTodos").value(1))
+                .andExpect(jsonPath("$.data.monthlyTodoCount").value(2));
     }
 
     private static Path createDatabasePath() {

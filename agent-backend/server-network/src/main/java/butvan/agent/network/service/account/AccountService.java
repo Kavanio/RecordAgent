@@ -42,9 +42,41 @@ public class AccountService {
     public AccountStatusResponse getStatus() {
         AccountConfigData account = getAccountConfig();
         boolean bound = account != null && account.isEmailVerified() && account.getEmail() != null && !account.getEmail().isBlank();
-        return new AccountStatusResponse(bound, bound ? maskEmail(account.getEmail()) : null,
+        AccountStatusResponse status = new AccountStatusResponse(bound, bound ? maskEmail(account.getEmail()) : null,
                 bound && account.isEmailNotificationsEnabled(), null);
+        return status;
     }
+
+    /** 读取个人昵称与外观版本号。 */
+    public synchronized AppearanceState getAppearanceState() {
+        AccountConfigData account = getAccountConfig();
+        if (account == null) return new AppearanceState(null, 0L);
+        return new AppearanceState(account.getNickname(), account.getAppearanceVersion());
+    }
+
+    /** 更新个人昵称并递增外观版本号；乐观锁校验不通过时拒绝覆盖。 */
+    public synchronized AppearanceState updateAppearance(String rawNickname, long expectedVersion) {
+        LocalConfigService.ModelConfigData config = localConfigService.loadFullConfigData();
+        Object rawAccount = config.getExtraFields().get("account");
+        AccountConfigData account = rawAccount == null
+                ? new AccountConfigData()
+                : objectMapper.convertValue(rawAccount, AccountConfigData.class);
+        if (expectedVersion != account.getAppearanceVersion()) {
+            throw new IllegalStateException("个人资料已被其他客户端更新，请刷新后重试");
+        }
+        String normalized = rawNickname == null ? null : rawNickname.trim();
+        if (normalized != null && normalized.length() > 32) {
+            throw new IllegalArgumentException("昵称不能超过 32 个字符");
+        }
+        account.setNickname(normalized == null || normalized.isEmpty() ? null : normalized);
+        account.setAppearanceVersion(account.getAppearanceVersion() + 1);
+        config.setExtraField("account", account);
+        localConfigService.saveFullConfigData(config);
+        return new AppearanceState(account.getNickname(), account.getAppearanceVersion());
+    }
+
+    /** 外观昵称与版本号快照。 */
+    public record AppearanceState(String nickname, long version) {}
 
     /** 生成并发送绑定验证码；同步保证同一邮箱的发送冷却判定不并发穿透。 */
     public synchronized void sendVerificationCode(String rawEmail) {

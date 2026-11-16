@@ -18,6 +18,21 @@ public final class MockAuthService: AuthServiceProtocol, @unchecked Sendable {
         }
     }
 
+    public func connect(serverAddress: String, token: String) async throws -> AuthSession {
+        try await Task.sleep(nanoseconds: 200_000_000)
+        let trimmedServer = serverAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedServer.isEmpty else {
+            throw APIClientError.invalidServer
+        }
+        let user = AuthUser(id: "butvan-single-user", email: trimmedServer, nickname: "Butvan")
+        let session = AuthSession(token: token, user: user)
+        lock.lock()
+        self.currentSession = session
+        lock.unlock()
+        _ = keychain.saveToken(token)
+        return session
+    }
+
     public func loginWithPassword(email: String, password: String) async throws -> AuthSession {
         // 模拟网络延迟
         try await Task.sleep(nanoseconds: 600_000_000)
