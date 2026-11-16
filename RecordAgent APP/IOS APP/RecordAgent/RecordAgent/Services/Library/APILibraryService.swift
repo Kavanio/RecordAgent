@@ -13,9 +13,10 @@ actor APILibraryService: LibraryServiceProtocol {
         if collection == .trash {
             records = try await client.sendResult("/agent/records/trash")
         } else {
+            let (from, to) = Self.safeTwoYearWindow()
             var items = [
-                URLQueryItem(name: "from", value: "2000-01-01"),
-                URLQueryItem(name: "to", value: "2099-12-31"),
+                URLQueryItem(name: "from", value: from),
+                URLQueryItem(name: "to", value: to),
             ]
             if let type {
                 items.append(URLQueryItem(name: "type", value: type.rawValue))
@@ -109,6 +110,16 @@ actor APILibraryService: LibraryServiceProtocol {
         let record: BackendRecordResponse = try await client.sendResult(
             "/agent/records/\(id)/flags", method: "PATCH", body: body)
         return record.toDocument()
+    }
+
+    private static func safeTwoYearWindow(now: Date = .now) -> (String, String) {
+        let calendar = Calendar(identifier: .gregorian)
+        let start = calendar.date(byAdding: .day, value: -710, to: now) ?? now
+        let end = calendar.date(byAdding: .day, value: 10, to: now) ?? now
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.dateFormat = "yyyy-MM-dd"
+        return (formatter.string(from: start), formatter.string(from: end))
     }
 }
 
