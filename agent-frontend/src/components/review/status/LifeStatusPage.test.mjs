@@ -124,9 +124,13 @@ async function render(props = {}) {
   view = await mount(React.createElement(MessageProvider, null, React.createElement(LifeStatusPage, props)));
 }
 
-test('展示顶部状态胶囊并支持点击柱子设定作息时间', async () => {
+test('展示顶栏分段与状态摘要并支持点击柱子设定作息时间', async () => {
   await render({ initialTab: 'today' });
+  const topBar = view.query('header');
+  const tabs = view.query('[role="tablist"]');
   const pills = view.query('[aria-label="状态摘要"]');
+  assert.ok(topBar.contains(tabs));
+  assert.ok(topBar.contains(pills));
   assert.match(pills.textContent, /复盘已授权/);
   assert.match(pills.textContent, /陪伴中/);
   assert.match(pills.textContent, /待确认画像建议/);

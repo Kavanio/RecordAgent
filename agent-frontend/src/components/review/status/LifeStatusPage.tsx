@@ -69,14 +69,50 @@ export function LifeStatusPage({ onOpenSettings, initialTab }: LifeStatusPagePro
   const disabled = busy || state.dirty || !s?.enabled || !s.authorized;
   const reviewReady = Boolean(s?.enabled && s.authorized);
 
+  const topBarCenter = s ? (
+    <div className={styles.topToolbar}>
+      <StatusTabs value={tab} onChange={selectTab} />
+      <div className={styles.pills} aria-label="状态摘要">
+        {reviewReady ? (
+          <span className={styles.quietStat} data-state="on"><i aria-hidden="true" />复盘已授权</span>
+        ) : (
+          <button type="button" className={styles.pillBtn} data-tone="warn"
+            disabled={!onOpenSettings} onClick={() => onOpenSettings?.('review')}>
+            <i aria-hidden="true" />{!s.enabled ? '复盘未启用 · 去设置' : '复盘未授权 · 去开启'}
+          </button>
+        )}
+
+        {state.companion && (
+          <button type="button" className={styles.quietBtn} data-state={state.companion.companionEnabled ? 'on' : 'off'}
+            onClick={() => selectTab('today')}>
+            <i aria-hidden="true" />{state.companion.companionEnabled ? '陪伴中' : '陪伴未开启'}
+          </button>
+        )}
+
+        {hasProposal && (
+          <button type="button" className={styles.pillBtn} data-tone="warn" onClick={() => selectTab('insight')}>
+            <i aria-hidden="true" />待确认画像建议
+          </button>
+        )}
+
+        {memorySummary && (
+          <button type="button" className={styles.quietBtn} onClick={() => selectTab('insight')}>
+            经历来源 {memorySummary.total}
+          </button>
+        )}
+      </div>
+    </div>
+  ) : undefined;
+
   return (
     <main className={styles.page}>
       <TopBar
         icon={<Sparkles size={19} />}
         title="状态"
         subtitle={`${dayTitle(today)} · ${greetingFor(hour)}`}
+        center={topBarCenter}
         actions={
-          <div className={styles.headerActions}>
+          <div className={`${styles.headerActions}${s ? ` ${styles.headerActionsSeparated}` : ''}`}>
             <TopBarAction variant="ghost" icon={<RefreshCw size={14} />} disabled={busy || state.loading}
               title="刷新状态数据" onClick={() => void refreshAll()}>
               {state.loading ? '读取中…' : '刷新'}
@@ -112,39 +148,6 @@ export function LifeStatusPage({ onOpenSettings, initialTab }: LifeStatusPagePro
 
             {s && (
               <>
-                <div className={styles.toolbar}>
-                  <StatusTabs value={tab} onChange={selectTab} />
-                  <div className={styles.pills} aria-label="状态摘要">
-                    {reviewReady ? (
-                      <span className={styles.quietStat} data-state="on"><i aria-hidden="true" />复盘已授权</span>
-                    ) : (
-                      <button type="button" className={styles.pillBtn} data-tone="warn"
-                        disabled={!onOpenSettings} onClick={() => onOpenSettings?.('review')}>
-                        <i aria-hidden="true" />{!s.enabled ? '复盘未启用 · 去设置' : '复盘未授权 · 去开启'}
-                      </button>
-                    )}
-
-                    {state.companion && (
-                      <button type="button" className={styles.quietBtn} data-state={state.companion.companionEnabled ? 'on' : 'off'}
-                        onClick={() => selectTab('today')}>
-                        <i aria-hidden="true" />{state.companion.companionEnabled ? '陪伴中' : '陪伴未开启'}
-                      </button>
-                    )}
-
-                    {hasProposal && (
-                      <button type="button" className={styles.pillBtn} data-tone="warn" onClick={() => selectTab('insight')}>
-                        <i aria-hidden="true" />待确认画像建议
-                      </button>
-                    )}
-
-                    {memorySummary && (
-                      <button type="button" className={styles.quietBtn} onClick={() => selectTab('insight')}>
-                        经历来源 {memorySummary.total}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
                 {tab === 'today' && (
                   <StatusTodayView settings={s} companion={state.companion} history={state.history}
                     habit={state.habit} suggestion={state.habitSuggestion} today={today}
