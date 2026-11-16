@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7J5EY8G8W689FH4DD0JZED1",
+  "session_id": "5721fc11-bf27-4700-b474-27f639058c21",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-16T12:31:40.583392Z",
+  "branch": "ios-app/direct-backend",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Auth/AuthViewModel.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Auth/LoginView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Localizable.xcstrings",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/API/APIClient.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/API/APIConfiguration.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/Auth/APIAuthService.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/Auth/AuthServiceProtocol.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/Auth/MockAuthService.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgentTests/AuthTests.swift"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-hydrogen-medium",
+  "turn_id": "6b9a78c9626d",
+  "checkpoint_transcript_start": 47,
+  "transcript_lines_at_start": 47,
+  "redaction": {
+    "replacements": 11,
+    "layers": {
+      "betterleaks": 4,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 5,
+      "credentialed_uri": 0,
+      "entropy": 2,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 3
+  }
+}

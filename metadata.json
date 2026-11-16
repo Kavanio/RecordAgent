@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7J5EY8G8W689FH4DD0JZED1",
+  "strategy": "manual-commit",
+  "branch": "ios-app/direct-backend",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Auth/AuthViewModel.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Auth/LoginView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Localizable.xcstrings",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/API/APIClient.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/API/APIConfiguration.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/Auth/APIAuthService.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/Auth/AuthServiceProtocol.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/Auth/MockAuthService.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgentTests/AuthTests.swift"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 11,
+    "layers": {
+      "betterleaks": 4,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 5,
+      "credentialed_uri": 0,
+      "entropy": 2,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
