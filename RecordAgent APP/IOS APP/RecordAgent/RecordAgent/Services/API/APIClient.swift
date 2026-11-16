@@ -128,6 +128,7 @@ actor APIClient {
             path, method: method, query: query, body: body, authenticated: authenticated,
             idempotencyKey: idempotencyKey)
         let envelope = try Self.decoder.decode(APIResultEnvelope<T>.self, from: data)
+        if envelope.code == 409 { throw APIClientError.conflict }
         guard envelope.code == 200 else {
             throw APIClientError.server(code: String(envelope.code), status: envelope.code)
         }
@@ -166,6 +167,7 @@ actor APIClient {
 
     static func decodeResult<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         let envelope = try decoder.decode(APIResultEnvelope<T>.self, from: data)
+        if envelope.code == 409 { throw APIClientError.conflict }
         guard envelope.code == 200 else {
             throw APIClientError.server(code: String(envelope.code), status: envelope.code)
         }

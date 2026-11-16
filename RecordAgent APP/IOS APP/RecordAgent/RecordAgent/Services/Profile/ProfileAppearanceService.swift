@@ -85,70 +85,115 @@ actor LocalProfileAppearanceService: ProfileAppearanceServiceProtocol {
     }
 }
 
-/// 头像对接 `agent-backend` 的 `/agent/account/avatar`；昵称与背景图暂存本机，待后端接口补齐后同步。
+/// 个人资料外观对接 `agent-backend` 的 `/agent/account/appearance`、`/avatar` 与 `/cover`。
 actor APIProfileAppearanceService: ProfileAppearanceServiceProtocol {
     private let client: APIClient
-    private let localFallback = LocalProfileAppearanceService()
+    private let legacy = LocalProfileAppearanceService()
     private var cachedAccount: String?
-    private var cachedAvatarVersion: String?
+    private var cached: BackendAppearanceResponse?
     private var cachedAvatar: Data?
+    private var cachedCover: Data?
 
     init(client: APIClient) { self.client = client }
 
     func load(account: String) async throws -> ProfileAppearance {
         if cachedAccount != account {
             cachedAccount = account
-            cachedAvatarVersion = nil
+            cached = nil
             cachedAvatar = nil
+            cachedCover = nil
         }
-        let local = try? await localFallback.load(account: account)
-        let status: BackendAccountStatusResponse? = try? await client.sendResult("/agent/account/status")
+        let response: BackendAppearanceResponse = try await client.sendResult("/agent/account/appearance")
         let avatar: Data?
-        if let version = status?.avatarVersion, !version.isEmpty {
-            if version == cachedAvatarVersion, let cachedAvatar {
+        if let version = response.avatarVersion, !version.isEmpty {
+            if cached?.avatarVersion == version, let cachedAvatar {
                 avatar = cachedAvatar
             } else {
                 avatar = try? await client.send("/agent/account/avatar/content")
             }
-            cachedAvatarVersion = version
         } else {
-            avatar = local?.avatarData
-            cachedAvatarVersion = nil
+            avatar = nil
         }
-        cachedAvatar = avatar
+        let cover: Data?
+        if let version = response.coverVersion, !version.isEmpty {
+            if cached?.coverVersion == version, let cachedCover {
+                cover = cachedCover
+            } else {
+                cover = try? await client.send("/agent/account/cover/content")
+            }
+        } else {
+            cover = nil
+        }
+        let hasRemote = response.version > 0 || response.nickname != nil
+            || response.avatarVersion != nil || response.coverVersion != nil
+        let previous = hasRemote ? nil : (try? await legacy.load(account: account))
+        cached = response
+        cachedAvatar = avatar ?? previous?.avatarData
+        cachedCover = cover ?? previous?.coverData
         return ProfileAppearance(
-            nickname: local?.nickname,
-            avatarData: avatar,
-            coverData: local?.coverData
+            nickname: response.nickname ?? previous?.nickname,
+            avatarData: cachedAvatar,
+            coverData: cachedCover
         )
     }
 
     func save(_ appearance: ProfileAppearance, account: String) async throws {
-        if let avatar = appearance.avatarData, avatar != cachedAvatar {
-            guard avatar.count <= 2_000_000, avatar.starts(with: [0xFF, 0xD8]) else {
-                throw ProfileAppearanceError.invalidImage
-            }
-            let status: BackendAccountStatusResponse = try await client.sendMultipartResult(
+        if cachedAccount != account || cached == nil { _ = try await load(account: account) }
+        guard var current = cached else { throw APIClientError.invalidResponse }
+
+        let clearAvatar = appearance.avatarData == nil && current.avatarVersion != nil
+        let clearCover = appearance.coverData == nil && current.coverVersion != nil
+        let body = try APIClient.encoder.encode(
+            UpdateAppearanceRequest(
+                nickname: appearance.nickname,
+                clearAvatar: clearAvatar,
+                clearCover: clearCover,
+                expectedVersion: current.version
+            )
+        )
+        current = try await client.sendResult("/agent/account/appearance", method: "PATCH", body: body)
+
+        if let avatar = appearance.avatarData, avatar != cachedAvatar || current.avatarVersion == nil {
+            try validateJPEG(avatar)
+            current = try await client.sendMultipartResult(
                 "/agent/account/avatar",
                 filename: "avatar.jpg",
                 mimeType: "image/jpeg",
                 fileData: avatar
             )
-            cachedAvatarVersion = status.avatarVersion
-            cachedAvatar = avatar
         }
-        let localSnapshot = ProfileAppearance(
-            nickname: appearance.nickname,
-            avatarData: nil,
-            coverData: appearance.coverData
-        )
-        try await localFallback.save(localSnapshot, account: account)
+        if let cover = appearance.coverData, cover != cachedCover || current.coverVersion == nil {
+            try validateJPEG(cover)
+            current = try await client.sendMultipartResult(
+                "/agent/account/cover",
+                filename: "cover.jpg",
+                mimeType: "image/jpeg",
+                fileData: cover
+            )
+        }
+
+        cached = current
+        cachedAvatar = appearance.avatarData
+        cachedCover = appearance.coverData
+    }
+
+    private func validateJPEG(_ data: Data) throws {
+        guard data.count <= 2_000_000, data.starts(with: [0xFF, 0xD8]) else {
+            throw ProfileAppearanceError.invalidImage
+        }
     }
 }
 
-private struct BackendAccountStatusResponse: Decodable {
-    let bound: Bool
-    let maskedEmail: String?
-    let emailNotificationsEnabled: Bool
+private struct BackendAppearanceResponse: Decodable {
+    let nickname: String?
     let avatarVersion: String?
+    let coverVersion: String?
+    let version: Int64
+}
+
+private struct UpdateAppearanceRequest: Encodable {
+    let nickname: String?
+    let clearAvatar: Bool
+    let clearCover: Bool
+    let expectedVersion: Int64
 }

@@ -14,7 +14,7 @@ struct UnavailableProfileOverviewService: ProfileOverviewServiceProtocol {
     }
 }
 
-/// 个人总览只消费服务端汇总，避免把按日展示数据误当累计事实。
+/// 个人总览对接 `agent-backend` 的 `/agent/insights/profile`。
 actor APIProfileOverviewService: ProfileOverviewServiceProtocol {
     private let client: APIClient
 
@@ -23,11 +23,15 @@ actor APIProfileOverviewService: ProfileOverviewServiceProtocol {
     func overview(for userID: String, month: Date) async throws -> ProfileOverview {
         let parts = Calendar.current.dateComponents([.year, .month], from: month)
         let key = String(format: "%04d-%02d", parts.year ?? 0, parts.month ?? 0)
-        let data = try await client.send("/api/v1/overview/profile",
-            query: [URLQueryItem(name: "month", value: key),
-                    URLQueryItem(name: "timeZone", value: TimeZone.current.identifier)])
-        let response = try APIClient.decoder.decode(ProfileOverviewResponse.self, from: data)
-        return ProfileOverview(month: month,
+        let response: ProfileOverviewResponse = try await client.sendResult(
+            "/agent/insights/profile",
+            query: [
+                URLQueryItem(name: "month", value: key),
+                URLQueryItem(name: "timezone", value: TimeZone.current.identifier),
+            ]
+        )
+        return ProfileOverview(
+            month: month,
             totalAssetsInCents: response.totalAssetsInCents,
             totalExpenseInCents: response.totalExpenseInCents,
             totalRecordMinutes: response.totalRecordMinutes,
@@ -38,7 +42,8 @@ actor APIProfileOverviewService: ProfileOverviewServiceProtocol {
             isDemo: false,
             assetsGrowthRate: response.assetsGrowthRate,
             expenseGrowthRate: response.expenseGrowthRate,
-            recordMinutesGrowthRate: response.recordMinutesGrowthRate)
+            recordMinutesGrowthRate: response.recordMinutesGrowthRate
+        )
     }
 }
 
