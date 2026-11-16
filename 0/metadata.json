@@ -1,0 +1,53 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7GX7J2W7NVDGM64YQQ5X0XT",
+  "session_id": "f37a59bd-09fb-453b-98d2-1eadbf2e402f",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-16T00:48:35.596821Z",
+  "branch": "desktop/fix-proactive-companion-review",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-frontend/src/App.tsx",
+    "agent-frontend/src/components/chat/AssistantMessageItem.test.mjs",
+    "agent-frontend/src/components/chat/AssistantMessageItem.tsx",
+    "agent-frontend/src/components/chat/ChannelConversationView.tsx",
+    "agent-frontend/src/components/chat/ChatWorkspace.module.css",
+    "agent-frontend/src/components/chat/ChatWorkspace.tsx",
+    "agent-frontend/src/components/common/TopBar.module.css",
+    "agent-frontend/src/components/common/TopBar.tsx",
+    "agent-frontend/src/components/layout/Sidebar.module.css",
+    "agent-frontend/src/components/layout/Sidebar.test.mjs",
+    "agent-frontend/src/components/layout/Sidebar.tsx",
+    "agent-frontend/src/components/layout/SidebarToggleButton.module.css",
+    "agent-frontend/src/components/layout/SidebarToggleButton.tsx",
+    "agent-frontend/src/components/layout/useSidebarWidth.ts",
+    "agent-frontend/src/components/review/useCompanionNotifications.ts",
+    "agent-frontend/src/context/SidebarLayoutContext.tsx",
+    "agent-frontend/src/context/sidebarLayout.ts",
+    "agent-frontend/src/features/chat/transcriptMessages.ts",
+    "agent-frontend/src/index.css",
+    "agent-frontend/src/types/chat.ts"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-hydrogen-high",
+  "turn_id": "a59d24355438",
+  "checkpoint_transcript_start": 341,
+  "transcript_lines_at_start": 341,
+  "redaction": {
+    "replacements": 4,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 1,
+      "credentialed_uri": 0,
+      "entropy": 3,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 1
+  }
+}
