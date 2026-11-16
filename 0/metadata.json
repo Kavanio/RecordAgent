@@ -21,12 +21,12 @@
   "checkpoint_transcript_start": 119,
   "transcript_lines_at_start": 119,
   "redaction": {
-    "replacements": 11,
+    "replacements": 12,
     "layers": {
       "betterleaks": 4,
       "connection_string": 0,
       "credential_key": 0,
-      "credential_value": 5,
+      "credential_value": 6,
       "credentialed_uri": 0,
       "entropy": 2,
       "key_context": 0,
