@@ -15,13 +15,13 @@
 
 本项目是基于 `React + Tauri` 桌面端、`Spring Boot + AgentScope Java` 后端的智能体应用。目录必须按职责稳定划分，禁止把临时代码、构建产物、运行态数据或跨层实现混入业务源码。
 
-**本项目当前按单用户自用工具推进，不做多端多用户平台。** `RecordAgent APP/IOS APP/` 下的 iOS App 与独立 Spring Boot + PostgreSQL 后端整体**暂停推进**：代码与文档保留，可以继续维护正确性和编译，但不再扩展业务功能、不新建规划、不作为桌面端的前置依赖。桌面端 `agent-backend/` 继续服务本机并持有本地 SQLite，是唯一在推进的后端；不得把 iOS 后端代码混入现有桌面 sidecar 模块。若日后恢复该方向，须先重新确认产品定位与本文件相应条款。
+**本项目当前按单用户自用工具推进，不做多端多用户平台。** `RecordAgent APP/IOS APP/RecordAgent/` 恢复推进，但**不再使用独立后端**，改为直连桌面端/远程部署的 `agent-backend/`（通过服务器地址 + `BUTVAN_API_TOKEN` 鉴权，本地开发支持局域网 IP，远程通过反向代理 HTTPS 接入）。`RecordAgent APP/IOS APP/backend/` 下的独立 Spring Boot + PostgreSQL 多用户后端保持**暂停归档**：代码与文档保留，不再扩展业务功能、不新建规划、不作为 iOS 端依赖。桌面端 `agent-backend/` 持有本地 SQLite，是唯一的后端服务；不得把旧多用户 iOS 后端代码混入现有 `agent-backend/` 模块。
 
 | 目录 | 职责与约束 |
 | --- | --- |
 | `agent-frontend/` | React、TypeScript、Vite 与 Tauri 桌面端代码；仅放置前端构建、展示和桌面壳层相关内容。 |
-| `RecordAgent APP/IOS APP/RecordAgent/` | **暂停推进**：独立 Swift/SwiftUI iOS App 的规划文档与已有原生工程；保留现状，不新增功能规划。 |
-| `RecordAgent APP/IOS APP/backend/` | **暂停推进**：独立 Spring Boot + PostgreSQL 多用户业务后端；保留现状，不新增业务 API，不承接桌面业务迁移。 |
+| `RecordAgent APP/IOS APP/RecordAgent/` | 独立 Swift/SwiftUI iOS App 工程；直连 `agent-backend/` 单用户后端，使用服务器地址 + Bearer Token 鉴权，优先复用后端现有接口。 |
+| `RecordAgent APP/IOS APP/backend/` | **暂停归档**：原独立 Spring Boot + PostgreSQL 多用户业务后端；保留现状，不再推进或被 iOS 端依赖。 |
 | `agent-frontend/src/components/` | 可复用视图组件；按业务域建立目录，例如 `chat/`、`model/`、`layout/`、`common/`。 |
 | `agent-frontend/src/services/` | HTTP、SSE、存储与第三方调用等基础设施适配；不得承载页面状态或 JSX。 |
 | `agent-frontend/src/context/` | 跨页面共享状态与领域上下文；不得把一次性局部状态提升到此处。 |
@@ -54,16 +54,16 @@
 
 ### 分支管理策略
 
-本项目采用三层分支模型，当前分支流向为：`desktop/*` → `main` → `develop`（`ios-app/*` 方向暂停）。
+本项目采用三层分支模型，当前分支流向为：`desktop/*` / `ios-app/*` → `main` → `develop`。
 
 | 分支 | 定位与约束 |
 | --- | --- |
-| `ios-app/*` | **暂停使用**：iOS App 及其独立业务后端当前不推进，不新建该前缀分支；仅在其代码必须修复编译或安全问题时临时使用。 |
+| `ios-app/*` | iOS App（`RecordAgent APP/IOS APP/RecordAgent/`）的代码分支；从 `main` 创建，完成后合并回 `main`。 |
 | `desktop/*` | 桌面端及其本地 Agent/后端的代码分支；从 `main` 创建，完成后合并回 `main`。 |
 | `main` | 本地集成分支；用于汇聚已完成的功能分支，在本地执行完整测试与验证。验证通过后合并到 `develop`。不直接向远程推送，仅作为本地集成测试的中间层。 |
 | `develop` | 生产推送分支；`main` 本地验证通过后合并到此分支并推送到远程仓库。版本 tag 触发桌面 Release；后端相关变更触发 ACR 镜像发布。 |
 
-- 当前只推进桌面端：凡修改 `agent-frontend/`、`agent-backend/` 或桌面端打包与运行代码，分支名必须以 `desktop/` 开头；修复、重构和新增功能均适用，开始代码修改前先核对当前分支。iOS 方向暂停，不主动创建 `ios-app/` 分支。
+- 修改 `agent-frontend/`、`agent-backend/` 或桌面端打包与运行代码，分支名必须以 `desktop/` 开头；修改 `RecordAgent APP/IOS APP/RecordAgent/` 代码，分支名必须以 `ios-app/` 开头；开始代码修改前先核对当前分支。
 - 同一任务涉及两端代码时，按端拆成各自前缀的分支；共同的接口契约先确定，再分别实施。仅修改全局文档时不受这两个代码分支前缀限制。
 - 新功能开发必须从 `main` 创建独立的功能分支，禁止直接在 `main` 或 `develop` 上提交业务代码；创建分支仍须遵守本文件的授权约束。
 - 功能分支完成后，先合并到 `main` 进行本地集成测试；测试通过后再从 `main` 合并到 `develop` 推送。
@@ -162,8 +162,8 @@
 - 已建立子级 `AGENTS.md`：`agent-backend/server-feishu/`（渠道集成模块职责与配置约束）。
 - 已建立子级 `AGENTS.md`：`agent-backend/server-network/`（HTTP 接口与本地 SQLite 持久化约束）。
 - 已建立子级 `AGENTS.md`：`agent-frontend/`（前端验证入口、测试引导、文件规模与样式组件契约）。
-- 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/RecordAgent/`（原生 iOS 技术栈、API 数据边界与工程约束；所属方向暂停推进）。
-- 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/backend/`（独立多用户业务后端、PostgreSQL 与 API 约束；所属方向暂停推进）。
+- 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/RecordAgent/`（原生 iOS 技术栈、直连 `agent-backend` 的数据边界与工程约束）。
+- 已建立子级 `AGENTS.md`：`RecordAgent APP/IOS APP/backend/`（原独立多用户业务后端；已暂停归档）。
 - 已建立子级 `AGENTS.md`：`agent-backend/server-network/src/main/java/butvan/agent/network/review/`（长期复盘授权、事实与记忆持久化契约）。
 - 已建立子级 `AGENTS.md`：`agent-backend/server-network/src/main/java/butvan/agent/network/review/life/`（生活复盘独立正文授权、版本、主动策略与渠道投递）。
 - 自动任务的细节约束见 `agent-backend/server-network/AGENTS.md` 的“自动任务”节；产品行为见 `docs/任务模块产品需求与操作说明.md`。
