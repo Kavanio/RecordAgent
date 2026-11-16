@@ -31,11 +31,10 @@ extension Notification.Name {
     static let apiSessionExpired = Notification.Name("recordagent.api.sessionExpired")
 }
 
-/// 统一处理地址、JSON、超时、错误映射和访问令牌续期。
+/// 统一处理地址、JSON、超时、错误映射和 Bearer Token 鉴权。
 actor APIClient {
     private let keychain: KeychainService
     private let session: URLSession
-    private var refreshTask: Task<AuthSession, Error>?
 
     init(keychain: KeychainService = .shared, session: URLSession = .shared) {
         self.keychain = keychain
@@ -46,37 +45,59 @@ actor APIClient {
         _ path: String, method: String = "GET", query: [URLQueryItem] = [],
         body: Data? = nil, authenticated: Bool = true, idempotencyKey: UUID? = nil
     ) async throws -> Data {
-        let server = try APIConfiguration.serverIdentity()
+        let base = try APIConfiguration.baseURL()
+        let server = base.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         if !authenticated {
-            let response = try await perform(path, method: method, query: query, body: body, token: nil, idempotencyKey: idempotencyKey)
+            let response = try await perform(
+                path, base: base, method: method, query: query, body: body, token: nil,
+                idempotencyKey: idempotencyKey)
             return try accepted(response)
         }
-        guard var current = keychain.getAPISession(server: server) else {
+        guard let current = keychain.getAPISession(server: server) else {
             throw APIClientError.unauthenticated
         }
-        if current.expiresAt.map({ $0 <= Date().addingTimeInterval(30) }) == true {
-            current = try await refresh(current, server: server)
-        }
-        var response = try await perform(path, method: method, query: query, body: body, token: current.token, idempotencyKey: idempotencyKey)
+        let token = current.token.trimmingCharacters(in: .whitespacesAndNewlines)
+        let response = try await perform(
+            path, base: base, method: method, query: query, body: body,
+            token: token.isEmpty ? nil : token, idempotencyKey: idempotencyKey)
         if response.1.statusCode == 401 {
-            current = try await refresh(current, server: server)
-            response = try await perform(path, method: method, query: query, body: body, token: current.token, idempotencyKey: idempotencyKey)
+            invalidateSession()
+            throw APIClientError.unauthenticated
         }
-        if response.1.statusCode == 401 { invalidateSession() }
         return try accepted(response)
     }
 
-    /// 启动时向服务端核验旧会话，避免显示失效或其他服务器的账户数据。
+    /// 直连校验服务器地址与 Token，成功后持久化配置与单用户会话。
+    func connect(serverAddress: String, token: String) async throws -> AuthSession {
+        let base = try APIConfiguration.validateBaseURL(serverAddress)
+        let server = base.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let trimmedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        let result = try await perform(
+            "/api/health", base: base, method: "GET", token: trimmedToken.isEmpty ? nil : trimmedToken)
+        if result.1.statusCode == 401 {
+            throw APIClientError.unauthenticated
+        }
+        _ = try accepted(result)
+        _ = try APIConfiguration.saveServerAddress(server)
+        let user = AuthUser(
+            id: "butvan-single-user",
+            email: base.host ?? server,
+            nickname: "Butvan"
+        )
+        let authSession = AuthSession(token: trimmedToken, refreshToken: nil, user: user, expiresAt: nil)
+        guard keychain.saveAPISession(authSession, server: server) else {
+            throw APIClientError.unavailable
+        }
+        return authSession
+    }
+
+    /// 启动时向服务端 `/api/health` 核验旧会话与 Token 有效性。
     func restoreSession() async throws -> AuthSession? {
         let server = try APIConfiguration.serverIdentity()
-        guard keychain.getAPISession(server: server) != nil else { return nil }
+        guard let session = keychain.getAPISession(server: server) else { return nil }
         do {
-            let data = try await send("/api/v1/me")
-            let user = try Self.decoder.decode(AuthUser.self, from: data)
-            guard let session = keychain.getAPISession(server: server) else { return nil }
-            return AuthSession(
-                token: session.token, refreshToken: session.refreshToken, user: user,
-                expiresAt: session.expiresAt)
+            _ = try await send("/api/health")
+            return session
         } catch APIClientError.unauthenticated {
             invalidateSession()
             return nil
@@ -101,41 +122,15 @@ actor APIClient {
         return decoder
     }
 
-    private func refresh(_ previous: AuthSession, server: String) async throws -> AuthSession {
-        if let refreshTask { return try await refreshTask.value }
-        let task = Task { try await self.renew(previous, server: server) }
-        refreshTask = task
-        defer { refreshTask = nil }
-        return try await task.value
-    }
-
-    private func renew(_ previous: AuthSession, server: String) async throws -> AuthSession {
-        guard let refreshToken = previous.refreshToken else {
-            invalidateSession()
-            throw APIClientError.unauthenticated
-        }
-        let body = try Self.encoder.encode(["refreshToken": refreshToken])
-        let result = try await perform("/api/v1/auth/refresh", method: "POST", body: body, token: nil)
-        if result.1.statusCode == 401 {
-            invalidateSession()
-            throw APIClientError.unauthenticated
-        }
-        _ = try accepted(result)
-        let next = try Self.decoder.decode(AuthSession.self, from: result.0)
-        guard keychain.saveAPISession(next, server: server) else { throw APIClientError.unavailable }
-        return next
-    }
-
     private func invalidateSession() {
         keychain.clearAPISession()
         NotificationCenter.default.post(name: .apiSessionExpired, object: nil)
     }
 
     private func perform(
-        _ path: String, method: String, query: [URLQueryItem] = [], body: Data? = nil,
+        _ path: String, base: URL, method: String, query: [URLQueryItem] = [], body: Data? = nil,
         token: String?, idempotencyKey: UUID? = nil
     ) async throws -> (Data, HTTPURLResponse) {
-        let base = try APIConfiguration.baseURL()
         guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
         else { throw APIClientError.invalidServer }
         components.path = path

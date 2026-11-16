@@ -63,4 +63,20 @@ final class AuthTests: XCTestCase {
             XCTFail("Unexpected error type: \(error)")
         }
     }
+
+    func testDirectConnectValidationAndMockSession() async throws {
+        let authService = MockAuthService()
+        let session = try await authService.connect(
+            serverAddress: "http://192.168.1.10:8081",
+            token: "test-token-123"
+        )
+        XCTAssertEqual(session.token, "test-token-123")
+        XCTAssertEqual(session.user.email, "http://192.168.1.10:8081")
+        XCTAssertEqual(authService.getCurrentSession()?.token, "test-token-123")
+
+        let localURL = try APIConfiguration.validateBaseURL("http://192.168.1.10:8081/")
+        XCTAssertEqual(localURL.absoluteString, "http://192.168.1.10:8081")
+        let remoteURL = try APIConfiguration.validateBaseURL("https://agent.example.com/")
+        XCTAssertEqual(remoteURL.absoluteString, "https://agent.example.com")
+    }
 }

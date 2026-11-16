@@ -7,6 +7,8 @@ public final class AuthViewModel: ObservableObject {
     @Published public var authMode: AuthMode = .passwordLogin
 
     // MARK: - 表单输入
+    @Published public var serverAddress: String = ""
+    @Published public var apiToken: String = ""
     @Published public var email: String = ""
     @Published public var password: String = ""
     @Published public var verificationCode: String = ""
@@ -33,6 +35,7 @@ public final class AuthViewModel: ObservableObject {
     public init(authService: AuthServiceProtocol, keychain: KeychainService = .shared) {
         self.authService = authService
         self.keychain = keychain
+        self.serverAddress = APIConfiguration.savedServerAddress()
 
         // 尝试加载上次记住的邮箱
         if let savedEmail = keychain.getSavedEmail() {
@@ -53,6 +56,27 @@ public final class AuthViewModel: ObservableObject {
     }
 
     // MARK: - 表单提交主入口
+
+    public func connectBackend() {
+        guard !isLoading else { return }
+        errorMessage = nil
+        let trimmedServer = serverAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedServer.isEmpty else {
+            presentError(String(localized: "auth.error.empty_server", defaultValue: "请输入后端服务地址"))
+            return
+        }
+        isLoading = true
+        Task {
+            do {
+                _ = try await authService.connect(serverAddress: trimmedServer, token: apiToken)
+                apiToken = ""
+                isAuthenticated = true
+            } catch {
+                presentError(error.localizedDescription)
+            }
+            isLoading = false
+        }
+    }
 
     public func submit() {
         guard !isLoading else { return }

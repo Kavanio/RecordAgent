@@ -6,6 +6,9 @@ public enum AuthCodePurpose: String, Sendable {
 
 /// 认证服务抽象协议
 public protocol AuthServiceProtocol: Sendable {
+    /// 直连配置服务器地址与访问令牌
+    func connect(serverAddress: String, token: String) async throws -> AuthSession
+
     /// 邮箱 + 密码登录
     func loginWithPassword(email: String, password: String) async throws -> AuthSession
 
