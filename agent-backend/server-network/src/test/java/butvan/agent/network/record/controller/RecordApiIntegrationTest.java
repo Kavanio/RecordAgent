@@ -1,6 +1,7 @@
 package butvan.agent.network.record.controller;
 
 import butvan.agent.agents.identity.CurrentUserProvider;
+import butvan.agent.agents.storage.AgentStorageProperties;
 import butvan.agent.network.config.database.LocalDatabaseConfiguration;
 import butvan.agent.network.controller.ApiExceptionHandler;
 import butvan.agent.network.file.repository.FileAssetRepository;
@@ -21,6 +22,7 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -277,5 +279,11 @@ class RecordApiIntegrationTest {
             RecordAttachmentService.class, RecordBackupService.class, RecordTabService.class, FileAssetRepository.class,
             FileAssetService.class, LocalBlobStore.class,
             RecordController.class, ApiExceptionHandler.class, CurrentUserProvider.class})
-    static class TestApplication { }
+    static class TestApplication {
+        /** 文件存储新增的素材根目录同样隔离在测试临时目录，禁止回落到真实用户目录。 */
+        @Bean
+        AgentStorageProperties agentStorageProperties() {
+            return new AgentStorageProperties(DATABASE_PATH.getParent().resolve("agent-storage"));
+        }
+    }
 }
