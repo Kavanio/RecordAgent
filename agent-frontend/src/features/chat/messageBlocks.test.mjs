@@ -7,6 +7,8 @@ let appendTextBlock,
   upsertToolCallBlock,
   applyToolResultBlock,
   formatToolGroupSummary,
+  formatElapsedDuration,
+  splitProcessAndFinalBlocks,
   mapTranscriptMessages;
 
 before(async () => {
@@ -17,6 +19,8 @@ before(async () => {
     upsertToolCallBlock,
     applyToolResultBlock,
     formatToolGroupSummary,
+    formatElapsedDuration,
+    splitProcessAndFinalBlocks,
   } = await loadModule('/src/features/chat/messageBlocks.ts'));
   ({ mapTranscriptMessages } = await loadModule('/src/features/chat/transcriptMessages.ts'));
 });
@@ -32,7 +36,6 @@ test('流式事件按真实发生顺序维护 ReAct 交错 blocks，同一轮工
     startTime: 1000,
   };
 
-  // 第 1 轮：思考 -> 说明 -> 2 个并发工具
   msg = appendThinkingBlock(msg, '先确定');
   msg = appendThinkingBlock(msg, '搜索关键词。');
   msg = appendTextBlock(msg, '\n\n');
@@ -44,7 +47,6 @@ test('流式事件按真实发生顺序维护 ReAct 交错 blocks，同一轮工
   msg = applyToolResultBlock(msg, { toolCallId: 'c1', result: 'r1', status: 'completed' });
   msg = applyToolResultBlock(msg, { toolCallId: 'c2', result: 'r2', status: 'completed' });
 
-  // 第 2 轮：反思 -> 再查文件 -> 最终结论
   msg = appendThinkingBlock(msg, '需要核对本地笔记。');
   msg = appendTextBlock(msg, '已经搜到新闻，我再对比一下记录。');
   msg = upsertToolCallBlock(msg, { toolCallId: 'c3', toolName: 'read_file', command: 'notes.md' });
@@ -66,7 +68,7 @@ test('流式事件按真实发生顺序维护 ReAct 交错 blocks，同一轮工
   assert.equal(msg.blocks[6].content, '最终结论如下。');
 });
 
-test('formatToolGroupSummary 按工具类型与状态生成紧凑中文摘要', () => {
+test('formatToolGroupSummary、formatElapsedDuration 与 splitProcessAndFinalBlocks 行为准确', () => {
   assert.equal(
     formatToolGroupSummary(
       [
@@ -93,6 +95,18 @@ test('formatToolGroupSummary 按工具类型与状态生成紧凑中文摘要', 
   assert.equal(
     formatToolGroupSummary(
       [
+        { toolCallId: '1', toolName: 'reset_equipped_tools', command: '', status: 'completed' },
+        { toolCallId: '2', toolName: 'web_search', command: 'a', status: 'completed' },
+        { toolCallId: '3', toolName: 'web_search', command: 'b', status: 'completed' },
+      ],
+      false,
+    ).label,
+    '已装载工具能力、网页搜索（3 项）',
+  );
+
+  assert.equal(
+    formatToolGroupSummary(
+      [
         { toolCallId: '1', toolName: 'read_file', command: 'a.ts', status: 'completed' },
         { toolCallId: '2', toolName: 'execute_command', command: 'pnpm test', status: 'failed' },
       ],
@@ -100,6 +114,18 @@ test('formatToolGroupSummary 按工具类型与状态生成紧凑中文摘要', 
     ).label,
     '已读取文件、运行命令（2 项） · 1 项失败',
   );
+
+  assert.equal(formatElapsedDuration(18), '用时 18 秒');
+  assert.equal(formatElapsedDuration(1578), '用时 26分钟 18秒');
+  assert.equal(formatElapsedDuration(120), '用时 2分钟');
+
+  const split = splitProcessAndFinalBlocks([
+    { id: 'b0', kind: 'thinking', content: 't' },
+    { id: 'b1', kind: 'tool_group', tools: [{ toolCallId: '1', toolName: 'web_search', command: 'q', status: 'completed' }] },
+    { id: 'b2', kind: 'text', content: '最终结论' },
+  ]);
+  assert.equal(split.processBlocks.length, 2);
+  assert.equal(split.finalTextBlock?.content, '最终结论');
 });
 
 test('mapTranscriptMessages 兼容带 blocks 的新记录与无 blocks 的旧记录', () => {

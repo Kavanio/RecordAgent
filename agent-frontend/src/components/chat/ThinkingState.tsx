@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { TraceNode, ToolDefinition } from '../../types/chat';
+import { formatElapsedDuration } from '../../features/chat/messageBlocks';
 import { NestedReasoningBlock } from './NestedReasoningBlock';
 import { TracePillRow } from './TracePillRow';
 import { ToolCall, toolNodeToToolCallProps } from './ToolCall';
@@ -70,9 +71,7 @@ export const ThinkingState: React.FC<ThinkingStateProps> = ({
           {isWorking ? (
             <span className={styles.workingShimmer}>{workingLabel}</span>
           ) : (
-            <>
-              共耗时 <span className={styles.elapsed}>{elapsedSeconds}</span> 秒
-            </>
+            <span className={styles.elapsedText}>{formatElapsedDuration(elapsedSeconds)}</span>
           )}
         </span>
 
