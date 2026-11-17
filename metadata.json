@@ -3,15 +3,19 @@
   "checkpoint_id": "01M7MS3D68FBQKNM69Z0AZE499",
   "strategy": "manual-commit",
   "branch": "ios-app/proactive-push",
-  "checkpoints_count": 3,
+  "checkpoints_count": 9,
   "files_touched": [
     "RecordAgent APP/IOS APP/RecordAgent/RecordAgent.xcodeproj/project.pbxproj",
     "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/App/Info.plist",
     "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Domain/Agent/AgentModels.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Domain/Agent/AgentReferenceCitationParser.swift",
     "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Domain/Agent/AgentServiceProtocol.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Domain/Agent/AgentTokenUsageAnalyzer.swift",
     "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentChatView.swift",
     "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentChatViewModel.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentComposerOverlayPanels.swift",
     "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentSheetsView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentTokenUsageSheet.swift",
     "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Main/MainTabView.swift",
     "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Localizable.xcstrings",
     "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/API/APIClient.swift",
@@ -32,6 +36,12 @@
       "transcript": "/1/full.jsonl",
       "content_hash": "/1/content_hash.txt",
       "prompt": "/1/prompt.txt"
+    },
+    {
+      "metadata": "/2/metadata.json",
+      "transcript": "/2/full.jsonl",
+      "content_hash": "/2/content_hash.txt",
+      "prompt": "/2/prompt.txt"
     }
   ],
   "token_usage": {
@@ -42,12 +52,12 @@
     "api_call_count": 1
   },
   "redaction": {
-    "replacements": 2,
+    "replacements": 8,
     "layers": {
       "betterleaks": 0,
       "connection_string": 0,
       "credential_key": 0,
-      "credential_value": 2,
+      "credential_value": 8,
       "credentialed_uri": 0,
       "entropy": 0,
       "key_context": 0,
