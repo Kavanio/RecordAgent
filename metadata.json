@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7KKZT2EJZ3FA8N8W2277HYF",
+  "strategy": "manual-commit",
+  "branch": "ios-app/agent-integration",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Domain/Agent/AgentTimelineBuilder.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentChatView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentProcessTimelineView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Localizable.xcstrings",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgentTests/AgentTests.swift"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 14,
+    "layers": {
+      "betterleaks": 3,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 9,
+      "credentialed_uri": 0,
+      "entropy": 2,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
