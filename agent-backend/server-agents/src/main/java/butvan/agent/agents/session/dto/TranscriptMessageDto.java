@@ -17,7 +17,8 @@ public record TranscriptMessageDto(
         List<ToolExecutionDto> tools,
         String thinking,
         TurnTokenUsage usage,
-        boolean proactive
+        boolean proactive,
+        List<MessageBlockDto> blocks
 ) {
 
     public TranscriptMessageDto(
@@ -32,13 +33,66 @@ public record TranscriptMessageDto(
             String thinking,
             TurnTokenUsage usage
     ) {
-        this(id, turnId, role, content, createdAt, status, durationMillis, tools, thinking, usage, false);
+        this(id, turnId, role, content, createdAt, status, durationMillis, tools, thinking, usage, false, List.of());
+    }
+
+    public TranscriptMessageDto(
+            String id,
+            String turnId,
+            MessageRole role,
+            String content,
+            Instant createdAt,
+            MessageStatus status,
+            Long durationMillis,
+            List<ToolExecutionDto> tools,
+            String thinking,
+            TurnTokenUsage usage,
+            boolean proactive
+    ) {
+        this(id, turnId, role, content, createdAt, status, durationMillis, tools, thinking, usage, proactive, List.of());
     }
 
     public TranscriptMessageDto {
         content = content == null ? "" : content;
         tools = tools == null ? List.of() : List.copyOf(tools);
         thinking = (thinking == null || thinking.isBlank()) ? null : thinking;
+        blocks = blocks == null ? List.of() : List.copyOf(blocks);
+    }
+
+    public enum BlockKind {
+        THINKING,
+        TEXT,
+        TOOL_GROUP
+    }
+
+    /** 按事件产生顺序记录的消息分段块（思考、过程/结论正文、工具执行组）。 */
+    public record MessageBlockDto(
+            BlockKind kind,
+            String content,
+            List<ToolExecutionDto> tools
+    ) {
+        public MessageBlockDto {
+            content = content == null ? "" : content;
+            tools = tools == null ? List.of() : List.copyOf(tools);
+        }
+
+        public static MessageBlockDto thinking(String content) {
+            return new MessageBlockDto(BlockKind.THINKING, content, List.of());
+        }
+
+        public static MessageBlockDto text(String content) {
+            return new MessageBlockDto(BlockKind.TEXT, content, List.of());
+        }
+
+        public static MessageBlockDto toolGroup(List<ToolExecutionDto> tools) {
+            return new MessageBlockDto(BlockKind.TOOL_GROUP, "", tools);
+        }
+    }
+
+    /** 仅当存在多段内容、思考块或工具组时才需要持久化有序 blocks，避免纯文本轮次冗余存储。 */
+    public static boolean hasStructuredBlocks(List<MessageBlockDto> blocks) {
+        if (blocks == null || blocks.isEmpty()) return false;
+        return blocks.size() > 1 || blocks.get(0).kind() != BlockKind.TEXT;
     }
 
     /** 消息角色。工具详情后续可扩展为单独事件，不和普通消息混用。 */
