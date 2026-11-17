@@ -70,17 +70,33 @@ public class AgentRunCompleter {
         long durationMillis = Math.max(0, Duration.between(run.startedAt(), Instant.now()).toMillis());
 
         try {
-            // 固化工具状态并落库完整 assistant 消息
-            transcriptService.appendAssistantMessage(
-                    run.sessionId(),
-                    run.turnId(),
-                    run.contentAsString(),
-                    run.thinkingAsString(),
-                    status,
-                    durationMillis,
-                    run.finalizeTools(status),
-                    run.tokenUsage()
-            );
+            // 固化工具状态与时间线分段块并落库完整 assistant 消息；纯单段正文沿用轻量 8 参接口。
+            var tools = run.finalizeTools(status);
+            var blocks = run.finalizeBlocks(status);
+            if (TranscriptMessageDto.hasStructuredBlocks(blocks)) {
+                transcriptService.appendAssistantMessage(
+                        run.sessionId(),
+                        run.turnId(),
+                        run.contentAsString(),
+                        run.thinkingAsString(),
+                        status,
+                        durationMillis,
+                        tools,
+                        run.tokenUsage(),
+                        blocks
+                );
+            } else {
+                transcriptService.appendAssistantMessage(
+                        run.sessionId(),
+                        run.turnId(),
+                        run.contentAsString(),
+                        run.thinkingAsString(),
+                        status,
+                        durationMillis,
+                        tools,
+                        run.tokenUsage()
+                );
+            }
             run.commitCompletion(status);
         } catch (RuntimeException exception) {
             run.abortCompletion();

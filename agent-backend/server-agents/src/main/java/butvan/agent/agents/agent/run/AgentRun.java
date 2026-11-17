@@ -49,6 +49,7 @@ public class AgentRun {
     /** 只保留工具结果前缀，兼容框架把技术错误标为 SUCCESS 的版本；终态即移除。 */
     private final Map<String, StringBuilder> toolResultPrefixBuffer = new ConcurrentHashMap<>();
     private final Map<String, TranscriptMessageDto.ToolExecutionDto> toolExecutions = new LinkedHashMap<>();
+    private final List<MutableBlock> blocks = new ArrayList<>();
 
     public AgentRun(String sessionId, String userId, String turnId, RuntimeContext runtimeContext) {
         this.sessionId = sessionId;
@@ -127,8 +128,13 @@ public class AgentRun {
         // AgentResultEvent 携带完整回复，不依赖消费队列是否曾丢弃增量，也不混入工具前说明。
         if (event.getSource() == null && event instanceof AgentResultEvent result
                 && result.getResult() != null && result.getResult().getRole() == io.agentscope.core.message.MsgRole.ASSISTANT) {
+            String finalText = result.getResult().getTextContent();
+            if (finalText == null) {
+                finalText = "";
+            }
             content.setLength(0);
-            content.append(result.getResult().getTextContent());
+            content.append(finalText);
+            applyFinalResultToBlocks(finalText);
         }
     }
 
@@ -147,7 +153,8 @@ public class AgentRun {
                 contentAsString(),
                 thinkingAsString(),
                 finalizeTools(TranscriptMessageDto.MessageStatus.CANCELLED),
-                tokenUsage()
+                tokenUsage(),
+                finalizeBlocks(TranscriptMessageDto.MessageStatus.CANCELLED)
         );
     }
 
@@ -179,13 +186,15 @@ public class AgentRun {
      */
     public void record(AgentStreamEvent event) {
 
-        // 正文增量：直接累加到最终正文
+        // 正文增量：直接累加到最终正文，并同步写入有序时间线片段
         if (event instanceof AgentStreamEvent.TextDelta text) {
             content.append(text.content());
+            appendTextBlock(text.content());
 
-            // 思考增量：直接累加到最终思考过程
+            // 思考增量：直接累加到最终思考过程，并同步写入有序时间线片段
         } else if (event instanceof AgentStreamEvent.ThinkingDelta thinkingDelta) {
             thinking.append(thinkingDelta.content());
+            appendThinkingBlock(thinkingDelta.content());
 
             // 工具调用发起：记录一条 RUNNING 状态
         } else if (event instanceof AgentStreamEvent.ToolCall toolCall) {
@@ -199,7 +208,7 @@ public class AgentRun {
 
     private void recordToResult(AgentStreamEvent.ToolResult toolResult) {
         // 追加本次结果输出；command 沿用之前已记录的值
-        toolExecutions.compute(toolResult.toolCallId(), (key, previous) ->
+        TranscriptMessageDto.ToolExecutionDto updated = toolExecutions.compute(toolResult.toolCallId(), (key, previous) ->
                 new TranscriptMessageDto.ToolExecutionDto(
                         toolResult.toolCallId(),
                         toolResult.toolName(),
@@ -212,11 +221,12 @@ public class AgentRun {
                             case CANCELLED -> TranscriptMessageDto.ToolStatus.CANCELLED;
                         }
                 ));
+        recordToolInBlocks(updated);
     }
 
     private void recordToolCall(AgentStreamEvent.ToolCall toolCall) {
         // 同一 callId 只保留一条记录；command 为空时沿用上一次的值
-        toolExecutions.compute(toolCall.toolCallId(), (key, previous) ->
+        TranscriptMessageDto.ToolExecutionDto updated = toolExecutions.compute(toolCall.toolCallId(), (key, previous) ->
                 new TranscriptMessageDto.ToolExecutionDto(
                         toolCall.toolCallId(),
                         toolCall.toolName(),
@@ -224,6 +234,7 @@ public class AgentRun {
                         previous == null ? "" : previous.output(),
                         TranscriptMessageDto.ToolStatus.RUNNING // 工具尚未返回结果
                 ));
+        recordToolInBlocks(updated);
     }
 
     /**
@@ -234,18 +245,151 @@ public class AgentRun {
     public List<TranscriptMessageDto.ToolExecutionDto> finalizeTools(
             TranscriptMessageDto.MessageStatus messageStatus
     ) {
-        // 根据消息状态决定兜底状态
-        TranscriptMessageDto.ToolStatus fallbackStatus = switch (messageStatus) {
+        TranscriptMessageDto.ToolStatus fallbackStatus = fallbackToolStatus(messageStatus);
+        // 只把任处于 RUNNING 的记录改为兜底状态，其余原样保留
+        return toolExecutions.values().stream()
+                .map(tool -> finalizeTool(tool, fallbackStatus))
+                .toList();
+    }
+
+    /** 按事件发生顺序产出最终时间线分段块，并将遗留 RUNNING 工具收敛为终态。 */
+    public List<TranscriptMessageDto.MessageBlockDto> finalizeBlocks(
+            TranscriptMessageDto.MessageStatus messageStatus
+    ) {
+        TranscriptMessageDto.ToolStatus fallbackStatus = fallbackToolStatus(messageStatus);
+        synchronized (blocks) {
+            List<TranscriptMessageDto.MessageBlockDto> result = new ArrayList<>();
+            for (MutableBlock block : blocks) {
+                if (block.kind == TranscriptMessageDto.BlockKind.THINKING) {
+                    String value = block.text.toString();
+                    if (!value.isBlank()) {
+                        result.add(TranscriptMessageDto.MessageBlockDto.thinking(value));
+                    }
+                } else if (block.kind == TranscriptMessageDto.BlockKind.TEXT) {
+                    String value = block.text.toString();
+                    if (!value.isBlank()) {
+                        result.add(TranscriptMessageDto.MessageBlockDto.text(value));
+                    }
+                } else if (block.kind == TranscriptMessageDto.BlockKind.TOOL_GROUP && !block.tools.isEmpty()) {
+                    List<TranscriptMessageDto.ToolExecutionDto> groupTools = block.tools.values().stream()
+                            .map(tool -> finalizeTool(tool, fallbackStatus))
+                            .toList();
+                    result.add(TranscriptMessageDto.MessageBlockDto.toolGroup(groupTools));
+                }
+            }
+            return List.copyOf(result);
+        }
+    }
+
+    private void appendTextBlock(String delta) {
+        if (delta == null || delta.isEmpty()) {
+            return;
+        }
+        synchronized (blocks) {
+            MutableBlock last = blocks.isEmpty() ? null : blocks.get(blocks.size() - 1);
+            if (last != null && last.kind == TranscriptMessageDto.BlockKind.TEXT) {
+                last.text.append(delta);
+            } else if (!delta.isBlank()) {
+                blocks.add(MutableBlock.text(delta));
+            }
+        }
+    }
+
+    private void appendThinkingBlock(String delta) {
+        if (delta == null || delta.isEmpty()) {
+            return;
+        }
+        synchronized (blocks) {
+            MutableBlock last = blocks.isEmpty() ? null : blocks.get(blocks.size() - 1);
+            if (last != null && last.kind == TranscriptMessageDto.BlockKind.THINKING) {
+                last.text.append(delta);
+            } else if (!delta.isBlank()) {
+                blocks.add(MutableBlock.thinking(delta));
+            }
+        }
+    }
+
+    private void recordToolInBlocks(TranscriptMessageDto.ToolExecutionDto tool) {
+        synchronized (blocks) {
+            for (int i = blocks.size() - 1; i >= 0; i--) {
+                MutableBlock block = blocks.get(i);
+                if (block.kind == TranscriptMessageDto.BlockKind.TOOL_GROUP
+                        && block.tools.containsKey(tool.toolCallId())) {
+                    block.tools.put(tool.toolCallId(), tool);
+                    return;
+                }
+            }
+            MutableBlock last = blocks.isEmpty() ? null : blocks.get(blocks.size() - 1);
+            if (last != null && last.kind == TranscriptMessageDto.BlockKind.TOOL_GROUP) {
+                last.tools.put(tool.toolCallId(), tool);
+            } else {
+                MutableBlock group = MutableBlock.toolGroup();
+                group.tools.put(tool.toolCallId(), tool);
+                blocks.add(group);
+            }
+        }
+    }
+
+    private void applyFinalResultToBlocks(String finalText) {
+        if (finalText == null || finalText.isBlank()) {
+            return;
+        }
+        synchronized (blocks) {
+            MutableBlock last = blocks.isEmpty() ? null : blocks.get(blocks.size() - 1);
+            if (last != null && last.kind == TranscriptMessageDto.BlockKind.TEXT) {
+                last.text.setLength(0);
+                last.text.append(finalText);
+            } else {
+                blocks.add(MutableBlock.text(finalText));
+            }
+        }
+    }
+
+    private static TranscriptMessageDto.ToolStatus fallbackToolStatus(
+            TranscriptMessageDto.MessageStatus messageStatus
+    ) {
+        return switch (messageStatus) {
             case COMPLETED, FAILED -> TranscriptMessageDto.ToolStatus.FAILED;
             case CANCELLED -> TranscriptMessageDto.ToolStatus.CANCELLED;
         };
-        // 只把任处于 RUNNING 的记录改为兜底状态，其余原样保留
-        return toolExecutions.values().stream()
-                .map(tool -> tool.status() == TranscriptMessageDto.ToolStatus.RUNNING
-                        ? new TranscriptMessageDto.ToolExecutionDto(
-                                tool.toolCallId(), tool.toolName(), tool.command(), tool.output(), fallbackStatus
-                        ) : tool
-                ).toList();
+    }
+
+    private static TranscriptMessageDto.ToolExecutionDto finalizeTool(
+            TranscriptMessageDto.ToolExecutionDto tool,
+            TranscriptMessageDto.ToolStatus fallbackStatus
+    ) {
+        return tool.status() == TranscriptMessageDto.ToolStatus.RUNNING
+                ? new TranscriptMessageDto.ToolExecutionDto(
+                        tool.toolCallId(), tool.toolName(), tool.command(), tool.output(), fallbackStatus
+                ) : tool;
+    }
+
+    private static final class MutableBlock {
+        final TranscriptMessageDto.BlockKind kind;
+        final StringBuilder text;
+        final Map<String, TranscriptMessageDto.ToolExecutionDto> tools;
+
+        private MutableBlock(
+                TranscriptMessageDto.BlockKind kind,
+                StringBuilder text,
+                Map<String, TranscriptMessageDto.ToolExecutionDto> tools
+        ) {
+            this.kind = kind;
+            this.text = text;
+            this.tools = tools;
+        }
+
+        static MutableBlock thinking(String initial) {
+            return new MutableBlock(TranscriptMessageDto.BlockKind.THINKING, new StringBuilder(initial), Map.of());
+        }
+
+        static MutableBlock text(String initial) {
+            return new MutableBlock(TranscriptMessageDto.BlockKind.TEXT, new StringBuilder(initial), Map.of());
+        }
+
+        static MutableBlock toolGroup() {
+            return new MutableBlock(TranscriptMessageDto.BlockKind.TOOL_GROUP, new StringBuilder(), new LinkedHashMap<>());
+        }
     }
 
     private enum CompletionState {

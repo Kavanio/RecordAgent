@@ -7,6 +7,12 @@ import { ModelProviderContext } from './context/ModelContext';
 import { StudyRealtimeProvider } from './context/StudyRealtimeContext';
 import { SidebarLayoutProvider } from './context/SidebarLayoutContext';
 import { mapTranscriptMessages } from './features/chat/transcriptMessages';
+import {
+  appendTextBlock,
+  appendThinkingBlock,
+  applyToolResultBlock,
+  upsertToolCallBlock,
+} from './features/chat/messageBlocks';
 import { useConversationSelection } from './components/chat/useConversationSelection';
 import { ChannelConversationView } from './components/chat/ChannelConversationView';
 import { Sidebar } from './components/layout/Sidebar';
@@ -663,21 +669,7 @@ export const MainLayout: React.FC<{
       },
       (chunkText) => {
         if (activeChatRunsRef.current.get(currentSessionId)?.runId !== runId) return;
-        setSessions((prev) =>
-          prev.map((s) => {
-            if (s.id === currentSessionId) {
-              return {
-                ...s,
-                messages: s.messages.map((msg) =>
-                  msg.id === assistantMsgId
-                    ? { ...msg, content: msg.content + chunkText }
-                    : msg
-                ),
-              };
-            }
-            return s;
-          })
-        );
+        updateAssistantMessage(currentSessionId, assistantMsgId, (msg) => appendTextBlock(msg, chunkText));
       },
       () => {
         if (!finishChatRun(currentSessionId, runId)) return;
@@ -727,95 +719,18 @@ export const MainLayout: React.FC<{
       },
       (toolCallPayload) => {
         if (activeChatRunsRef.current.get(currentSessionId)?.runId !== runId) return;
-        setSessions((prev) =>
-          prev.map((s) => {
-            if (s.id === currentSessionId) {
-              return {
-                ...s,
-                messages: s.messages.map((msg) => {
-                  if (msg.id === assistantMsgId) {
-                    const tools = msg.tools ? [...msg.tools] : [];
-                    const targetId = toolCallPayload.toolCallId || 'tool_' + Date.now();
-                    const existingIndex = tools.findIndex((t) => t.toolCallId === targetId);
-
-                    if (existingIndex >= 0) {
-                      tools[existingIndex] = {
-                        ...tools[existingIndex],
-                        toolName: toolCallPayload.toolName || tools[existingIndex].toolName,
-                        command: toolCallPayload.command || tools[existingIndex].command,
-                      };
-                    } else {
-                      tools.push({
-                        toolCallId: targetId,
-                        toolName: toolCallPayload.toolName || 'custom_bash',
-                        command: toolCallPayload.command || '',
-                        status: 'running',
-                      });
-                    }
-                    return { ...msg, tools };
-                  }
-                  return msg;
-                }),
-              };
-            }
-            return s;
-          })
-        );
+        updateAssistantMessage(currentSessionId, assistantMsgId, (msg) =>
+          upsertToolCallBlock(msg, toolCallPayload));
       },
       (toolResultPayload) => {
         if (activeChatRunsRef.current.get(currentSessionId)?.runId !== runId) return;
-        setSessions((prev) =>
-          prev.map((s) => {
-            if (s.id === currentSessionId) {
-              return {
-                ...s,
-                messages: s.messages.map((msg) => {
-                  if (msg.id === assistantMsgId) {
-                    const tools = msg.tools ? [...msg.tools] : [];
-                    const targetId = toolResultPayload.toolCallId;
-
-                    let targetIndex = -1;
-                    if (targetId) {
-                      targetIndex = tools.findIndex((t) => t.toolCallId === targetId);
-                    }
-                    if (targetIndex === -1) {
-                      targetIndex = tools.findLastIndex((t) => t.status === 'running');
-                    }
-
-                    if (targetIndex >= 0) {
-                      tools[targetIndex] = {
-                        ...tools[targetIndex],
-                        output: (tools[targetIndex].output || '') + (toolResultPayload.result || ''),
-                        status: toolResultPayload.status || 'completed',
-                      };
-                    }
-                    return { ...msg, tools };
-                  }
-                  return msg;
-                }),
-              };
-            }
-            return s;
-          })
-        );
+        updateAssistantMessage(currentSessionId, assistantMsgId, (msg) =>
+          applyToolResultBlock(msg, toolResultPayload));
       },
       (thinkingChunk) => {
         if (activeChatRunsRef.current.get(currentSessionId)?.runId !== runId) return;
-        setSessions((prev) =>
-          prev.map((s) => {
-            if (s.id === currentSessionId) {
-              return {
-                ...s,
-                messages: s.messages.map((msg) =>
-                  msg.id === assistantMsgId
-                    ? { ...msg, reasoning: (msg.reasoning || '') + thinkingChunk }
-                    : msg
-                ),
-              };
-            }
-            return s;
-          })
-        );
+        updateAssistantMessage(currentSessionId, assistantMsgId, (msg) =>
+          appendThinkingBlock(msg, thinkingChunk));
       },
       (permissionPayload) => {
         if (!finishChatRun(currentSessionId, runId)) return;
@@ -892,7 +807,7 @@ export const MainLayout: React.FC<{
       (text) => {
         if (activeChatRunsRef.current.get(current.sessionId)?.runId !== current.runId) return;
         updateAssistantMessage(current.sessionId, current.assistantMessageId,
-          (message) => ({ ...message, content: message.content + text }));
+          (message) => appendTextBlock(message, text));
       },
       () => {
         if (!finishChatRun(current.sessionId, current.runId)) return;
@@ -911,31 +826,18 @@ export const MainLayout: React.FC<{
       },
       (tool) => {
         if (activeChatRunsRef.current.get(current.sessionId)?.runId !== current.runId) return;
-        updateAssistantMessage(current.sessionId, current.assistantMessageId, (message) => ({
-          ...message,
-          tools: [...(message.tools || []), {
-            toolCallId: tool.toolCallId || `tool_${Date.now()}`,
-            toolName: tool.toolName || 'tool', command: tool.command || '', status: 'running',
-          }],
-        }));
+        updateAssistantMessage(current.sessionId, current.assistantMessageId,
+          (message) => upsertToolCallBlock(message, tool));
       },
       (result) => {
         if (activeChatRunsRef.current.get(current.sessionId)?.runId !== current.runId) return;
-        updateAssistantMessage(current.sessionId, current.assistantMessageId, (message) => ({
-          ...message,
-          tools: (message.tools || []).map((tool) => tool.toolCallId === result.toolCallId
-            ? {
-                ...tool,
-                status: result.status || 'completed',
-                output: (tool.output || '') + (result.result || ''),
-              }
-            : tool),
-        }));
+        updateAssistantMessage(current.sessionId, current.assistantMessageId,
+          (message) => applyToolResultBlock(message, result));
       },
       (thinking) => {
         if (activeChatRunsRef.current.get(current.sessionId)?.runId !== current.runId) return;
         updateAssistantMessage(current.sessionId, current.assistantMessageId,
-          (message) => ({ ...message, reasoning: (message.reasoning || '') + thinking }));
+          (message) => appendThinkingBlock(message, thinking));
       },
       (permissionPayload) => {
         if (!finishChatRun(current.sessionId, current.runId)) return;
