@@ -1,4 +1,11 @@
-import type { ChatMessage, TranscriptMessageDto } from '../../types/chat';
+import type {
+  ChatMessage,
+  MessageBlock,
+  ToolExecution,
+  TranscriptMessageBlockDto,
+  TranscriptMessageDto,
+  TranscriptToolExecutionDto,
+} from '../../types/chat';
 
 function padTwo(value: number): string {
   return String(value).padStart(2, '0');
@@ -27,11 +34,44 @@ export function isProactiveTranscriptMessage(
   if (!dto.turnId || dto.status !== 'COMPLETED') return false;
   if ((dto.durationMillis ?? 0) !== 0 || dto.usage || dto.thinking) return false;
   if (dto.tools && dto.tools.length > 0) return false;
+  if (dto.blocks && dto.blocks.length > 0) return false;
   if (!userTurnIds) return false;
   if (userTurnIds instanceof Set) {
     return !userTurnIds.has(dto.turnId);
   }
   return !userTurnIds.some((item) => item.role?.toUpperCase() === 'USER' && item.turnId === dto.turnId);
+}
+
+function mapToolExecution(tool: TranscriptToolExecutionDto): ToolExecution {
+  return {
+    toolCallId: tool.toolCallId,
+    toolName: tool.toolName,
+    command: tool.command,
+    output: tool.output,
+    status: (tool.status ? tool.status.toLowerCase() : 'completed') as ToolExecution['status'],
+  };
+}
+
+function mapTranscriptBlocks(
+  messageId: string,
+  dtos?: TranscriptMessageBlockDto[],
+): MessageBlock[] | undefined {
+  if (!dtos || dtos.length === 0) return undefined;
+  const blocks: MessageBlock[] = [];
+  dtos.forEach((block, index) => {
+    if (block.kind === 'THINKING' && block.content?.trim()) {
+      blocks.push({ id: `${messageId}_b_${index}`, kind: 'thinking', content: block.content });
+    } else if (block.kind === 'TEXT' && block.content?.trim()) {
+      blocks.push({ id: `${messageId}_b_${index}`, kind: 'text', content: block.content });
+    } else if (block.kind === 'TOOL_GROUP' && block.tools && block.tools.length > 0) {
+      blocks.push({
+        id: `${messageId}_b_${index}`,
+        kind: 'tool_group',
+        tools: block.tools.map(mapToolExecution),
+      });
+    }
+  });
+  return blocks.length > 0 ? blocks : undefined;
 }
 
 export function mapTranscriptToChatMessage(
@@ -63,18 +103,9 @@ export function mapTranscriptToChatMessage(
         : undefined,
     tools:
       dto.tools && dto.tools.length > 0
-        ? dto.tools.map((t) => ({
-            toolCallId: t.toolCallId,
-            toolName: t.toolName,
-            command: t.command,
-            output: t.output,
-            status: (t.status ? t.status.toLowerCase() : 'completed') as
-              | 'running'
-              | 'completed'
-              | 'failed'
-              | 'cancelled',
-          }))
+        ? dto.tools.map(mapToolExecution)
         : undefined,
+    blocks: isUser ? undefined : mapTranscriptBlocks(dto.id, dto.blocks),
   };
 }
 

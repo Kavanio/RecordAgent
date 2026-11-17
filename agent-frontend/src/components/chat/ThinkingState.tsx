@@ -52,7 +52,7 @@ export const ThinkingState: React.FC<ThinkingStateProps> = ({
   );
 
   const activeIndex = isWorking ? nodes.length - 1 : nodes.length;
-  const isGlobalExpanded = manualExpanded !== null ? manualExpanded : isWorking;
+  const isGlobalExpanded = manualExpanded !== null ? manualExpanded : (defaultExpanded ?? false);
 
   if (nodes.length === 0 && !isWorking) return null;
 
@@ -61,7 +61,7 @@ export const ThinkingState: React.FC<ThinkingStateProps> = ({
       <button
         type="button"
         aria-expanded={isGlobalExpanded}
-        onClick={() => setManualExpanded((prev) => !(prev !== null ? prev : isWorking))}
+        onClick={() => setManualExpanded((prev) => !(prev !== null ? prev : (defaultExpanded ?? false)))}
         className={styles.masterTrigger}
       >
         {isWorking && <PixelDotsLoader />}

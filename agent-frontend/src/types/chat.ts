@@ -147,6 +147,16 @@ export interface ToolExecution {
   output?: string;
 }
 
+export type MessageBlockKind = 'thinking' | 'text' | 'tool_group';
+
+/** 按事件发生顺序记录的消息分段块（思考、过程/结论正文、工具执行组）。 */
+export interface MessageBlock {
+  id: string;
+  kind: MessageBlockKind;
+  content?: string;
+  tools?: ToolExecution[];
+}
+
 /**
  * 随一条用户消息一起提交的图片。
  *
@@ -174,6 +184,7 @@ export interface ChatMessage {
   failureReason?: string;
   usage?: TurnTokenUsage | null;
   tools?: ToolExecution[];
+  blocks?: MessageBlock[];
   subagentProgress?: SubagentProgressDto[];
   proactive?: boolean;
 }
@@ -222,6 +233,14 @@ export interface TranscriptToolExecutionDto {
   status: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 }
 
+export type TranscriptMessageBlockKind = 'THINKING' | 'TEXT' | 'TOOL_GROUP';
+
+export interface TranscriptMessageBlockDto {
+  kind: TranscriptMessageBlockKind;
+  content?: string;
+  tools?: TranscriptToolExecutionDto[];
+}
+
 export interface TranscriptMessageDto {
   id: string;
   turnId: string;
@@ -234,6 +253,7 @@ export interface TranscriptMessageDto {
   thinking?: string | null;
   usage?: TurnTokenUsage | null;
   proactive?: boolean;
+  blocks?: TranscriptMessageBlockDto[];
 }
 
 export interface SessionDetailDto {
