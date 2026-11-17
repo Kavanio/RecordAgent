@@ -43,6 +43,13 @@ struct ProfileSettingsView: View {
                     .buttonStyle(.plain)
                     Divider().padding(.horizontal, 20)
                     NavigationLink {
+                        ProactivePushSettingsView()
+                    } label: {
+                        settingsRow(title: "push.settings.title")
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.horizontal, 20)
+                    NavigationLink {
                         ProfileAboutView()
                     } label: {
                         settingsRow(title: "profile.about.title")

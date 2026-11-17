@@ -60,10 +60,12 @@ struct MainTabView: View {
     @StateObject private var recordModel: RecordWorkspaceViewModel
     @StateObject private var tasksModel: MobileTaskViewModel
     @StateObject private var agentModel: AgentChatViewModel
+    @ObservedObject private var proactiveNotifications: ProactiveNotificationCenter
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let user: AuthUser?
+    let notificationAccountID: String
     let calendarService: any CalendarDataServiceProtocol
     let financeService: any FinanceServiceProtocol
     let profileOverviewService: any ProfileOverviewServiceProtocol
@@ -85,6 +87,7 @@ struct MainTabView: View {
         profileActivityService: any ProfileActivityServiceProtocol,
         profileAppearanceService: any ProfileAppearanceServiceProtocol,
         agentService: any AgentServiceProtocol,
+        proactiveNotifications: ProactiveNotificationCenter,
         user: AuthUser?,
         onLogout: @escaping () async throws -> Void
     ) {
@@ -94,6 +97,8 @@ struct MainTabView: View {
         _recordModel = StateObject(wrappedValue: RecordWorkspaceViewModel(service: studyService))
         _tasksModel = StateObject(wrappedValue: MobileTaskViewModel(service: mobileTaskService, notifications: mobileTaskNotifications, accountID: notificationAccountID))
         _agentModel = StateObject(wrappedValue: AgentChatViewModel(service: agentService))
+        self.proactiveNotifications = proactiveNotifications
+        self.notificationAccountID = notificationAccountID
         self.calendarService = calendarService
         self.financeService = financeService
         self.profileOverviewService = profileOverviewService
@@ -165,12 +170,44 @@ struct MainTabView: View {
         .task(id: LoadKey(date: homeModel.selectedDate, locale: locale.identifier)) {
             await homeModel.load(locale: locale)
         }
-        .task { await tasksModel.synchronizeNotifications() }
+        .task {
+            await tasksModel.synchronizeNotifications()
+            await proactiveNotifications.activate(accountID: notificationAccountID)
+            handlePendingProactiveRoute()
+        }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await tasksModel.synchronizeNotifications() } }
+            if phase == .active {
+                Task {
+                    await tasksModel.synchronizeNotifications()
+                    await proactiveNotifications.activate(accountID: notificationAccountID)
+                }
+            } else if phase == .background {
+                proactiveNotifications.enterBackground()
+            }
+        }
+        .onChange(of: proactiveNotifications.pendingRoute) { _, _ in
+            handlePendingProactiveRoute()
+        }
+        .onChange(of: proactiveNotifications.latestNoticeSignal) { _, _ in
+            if selectedTab == .chat {
+                Task { await agentModel.refreshActiveSessionIfCompanionUpdated() }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .apiSessionExpired)) { _ in
             Task { await tasksModel.deactivate() }
+        }
+    }
+
+    private func handlePendingProactiveRoute() {
+        guard let route = proactiveNotifications.consumePendingRoute() else { return }
+        switch route {
+        case .chat(let sessionId):
+            selectedTab = .chat
+            Task { await agentModel.openSessionFromNotification(sessionId: sessionId) }
+        case .tasks:
+            selectedTab = .tasks
+        case .home:
+            selectedTab = .home
         }
     }
 

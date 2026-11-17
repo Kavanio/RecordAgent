@@ -137,6 +137,37 @@ final class AgentChatViewModel: ObservableObject {
         await loadSessionsInternal()
     }
 
+    /// 点击主动推送通知直达对应会话并加载最新消息。
+    func openSessionFromNotification(sessionId: String?) async {
+        if !hasLoadedOnce {
+            await loadInitialIfNeeded()
+        } else {
+            await loadSessionsInternal()
+        }
+        guard let sessionId, !sessionId.isEmpty else { return }
+        guard !isStreaming else { return }
+        if activeSessionId == sessionId {
+            await reloadSessionDetail(sessionId: sessionId, readOnly: false)
+            return
+        }
+        if let target = sessions.first(where: { $0.id == sessionId }) {
+            await selectSession(target, readOnly: false)
+        } else {
+            activeSessionId = sessionId
+            activeSessionIsReadOnly = false
+            await reloadSessionDetail(sessionId: sessionId, readOnly: false)
+        }
+    }
+
+    /// 收到新的主动陪伴或信号提醒时，刷新当前未处于流式输出中的主对话。
+    func refreshActiveSessionIfCompanionUpdated() async {
+        guard !isStreaming, !activeSessionIsReadOnly else { return }
+        await loadSessionsInternal()
+        if let activeSessionId {
+            await reloadSessionDetail(sessionId: activeSessionId, readOnly: false)
+        }
+    }
+
     func refreshModelState() async {
         do {
             async let config = service.fetchModelConfig()

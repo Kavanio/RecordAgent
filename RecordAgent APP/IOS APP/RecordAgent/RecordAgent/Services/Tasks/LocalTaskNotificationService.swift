@@ -6,10 +6,12 @@ import UserNotifications
 final class LocalTaskNotificationService: NSObject, MobileTaskNotificationProtocol, UNUserNotificationCenterDelegate, @unchecked Sendable {
     private let worker: LocalTaskNotificationWorker
 
-    init(center: UNUserNotificationCenter = .current()) {
+    init(center: UNUserNotificationCenter = .current(), registerAsCenterDelegate: Bool = true) {
         worker = LocalTaskNotificationWorker(center: center)
         super.init()
-        center.delegate = self
+        if registerAsCenterDelegate {
+            center.delegate = self
+        }
     }
 
     func activate(accountID: String) async -> UUID { await worker.activate(accountID: accountID) }
@@ -27,18 +29,28 @@ final class LocalTaskNotificationService: NSObject, MobileTaskNotificationProtoc
     }
     func clearAll() async { await worker.clearAll() }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
-                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    func handleWillPresent(_ notification: UNNotification,
+                           completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         Task { await worker.remember(notification) }
         completionHandler([.banner, .list, .sound])
     }
 
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
-                                withCompletionHandler completionHandler: @escaping () -> Void) {
+    func handleDidReceive(_ response: UNNotificationResponse,
+                          completionHandler: @escaping () -> Void) {
         Task {
             await worker.remember(response.notification)
             completionHandler()
         }
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        handleWillPresent(notification, completionHandler: completionHandler)
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        handleDidReceive(response, completionHandler: completionHandler)
     }
 }
 

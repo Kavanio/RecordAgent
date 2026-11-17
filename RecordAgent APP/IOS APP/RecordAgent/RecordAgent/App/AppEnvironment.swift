@@ -22,6 +22,9 @@ public final class AppEnvironment: ObservableObject {
     let profileActivityService: any ProfileActivityServiceProtocol
     let profileAppearanceService: any ProfileAppearanceServiceProtocol
     let agentService: any AgentServiceProtocol
+    let proactivePushService: any ProactivePushServiceProtocol
+    let proactiveNotifications: ProactiveNotificationCenter
+    private let notificationRouter: AppNotificationRouter
 
     /// 当前选中的应用语言（支持跟随系统、简体中文、英文）
     @Published public var selectedLanguage: AppLanguage {
@@ -50,11 +53,20 @@ public final class AppEnvironment: ObservableObject {
         self.libraryService = APILibraryService(client: client)
         self.studyService = APIStudyService(client: client)
         self.mobileTaskService = APIMobileTaskService(client: client)
-        self.mobileTaskNotifications = LocalTaskNotificationService()
+        let localTaskNotifications = LocalTaskNotificationService(registerAsCenterDelegate: false)
+        self.mobileTaskNotifications = localTaskNotifications
         self.profileOverviewService = APIProfileOverviewService(client: client)
         self.profileActivityService = HomeProfileActivityService(homeService: homeService)
         self.profileAppearanceService = APIProfileAppearanceService(client: client)
         self.agentService = APIAgentService(client: client)
+        let pushService = APIProactivePushService(client: client)
+        let pushCenter = ProactiveNotificationCenter(service: pushService)
+        self.proactivePushService = pushService
+        self.proactiveNotifications = pushCenter
+        self.notificationRouter = AppNotificationRouter(
+            taskNotifications: localTaskNotifications,
+            proactiveNotifications: pushCenter
+        )
 
         // 从 UserDefaults 读取持久化的语言偏好，默认跟随系统
         if let savedRaw = UserDefaults.standard.string(forKey: languageStorageKey),

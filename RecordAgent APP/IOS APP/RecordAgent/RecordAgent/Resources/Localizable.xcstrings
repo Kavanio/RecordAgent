@@ -1,18 +1,7 @@
 {
   "sourceLanguage": "zh-Hans",
   "strings": {
-    "—": {},
     "%@ / 4": {},
-    "%@/%@": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@/%2$@"
-          }
-        }
-      }
-    },
     "%@%@": {
       "localizations": {
         "zh-Hans": {
@@ -23,9 +12,19 @@
         }
       }
     },
+    "%@/%@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@/%2$@"
+          }
+        }
+      }
+    },
     "+%@": {},
-    "|": {},
-    "¥": {},
+    "RecordAgent 用户服务协议": {},
+    "RecordAgent 隐私政策": {},
     "agent.approval.allow": {
       "extractionState": "stale",
       "localizations": {
@@ -156,6 +155,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "需要确认工具操作"
+          }
+        }
+      }
+    },
+    "agent.approval.view_plan": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View Task Plan"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看任务计划书"
           }
         }
       }
@@ -5927,6 +5942,40 @@
         }
       }
     },
+    "home.notifications.empty.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent greetings, review signals, and automation alerts will appear here."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent 主动问候、复盘信号及自动任务提醒会集中展示在这里。"
+          }
+        }
+      }
+    },
+    "home.notifications.empty.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Proactive Notices"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无主动提醒"
+          }
+        }
+      }
+    },
     "home.notifications.message": {
       "extractionState": "manual",
       "localizations": {
@@ -7499,23 +7548,6 @@
         }
       }
     },
-    "profile.edit.images": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Images"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "图片"
-          }
-        }
-      }
-    },
     "profile.edit.imageTooLarge": {
       "extractionState": "manual",
       "localizations": {
@@ -7529,6 +7561,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "图片过大"
+          }
+        }
+      }
+    },
+    "profile.edit.images": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Images"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "图片"
           }
         }
       }
@@ -8213,6 +8262,567 @@
         }
       }
     },
+    "push.apns.server.ready": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已配置"
+          }
+        }
+      }
+    },
+    "push.apns.server.unconfigured": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Configured"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务端未配置凭据"
+          }
+        }
+      }
+    },
+    "push.apns.server.unknown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Synced"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未同步"
+          }
+        }
+      }
+    },
+    "push.apns.signing_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The current build uses free personal signing without Push Notifications capability. Foreground SSE and resume sync still deliver system banners; to receive alerts after killing the app, enable Push Notifications with a paid Apple Developer account and configure APNs credentials on the backend."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前构建使用免费个人签名，未包含 Push Notifications 权限；App 在前台及回到前台时仍可通过实时流弹出系统提醒。如需在彻底退出后离屏弹窗，需使用付费 Apple 开发者账号开启推送权限并在服务端配置 APNs 凭据。"
+          }
+        }
+      }
+    },
+    "push.apns.state.failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registration Failed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "注册失败"
+          }
+        }
+      }
+    },
+    "push.apns.state.idle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Registered"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未注册"
+          }
+        }
+      }
+    },
+    "push.apns.state.registering": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registering…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "注册中…"
+          }
+        }
+      }
+    },
+    "push.apns.state.signing_unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unavailable (Free Signing)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前签名未开启推送权限"
+          }
+        }
+      }
+    },
+    "push.category.automation.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scheduled reports and task execution alerts from your backend."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "后端定时生成的日报/周报及自动任务到点提醒。"
+          }
+        }
+      }
+    },
+    "push.category.automation.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automation Tasks"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "后端自动任务提醒"
+          }
+        }
+      }
+    },
+    "push.category.companion.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contextual greetings and check-ins initiated by your Agent."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent 基于日常节律发起的自然问候与主动关怀。"
+          }
+        }
+      }
+    },
+    "push.category.companion.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent Greetings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent 主动陪伴与问候"
+          }
+        }
+      }
+    },
+    "push.category.signal.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daily reviews, idle check-ins, weather, expense, server, and mail alerts."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "包含每日复盘、久未互动问候及天气、支出、服务器与重要邮件告警。"
+          }
+        }
+      }
+    },
+    "push.category.signal.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review & Life Signals"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生活复盘与信号异常提醒"
+          }
+        }
+      }
+    },
+    "push.channel.apns_device": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Device APNs Token"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本机 APNs 令牌"
+          }
+        }
+      }
+    },
+    "push.channel.apns_server": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server APNs Service"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务端 APNs 配置"
+          }
+        }
+      }
+    },
+    "push.channel.sse": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foreground Real-Time Stream"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前台实时推送流 (SSE)"
+          }
+        }
+      }
+    },
+    "push.permission.authorized": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allowed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已允许"
+          }
+        }
+      }
+    },
+    "push.permission.denied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Denied"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已拒绝"
+          }
+        }
+      }
+    },
+    "push.permission.not_determined": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Requested"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未授权"
+          }
+        }
+      }
+    },
+    "push.permission.open_settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open iOS Settings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前往系统设置开启"
+          }
+        }
+      }
+    },
+    "push.permission.provisional": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Provisional"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "临时静默"
+          }
+        }
+      }
+    },
+    "push.permission.request": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow System Notifications"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许系统通知"
+          }
+        }
+      }
+    },
+    "push.permission.status": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notification Permission"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知权限状态"
+          }
+        }
+      }
+    },
+    "push.settings.section.categories": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subscribed Events"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "订阅的主动事件"
+          }
+        }
+      }
+    },
+    "push.settings.section.channels": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delivery Channels"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推送通道状态"
+          }
+        }
+      }
+    },
+    "push.settings.section.diagnostics": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostics"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连通性测试"
+          }
+        }
+      }
+    },
+    "push.settings.section.permission": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Notification Permission"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "系统通知权限"
+          }
+        }
+      }
+    },
+    "push.settings.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proactive Push & Alerts"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "主动推送与提醒"
+          }
+        }
+      }
+    },
+    "push.status.connected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已连接"
+          }
+        }
+      }
+    },
+    "push.status.reconnecting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standby / Reconnecting"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "待机 / 重连中"
+          }
+        }
+      }
+    },
+    "push.test.button": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send Test Notification"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发送测试提醒"
+          }
+        }
+      }
+    },
+    "push.test.failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to send test notification"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发送测试提醒失败"
+          }
+        }
+      }
+    },
     "record.days": {
       "extractionState": "stale",
       "localizations": {
@@ -8749,8 +9359,6 @@
         }
       }
     },
-    "RecordAgent 用户服务协议": {},
-    "RecordAgent 隐私政策": {},
     "settings.backend.save": {
       "extractionState": "manual",
       "localizations": {
@@ -10350,27 +10958,14 @@
         }
       }
     },
+    "|": {},
+    "¥": {},
+    "—": {},
     "欢迎使用 RecordAgent 移动端。\n即将为您加载日历、财务、资料、记录与任务。": {},
     "欢迎使用 RecordAgent！\n\n请在注册或使用前仔细阅读本协议：\n\n1. 账号使用规范：您应妥善保管自己的邮箱与验证码凭据，一个账号可跨 iPhone 与桌面端保持同步。\n\n2. 服务持续性：本应用提供端侧离线优先与多端云同步功能，请定期备份您的重要资料与数据。\n\n3. 免责声明：RecordAgent 提供的自动提醒与数据统计仅供您日常习惯培养与个人规划参考。": {},
     "生效日期：2026年9月\n\n我们非常重视您的隐私。RecordAgent 是面向个人的自主数据记录与管理工具，我们坚持以下核心隐私承诺：\n\n1. 数据所有权：您的待办、日程、财务流水、学习记录与资料手记完全归属于您个人，除您主动配置的服务端同步外，不会向任何第三方商业实体共享或出售。\n\n2. 敏感信息安全：所有访问令牌（Token）与敏感认证凭据均通过 Apple Keychain 进行硬件级加密保护。\n\n3. 权限最小化：系统通知、相册选择与本地存储仅在您主动触发相关功能时按需申请。": {},
     "登录成功！": {},
-    "退出登录": {},
-    "agent.approval.view_plan": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View Task Plan"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "查看任务计划书"
-          }
-        }
-      }
-    }
+    "退出登录": {}
   },
   "version": "1.0"
 }
