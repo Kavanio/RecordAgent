@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Bell, SquarePen, Search, X, Trash2, Folder, Plus, FolderPlus, MessageSquare,
-  ChevronRight, ChevronDown, MoreHorizontal, Pencil, User, Settings, AlertTriangle, Sparkles, PanelLeft,
+  SquarePen, Search, X, Trash2, Folder, Plus, FolderPlus, MessageSquare,
+  ChevronRight, ChevronDown, MoreHorizontal, Pencil, User, Settings, AlertTriangle, PanelLeft,
 } from 'lucide-react';
-import { BooksIcon, CalendarDotsIcon, StudentIcon, WalletIcon } from '@phosphor-icons/react';
+import { SIDEBAR_FEATURE_ITEMS, type SidebarFeatureId } from './sidebarFeatures';
 import type { ChatSession, Project, SessionSummaryDto } from '../../types/chat';
 import { FormField } from '../common/FormField';
 import { Button } from '../common/Button';
@@ -34,8 +34,8 @@ function getAvatarText(email: string | null): string {
 }
 
 interface SidebarProps {
-  activeFeature: 'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task' | 'status';
-  onSelectFeature: (feature: 'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task' | 'status') => void;
+  activeFeature: SidebarFeatureId;
+  onSelectFeature: (feature: SidebarFeatureId) => void;
   /** 用户头像 URL；未配置时使用邮箱前两位作为默认头像 */
   avatarUrl?: string;
   projects: Project[];
@@ -441,14 +441,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <nav className={styles.featureNav} aria-label="功能导航">
-          {([
-            { id: 'calendar', label: '日历', Icon: CalendarDotsIcon },
-            { id: 'finance', label: '财务', Icon: WalletIcon },
-            { id: 'record', label: '资料', Icon: BooksIcon },
-            { id: 'study', label: '记录', Icon: StudentIcon },
-            { id: 'task', label: '任务', Icon: Bell },
-            { id: 'status', label: '状态', Icon: Sparkles },
-          ] as const).map(({ id, label, Icon }) => (
+          {SIDEBAR_FEATURE_ITEMS.map(({ id, label, Icon }) => (
             <button key={id} type="button" className={`${styles.featureTab} ${activeFeature === id ? styles.featureTabActive : ''}`}
               onClick={() => onSelectFeature(id)} aria-current={activeFeature === id ? 'page' : undefined}>
               <Icon size={14} /><span>{label}</span>

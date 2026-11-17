@@ -158,12 +158,13 @@ export interface MessageBlock {
 }
 
 /**
- * 随一条用户消息一起提交的图片。
+ * 随一条用户消息一起提交或从历史档案恢复的图片。
  *
- * <p>dataUrl 只用于本地即时渲染，请求时剥离前缀转成 Base64 提交；图片不入历史，
- * 刷新后只能看到文字占位说明。</p>
+ * <p>即时发送时 dataUrl 为本地数据 URL（提交时转为 Base64）；历史记录恢复时通过
+ * fileId 与受控内容接口加载。</p>
  */
 export interface ChatImageAttachment {
+  fileId?: string;
   mediaType: string;
   dataUrl: string;
   name?: string;
@@ -254,6 +255,7 @@ export interface TranscriptMessageDto {
   usage?: TurnTokenUsage | null;
   proactive?: boolean;
   blocks?: TranscriptMessageBlockDto[];
+  imageFileIds?: string[];
 }
 
 export interface SessionDetailDto {
