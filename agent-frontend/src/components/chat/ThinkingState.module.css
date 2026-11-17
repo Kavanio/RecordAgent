@@ -65,25 +65,24 @@
   animation: shimmer 1.5s linear infinite;
 }
 
-.elapsed {
-  font-family: var(--font-mono);
-  font-size: 12px;
+.elapsedText {
   font-variant-numeric: tabular-nums;
 }
 
 .chevron {
-  width: 12px;
-  height: 12px;
-  opacity: 0.3;
-  transition: transform 300ms ease, opacity 150ms ease;
+  width: 13px;
+  height: 13px;
+  opacity: 0.45;
+  transform: rotate(-90deg);
+  transition: transform 250ms ease, opacity 150ms ease;
 }
 
 .masterTrigger:hover .chevron {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .chevronOpen {
-  transform: rotate(180deg);
+  transform: rotate(0deg);
 }
 
 .channel {

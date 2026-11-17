@@ -45,16 +45,31 @@ public class AgentRunRecoveryService {
             if (!transcriptService.hasAssistantMessage(checkpoint.sessionId(), checkpoint.turnId())) {
                 long durationMillis = Math.max(0L, Duration.between(
                         checkpoint.startedAt(), checkpoint.updatedAt()).toMillis());
-                transcriptService.appendAssistantMessage(
-                        checkpoint.sessionId(),
-                        checkpoint.turnId(),
-                        checkpoint.content(),
-                        checkpoint.thinking(),
-                        TranscriptMessageDto.MessageStatus.CANCELLED,
-                        durationMillis,
-                        checkpoint.tools(),
-                        checkpoint.usage()
-                );
+                var blocks = checkpoint.blocks();
+                if (TranscriptMessageDto.hasStructuredBlocks(blocks)) {
+                    transcriptService.appendAssistantMessage(
+                            checkpoint.sessionId(),
+                            checkpoint.turnId(),
+                            checkpoint.content(),
+                            checkpoint.thinking(),
+                            TranscriptMessageDto.MessageStatus.CANCELLED,
+                            durationMillis,
+                            checkpoint.tools(),
+                            checkpoint.usage(),
+                            blocks
+                    );
+                } else {
+                    transcriptService.appendAssistantMessage(
+                            checkpoint.sessionId(),
+                            checkpoint.turnId(),
+                            checkpoint.content(),
+                            checkpoint.thinking(),
+                            TranscriptMessageDto.MessageStatus.CANCELLED,
+                            durationMillis,
+                            checkpoint.tools(),
+                            checkpoint.usage()
+                    );
+                }
                 sessionCatalogService.touch(checkpoint.sessionId(), checkpoint.content());
             }
             checkpointService.delete(checkpoint.turnId());

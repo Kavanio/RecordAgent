@@ -1,7 +1,17 @@
-import React, { useMemo } from 'react';
-import { Database, FileCode2, FileText, Search, Terminal } from 'lucide-react';
-import type { ChatMessage, ToolDefinition, TraceNode, ToolExecution } from '../../types/chat';
+import React, { useMemo, useState } from 'react';
+import { ChevronDown, Database, FileCode2, FileText, Search, Terminal } from 'lucide-react';
+import type { ChatMessage, MessageBlock, ToolDefinition, TraceNode, ToolExecution } from '../../types/chat';
+import {
+  formatElapsedDuration,
+  splitProcessAndFinalBlocks,
+  splitReasoningSentences,
+  toolExecutionToTraceNode,
+} from '../../features/chat/messageBlocks';
+import { MarkdownContent } from '../common/MarkdownContent';
+import { NestedReasoningBlock } from './NestedReasoningBlock';
 import { ThinkingState } from './ThinkingState';
+import { ToolGroupBlock } from './ToolGroupBlock';
+import thinkingStyles from './ThinkingState.module.css';
 import styles from './AgentResponse.module.css';
 
 /** 默认工具展示注册表 */
@@ -40,20 +50,9 @@ export const DEFAULT_TOOL_REGISTRY: Record<string, ToolDefinition> = {
   },
 };
 
-/**
- * 将流式思考文本拆分为句子；流式未结束时丢弃未完结的半句。
- */
-function splitSentences(text: string, includePartial: boolean): string[] {
-  const clean = text.trim().replace(/\s*\n\s*/g, ' ');
-  if (!clean) return [];
-  const parts = clean.split(/(?<=[。！？!?；;])\s*/).filter(Boolean);
-  if (!includePartial && parts.length > 0) {
-    const last = parts[parts.length - 1];
-    if (!/[。！？!?；;]$/.test(last)) {
-      parts.pop();
-    }
-  }
-  return parts;
+function resolveToolLabel(toolName: string): string | undefined {
+  const toolDef = DEFAULT_TOOL_REGISTRY[toolName];
+  return typeof toolDef?.label === 'function' ? toolDef.label(undefined) : toolDef?.label;
 }
 
 function toTraceNodes(
@@ -67,53 +66,13 @@ function toTraceNodes(
   if (reasoning && reasoning.trim()) {
     nodes.push({
       type: 'reasoning',
-      sentences: splitSentences(reasoning, !isGenerating),
+      sentences: splitReasoningSentences(reasoning, !isGenerating),
       durationSeconds: elapsedSeconds,
     });
   }
 
   (tools || []).forEach((tool) => {
-    const running = tool.status === 'running';
-    const failed = tool.status === 'failed';
-    const status = running ? 'running' : failed ? 'failed' : 'completed';
-    // 仅按真实工具名判断是否为终端命令执行，避免把参数 JSON 误判为命令
-    const isCommand =
-      tool.toolName === 'execute_command' ||
-      tool.toolName === 'execute' ||
-      tool.toolName === 'terminal';
-    const toolDef = DEFAULT_TOOL_REGISTRY[tool.toolName];
-    const toolLabel = typeof toolDef?.label === 'function' ? toolDef.label(undefined) : toolDef?.label;
-
-    if (isCommand) {
-      nodes.push({
-        id: tool.toolCallId,
-        type: 'terminal',
-        toolName: tool.toolName,
-        primary: '运行',
-        secondary: tool.command,
-        command: tool.command,
-        output: tool.output,
-        exitCode: failed ? 1 : 0,
-        status,
-      });
-      return;
-    }
-
-    nodes.push({
-      id: tool.toolCallId,
-      type: 'tool',
-      toolName: tool.toolName,
-      primary: toolLabel || tool.toolName,
-      secondary: tool.command || tool.toolName,
-      command: tool.command,
-      status,
-      details: tool.output
-        ? tool.output
-            .split('\n')
-            .filter(Boolean)
-            .map((text) => ({ text, tone: 'muted' as const }))
-        : undefined,
-    });
+    nodes.push(toolExecutionToTraceNode(tool, resolveToolLabel));
   });
 
   return nodes;
@@ -123,21 +82,145 @@ export interface AgentResponseProps {
   msg: ChatMessage;
   isGenerating: boolean;
   elapsedSeconds?: number;
+  acceptanceReportClassName?: string;
+}
+
+function renderTimelineBlock(
+  block: MessageBlock,
+  index: number,
+  options: {
+    isLast: boolean;
+    isGenerating: boolean;
+    thinkingDurationSeconds?: number;
+    acceptanceReportClassName?: string;
+  },
+): React.ReactNode {
+  if (block.kind === 'thinking') {
+    const raw = block.content || '';
+    if (!raw.trim()) return null;
+    const isActive = options.isGenerating && options.isLast;
+    const parsed = splitReasoningSentences(raw, !isActive);
+    const sentences = parsed.length > 0 ? parsed : [raw.trim()];
+    return (
+      <NestedReasoningBlock
+        key={block.id || index}
+        sentences={sentences}
+        isActive={isActive}
+        isFinished={!isActive}
+        durationSeconds={options.thinkingDurationSeconds}
+        collapseWhileActive
+      />
+    );
+  }
+
+  if (block.kind === 'tool_group') {
+    if (!block.tools || block.tools.length === 0) return null;
+    return (
+      <ToolGroupBlock
+        key={block.id || index}
+        tools={block.tools}
+        isGenerating={options.isGenerating}
+        resolveToolLabel={resolveToolLabel}
+      />
+    );
+  }
+
+  const text = block.content || '';
+  if (!text.trim()) return null;
+  if (options.isLast && options.acceptanceReportClassName && text.startsWith('## 验收报告')) {
+    return (
+      <article key={block.id || index} className={options.acceptanceReportClassName}>
+        <MarkdownContent content={text} />
+      </article>
+    );
+  }
+  return <MarkdownContent key={block.id || index} content={text} />;
 }
 
 /**
- * Agent 响应过程区：由 ChatMessage 构建时间线（思考 + 工具/终端），
- * 并以“工作中 → 共耗时 N 秒”的折叠态呈现。
+ * Agent 响应过程区：流式进行中实时呈现 ReAct 交错时间线；输出完成后将思考与工具链统一折叠为
+ * “用时 X 秒 >”，仅保留最终结论展示在下方（点击总耗时可展开查看完整交错过程）。
  */
 export const AgentResponse: React.FC<AgentResponseProps> = ({
   msg,
   isGenerating,
   elapsedSeconds,
+  acceptanceReportClassName,
 }) => {
+  const [processExpanded, setProcessExpanded] = useState(false);
+  const blocks = msg.blocks;
+  const hasBlocks = Boolean(blocks && blocks.length > 0);
   const trace = useMemo(
-    () => toTraceNodes(msg.reasoning, msg.tools, elapsedSeconds, isGenerating),
-    [msg.reasoning, msg.tools, elapsedSeconds, isGenerating]
+    () => (hasBlocks ? [] : toTraceNodes(msg.reasoning, msg.tools, elapsedSeconds, isGenerating)),
+    [hasBlocks, msg.reasoning, msg.tools, elapsedSeconds, isGenerating]
   );
+
+  if (hasBlocks && blocks) {
+    const thinkingCount = blocks.filter((b) => b.kind === 'thinking').length;
+    const thinkingDuration = thinkingCount === 1 ? elapsedSeconds : undefined;
+
+    if (isGenerating) {
+      return (
+        <div className={styles.container}>
+          {blocks.map((block, index) =>
+            renderTimelineBlock(block, index, {
+              isLast: index === blocks.length - 1,
+              isGenerating: true,
+              thinkingDurationSeconds: thinkingDuration,
+              acceptanceReportClassName,
+            }),
+          )}
+        </div>
+      );
+    }
+
+    const { processBlocks, finalTextBlock } = splitProcessAndFinalBlocks(blocks);
+    return (
+      <div className={styles.container}>
+        {processBlocks.length > 0 && (
+          <div className={thinkingStyles.container}>
+            <button
+              type="button"
+              aria-expanded={processExpanded}
+              onClick={() => setProcessExpanded((prev) => !prev)}
+              className={thinkingStyles.masterTrigger}
+            >
+              <span className={thinkingStyles.masterLabel}>
+                <span className={thinkingStyles.elapsedText}>
+                  {formatElapsedDuration(elapsedSeconds)}
+                </span>
+              </span>
+              <ChevronDown
+                aria-hidden="true"
+                className={`${thinkingStyles.chevron} ${processExpanded ? thinkingStyles.chevronOpen : ''}`}
+              />
+            </button>
+
+            <div className={`${thinkingStyles.channel} ${processExpanded ? thinkingStyles.channelOpen : ''}`}>
+              <div className={thinkingStyles.channelInner}>
+                <div className={thinkingStyles.timeline}>
+                  {processBlocks.map((block, index) =>
+                    renderTimelineBlock(block, index, {
+                      isLast: false,
+                      isGenerating: false,
+                      thinkingDurationSeconds: thinkingDuration,
+                    }),
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {finalTextBlock &&
+          renderTimelineBlock(finalTextBlock, blocks.length - 1, {
+            isLast: true,
+            isGenerating: false,
+            acceptanceReportClassName,
+          })}
+      </div>
+    );
+  }
 
   if (!isGenerating && trace.length === 0) return null;
 
@@ -149,6 +232,7 @@ export const AgentResponse: React.FC<AgentResponseProps> = ({
         isWorking={isGenerating}
         elapsedSeconds={elapsedSeconds}
         workingLabel="正在处理"
+        defaultExpanded={false}
       />
     </div>
   );

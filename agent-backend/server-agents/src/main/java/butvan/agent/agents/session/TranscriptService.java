@@ -142,6 +142,23 @@ public class TranscriptService {
             List<TranscriptMessageDto.ToolExecutionDto> tools,
             TurnTokenUsage usage
     ) {
+        appendAssistantMessage(sessionId, turnId, content, thinking, status, durationMillis, tools, usage, List.of());
+    }
+
+    /**
+     * 在一次 Agent 流结束后写入完整 assistant 消息（含按事件时序记录的时间线分段块）
+     */
+    public synchronized void appendAssistantMessage(
+            String sessionId,
+            String turnId,
+            String content,
+            String thinking,
+            TranscriptMessageDto.MessageStatus status,
+            Long durationMillis,
+            List<TranscriptMessageDto.ToolExecutionDto> tools,
+            TurnTokenUsage usage,
+            List<TranscriptMessageDto.MessageBlockDto> blocks
+    ) {
         if (hasAssistantMessage(sessionId, turnId)) return;
         append(sessionId, new TranscriptMessageDto(
                 UUID.randomUUID().toString(),
@@ -153,7 +170,9 @@ public class TranscriptService {
                 durationMillis,
                 tools,
                 thinking,
-                usage
+                usage,
+                false,
+                blocks
         ));
     }
 

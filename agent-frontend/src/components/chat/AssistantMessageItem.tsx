@@ -26,30 +26,38 @@ export const AssistantMessageItem: React.FC<AssistantMessageItemProps> = ({
       ? Math.max(1, Math.floor((Date.now() - (msg.startTime || msg.createdAt)) / 1000))
       : undefined);
 
+  const hasBlocks = Boolean(msg.blocks && msg.blocks.length > 0);
+  const copyText = msg.content || (msg.blocks
+    ? msg.blocks.filter((b) => b.kind === 'text').map((b) => b.content || '').join('\n\n')
+    : '');
+
   const handleCopy = () => {
-    if (msg.content) {
-      navigator.clipboard.writeText(msg.content);
+    if (copyText) {
+      navigator.clipboard.writeText(copyText);
     }
   };
 
   return (
     <div className={styles.assistantMessage}>
-      {/* Agent 响应过程区：思考 + 工具/终端时间线 */}
+      {/* Agent 响应过程区：交错时间线（思考、过程/结论正文、默认折叠工具组）或旧记录折叠面板 */}
       <AgentResponse
         msg={msg}
         isGenerating={isGenerating}
         elapsedSeconds={elapsedSec}
+        acceptanceReportClassName={styles.acceptanceReport}
       />
 
       <SubagentActivity progress={msg.subagentProgress || []} />
 
-      {/* 最终回答正文 */}
-      {msg.content?.startsWith('## 验收报告') ? (
-        <article className={styles.acceptanceReport}>
-          <MarkdownContent content={msg.content} />
-        </article>
-      ) : (
-        msg.content && <MarkdownContent content={msg.content} />
+      {/* 兼容旧消息结构：未携带 blocks 时在底部渲染回答正文 */}
+      {!hasBlocks && (
+        msg.content?.startsWith('## 验收报告') ? (
+          <article className={styles.acceptanceReport}>
+            <MarkdownContent content={msg.content} />
+          </article>
+        ) : (
+          msg.content && <MarkdownContent content={msg.content} />
+        )
       )}
 
       {(msg.status === 'CANCELLED' || msg.status === 'FAILED') && (
@@ -63,13 +71,13 @@ export const AssistantMessageItem: React.FC<AssistantMessageItemProps> = ({
         </div>
       )}
 
-      {(msg.content || msg.usage || msg.proactive) && (() => {
+      {(copyText || msg.usage || msg.proactive) && (() => {
         const proactiveTimestamp = msg.proactive ? formatMessageTimestampSeconds(msg.createdAt) : '';
-        if (!msg.content && !msg.usage && !proactiveTimestamp) return null;
+        if (!copyText && !msg.usage && !proactiveTimestamp) return null;
         return (
           <div className={styles.messageFooter}>
             {/* 消息底部操作工具栏：复制、赞、踩、全屏/分享 */}
-            {msg.content && (
+            {copyText && (
               <div className={styles.messageActions}>
                 <button className={styles.actionBtn} title="复制内容" aria-label="复制内容" onClick={handleCopy}>
                   <Copy size={14} />
