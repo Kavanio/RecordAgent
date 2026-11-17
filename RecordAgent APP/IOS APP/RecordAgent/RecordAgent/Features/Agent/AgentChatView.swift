@@ -6,6 +6,7 @@ struct AgentChatView: View {
     @Environment(\.locale) private var locale
 
     @State private var showSessionsSheet = false
+    @State private var showModelPopover = false
     @State private var showPlanSheet = false
     @State private var showRenameAlert = false
     @State private var renameDraft = ""
@@ -118,9 +119,16 @@ struct AgentChatView: View {
 
     private var sessionOptionsMenu: some View {
         Menu {
-            if viewModel.activePlanContent != nil {
+            if viewModel.currentSessionHasPlan {
                 Button {
-                    showPlanSheet = true
+                    Task {
+                        if viewModel.activePlanContent == nil {
+                            await viewModel.loadPlan()
+                        }
+                        if viewModel.activePlanContent != nil {
+                            showPlanSheet = true
+                        }
+                    }
                 } label: {
                     Label("agent.plan.title", systemImage: "list.bullet.rectangle")
                 }
@@ -209,7 +217,17 @@ struct AgentChatView: View {
                                 AgentApprovalCardView(
                                     approval: approval,
                                     selections: $viewModel.approvalSelections,
-                                    isSubmitting: viewModel.isSubmittingApproval
+                                    isSubmitting: viewModel.isSubmittingApproval,
+                                    onViewPlan: {
+                                        Task {
+                                            if viewModel.activePlanContent == nil {
+                                                await viewModel.loadPlan()
+                                            }
+                                            if viewModel.activePlanContent != nil {
+                                                showPlanSheet = true
+                                            }
+                                        }
+                                    }
                                 ) { overrideAll in
                                     Task { await viewModel.submitApprovalDecisions(overrideAllApproved: overrideAll) }
                                 }
@@ -315,31 +333,21 @@ struct AgentChatView: View {
                 .disabled(viewModel.activeSessionIsReadOnly)
 
             HStack(spacing: 8) {
-                Menu {
-                    if viewModel.enabledProviders.isEmpty {
-                        Text("agent.model.empty_title")
-                    } else {
-                        ForEach(viewModel.enabledProviders) { provider in
-                            Section(provider.displayTitle) {
-                                ForEach(provider.models ?? []) { model in
-                                    Button {
-                                        Task { _ = await viewModel.switchModel(provider: provider, item: model) }
-                                    } label: {
-                                        if viewModel.isCurrentModel(provider: provider, item: model) {
-                                            Label(model.displayTitle, systemImage: "checkmark")
-                                        } else {
-                                            Text(model.displayTitle)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                Button {
+                    isInputFocused = false
+                    Task { await viewModel.refreshModelState() }
+                    showModelPopover = true
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 5) {
                         if viewModel.isSwitchingModel {
                             ProgressView()
                                 .controlSize(.mini)
+                        } else {
+                            AgentVendorIconView(
+                                vendor: viewModel.modelConfig?.vendor ?? viewModel.fullModelConfig?.activeVendor,
+                                modelName: viewModel.modelConfig?.name ?? viewModel.fullModelConfig?.activeModel,
+                                size: 14
+                            )
                         }
                         Text(verbatim: viewModel.currentModelDisplayName)
                             .font(.caption.weight(.medium))
@@ -354,8 +362,17 @@ struct AgentChatView: View {
                     .padding(.vertical, 6)
                     .background(Color(uiColor: .tertiarySystemFill).opacity(0.6), in: Capsule())
                 }
+                .buttonStyle(.plain)
                 .disabled(viewModel.isSwitchingModel)
                 .accessibilityLabel("agent.model.picker_title")
+                .popover(
+                    isPresented: $showModelPopover,
+                    attachmentAnchor: .rect(.bounds),
+                    arrowEdge: .bottom
+                ) {
+                    modelPopoverContent
+                        .presentationCompactAdaptation(.popover)
+                }
 
                 Menu {
                     ForEach(AgentSessionPermissionMode.allCases, id: \.self) { mode in
@@ -433,6 +450,59 @@ struct AgentChatView: View {
         .padding(.horizontal, 16)
         .padding(.top, 4)
         .padding(.bottom, 10)
+    }
+
+    private var modelPopoverContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 2) {
+                if viewModel.flattenedModels.isEmpty {
+                    Text("agent.model.empty_title")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                } else {
+                    ForEach(viewModel.flattenedModels) { option in
+                        let isActive = viewModel.isCurrentModel(provider: option.provider, item: option.item)
+                        Button {
+                            showModelPopover = false
+                            Task {
+                                _ = await viewModel.switchModel(provider: option.provider, item: option.item)
+                            }
+                        } label: {
+                            HStack(spacing: 10) {
+                                AgentVendorIconView(
+                                    vendor: option.provider.type,
+                                    modelName: option.item.modelName,
+                                    size: 18
+                                )
+                                Text(verbatim: option.item.displayTitle)
+                                    .font(.subheadline.weight(isActive ? .semibold : .regular))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                                Spacer(minLength: 12)
+                                if isActive {
+                                    Image(systemName: "checkmark")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(AppColors.primaryBlue)
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                            .background(
+                                isActive ? AppColors.primaryBlue.opacity(0.08) : Color.clear,
+                                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            )
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(6)
+        }
+        .frame(minWidth: 230, maxWidth: 290, maxHeight: 320)
+        .background(Color(uiColor: .systemBackground))
     }
 
     private var readOnlyNoticeBar: some View {

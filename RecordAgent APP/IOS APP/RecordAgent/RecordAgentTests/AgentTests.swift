@@ -273,6 +273,17 @@ final class AgentTests: XCTestCase {
         let coloredRuns = highlighted.runs.filter { $0.foregroundColor != nil }
         XCTAssertGreaterThanOrEqual(coloredRuns.count, 3)
     }
+
+    @MainActor
+    func testPlanVisibilityFollowsSessionPlanUsageInsteadOfWorkspaceLeftover() async throws {
+        let mock = MockAgentService()
+        let viewModel = AgentChatViewModel(service: mock)
+        await viewModel.sendPrompt("你好")
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertFalse(viewModel.currentSessionHasPlan)
+        XCTAssertNil(viewModel.activePlanContent)
+    }
 }
 
 private final class AgentGenerationURLProtocol: URLProtocol {

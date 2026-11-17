@@ -5,7 +5,12 @@ struct AgentApprovalCardView: View {
     let approval: AgentPendingApproval
     @Binding var selections: [String: AgentPermissionDecisionInput]
     let isSubmitting: Bool
+    var onViewPlan: (() -> Void)? = nil
     let onSubmit: (Bool?) -> Void
+
+    private var hasPlanExitTool: Bool {
+        approval.tools.contains { $0.toolName == "plan_exit" }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -28,6 +33,28 @@ struct AgentApprovalCardView: View {
                 ForEach(approval.tools) { tool in
                     toolDecisionRow(tool)
                 }
+            }
+
+            if hasPlanExitTool, let onViewPlan {
+                Button(action: onViewPlan) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "doc.text")
+                            .font(.subheadline)
+                            .foregroundStyle(AppColors.primaryBlue)
+                        Text("agent.approval.view_plan")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Color(uiColor: .systemBackground).opacity(0.75),
+                                in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
             }
 
             HStack(spacing: 10) {

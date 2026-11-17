@@ -66,6 +66,31 @@ final class AgentChatViewModel: ObservableObject {
         }
     }
 
+    struct SelectableModelOption: Identifiable {
+        let provider: AgentProviderConfig
+        let item: AgentModelItem
+        var id: String { "\(provider.id)::\(item.id)" }
+    }
+
+    var flattenedModels: [SelectableModelOption] {
+        enabledProviders.flatMap { provider in
+            (provider.models ?? []).map { SelectableModelOption(provider: provider, item: $0) }
+        }
+    }
+
+    var currentSessionHasPlan: Bool {
+        if let approval = pendingApproval,
+           approval.tools.contains(where: { $0.toolName == "plan_exit" }) {
+            return true
+        }
+        return messages.contains { msg in
+            msg.tools.contains { $0.toolName == "plan_exit" || $0.toolName == "plan_write" }
+                || msg.blocks.contains { block in
+                    block.tools.contains { $0.toolName == "plan_exit" || $0.toolName == "plan_write" }
+                }
+        }
+    }
+
     func isCurrentModel(provider: AgentProviderConfig, item: AgentModelItem) -> Bool {
         if let name = modelConfig?.name, let vendor = modelConfig?.vendor,
            name == item.modelName && vendor == provider.type {
@@ -432,14 +457,17 @@ final class AgentChatViewModel: ObservableObject {
                 }
                 async let mode = try? service.getPermissionMode(sessionId: sessionId)
                 async let pending = try? service.fetchPendingPermission(sessionId: sessionId)
-                async let plan = try? service.fetchPlan(sessionId: sessionId)
-                let (resolvedMode, resolvedPending, resolvedPlan) = await (mode, pending, plan)
+                let (resolvedMode, resolvedPending) = await (mode, pending)
                 guard loadGeneration == expectedGen, activeSessionId == sessionId else { return }
                 if let resolvedMode { permissionMode = resolvedMode }
                 if let resolvedPending {
                     setPendingApproval(resolvedPending)
                 }
-                activePlanContent = resolvedPlan
+                if currentSessionHasPlan {
+                    await loadPlan()
+                } else {
+                    activePlanContent = nil
+                }
             }
         } catch {
             guard loadGeneration == expectedGen else { return }
@@ -584,8 +612,12 @@ final class AgentChatViewModel: ObservableObject {
                 sessions[idx] = generated
             }
         }
-        if let plan = try? await service.fetchPlan(sessionId: sessionId), activeSessionId == sessionId {
-            activePlanContent = plan
+        if activeSessionId == sessionId {
+            if currentSessionHasPlan {
+                await loadPlan()
+            } else {
+                activePlanContent = nil
+            }
         }
         sessions.sort { $0.updatedAt > $1.updatedAt }
     }
@@ -666,6 +698,9 @@ final class AgentChatViewModel: ObservableObject {
             )
         }
         approvalSelections = initial
+        if approval.tools.contains(where: { $0.toolName == "plan_exit" }) {
+            Task { await loadPlan() }
+        }
     }
 
     private func mutateMessage(id: String, transform: (AgentChatMessage) -> AgentChatMessage) {

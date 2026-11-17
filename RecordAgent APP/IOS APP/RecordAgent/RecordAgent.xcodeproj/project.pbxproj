@@ -147,6 +147,7 @@
 		F6DB6FBECCC2147CEC7EE462 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 992857CF3D41AE57D33B3338 /* MainTabView.swift */; };
 		F7AFAAE5D484B3C8915D2EB3 /* HomePhotoStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2CB9002132818116902FFD5 /* HomePhotoStrip.swift */; };
 		F89E23875173BDB59534A6F5 /* WorkspaceComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9392FBFBC50D998DD131A1AE /* WorkspaceComponents.swift */; };
+		F8AD11CC0379F2402461829B /* AgentVendorIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DACDC9BF6DBE769C727F2D5 /* AgentVendorIconView.swift */; };
 		F8D1DB60694746AAA56FBE04 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 316F6A00C92707A55BE2CAF6 /* ProfileView.swift */; };
 		FB2E750A818D2C6D8EAC8FA8 /* ProfileOverviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A70F26A979A2EFCE438F32B /* ProfileOverviewTests.swift */; };
 		FC4411A6F0594138CFDBD4A3 /* ProfileOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E89A669CEF4C72804AA7D6B4 /* ProfileOverview.swift */; };
@@ -197,6 +198,7 @@
 		3C185DC38613AF4D9F5F551E /* MockAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAuthService.swift; sourceTree = "<group>"; };
 		3C8A307EE153ECAFBBB2652C /* APIFinanceWorkspaceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIFinanceWorkspaceService.swift; sourceTree = "<group>"; };
 		3D6EB58D8E86528374485320 /* RecordFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordFormatting.swift; sourceTree = "<group>"; };
+		3DACDC9BF6DBE769C727F2D5 /* AgentVendorIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentVendorIconView.swift; sourceTree = "<group>"; };
 		3EAAB8C4F0F5388B480CF8BD /* CalendarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTests.swift; sourceTree = "<group>"; };
 		3F334710B11A3C4C37C513B9 /* APIFinanceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIFinanceService.swift; sourceTree = "<group>"; };
 		3F6021B9087305B194ECE4FE /* LibraryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryModels.swift; sourceTree = "<group>"; };
@@ -495,6 +497,7 @@
 				A57CB100E95D14A90837A551 /* AgentMarkdownView.swift */,
 				430B8FD281C9130A4CEAC577 /* AgentProcessTimelineView.swift */,
 				65C6BF2C9EBF78BCF9B0E76D /* AgentSheetsView.swift */,
+				3DACDC9BF6DBE769C727F2D5 /* AgentVendorIconView.swift */,
 			);
 			path = Agent;
 			sourceTree = "<group>";
@@ -933,6 +936,7 @@
 				C88BA42CFCD5729400DCA3D8 /* AgentServiceProtocol.swift in Sources */,
 				6CD283A859E711272C50DC42 /* AgentSheetsView.swift in Sources */,
 				CB4DE16A2653EE95562E066E /* AgentTimelineBuilder.swift in Sources */,
+				F8AD11CC0379F2402461829B /* AgentVendorIconView.swift in Sources */,
 				5C9BC76F7F806C2978494A92 /* AgreementSheetView.swift in Sources */,
 				29676573C0282E0D42E0D5C8 /* AppButton.swift in Sources */,
 				81B4DAB695DD98B9CA4548DE /* AppEnvironment.swift in Sources */,
