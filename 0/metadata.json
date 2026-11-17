@@ -1,0 +1,46 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7KG88VFCGSA3M4A9WP9YKHN",
+  "session_id": "6ae2fd65-40f0-4958-b8ff-a572dbb9d069",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-17T00:59:30.865291Z",
+  "branch": "desktop/interleaved-react-timeline",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "UI COMPONENTS.md",
+    "agent-frontend/src/App.tsx",
+    "agent-frontend/src/components/chat/AgentResponse.test.mjs",
+    "agent-frontend/src/components/chat/AgentResponse.tsx",
+    "agent-frontend/src/components/chat/AssistantMessageItem.tsx",
+    "agent-frontend/src/components/chat/NestedReasoningBlock.tsx",
+    "agent-frontend/src/components/chat/ThinkingState.tsx",
+    "agent-frontend/src/components/chat/ToolGroupBlock.module.css",
+    "agent-frontend/src/components/chat/ToolGroupBlock.tsx",
+    "agent-frontend/src/features/chat/messageBlocks.test.mjs",
+    "agent-frontend/src/features/chat/messageBlocks.ts",
+    "agent-frontend/src/features/chat/transcriptMessages.ts",
+    "agent-frontend/src/types/chat.ts"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-hydrogen-high",
+  "turn_id": "7ef9599c7cd6",
+  "checkpoint_transcript_start": 124,
+  "transcript_lines_at_start": 124,
+  "redaction": {
+    "replacements": 2,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 2,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 2
+  }
+}
