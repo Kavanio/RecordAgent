@@ -12,6 +12,8 @@ import butvan.agent.agents.session.TranscriptService;
 import butvan.agent.agents.session.dto.SessionKind;
 import butvan.agent.agents.session.dto.SessionStatus;
 import butvan.agent.agents.session.dto.SessionSummaryDto;
+import butvan.agent.network.push.IosPushModels.PushCategory;
+import butvan.agent.network.push.IosPushService;
 import butvan.agent.network.review.life.LifeCompanionModels.*;
 import butvan.agent.network.review.life.LifeReviewDtos.*;
 import butvan.agent.network.review.life.LifeReviewModels.Settings;
@@ -54,6 +56,8 @@ public class LifeCompanionService implements CompanionContextPort, UserTurnActiv
     private final LifeActivityService activity;
     private final ResetBarrier resetBarrier;
     private final List<PersonalDeliveryPort> channels;
+    @Autowired(required = false)
+    private IosPushService iosPushService;
     private final ExecutorService learnExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "companion-learn-worker");
         t.setDaemon(true);
@@ -374,6 +378,9 @@ public class LifeCompanionService implements CompanionContextPort, UserTurnActiv
         SessionSummaryDto primary = resolvePrimarySession(false);
         appendToSessionContext(primary.id(), naturalText);
         store.appendDesktopNotice(owner, primary.id(), kind, title, naturalText, now);
+        if (iosPushService != null) {
+            iosPushService.publishNotice(owner, PushCategory.SIGNAL, kind, title, naturalText, primary.id(), "chat");
+        }
         publishSnapshot(owner);
     }
 
@@ -407,6 +414,9 @@ public class LifeCompanionService implements CompanionContextPort, UserTurnActiv
         SessionSummaryDto desktopSession = resolvePrimarySession(false);
         appendToSessionContext(desktopSession.id(), text);
         store.appendDesktopNotice(owner, desktopSession.id(), kind, "Agent 主动问候", text, now);
+        if (iosPushService != null) {
+            iosPushService.publishNotice(owner, PushCategory.COMPANION, kind, "Agent 主动问候", text, desktopSession.id(), "chat");
+        }
         if (s.enabled() && s.proactive() && s.feishu() && feishuOk) {
             try {
                 deliveries.sendNudge(s, "IDLE_CHECKIN", dedupKey, text);
