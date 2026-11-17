@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 极简可折叠 ReAct 思考与工具时间线：无卡片外框，仅用单行摘要与细引导线组织过程。
+/// 极简可折叠 ReAct 思考与工具时间线：顶层单行折叠，展开后按步骤紧凑呈现思考摘要与工具组。
 struct AgentProcessTimelineView: View {
     let blocks: [AgentMessageBlock]
     let isStreaming: Bool
@@ -15,7 +15,9 @@ struct AgentProcessTimelineView: View {
     }
 
     private var hasThinking: Bool {
-        blocks.contains { $0.kind == .thinking && !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        blocks.contains {
+            $0.kind == .thinking && !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
     }
 
     private var activeSummaryText: String {
@@ -61,9 +63,10 @@ struct AgentProcessTimelineView: View {
                 .padding(.leading, 12)
                 .overlay(alignment: .leading) {
                     Rectangle()
-                        .fill(Color(uiColor: .separator).opacity(0.45))
+                        .fill(Color(uiColor: .separator).opacity(0.35))
                         .frame(width: 1.5)
                 }
+                .padding(.top, 2)
                 .padding(.bottom, 4)
             }
         }
@@ -93,25 +96,20 @@ struct AgentProcessTimelineView: View {
     private func blockView(_ block: AgentMessageBlock) -> some View {
         switch block.kind {
         case .thinking:
-            if !block.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text(verbatim: block.content.trimmingCharacters(in: .whitespacesAndNewlines))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            let trimmed = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                AgentThinkingStepRow(content: trimmed)
             }
 
         case .text:
-            if !block.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                AgentMarkdownView(text: block.content)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            let trimmed = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                AgentThinkingStepRow(content: trimmed, isIntermediateText: true)
             }
 
         case .toolGroup:
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(block.tools) { tool in
-                    AgentToolTraceRow(tool: tool)
-                }
+            if !block.tools.isEmpty {
+                AgentToolGroupStepRow(tools: block.tools, isStreaming: isStreaming)
             }
         }
     }
@@ -128,7 +126,157 @@ struct AgentProcessTimelineView: View {
         case "web_fetch", "fetch_url": return String(localized: "agent.tool.web_fetch")
         case "query_database": return String(localized: "agent.tool.query_database")
         case "method_search": return String(localized: "agent.tool.method_search")
+        case "reset_equipped_tools": return String(localized: "agent.tool.reset_equipped_tools")
+        case "acceptance_report": return String(localized: "agent.tool.acceptance_report")
+        case "session_recent", "session_list", "session_history", "session_search":
+            return String(localized: "agent.tool.session_history")
         default: return name
+        }
+    }
+}
+
+/// 单步思考/过程说明折叠行：默认仅显示一行简明预览，点击后再展开完整推理内容。
+private struct AgentThinkingStepRow: View {
+    let content: String
+    var isIntermediateText = false
+    @State private var showFull = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var preview: String {
+        AgentTimelineBuilder.thinkingPreview(content)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+                    showFull.toggle()
+                }
+            } label: {
+                HStack(alignment: .center, spacing: 6) {
+                    Image(systemName: isIntermediateText ? "text.bubble" : "sparkles")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    Text(verbatim: preview)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(showFull ? nil : 1)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(showFull ? 90 : 0))
+                }
+                .padding(.vertical, 2)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if showFull {
+                Text(verbatim: content)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        Color(uiColor: .secondarySystemBackground).opacity(0.65),
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    )
+            }
+        }
+    }
+}
+
+/// 单步工具组折叠行：将同一步连续工具合并为“已网页搜索（2 次）”等单行摘要，点击展开可读参数详情。
+private struct AgentToolGroupStepRow: View {
+    let tools: [AgentToolExecution]
+    let isStreaming: Bool
+    @State private var isExpanded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var hasRunning: Bool {
+        isStreaming && tools.contains { $0.status == .running }
+    }
+
+    private var failedCount: Int {
+        tools.filter { $0.status == .failed }.count
+    }
+
+    private var summaryText: String {
+        var names: [String] = []
+        for tool in tools {
+            let label = AgentProcessTimelineView.friendlyToolLabel(tool.toolName)
+            if !names.contains(label) { names.append(label) }
+        }
+        let head = names.prefix(2).joined(separator: "、")
+        var text = tools.count > 1 ? "\(head)（\(tools.count)）" : head
+        if tools.count == 1,
+           let first = tools.first,
+           !first.command.isEmpty {
+            let arg = AgentTimelineBuilder.formatToolCommandSummary(first.command)
+            if !arg.isEmpty {
+                text += " · \(arg)"
+            }
+        }
+        if !hasRunning && failedCount > 0 {
+            text += " · \(String(localized: "agent.trace.failed_count \(failedCount)"))"
+        }
+        return text
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    groupStatusIcon
+                    Text(verbatim: summaryText)
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                }
+                .padding(.vertical, 2)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(tools) { tool in
+                        AgentToolTraceRow(tool: tool)
+                    }
+                }
+                .padding(.leading, 10)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var groupStatusIcon: some View {
+        if hasRunning {
+            ProgressView()
+                .controlSize(.mini)
+                .tint(AppColors.primaryBlue)
+        } else if failedCount > 0 {
+            Image(systemName: "exclamationmark.circle")
+                .font(.caption)
+                .foregroundStyle(AppColors.overviewExpense)
+        } else {
+            Image(systemName: "checkmark.circle")
+                .font(.caption)
+                .foregroundStyle(AppColors.overviewStudy)
         }
     }
 }
@@ -136,6 +284,10 @@ struct AgentProcessTimelineView: View {
 private struct AgentToolTraceRow: View {
     let tool: AgentToolExecution
     @State private var showOutput = false
+
+    private var formattedArg: String {
+        AgentTimelineBuilder.formatToolCommandSummary(tool.command)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -146,12 +298,12 @@ private struct AgentToolTraceRow: View {
             } label: {
                 HStack(spacing: 6) {
                     statusIcon
-                    Text(AgentProcessTimelineView.friendlyToolLabel(tool.toolName))
-                        .font(.footnote.weight(.medium))
+                    Text(verbatim: AgentProcessTimelineView.friendlyToolLabel(tool.toolName))
+                        .font(.caption.weight(.medium))
                         .foregroundStyle(.primary)
-                    if !tool.command.isEmpty {
-                        Text(verbatim: tool.command)
-                            .font(.caption.monospaced())
+                    if !formattedArg.isEmpty {
+                        Text(verbatim: formattedArg)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
@@ -189,16 +341,16 @@ private struct AgentToolTraceRow: View {
                 .controlSize(.mini)
                 .tint(AppColors.primaryBlue)
         case .completed:
-            Image(systemName: "checkmark.circle.fill")
-                .font(.caption)
+            Image(systemName: "checkmark")
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(AppColors.overviewStudy)
         case .failed:
-            Image(systemName: "xmark.circle.fill")
-                .font(.caption)
+            Image(systemName: "xmark")
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(AppColors.overviewExpense)
         case .cancelled:
-            Image(systemName: "slash.circle")
-                .font(.caption)
+            Image(systemName: "minus")
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
     }

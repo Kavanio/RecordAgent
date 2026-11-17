@@ -222,6 +222,21 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(seenPaths, ["GET /agent/reset/current", "POST /agent/sessions"])
         XCTAssertEqual(generationHeaders["/agent/sessions"] ?? nil, "7")
     }
+
+    func testTimelineFormattingExtractsReadableParametersAndThinkingPreview() {
+        let searchSummary = AgentTimelineBuilder.formatToolCommandSummary(
+            #"{"max_results": 8, "query": "11月16日 科技股 收盘"}"#
+        )
+        XCTAssertEqual(searchSummary, "11月16日 科技股 收盘")
+
+        let toolEquipSummary = AgentTimelineBuilder.formatToolCommandSummary(
+            #"{"to_activate": ["web", "daily"]}"#
+        )
+        XCTAssertEqual(toolEquipSummary, "web, daily")
+
+        let preview = AgentTimelineBuilder.thinkingPreview("用户接着聊科技股行情。\n我应该核实一下最新情况。")
+        XCTAssertEqual(preview, "用户接着聊科技股行情。")
+    }
 }
 
 private final class AgentGenerationURLProtocol: URLProtocol {

@@ -79,41 +79,21 @@ struct AgentChatView: View {
 
             Spacer(minLength: 4)
 
-            if viewModel.activeSessionIsReadOnly {
+            if let session = viewModel.activeSession, !viewModel.messages.isEmpty {
                 HStack(spacing: 6) {
-                    Text(verbatim: viewModel.activeSession?.title ?? "")
+                    Text(verbatim: session.title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
-                    Text("agent.feishu.readonly_badge")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
-                }
-            } else {
-                Button {
-                    isInputFocused = false
-                    Task { await viewModel.refreshModelState() }
-                    showModelPicker = true
-                } label: {
-                    HStack(spacing: 5) {
-                        Text(verbatim: viewModel.currentModelDisplayName)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                        Image(systemName: "chevron.down")
-                            .font(.caption2.weight(.semibold))
+                    if viewModel.activeSessionIsReadOnly {
+                        Text("agent.feishu.readonly_badge")
+                            .font(.caption2.weight(.medium))
                             .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("agent.model.picker_title")
             }
 
             Spacer(minLength: 4)
@@ -144,20 +124,6 @@ struct AgentChatView: View {
 
     private var sessionOptionsMenu: some View {
         Menu {
-            Menu("agent.permission_mode.title") {
-                ForEach(AgentSessionPermissionMode.allCases, id: \.self) { mode in
-                    Button {
-                        Task { await viewModel.updatePermissionMode(mode) }
-                    } label: {
-                        if viewModel.permissionMode == mode {
-                            Label(permissionModeLabel(mode), systemImage: "checkmark")
-                        } else {
-                            Text(permissionModeLabel(mode))
-                        }
-                    }
-                }
-            }
-
             if viewModel.activePlanContent != nil {
                 Button {
                     showPlanSheet = true
@@ -195,6 +161,22 @@ struct AgentChatView: View {
         case .ask: return "agent.permission_mode.ask"
         case .autoEdit: return "agent.permission_mode.auto_edit"
         case .fullAccess: return "agent.permission_mode.full_access"
+        }
+    }
+
+    private func permissionModeShortLabel(_ mode: AgentSessionPermissionMode) -> LocalizedStringKey {
+        switch mode {
+        case .ask: return "agent.permission_mode.short.ask"
+        case .autoEdit: return "agent.permission_mode.short.auto_edit"
+        case .fullAccess: return "agent.permission_mode.short.full_access"
+        }
+    }
+
+    private func permissionModeIcon(_ mode: AgentSessionPermissionMode) -> String {
+        switch mode {
+        case .ask: return "hand.raised"
+        case .autoEdit: return "pencil.line"
+        case .fullAccess: return "bolt"
         }
     }
 
@@ -259,6 +241,11 @@ struct AgentChatView: View {
                     proxy.scrollTo("bottom_anchor", anchor: .bottom)
                 }
             }
+            .onChange(of: viewModel.isLoadingMessages) { _, loading in
+                if !loading && !viewModel.messages.isEmpty {
+                    proxy.scrollTo("bottom_anchor", anchor: .bottom)
+                }
+            }
             .onChange(of: viewModel.messages.last?.content) { _, _ in
                 if viewModel.isStreaming {
                     proxy.scrollTo("bottom_anchor", anchor: .bottom)
@@ -320,51 +307,106 @@ struct AgentChatView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - 底部悬浮胶囊输入区
+    // MARK: - 底部一体式极简胶囊输入区（含模型与权限控制）
 
     private var composerBar: some View {
-        HStack(alignment: .bottom, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             TextField("agent.input.placeholder", text: $viewModel.draftText, axis: .vertical)
                 .font(.body)
-                .lineLimit(1...5)
+                .lineLimit(1...6)
                 .focused($isInputFocused)
-                .padding(.leading, 16)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 2)
                 .disabled(viewModel.activeSessionIsReadOnly)
 
-            if viewModel.isStreaming {
-                Button {
-                    Task { await viewModel.stopStreaming() }
-                } label: {
-                    Image(systemName: viewModel.isStopping ? "hourglass" : "stop.fill")
-                        .font(.footnote.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 34, height: 34)
-                        .background(Color.primary, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .disabled(viewModel.isStopping)
-                .padding(5)
-                .accessibilityLabel("agent.stop_generation")
-            } else {
+            HStack(spacing: 8) {
                 Button {
                     isInputFocused = false
-                    Task { await viewModel.sendCurrentDraft() }
+                    Task { await viewModel.refreshModelState() }
+                    showModelPicker = true
                 } label: {
-                    Image(systemName: "arrow.up")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(viewModel.canSend ? .white : Color(uiColor: .tertiaryLabel))
-                        .frame(width: 34, height: 34)
-                        .background(
-                            viewModel.canSend ? AppColors.primaryBlue : Color(uiColor: .tertiarySystemFill),
-                            in: Circle()
-                        )
+                    HStack(spacing: 4) {
+                        Text(verbatim: viewModel.currentModelDisplayName)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(uiColor: .tertiarySystemFill).opacity(0.6), in: Capsule())
                 }
                 .buttonStyle(.plain)
-                .disabled(!viewModel.canSend)
-                .padding(5)
-                .accessibilityLabel("agent.send")
+                .accessibilityLabel("agent.model.picker_title")
+
+                Menu {
+                    ForEach(AgentSessionPermissionMode.allCases, id: \.self) { mode in
+                        Button {
+                            Task { await viewModel.updatePermissionMode(mode) }
+                        } label: {
+                            if viewModel.permissionMode == mode {
+                                Label(permissionModeLabel(mode), systemImage: "checkmark")
+                            } else {
+                                Label(permissionModeLabel(mode), systemImage: permissionModeIcon(mode))
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: permissionModeIcon(viewModel.permissionMode))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(viewModel.permissionMode == .fullAccess ? AppColors.overviewExpense : .secondary)
+                        Text(permissionModeShortLabel(viewModel.permissionMode))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(uiColor: .tertiarySystemFill).opacity(0.6), in: Capsule())
+                }
+                .accessibilityLabel("agent.permission_mode.title")
+
+                Spacer(minLength: 4)
+
+                if viewModel.isStreaming {
+                    Button {
+                        Task { await viewModel.stopStreaming() }
+                    } label: {
+                        Image(systemName: viewModel.isStopping ? "hourglass" : "stop.fill")
+                            .font(.footnote.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 32, height: 32)
+                            .background(Color.primary, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(viewModel.isStopping)
+                    .accessibilityLabel("agent.stop_generation")
+                } else {
+                    Button {
+                        isInputFocused = false
+                        Task { await viewModel.sendCurrentDraft() }
+                    } label: {
+                        Image(systemName: "arrow.up")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(viewModel.canSend ? .white : Color(uiColor: .tertiaryLabel))
+                            .frame(width: 32, height: 32)
+                            .background(
+                                viewModel.canSend ? AppColors.primaryBlue : Color(uiColor: .tertiarySystemFill),
+                                in: Circle()
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!viewModel.canSend)
+                    .accessibilityLabel("agent.send")
+                }
             }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 9)
         }
         .background(
             Color(uiColor: .secondarySystemBackground),
@@ -372,10 +414,10 @@ struct AgentChatView: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(Color(uiColor: .separator).opacity(0.25), lineWidth: 0.5)
+                .strokeBorder(Color(uiColor: .separator).opacity(0.22), lineWidth: 0.5)
         }
         .padding(.horizontal, 16)
-        .padding(.top, 6)
+        .padding(.top, 4)
         .padding(.bottom, 10)
     }
 

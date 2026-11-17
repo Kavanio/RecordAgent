@@ -328,4 +328,69 @@ enum AgentTimelineBuilder {
         next[index].status = status
         return (true, next)
     }
+
+    /// 提取思考块折叠态的首句预览，避免手机端一展开就被整屏原文淹没。
+    static func thinkingPreview(_ raw: String) -> String {
+        let singleLine = raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        guard !singleLine.isEmpty else { return "" }
+        if let end = singleLine.firstIndex(where: { "。！？!?；;\n".contains($0) }) {
+            let sentence = String(singleLine[...end]).trimmingCharacters(in: .whitespaces)
+            if sentence.count <= 60 { return sentence }
+        }
+        if singleLine.count > 48 {
+            return String(singleLine.prefix(48)) + "…"
+        }
+        return singleLine
+    }
+
+    /// 将工具原始 JSON 参数提炼为可读摘要（如提取搜索词、路径、激活能力组）。
+    static func formatToolCommandSummary(_ rawCommand: String) -> String {
+        let trimmed = rawCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        guard trimmed.hasPrefix("{"),
+              let data = trimmed.data(using: .utf8),
+              let json = try? JSONDecoder().decode([String: JSONValue].self, from: data)
+        else {
+            return trimmed
+        }
+
+        let priorityKeys = [
+            "query", "queries", "to_activate", "activate", "groups",
+            "path", "file_path", "target_file", "command", "cmd",
+            "url", "sql", "title", "topic", "keyword", "content"
+        ]
+        for key in priorityKeys {
+            if let value = json[key], let formatted = readableJSONParameter(value) {
+                return formatted
+            }
+        }
+        for key in json.keys.sorted() {
+            if let value = json[key], case .string = value,
+               let formatted = readableJSONParameter(value) {
+                return formatted
+            }
+        }
+        for key in json.keys.sorted() {
+            if let value = json[key], case .array = value,
+               let formatted = readableJSONParameter(value) {
+                return formatted
+            }
+        }
+        return ""
+    }
+
+    private static func readableJSONParameter(_ value: JSONValue) -> String? {
+        switch value {
+        case .string(let text):
+            let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return clean.isEmpty ? nil : clean
+        case .array(let items):
+            let parts = items.compactMap { readableJSONParameter($0) }
+            return parts.isEmpty ? nil : parts.joined(separator: ", ")
+        case .number, .bool, .null, .object:
+            return nil
+        }
+    }
 }
