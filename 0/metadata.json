@@ -1,0 +1,48 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7KP5VHCERQWNG2DDY82QSNK",
+  "session_id": "7e1e9e12-6b5d-4a3b-94bd-705d61bce45b",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-17T02:43:03.076796Z",
+  "branch": "ios-app/agent-integration",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentVendorIconView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorAnthropic.imageset/Contents.json",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorAnthropic.imageset/anthropic@3x.png",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorCustom.imageset/Contents.json",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorCustom.imageset/custom@3x.png",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorDashscope.imageset/Contents.json",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorDashscope.imageset/dashscope@3x.png",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorDeepseek.imageset/Contents.json",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorDeepseek.imageset/deepseek@3x.png",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorGemini.imageset/Contents.json",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorGemini.imageset/gemini@3x.png",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorOllama.imageset/Contents.json",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorOllama.imageset/ollama@3x.png",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorOpenai.imageset/Contents.json",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Assets.xcassets/VendorOpenai.imageset/openai@3x.png"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-hydrogen-high",
+  "turn_id": "00a9a974681e",
+  "checkpoint_transcript_start": 363,
+  "transcript_lines_at_start": 363,
+  "redaction": {
+    "replacements": 14,
+    "layers": {
+      "betterleaks": 3,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 9,
+      "credentialed_uri": 0,
+      "entropy": 2,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 9
+  }
+}
