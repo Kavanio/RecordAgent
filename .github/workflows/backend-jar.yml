@@ -1,0 +1,74 @@
+name: Publish Backend JAR
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'agent-backend/**/pom.xml'
+      - 'agent-backend/**/src/**'
+      - 'agent-backend/.mvn/**'
+      - 'agent-backend/mvnw*'
+      - 'agent-backend/scripts/publish-backend.py'
+      - 'agent-backend/deployment/windows/**'
+      - 'agent-backend/WINDOWS.md'
+      - '.github/workflows/backend-jar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-jar-develop
+  cancel-in-progress: false
+
+env:
+  MINIO_ENDPOINT: https://minio.server.butvan.top
+  MINIO_BUCKET: recordagent
+  MINIO_PREFIX: backend
+
+jobs:
+  publish:
+    name: 构建 Java 21 JAR 并发布 MinIO
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: 检查上传凭据
+        shell: bash
+        env:
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        run: |
+          if [[ -z "$MINIO_ACCESS_KEY" || -z "$MINIO_SECRET_KEY" ]]; then
+            echo '请先在仓库 Actions Secrets 配置 MINIO_ACCESS_KEY 和 MINIO_SECRET_KEY。' >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: 'agent-backend/**/pom.xml'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # 测试在本地集成阶段执行；CI 只构建发布产物。
+      - name: 构建可执行 JAR
+        run: mvn -B -ntp -f agent-backend/pom.xml -pl server-network -am package -DskipTests
+
+      - name: 安装 S3 上传客户端
+        run: python -m pip install boto3==1.44.5
+
+      - name: 上传固定版本并更新 develop 指针
+        env:
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: python agent-backend/scripts/publish-backend.py

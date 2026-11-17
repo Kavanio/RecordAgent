@@ -1,3 +1,5 @@
+> 当前默认发布已切换为 MinIO JAR + Windows 原生运行，见 [WINDOWS.md](WINDOWS.md)。本文保留作 Docker 备用方案；下述 ACR 工作流现归档于 `.github/workflow-archive/backend-image.yml.disabled`，不会自动构建或推送镜像。
+
 # ButvanAgent 后端容器部署
 
 ## 本地构建
@@ -47,9 +49,9 @@ sh -n agent-backend/docker-entrypoint.sh
 python3 agent-backend/scripts/test-docker-timezone.py
 ```
 
-## GitHub Actions 自动发布到阿里云 ACR
+## 历史 GitHub Actions ACR 发布（已停用）
 
-工作流：`.github/workflows/backend-image.yml`。发布目标：
+归档工作流：`.github/workflow-archive/backend-image.yml.disabled`（原路径 `.github/workflows/backend-image.yml`）。以下步骤仅记录旧方案，当前不自动运行；如需恢复，须单独授权并重新配置启用。原发布目标：
 
 ```text
 crpi-46o5657v3drrpfcl.cn-hangzhou.personal.cr.aliyuncs.com/butvan/record-agent-backend

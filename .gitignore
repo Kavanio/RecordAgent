@@ -41,3 +41,11 @@ scripts/backend-launcher/target/
 
 # sidecar 打包缓存标记（fat jar / JRE 复用依据，不入库）
 agent-frontend/src-tauri/binaries/.butvan-backend-runtime-build-key
+
+# Windows 原生后端的本机配置与运行产物
+agent-backend/deployment/windows/backend-settings.json
+agent-backend/deployment/windows/backend.env
+agent-backend/deployment/windows/app/
+agent-backend/deployment/windows/runtime/
+agent-backend/deployment/windows/staging/
+agent-backend/deployment/windows/backups/

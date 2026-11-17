@@ -29,10 +29,12 @@
 | `agent-frontend/src/types/` | 前端领域类型、接口和 DTO 定义；禁止放置运行逻辑。 |
 | `agent-frontend/src-tauri/` | Tauri/Rust 桌面端能力；系统权限与原生能力必须最小化授权。 |
 | `agent-frontend/src-tauri/binaries/` | Tauri sidecar 产物目录：启动器脚本入库，fat jar 与最小 JRE 运行时不入库。 |
-| `agent-backend/scripts/` | 后端构建与打包脚本（sidecar 产物生成）；不得混入业务代码。 |
+| `agent-backend/scripts/` | 后端构建、sidecar 打包与 MinIO 发布脚本；不得混入业务代码。 |
+| `agent-backend/deployment/windows/` | Windows 原生 JAR 部署模板：普通用户后台启动、正常退出、完整停机备份、MinIO 下载校验及实时日志；真实配置与运行产物不入库。 |
 | `scripts/` | 项目级一键打包脚本（前端 + 后端 sidecar 组装）；不得混入业务代码。 |
 | `scripts/backend-launcher/` | Windows 后端 sidecar 原生启动器源码（Rust）；由打包脚本在 Windows 上编译生成 exe。 |
-| `.github/workflows/` | GitHub Actions 自动化；SemVer tag 创建桌面端 Release，另允许 `develop` 后端相关变更构建并推送 ACR 私有镜像；不构建桌面安装包、不自动部署服务器、不运行 CI 测试。 |
+| `.github/workflows/` | GitHub Actions 自动化；SemVer tag 创建桌面端 Release，`develop` 后端相关变更构建 JAR 并发布至私有 MinIO；不构建桌面安装包、不自动部署服务器、不运行 CI 测试。 |
+| `.github/workflow-archive/` | 停用工作流的备份；使用非 `.yml` 后缀且不位于 workflows 中，不自动执行。 |
 | `agent-backend/server-network/` | Spring Boot 启动、Controller、DTO、API 通用能力、AOP、网络适配层、自动任务、业务 Agent Tool Adapter、通用文件资产与存储 Adapter，以及单机业务数据的 SQLite 持久化；业务表必须按领域归属，禁止形成通用数据大杂烩。 |
 | `agent-backend/server-network/src/main/java/butvan/agent/network/review/` | 长期复盘：独立授权、固定模型身份、结构化事实摘要、用户目标、建议与反馈、有界后台生成与两段式邮件冻结；使用现有 SQLite，默认关闭，未授权时不调用模型。 |
 | `agent-backend/server-agents/` | AgentScope、模型工厂、智能体编排、Tool 注册 seam、工作区与配置领域逻辑；不得反向依赖 `server-network` 的业务实现。 |
@@ -50,7 +52,7 @@
 - 一个文件只承担一个清晰职责；页面编排、可复用组件、请求服务、领域类型和样式不得无边界混写。
 - 重命名、移动或删除文件后，必须同步更新所有导入、文档、测试和相关 `AGENTS.md` 索引。
 - 桌面端打包采用 Tauri sidecar 方案：统一入口为 `scripts/build-app.sh`（内部执行 `pnpm tauri build`，由 beforeBuildCommand 调用 `agent-backend/scripts/package-sidecar.sh` 生成后端 sidecar）；`pnpm tauri dev` 不打包、不拉起 sidecar，开发时后端在 IDEA 等本机环境启动（默认 8081）。打包模式默认由 Tauri（`src-tauri/src/backend.rs`）启动、健康检查与退出清理 sidecar，端口动态分配；用户通过桌面设置“后端连接”的配置弹窗选择本机或远程、填写 API 地址与 Token；页面分别显示本次实际连接和已保存配置，保存有变化时提示用户确认自动重启（可稍后重启并保留待生效入口），配置不变不要求重启，重启必须通过 Tauri 正常退出流程清理原 sidecar；启动时先检查远程健康状态，8 秒未通过则本次自动降级到本机后端，重启后重新尝试远程连接；开发模式降级到本机 8081。远程可用时不启动本地 sidecar，远程不可用时才启动，保证自动任务只有一个调度器。前端 API 地址由 `services/api.ts` 统一获取，禁止在组件中硬编码后端地址或端口。远程部署必须设置 `BUTVAN_API_REQUIRE_TOKEN=true`、通过受保护环境配置提供至少 32 字符的 `BUTVAN_API_TOKEN`、设置受限 CORS 来源并配置网络访问控制；当前业务仍是单用户本地数据模型，不得暴露到不可信网络或作为多用户服务。
-- 桌面 Release 工作流 `.github/workflows/release.yml`：只有推送严格格式 `v<major>.<minor>.<patch>` 或带 `-alpha.N`、`-beta.N`、`-rc.N` 后缀的 SemVer tag 才会运行；工作流校验 tag、根目录 `VERSION`、版本同步状态、tag 是否已合入 `develop`，以及 `CHANGELOG.md` 中对应的非空章节，然后仅创建 GitHub Release 并引用该章节作为说明。带预发布后缀的 tag 创建 GitHub Pre-release；普通版本 tag 创建正式 Release。工作流不运行构建、测试或安装包上传。该 Release 工作流不响应 PR、分支 push 或 iOS 后端路径变更。独立的 `.github/workflows/backend-image.yml` 仅在 `develop` 的桌面后端源码、Maven 配置、镜像构建文件或该工作流变化时自动运行，也允许在 `develop` 手动触发；使用 Java 21 构建 JAR（跳过测试），只发布 `linux/amd64` 到阿里云 ACR，保留 `sha-<完整提交号>` 标签与摘要，只有提交仍是 `develop` 最新提交时才更新 `develop` 镜像标签。ACR 用户名和密码仅通过 GitHub Secrets 注入；不得自动连接或部署 Windows 服务器，不影响既有数据挂载；操作说明与 Compose 覆盖文件分别位于 `agent-backend/DOCKER.md`、`agent-backend/compose.acr.yaml`。版本准备、变更日志格式和 tag 操作步骤见 `README.md` 的“桌面端版本发布”一节；Windows sidecar 仍由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
+- 桌面 Release 工作流 `.github/workflows/release.yml`：只有推送严格格式 `v<major>.<minor>.<patch>` 或带 `-alpha.N`、`-beta.N`、`-rc.N` 后缀的 SemVer tag 才会运行；工作流校验 tag、根目录 `VERSION`、版本同步状态、tag 是否已合入 `develop`，以及 `CHANGELOG.md` 中对应的非空章节，然后仅创建 GitHub Release 并引用该章节作为说明。带预发布后缀的 tag 创建 GitHub Pre-release；普通版本 tag 创建正式 Release。工作流不运行构建、测试或安装包上传。该 Release 工作流不响应 PR、分支 push 或 iOS 后端路径变更。独立的 `.github/workflows/backend-jar.yml` 在 `develop` 的后端源码、Maven 配置、Windows 部署模板或发布脚本变化时运行，也允许在 `develop` 手动触发；使用 Java 21 构建 JAR（跳过测试），发布至私有 MinIO 的不可变提交／构建目录，全部上传成功且提交仍是 `develop` 最新提交时才更新跟随清单。MinIO 上传凭据仅由 GitHub Secrets 注入，不得自动连接或部署 Windows。原 ACR 工作流归档于 `.github/workflow-archive/backend-image.yml.disabled`，Dockerfile、Compose 与旧更新脚本保留备用；容器说明仍见 `agent-backend/DOCKER.md`。Windows 原生后端由当前普通用户运行 Java 21，默认仅监听本机，继续强制 Token 与受限 CORS；BAT 更新先下载核验、正常停机及完整数据备份，再替换 JAR，不强杀、不自动回退已迁移数据库。迁移时必须停止原容器并禁用其自动重启，保持只有一个调度器；职责和操作约束见 `agent-backend/deployment/windows/AGENTS.md`、`agent-backend/WINDOWS.md`。版本准备、变更日志格式和 tag 操作步骤见 `README.md` 的“桌面端版本发布”一节；Windows sidecar 仍由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
 
 ### 分支管理策略
 
@@ -61,7 +63,7 @@
 | `ios-app/*` | iOS App（`RecordAgent APP/IOS APP/RecordAgent/`）的代码分支；从 `main` 创建，完成后合并回 `main`。 |
 | `desktop/*` | 桌面端及其本地 Agent/后端的代码分支；从 `main` 创建，完成后合并回 `main`。 |
 | `main` | 本地集成分支；用于汇聚已完成的功能分支，在本地执行完整测试与验证。验证通过后合并到 `develop`。不直接向远程推送，仅作为本地集成测试的中间层。 |
-| `develop` | 生产推送分支；`main` 本地验证通过后合并到此分支并推送到远程仓库。版本 tag 触发桌面 Release；后端相关变更触发 ACR 镜像发布。 |
+| `develop` | 生产推送分支；`main` 本地验证通过后合并到此分支并推送到远程仓库。版本 tag 触发桌面 Release；后端相关变更触发 MinIO JAR 发布。 |
 
 - 修改 `agent-frontend/`、`agent-backend/` 或桌面端打包与运行代码，分支名必须以 `desktop/` 开头；修改 `RecordAgent APP/IOS APP/RecordAgent/` 代码，分支名必须以 `ios-app/` 开头；开始代码修改前先核对当前分支。
 - 同一任务涉及两端代码时，按端拆成各自前缀的分支；共同的接口契约先确定，再分别实施。仅修改全局文档时不受这两个代码分支前缀限制。
@@ -158,6 +160,8 @@
 - 长期复盘默认关闭且保存配置不等于授权；只有用户显式确认范围、周期、回看窗口和固定模型连接后才可生成。模型选择固定为该连接，不跟随聊天默认模型；撤销授权立即生效并禁用未冻结的 AI 邮件副本，已经发送的邮件无法撤回。复盘生成在独立线程与短事务中运行，不阻塞原任务调度，失败、超时或超预算一律降级为基础报告且不自动重试；同一周期数据补录默认复用既有结果。复盘反馈只由用户提交，未反馈不得判为失败。
 
 ## 六、子级 DOX 索引
+
+- 已建立子级 `AGENTS.md`：`agent-backend/deployment/windows/`（Windows 原生部署、更新、停止、数据与日志生命周期）。
 
 - 已建立子级 `AGENTS.md`：`agent-backend/server-feishu/`（渠道集成模块职责与配置约束）。
 - 已建立子级 `AGENTS.md`：`agent-backend/server-network/`（HTTP 接口与本地 SQLite 持久化约束）。
