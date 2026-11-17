@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 /// 极简对话工作区：沿用系统纯净画布与留白层级，无模块化卡片框线。
@@ -8,6 +9,13 @@ struct AgentChatView: View {
 
     @State private var showModelPopover = false
     @State private var showPlanSheet = false
+    @State private var showTokenUsageSheet = false
+    @State private var tokenUsageInitialMessageId: String?
+    @State private var selectedCitation: AgentCitedReference?
+    @State private var previewImageItem: AgentChatImageAttachment?
+    @State private var showPhotosPicker = false
+    @State private var selectedPhotoItems: [PhotosPickerItem] = []
+    @State private var showCameraSheet = false
     @State private var showRenameAlert = false
     @State private var renameDraft = ""
     @State private var isAutoScrollEnabled = true
@@ -21,6 +29,9 @@ struct AgentChatView: View {
             topBar
 
             messageArea
+                .overlay(alignment: .bottom) {
+                    composerFloatingOverlay
+                }
 
             if let errorMessage = viewModel.errorMessage, !errorMessage.isEmpty {
                 errorBanner(errorMessage)
@@ -43,6 +54,69 @@ struct AgentChatView: View {
                 }
             }
         }
+        .sheet(isPresented: $showTokenUsageSheet) {
+            AgentTokenUsageSheet(
+                viewModel: viewModel,
+                initialSelectedMessageId: tokenUsageInitialMessageId
+            ) {
+                showTokenUsageSheet = false
+            }
+        }
+        .sheet(item: $selectedCitation) { citation in
+            AgentReferencedRecordSheet(
+                citation: citation,
+                loadDetail: { await viewModel.loadRecordDetail(for: $0) },
+                onClose: { selectedCitation = nil }
+            )
+        }
+        .fullScreenCover(item: $previewImageItem) { item in
+            AgentSentImagePreviewSheet(attachment: item) {
+                previewImageItem = nil
+            }
+        }
+        .photosPicker(
+            isPresented: $showPhotosPicker,
+            selection: $selectedPhotoItems,
+            maxSelectionCount: max(1, AgentImageValidator.maxCount - viewModel.attachedImages.count),
+            matching: .images
+        )
+        .onChange(of: selectedPhotoItems) { _, items in
+            guard !items.isEmpty else { return }
+            let captured = items
+            selectedPhotoItems = []
+            let draftToken = viewModel.beginImageProcessing()
+            Task {
+                var loadedData: [Data] = []
+                for item in captured {
+                    if let raw = try? await item.loadTransferable(type: Data.self),
+                       let normalized = AgentImageDataNormalizer.normalize(rawData: raw) {
+                        loadedData.append(normalized)
+                    }
+                }
+                viewModel.appendValidatedImageData(loadedData, draftToken: draftToken)
+                viewModel.finishImageProcessing(token: draftToken)
+            }
+        }
+        .fullScreenCover(isPresented: $showCameraSheet) {
+            AgentCameraPicker(
+                onImageCaptured: { data in
+                    showCameraSheet = false
+                    guard let data else { return }
+                    let token = viewModel.beginImageProcessing()
+                    viewModel.appendValidatedImageData([data], draftToken: token)
+                    viewModel.finishImageProcessing(token: token)
+                },
+                onCancel: {
+                    showCameraSheet = false
+                }
+            )
+            .ignoresSafeArea()
+        }
+        .onChange(of: isInputFocused) { _, focused in
+            if focused && viewModel.isPlusMenuOpen {
+                viewModel.isPlusMenuOpen = false
+            }
+        }
         .alert("agent.session.rename_title", isPresented: $showRenameAlert) {
             TextField("agent.session.rename_placeholder", text: $renameDraft)
             Button("common.cancel", role: .cancel) {}
@@ -57,67 +131,167 @@ struct AgentChatView: View {
     // MARK: - 顶部极简导航栏
 
     private var topBar: some View {
-        HStack(spacing: 8) {
-            Button {
-                isInputFocused = false
-                onOpenSessionsDrawer?()
-            } label: {
-                Image(systemName: "line.3.horizontal")
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("agent.sessions.title")
-
-            Spacer(minLength: 4)
-
-            if let session = viewModel.activeSession, !viewModel.messages.isEmpty {
-                HStack(spacing: 6) {
-                    Text(verbatim: session.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    if viewModel.activeSessionIsReadOnly {
-                        Text("agent.feishu.readonly_badge")
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
-                    }
-                }
-            }
-
-            Spacer(minLength: 4)
-
-            HStack(spacing: 0) {
-                if viewModel.activeSession != nil && !viewModel.activeSessionIsReadOnly {
-                    sessionOptionsMenu
-                }
-
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
                 Button {
                     isInputFocused = false
-                    viewModel.startNewChat()
+                    viewModel.dismissComposerOverlays()
+                    onOpenSessionsDrawer?()
                 } label: {
-                    Image(systemName: "square.and.pencil")
+                    Image(systemName: "line.3.horizontal")
                         .font(.body.weight(.medium))
                         .foregroundStyle(.primary)
-                        .frame(width: 44, height: 44)
+                        .frame(width: 36, height: 40)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("agent.new_chat")
+                .accessibilityLabel("agent.sessions.title")
+
+                HStack(alignment: .center, spacing: 10) {
+                    if let session = viewModel.activeSession, !viewModel.messages.isEmpty {
+                        HStack(spacing: 5) {
+                            Text(verbatim: session.title)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+
+                            if viewModel.activeSessionIsReadOnly {
+                                Text("agent.feishu.readonly_badge")
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Spacer(minLength: 0)
+                    }
+
+                    topBarContextBadge
+                }
+                .frame(maxWidth: .infinity)
+
+                HStack(spacing: 2) {
+                    if viewModel.activeSession != nil && !viewModel.activeSessionIsReadOnly {
+                        sessionOptionsMenu
+                    }
+
+                    Button {
+                        isInputFocused = false
+                        viewModel.startNewChat()
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(.primary)
+                            .frame(width: 36, height: 40)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("agent.new_chat")
+                }
             }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 12)
+            .padding(.top, 2)
+            .padding(.bottom, 6)
+
+            Divider().opacity(0.28)
         }
-        .padding(.horizontal, 10)
-        .padding(.top, 2)
-        .padding(.bottom, 4)
+    }
+
+    private var topBarContextBadge: some View {
+        let snapshot = viewModel.sessionTokenSnapshot
+        let context = viewModel.contextWindowMetrics
+
+        let consumedText: String = {
+            if let snapshot, snapshot.totalTokens > 0 {
+                return AgentTokenUsageAnalyzer.formatCompactTokenCount(snapshot.totalTokens)
+            }
+            if let snapshot, snapshot.estimatedInputTokens > 0 {
+                return AgentTokenUsageAnalyzer.formatCompactTokenCount(snapshot.estimatedInputTokens)
+            }
+            return "0"
+        }()
+
+        let contextText: String = {
+            if let current = context.currentContextTokens {
+                let currentStr = AgentTokenUsageAnalyzer.formatCompactTokenCount(current)
+                if let limit = context.contextWindowLimit, let pct = context.occupancyPercentText {
+                    let limitStr = AgentTokenUsageAnalyzer.formatCompactTokenCount(limit)
+                    return "\(currentStr)/\(limitStr) · \(pct)"
+                }
+                return currentStr
+            }
+            if let limit = context.contextWindowLimit {
+                return "0/\(AgentTokenUsageAnalyzer.formatCompactTokenCount(limit))"
+            }
+            return String(localized: "agent.usage.context.ready")
+        }()
+
+        let ringColor: Color = {
+            guard let ratio = context.occupancyRatio else { return AppColors.primaryBlue }
+            if ratio >= 0.90 { return AppColors.overviewExpense }
+            if ratio >= 0.70 { return Color.orange }
+            return AppColors.primaryBlue
+        }()
+
+        return Button {
+            isInputFocused = false
+            viewModel.dismissComposerOverlays()
+            tokenUsageInitialMessageId = nil
+            showTokenUsageSheet = true
+        } label: {
+            VStack(alignment: .trailing, spacing: 2) {
+                HStack(spacing: 4) {
+                    ZStack {
+                        Circle()
+                            .stroke(Color(uiColor: .tertiarySystemFill), lineWidth: 1.6)
+                        Circle()
+                            .trim(from: 0, to: CGFloat(context.occupancyRatio ?? 0))
+                            .stroke(ringColor, style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                    }
+                    .frame(width: 9, height: 9)
+
+                    Text(verbatim: contextText)
+                        .font(.system(size: 11, weight: .medium).monospacedDigit())
+                        .foregroundStyle(context.occupancyRatio != nil ? .primary : .secondary)
+                        .lineLimit(1)
+                }
+
+                HStack(spacing: 3) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 8.5, weight: .semibold))
+                        .foregroundStyle(snapshot?.hasReportedUsage == true ? AppColors.primaryBlue : .secondary)
+                    Text(String(localized: "agent.usage.topbar.consumed \(consumedText)"))
+                        .font(.system(size: 10, weight: .regular).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .layoutPriority(1)
+        .accessibilityLabel("agent.usage.sheet_title")
     }
 
     private var sessionOptionsMenu: some View {
         Menu {
+            Button {
+                isInputFocused = false
+                viewModel.dismissComposerOverlays()
+                tokenUsageInitialMessageId = nil
+                showTokenUsageSheet = true
+            } label: {
+                Label("agent.usage.menu_item", systemImage: "chart.pie")
+            }
+
             if viewModel.currentSessionHasPlan {
                 Button {
                     Task {
@@ -151,7 +325,7 @@ struct AgentChatView: View {
             Image(systemName: "ellipsis")
                 .font(.body.weight(.medium))
                 .foregroundStyle(.primary)
-                .frame(width: 40, height: 44)
+                .frame(width: 32, height: 40)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel("agent.session.options")
@@ -201,9 +375,30 @@ struct AgentChatView: View {
                             LazyVStack(alignment: .leading, spacing: 0) {
                                 ForEach(Array(viewModel.messages.enumerated()), id: \.element.id) { idx, message in
                                     let topGap = messageTopSpacing(at: idx)
+                                    let split = message.role == .assistant
+                                        ? AgentTimelineBuilder.splitProcessAndFinalBlocks(for: message)
+                                        : nil
+                                    let citations = (message.role == .assistant && !message.isStreaming)
+                                        ? viewModel.citedReferences(forAssistantIndex: idx, finalText: split?.finalText ?? "")
+                                        : []
                                     AgentMessageRow(
                                         message: message,
-                                        elapsedSeconds: message.isStreaming ? viewModel.elapsedSeconds : message.durationSeconds
+                                        elapsedSeconds: message.isStreaming ? viewModel.elapsedSeconds : message.durationSeconds,
+                                        citedReferences: citations,
+                                        onOpenTurnUsage: {
+                                            isInputFocused = false
+                                            viewModel.dismissComposerOverlays()
+                                            tokenUsageInitialMessageId = message.id
+                                            showTokenUsageSheet = true
+                                        },
+                                        onSelectCitation: { citation in
+                                            isInputFocused = false
+                                            selectedCitation = citation
+                                        },
+                                        onPreviewImage: { attachment in
+                                            isInputFocused = false
+                                            previewImageItem = attachment
+                                        }
                                     )
                                     .padding(.top, topGap)
                                     .id(message.id)
@@ -401,18 +596,127 @@ struct AgentChatView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - 底部一体式极简胶囊输入区（含模型与权限控制）
+    // MARK: - 底部一体式极简胶囊输入区（含「+」分类入口、模型与权限控制）
+
+    @ViewBuilder
+    private var composerFloatingOverlay: some View {
+        if viewModel.isPlusMenuOpen || viewModel.isRecordPickerOpen {
+            ZStack(alignment: .bottom) {
+                Color.black.opacity(0.001)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+                            viewModel.dismissComposerOverlays()
+                        }
+                    }
+
+                Group {
+                    if viewModel.isRecordPickerOpen {
+                        AgentRecordReferencePanel(viewModel: viewModel) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+                                viewModel.isRecordPickerOpen = false
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                        .transition(
+                            reduceMotion
+                                ? .opacity
+                                : .move(edge: .bottom).combined(with: .opacity)
+                        )
+                    } else if viewModel.isPlusMenuOpen {
+                        HStack {
+                            AgentPlusCategoryMenu(
+                                imageCount: viewModel.attachedImages.count,
+                                recordCount: viewModel.selectedRecordReferences.count,
+                                onTakePhoto: {
+                                    viewModel.isPlusMenuOpen = false
+                                    isInputFocused = false
+                                    if AgentCameraPicker.isCameraAvailable {
+                                        showCameraSheet = true
+                                    } else {
+                                        viewModel.errorMessage = String(localized: "agent.image.error.camera_unavailable")
+                                    }
+                                },
+                                onPickPhotos: {
+                                    viewModel.isPlusMenuOpen = false
+                                    isInputFocused = false
+                                    selectedPhotoItems = []
+                                    showPhotosPicker = true
+                                },
+                                onOpenRecords: {
+                                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                                        viewModel.openRecordPicker()
+                                    }
+                                }
+                            )
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                        .transition(
+                            reduceMotion
+                                ? .opacity
+                                : .scale(scale: 0.94, anchor: .bottomLeading).combined(with: .opacity)
+                        )
+                    }
+                }
+            }
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: viewModel.isPlusMenuOpen)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: viewModel.isRecordPickerOpen)
+        }
+    }
 
     private var composerBar: some View {
         VStack(alignment: .leading, spacing: 6) {
-            TextField("agent.input.placeholder", text: $viewModel.draftText, axis: .vertical)
-                .font(.body)
-                .lineLimit(1...6)
-                .focused($isInputFocused)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 2)
+            if !viewModel.attachedImages.isEmpty
+                || !viewModel.selectedRecordReferences.isEmpty
+                || viewModel.isProcessingImages {
+                AgentComposerAttachmentsBar(
+                    images: viewModel.attachedImages,
+                    records: viewModel.selectedRecordReferences,
+                    isProcessingImages: viewModel.isProcessingImages,
+                    onRemoveImage: { viewModel.removeImage(id: $0) },
+                    onRemoveRecord: { viewModel.removeRecordReference(id: $0) }
+                )
+            }
+
+            HStack(alignment: .bottom, spacing: 6) {
+                Button {
+                    isInputFocused = false
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+                        viewModel.togglePlusMenu()
+                    }
+                } label: {
+                    let isOverlayActive = viewModel.isPlusMenuOpen || viewModel.isRecordPickerOpen
+                    Image(systemName: isOverlayActive ? "xmark" : "plus")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(isOverlayActive ? AppColors.primaryBlue : .primary)
+                        .frame(width: 30, height: 30)
+                        .background(
+                            isOverlayActive
+                                ? AppColors.primaryBlue.opacity(0.14)
+                                : Color(uiColor: .tertiarySystemFill).opacity(0.75),
+                            in: Circle()
+                        )
+                        .frame(width: 38, height: 36)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
                 .disabled(viewModel.activeSessionIsReadOnly)
+                .accessibilityLabel("agent.plus_menu.accessibility_label")
+
+                TextField("agent.input.placeholder", text: $viewModel.draftText, axis: .vertical)
+                    .font(.body)
+                    .lineLimit(1...6)
+                    .focused($isInputFocused)
+                    .padding(.vertical, 6)
+                    .disabled(viewModel.activeSessionIsReadOnly)
+            }
+            .padding(.leading, 8)
+            .padding(.trailing, 14)
+            .padding(.top, viewModel.attachedImages.isEmpty && viewModel.selectedRecordReferences.isEmpty ? 6 : 2)
+            .padding(.bottom, 2)
 
             HStack(spacing: 8) {
                 Button {
@@ -628,32 +932,131 @@ struct AgentChatView: View {
 private struct AgentMessageRow: View {
     let message: AgentChatMessage
     let elapsedSeconds: Int?
+    let citedReferences: [AgentCitedReference]
+    let onOpenTurnUsage: () -> Void
+    let onSelectCitation: (AgentCitedReference) -> Void
+    let onPreviewImage: (AgentChatImageAttachment) -> Void
     @State private var copied = false
 
     var body: some View {
         if message.role == .user {
-            HStack {
-                Spacer(minLength: 48)
-                Text(verbatim: message.content)
-                    .font(.callout)
-                    .lineSpacing(4.5)
-                    .foregroundStyle(.primary)
-                    .textSelection(.enabled)
+            userBubble
+        } else {
+            assistantBody
+        }
+    }
+
+    private var userBubble: some View {
+        let parsed = AgentReferenceCitationParser.parseUserPromptAndReferences(message.content)
+        let imagePlaceholder = String(localized: "agent.image.sent_placeholder")
+        let shouldShowTextBubble = !parsed.referenceTitles.isEmpty
+            || (!parsed.prompt.isEmpty && (message.images.isEmpty || parsed.prompt != imagePlaceholder))
+
+        return HStack {
+            Spacer(minLength: 48)
+            VStack(alignment: .trailing, spacing: 8) {
+                if !message.images.isEmpty {
+                    userImagesView
+                }
+
+                if shouldShowTextBubble {
+                    VStack(alignment: .leading, spacing: 6) {
+                        if !parsed.referenceTitles.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 6) {
+                                    ForEach(parsed.referenceTitles, id: \.self) { title in
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "book.pages")
+                                                .font(.system(size: 10, weight: .semibold))
+                                                .foregroundStyle(AppColors.primaryBlue)
+                                            Text(verbatim: title)
+                                                .font(.caption2.weight(.medium))
+                                                .foregroundStyle(.primary)
+                                                .lineLimit(1)
+                                        }
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            AppColors.primaryBlue.opacity(0.10),
+                                            in: Capsule()
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if !parsed.prompt.isEmpty {
+                            Text(verbatim: parsed.prompt)
+                                .font(.callout)
+                                .lineSpacing(4.5)
+                                .foregroundStyle(.primary)
+                                .textSelection(.enabled)
+                        }
+                    }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     .background(
                         Color(uiColor: .secondarySystemBackground),
                         in: RoundedRectangle(cornerRadius: 20, style: .continuous)
                     )
+                }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var userImagesView: some View {
+        if message.images.count == 1, let single = message.images.first, let uiImage = UIImage(data: single.data) {
+            Button {
+                onPreviewImage(single)
+            } label: {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: 210, maxHeight: 210)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color(uiColor: .separator).opacity(0.22), lineWidth: 0.5)
+                    }
+            }
+            .buttonStyle(.plain)
         } else {
-            assistantBody
+            LazyVGrid(
+                columns: [GridItem(.fixed(98), spacing: 6), GridItem(.fixed(98), spacing: 6)],
+                alignment: .trailing,
+                spacing: 6
+            ) {
+                ForEach(message.images) { item in
+                    if let uiImage = UIImage(data: item.data) {
+                        Button {
+                            onPreviewImage(item)
+                        } label: {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 98, height: 98)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .strokeBorder(Color(uiColor: .separator).opacity(0.22), lineWidth: 0.5)
+                                }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
         }
     }
 
     private var assistantBody: some View {
         let split = AgentTimelineBuilder.splitProcessAndFinalBlocks(for: message)
         let trimmedFinal = split.finalText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasTurnTokenInfo = message.usage.map {
+            $0.totalTokens > 0 || ($0.reportedCallCount ?? 0) > 0 || ($0.estimatedInputTokens ?? 0) > 0
+        } ?? false
+        let showFooter = !message.isStreaming && (!trimmedFinal.isEmpty || hasTurnTokenInfo || message.status != nil)
+
         return VStack(alignment: .leading, spacing: 10) {
             if message.proactive {
                 Text("agent.proactive.badge")
@@ -694,31 +1097,69 @@ private struct AgentMessageRow: View {
                     .foregroundStyle(AppColors.overviewExpense)
             }
 
-            if !message.isStreaming && !trimmedFinal.isEmpty {
-                HStack(spacing: 14) {
-                    Button {
-                        UIPasteboard.general.string = AgentInlineMarkdownParser.stripMarkupTagsOnly(trimmedFinal)
-                        copied = true
-                        Task {
-                            try? await Task.sleep(for: .seconds(1.5))
-                            copied = false
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                                .font(.caption.weight(.medium))
-                            if copied {
-                                Text("agent.copied")
-                                    .font(.caption2.weight(.medium))
+            if !message.isStreaming && !citedReferences.isEmpty {
+                AgentCitedReferencesStrip(
+                    references: citedReferences,
+                    onSelect: onSelectCitation
+                )
+            }
+
+            if showFooter {
+                HStack(spacing: 10) {
+                    if hasTurnTokenInfo, let usage = message.usage {
+                        let tokenCount = usage.totalTokens > 0
+                            ? usage.totalTokens
+                            : (usage.estimatedInputTokens ?? 0)
+                        Button(action: onOpenTurnUsage) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chart.bar")
+                                    .font(.system(size: 10.5, weight: .semibold))
+                                    .foregroundStyle(AppColors.primaryBlue)
+                                Text(verbatim: "\(AgentTokenUsageAnalyzer.formatTokenCount(tokenCount)) tokens")
+                                    .font(.caption2.weight(.medium).monospacedDigit())
+                                    .foregroundStyle(.secondary)
                             }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
+                            .contentShape(Capsule())
                         }
-                        .foregroundStyle(copied ? AppColors.primaryBlue : .secondary)
-                        .frame(minHeight: 28)
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("agent.usage.scope.turn_detail")
                     }
-                    .buttonStyle(.plain)
-                    .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.6), trigger: copied)
-                    .accessibilityLabel(copied ? LocalizedStringKey("agent.copied") : LocalizedStringKey("agent.copy_response"))
+
+                    Text(verbatim: AgentTokenUsageAnalyzer.formatTimestampSeconds(message.createdAt))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+
+                    if !trimmedFinal.isEmpty {
+                        Button {
+                            UIPasteboard.general.string = AgentInlineMarkdownParser.stripMarkupTagsOnly(trimmedFinal)
+                            copied = true
+                            Task {
+                                try? await Task.sleep(for: .seconds(1.5))
+                                copied = false
+                            }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                                    .font(.caption.weight(.medium))
+                                if copied {
+                                    Text("agent.copied")
+                                        .font(.caption2.weight(.medium))
+                                }
+                            }
+                            .foregroundStyle(copied ? AppColors.primaryBlue : .secondary)
+                            .frame(minWidth: 26, minHeight: 26)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.6), trigger: copied)
+                        .accessibilityLabel(copied ? LocalizedStringKey("agent.copied") : LocalizedStringKey("agent.copy_response"))
+                    }
+
+                    Spacer(minLength: 0)
                 }
                 .padding(.top, 2)
             }

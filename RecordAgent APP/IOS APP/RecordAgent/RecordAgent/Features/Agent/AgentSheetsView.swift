@@ -83,12 +83,14 @@ struct AgentSessionsDrawerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             drawerHeader
-                .padding(.horizontal, 18)
+                .padding(.leading, 18)
+                .padding(.trailing, 22)
                 .padding(.top, 10)
                 .padding(.bottom, 10)
 
             channelSwitchBar
-                .padding(.horizontal, 18)
+                .padding(.leading, 18)
+                .padding(.trailing, 22)
                 .padding(.bottom, 10)
 
             if viewModel.isLoadingSessions && displayedSessions.isEmpty {

@@ -55,8 +55,6 @@ enum AppTab: String, CaseIterable, Identifiable {
 struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
     @State private var isAgentDrawerOpen = false
-    @State private var drawerDragTranslation: CGFloat = 0
-    @State private var isDraggingDrawer = false
     @StateObject private var homeModel: HomeViewModel
     @StateObject private var financeModel: FinanceWorkspaceViewModel
     @StateObject private var libraryModel: LibraryWorkspaceViewModel
@@ -117,71 +115,16 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let drawerWidth = min(max(proxy.size.width * 0.80, 270), 340)
-            let isChatActive = selectedTab == .chat
-            let baseOffset: CGFloat = (isChatActive && isAgentDrawerOpen) ? drawerWidth : 0
-            let rawOffset = baseOffset + (isChatActive ? drawerDragTranslation : 0)
-            let currentOffset = min(max(rawOffset, 0), drawerWidth)
-            let progress = drawerWidth > 0 ? currentOffset / drawerWidth : 0
-
-            ZStack(alignment: .leading) {
-                if isChatActive && progress > 0.001 {
-                    AgentSessionsDrawerView(
-                        viewModel: agentModel,
-                        onClose: { closeAgentDrawer() }
-                    )
-                    .frame(width: drawerWidth)
-                    .offset(x: -drawerWidth * 0.16 * (1 - progress))
-                    .opacity(0.45 + 0.55 * progress)
-                    .accessibilityHidden(progress < 0.5)
-                }
-
-                mainContentShell
-                    .overlay {
-                        if progress > 0.001 {
-                            Color.black.opacity(0.06 * progress)
-                                .ignoresSafeArea()
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    closeAgentDrawer()
-                                }
-                                .gesture(closeDrawerDragGesture(drawerWidth: drawerWidth))
-                        }
-                    }
-                    .overlay(alignment: .leading) {
-                        if progress > 0.001 {
-                            Rectangle()
-                                .fill(Color(uiColor: .separator).opacity(0.22 * progress))
-                                .frame(width: 0.5)
-                                .ignoresSafeArea()
-                        }
-                    }
-                    .mask {
-                        UnevenRoundedRectangle(
-                            topLeadingRadius: progress > 0.001 ? 26 * progress : 0,
-                            bottomLeadingRadius: progress > 0.001 ? 26 * progress : 0
-                        )
-                        .ignoresSafeArea()
-                    }
-                    .shadow(
-                        color: Color.black.opacity(0.13 * progress),
-                        radius: 20,
-                        x: -6,
-                        y: 0
-                    )
-                    .offset(x: currentOffset)
-                    .simultaneousGesture(edgeOpenDrawerGesture(drawerWidth: drawerWidth), including: .all)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(uiColor: .systemBackground).ignoresSafeArea())
-        }
-        .onChange(of: selectedTab) { _, newTab in
-            if newTab != .chat && (isAgentDrawerOpen || drawerDragTranslation != 0) {
-                isAgentDrawerOpen = false
-                drawerDragTranslation = 0
-                isDraggingDrawer = false
-            }
+        AgentDrawerContainer(
+            isEnabled: selectedTab == .chat,
+            isOpen: $isAgentDrawerOpen
+        ) {
+            AgentSessionsDrawerView(
+                viewModel: agentModel,
+                onClose: { closeAgentDrawer() }
+            )
+        } main: {
+            mainContentShell
         }
         .tint(AppColors.primaryBlue)
         .task(id: LoadKey(date: homeModel.selectedDate, locale: locale.identifier)) {
@@ -279,73 +222,17 @@ struct MainTabView: View {
     }
 
     private func openAgentDrawer() {
-        dismissKeyboard()
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         withAnimation(drawerAnimation) {
             isAgentDrawerOpen = true
-            drawerDragTranslation = 0
-            isDraggingDrawer = false
         }
     }
 
     private func closeAgentDrawer() {
-        dismissKeyboard()
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         withAnimation(drawerAnimation) {
             isAgentDrawerOpen = false
-            drawerDragTranslation = 0
-            isDraggingDrawer = false
         }
-    }
-
-    private func dismissKeyboard() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    }
-
-    /// 仅从对话页左边缘（<= 28pt）向右滑时跟手拉出历史抽屉，不干扰表格与列表滑动。
-    private func edgeOpenDrawerGesture(drawerWidth: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 12)
-            .onChanged { value in
-                guard selectedTab == .chat, !isAgentDrawerOpen else { return }
-                if !isDraggingDrawer {
-                    guard value.startLocation.x <= 28,
-                          value.translation.width > 0,
-                          abs(value.translation.width) > abs(value.translation.height) * 1.2 else {
-                        return
-                    }
-                    isDraggingDrawer = true
-                    dismissKeyboard()
-                }
-                drawerDragTranslation = min(max(value.translation.width, 0), drawerWidth)
-            }
-            .onEnded { value in
-                guard isDraggingDrawer else { return }
-                isDraggingDrawer = false
-                let predicted = value.predictedEndTranslation.width
-                let shouldOpen = drawerDragTranslation > drawerWidth * 0.35 || predicted > drawerWidth * 0.5
-                withAnimation(drawerAnimation) {
-                    isAgentDrawerOpen = shouldOpen
-                    drawerDragTranslation = 0
-                }
-            }
-    }
-
-    /// 抽屉开启时，支持在右侧露出的主界面遮罩区向左拖回关闭。
-    private func closeDrawerDragGesture(drawerWidth: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { value in
-                guard isAgentDrawerOpen else { return }
-                if value.translation.width < 0 {
-                    drawerDragTranslation = max(value.translation.width, -drawerWidth)
-                }
-            }
-            .onEnded { value in
-                guard isAgentDrawerOpen else { return }
-                let predicted = value.predictedEndTranslation.width
-                let shouldClose = drawerDragTranslation < -drawerWidth * 0.25 || predicted < -drawerWidth * 0.45
-                withAnimation(drawerAnimation) {
-                    isAgentDrawerOpen = !shouldClose
-                    drawerDragTranslation = 0
-                }
-            }
     }
 
     private func handlePendingProactiveRoute() {

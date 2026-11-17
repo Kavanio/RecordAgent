@@ -16,10 +16,12 @@
 		066091574C4F8E2064A0A2A1 /* ProactivePushServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BC4E078DD75E4056515EE68 /* ProactivePushServiceProtocol.swift */; };
 		06821449E47977998546015C /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D908FFA2AE3A03581D9E72FF /* AuthViewModel.swift */; };
 		09E721631994B22367DEB899 /* APIMobileTaskService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 877EDA9D59A53D9541795558 /* APIMobileTaskService.swift */; };
+		113173D2A8C9C6D93F29A06D /* AgentTokenUsageAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3291EB1F9EC6BB40E99E796E /* AgentTokenUsageAnalyzer.swift */; };
 		11465E5A2E41805BEB7B94FE /* AppSettingsGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B6E69EE4CFF5B586798D2BB /* AppSettingsGroup.swift */; };
 		144B5DFCE3A2FF87FA1AC187 /* FinanceWorkspaceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7B3AA77DFC0C31E6BAA5E82 /* FinanceWorkspaceModels.swift */; };
 		1852A1396AC869CF553034A7 /* HomeHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 251E8C4858304290ABB30D70 /* HomeHeaderView.swift */; };
 		1C33962228C23F0999819DCB /* WorkspaceFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = DABFC79464508FFD490C0F50 /* WorkspaceFormat.swift */; };
+		1DC6620707EA039ACF01EA4F /* AgentReferenceCitationParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C16B283EB9B53AE2FC214DFA /* AgentReferenceCitationParser.swift */; };
 		1DD819236163ED08EBF6709E /* ProfileAboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 086ACD0A8430894BBFE305F8 /* ProfileAboutView.swift */; };
 		1FFB0F558BFA41D22F987A29 /* AgentChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3D51DC2CF7EED482266238 /* AgentChatView.swift */; };
 		1FFFAC60B8D2EA0FD683EC32 /* RecordWorkspaceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20F3E430C3E708C47F00C20B /* RecordWorkspaceViewModel.swift */; };
@@ -33,6 +35,7 @@
 		2C3808B14F5A13F277570FBC /* CalendarDayTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76A76613AD06D122FBF98BA2 /* CalendarDayTimeline.swift */; };
 		347E0EAA9231F933D96CB3BD /* FinanceWorkspaceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFBF9896F32250C8C11AA9F5 /* FinanceWorkspaceViewModel.swift */; };
 		36FAE18011B45939C219A13C /* AppLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81D3AEE5339AA82A8F478E0 /* AppLocalization.swift */; };
+		3C6F79B88D5C86BC985E0C01 /* AgentImageValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B703E024297D480AFDF94A2C /* AgentImageValidator.swift */; };
 		3D2FC92D5A9D8212B7E89C87 /* MockHomeDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFB96ED547C773F77C8F43D8 /* MockHomeDataService.swift */; };
 		3D405D7C3BC178EF42F3409C /* FinanceInsightsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBEC08E2C40B117FCF70F1EE /* FinanceInsightsTests.swift */; };
 		3E4BD241A8F9F09A29441EAB /* CalendarModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A67CE1C6375C9228A92C1A3 /* CalendarModels.swift */; };
@@ -80,12 +83,15 @@
 		74E1FBB99983B1D50D4EF15B /* CalendarScheduleCreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC6BB70A035B2F4505C305C /* CalendarScheduleCreateView.swift */; };
 		780D68A9D8F663B6F7960627 /* HomeBannerCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F4A2AC03806192C06685F34 /* HomeBannerCardView.swift */; };
 		799A036EACA5C4B00DD700D5 /* MockAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C185DC38613AF4D9F5F551E /* MockAuthService.swift */; };
+		7A7E61694C6674BDC3BBE0DA /* AgentComposerOverlayPanels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87F28E9FFCCFDB8D10515F65 /* AgentComposerOverlayPanels.swift */; };
 		7A82B6D6C3D2A42E64CCC705 /* AppTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 471CBFCBD11AEF7E20394FAF /* AppTextField.swift */; };
 		7A8664E888B55610157F058D /* CalendarCreateEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC6B60429C63664B770D4CFF /* CalendarCreateEntryView.swift */; };
+		7C5712AEE4C6986F7FA5EC0A /* AgentCameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4411AC235F48E44B10E971F /* AgentCameraPicker.swift */; };
 		81B4DAB695DD98B9CA4548DE /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02C6757F4B77527A567E780 /* AppEnvironment.swift */; };
 		858C1A8986A10AF07F1044F9 /* RecordAgentApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D34B49D05F054474081DA25 /* RecordAgentApp.swift */; };
 		8891C2C8635CABDA01F30881 /* FinanceChartMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35F69FDEBF8F8C402AE37BF3 /* FinanceChartMotion.swift */; };
 		8A3381E20BA79A73F91C91F6 /* FinanceInsightsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DC40FF6F17045191AD4FE32 /* FinanceInsightsModels.swift */; };
+		8B2EBDFC58A6DA5BF5055005 /* AgentDrawerContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 196F201FDC37C35013D4A409 /* AgentDrawerContainer.swift */; };
 		8EE5698F697A94E30416DFA3 /* StudyModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 198A05756DAC690E48C30EC2 /* StudyModels.swift */; };
 		8FEF83022D678C8F183013E1 /* ForgotPasswordSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4A56B24BA776F5BC2439B6 /* ForgotPasswordSheetView.swift */; };
 		91775C853A0357E3DA858247 /* HomeDayContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB405D900533B283BE85D391 /* HomeDayContentView.swift */; };
@@ -95,6 +101,7 @@
 		99378F02844A1C5E81684772 /* CalendarTodoCreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0FFB9A77E9B9AE47825655 /* CalendarTodoCreateView.swift */; };
 		99A8D3DC231117D698F1546F /* CalendarNoteCreateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 939CC978C4138BCB3B2ED79C /* CalendarNoteCreateView.swift */; };
 		9BA7287DFDF1197493FA43ED /* FinanceAccountsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55D2F4BE2BF39C100D898D4 /* FinanceAccountsView.swift */; };
+		9D3D5ED57BA090EBFB822E48 /* AgentTokenUsageSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBAD3E0E0A83FE6F6DA0D7DF /* AgentTokenUsageSheet.swift */; };
 		9DAD14A04E3998AFFB9A46E7 /* CalendarMonthGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1DCBD410FC63E7BA131097 /* CalendarMonthGrid.swift */; };
 		9DFF5C1C8F833F303AA2A872 /* FinanceLibraryWorkspaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1F6CF1AB1B2161E1AA359D9 /* FinanceLibraryWorkspaceTests.swift */; };
 		9E9C2086B7E24252FBC9DC52 /* AuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45BA8B8C8FD692C0A8061F9 /* AuthTests.swift */; };
@@ -185,6 +192,7 @@
 		15F878D74A4798939888FDFE /* AuthServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthServiceProtocol.swift; sourceTree = "<group>"; };
 		16354743E5B38DFB50E82DC7 /* HomeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeModels.swift; sourceTree = "<group>"; };
 		19598AC53B9349D20F89DFAE /* APICalendarDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APICalendarDataService.swift; sourceTree = "<group>"; };
+		196F201FDC37C35013D4A409 /* AgentDrawerContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDrawerContainer.swift; sourceTree = "<group>"; };
 		198A05756DAC690E48C30EC2 /* StudyModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyModels.swift; sourceTree = "<group>"; };
 		1A33E9D0CED73615452B250D /* AgreementSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgreementSheetView.swift; sourceTree = "<group>"; };
 		1A48AA3301D61A91E04C26A6 /* FinanceChartTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceChartTabs.swift; sourceTree = "<group>"; };
@@ -199,6 +207,7 @@
 		30D8148D0A4898B1CF02CF13 /* HomeMonthPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeMonthPickerView.swift; sourceTree = "<group>"; };
 		30E522FE5316059D06E41FDA /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		316F6A00C92707A55BE2CAF6 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		3291EB1F9EC6BB40E99E796E /* AgentTokenUsageAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTokenUsageAnalyzer.swift; sourceTree = "<group>"; };
 		35C6E2B0B2F43D7C34CE4805 /* RecordAgent.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RecordAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		35CC8009651AC226A34AE252 /* APILibraryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APILibraryService.swift; sourceTree = "<group>"; };
 		35F69FDEBF8F8C402AE37BF3 /* FinanceChartMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceChartMotion.swift; sourceTree = "<group>"; };
@@ -258,6 +267,7 @@
 		8485A96809781A7512EDD15A /* APIConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIConfiguration.swift; sourceTree = "<group>"; };
 		86CD874E8AEFC06E72EEA7A3 /* AgentApprovalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentApprovalCardView.swift; sourceTree = "<group>"; };
 		877EDA9D59A53D9541795558 /* APIMobileTaskService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIMobileTaskService.swift; sourceTree = "<group>"; };
+		87F28E9FFCCFDB8D10515F65 /* AgentComposerOverlayPanels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentComposerOverlayPanels.swift; sourceTree = "<group>"; };
 		8A3D51DC2CF7EED482266238 /* AgentChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentChatView.swift; sourceTree = "<group>"; };
 		8B6E69EE4CFF5B586798D2BB /* AppSettingsGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsGroup.swift; sourceTree = "<group>"; };
 		8EC995C0168EA611728C8C4E /* CalendarDataServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDataServiceProtocol.swift; sourceTree = "<group>"; };
@@ -291,13 +301,16 @@
 		B3C61B52EB9C020046F105B1 /* HomeEntryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeEntryDetailView.swift; sourceTree = "<group>"; };
 		B402A483FEE9F021BB9C96DA /* RecordDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordDetailView.swift; sourceTree = "<group>"; };
 		B595B284CFA6669C9320BB12 /* ProfileActivityAndAppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileActivityAndAppearanceTests.swift; sourceTree = "<group>"; };
+		B703E024297D480AFDF94A2C /* AgentImageValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentImageValidator.swift; sourceTree = "<group>"; };
 		B7C0BC51F89F92F378190A7D /* FinanceCategoryCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceCategoryCatalog.swift; sourceTree = "<group>"; };
 		B923BB3874D1E5FCD18A5663 /* FinanceEditors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceEditors.swift; sourceTree = "<group>"; };
 		B980BB4F19BEB0500E6D3CEC /* APIAgentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIAgentService.swift; sourceTree = "<group>"; };
 		BB8315666D250EABF0D2AB97 /* ProfileOverviewViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileOverviewViewModel.swift; sourceTree = "<group>"; };
 		BC179A5D8876F5BC247B8B42 /* CalendarStickyTodoNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarStickyTodoNote.swift; sourceTree = "<group>"; };
+		C16B283EB9B53AE2FC214DFA /* AgentReferenceCitationParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentReferenceCitationParser.swift; sourceTree = "<group>"; };
 		C2D88D0BBDE51457BC6A2DBD /* ProfilePreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePreferencesView.swift; sourceTree = "<group>"; };
 		C3D6E15A7C6D149BAE4D1522 /* LibraryPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryPresentation.swift; sourceTree = "<group>"; };
+		C4411AC235F48E44B10E971F /* AgentCameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCameraPicker.swift; sourceTree = "<group>"; };
 		C6E9091EC96092A0166AE628 /* LibraryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryDetailView.swift; sourceTree = "<group>"; };
 		C869A20A145E5C3DA6C52EE6 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		CB405D900533B283BE85D391 /* HomeDayContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeDayContentView.swift; sourceTree = "<group>"; };
@@ -308,6 +321,7 @@
 		D416B47D1B6A5A7DFBAE8F0C /* FinanceTrendTooltip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceTrendTooltip.swift; sourceTree = "<group>"; };
 		D908FFA2AE3A03581D9E72FF /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
 		DABFC79464508FFD490C0F50 /* WorkspaceFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceFormat.swift; sourceTree = "<group>"; };
+		DBAD3E0E0A83FE6F6DA0D7DF /* AgentTokenUsageSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTokenUsageSheet.swift; sourceTree = "<group>"; };
 		DBEC08E2C40B117FCF70F1EE /* FinanceInsightsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceInsightsTests.swift; sourceTree = "<group>"; };
 		DC7039662128AFFAA162C079 /* LibraryWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryWorkspaceView.swift; sourceTree = "<group>"; };
 		DC77894B27C506A97A9EE3A4 /* WeekCalendarStripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekCalendarStripView.swift; sourceTree = "<group>"; };
@@ -524,13 +538,16 @@
 			isa = PBXGroup;
 			children = (
 				86CD874E8AEFC06E72EEA7A3 /* AgentApprovalCardView.swift */,
+				C4411AC235F48E44B10E971F /* AgentCameraPicker.swift */,
 				8A3D51DC2CF7EED482266238 /* AgentChatView.swift */,
 				E6E78435555E54F064BA2CB6 /* AgentChatViewModel.swift */,
 				07D99B66424A9839B311F9FB /* AgentCodeHighlighter.swift */,
+				87F28E9FFCCFDB8D10515F65 /* AgentComposerOverlayPanels.swift */,
 				AD0718D4761EA080495A15DE /* AgentInlineMarkdownParser.swift */,
 				A57CB100E95D14A90837A551 /* AgentMarkdownView.swift */,
 				430B8FD281C9130A4CEAC577 /* AgentProcessTimelineView.swift */,
 				65C6BF2C9EBF78BCF9B0E76D /* AgentSheetsView.swift */,
+				DBAD3E0E0A83FE6F6DA0D7DF /* AgentTokenUsageSheet.swift */,
 				3DACDC9BF6DBE769C727F2D5 /* AgentVendorIconView.swift */,
 			);
 			path = Agent;
@@ -641,6 +658,7 @@
 		87A5153395517EB391D0524B /* Main */ = {
 			isa = PBXGroup;
 			children = (
+				196F201FDC37C35013D4A409 /* AgentDrawerContainer.swift */,
 				01BAE36A2CD326A170F4DC0E /* MainNavigationBar.swift */,
 				992857CF3D41AE57D33B3338 /* MainTabView.swift */,
 				38A17AEF10F8FB1939FA36EC /* WorkspaceHubView.swift */,
@@ -680,9 +698,12 @@
 		95721D76B1AFF99026605860 /* Agent */ = {
 			isa = PBXGroup;
 			children = (
+				B703E024297D480AFDF94A2C /* AgentImageValidator.swift */,
 				9ABB3E9DEF56B420D6B2AF9B /* AgentModels.swift */,
+				C16B283EB9B53AE2FC214DFA /* AgentReferenceCitationParser.swift */,
 				98963F8B006AECC96F3D51CA /* AgentServiceProtocol.swift */,
 				93E2722C3CFFE4221AD13F38 /* AgentTimelineBuilder.swift */,
+				3291EB1F9EC6BB40E99E796E /* AgentTokenUsageAnalyzer.swift */,
 			);
 			path = Agent;
 			sourceTree = "<group>";
@@ -974,16 +995,23 @@
 				F568E13ED793215C211414BC /* APIProactivePushService.swift in Sources */,
 				ABD9BFAC12E43ECD8698B00D /* APIStudyService.swift in Sources */,
 				DEFD7A51BC4772419DB7DE3C /* AgentApprovalCardView.swift in Sources */,
+				7C5712AEE4C6986F7FA5EC0A /* AgentCameraPicker.swift in Sources */,
 				1FFB0F558BFA41D22F987A29 /* AgentChatView.swift in Sources */,
 				4E48743EAF2ABA7E7A2A649B /* AgentChatViewModel.swift in Sources */,
 				A10E5E543EE026002E0C2383 /* AgentCodeHighlighter.swift in Sources */,
+				7A7E61694C6674BDC3BBE0DA /* AgentComposerOverlayPanels.swift in Sources */,
+				8B2EBDFC58A6DA5BF5055005 /* AgentDrawerContainer.swift in Sources */,
+				3C6F79B88D5C86BC985E0C01 /* AgentImageValidator.swift in Sources */,
 				5142EAA507866739519A146C /* AgentInlineMarkdownParser.swift in Sources */,
 				DE813975C1E1E83E97751BBD /* AgentMarkdownView.swift in Sources */,
 				A78E7EA9D8B4C191959E5C72 /* AgentModels.swift in Sources */,
 				CC1E2528EB9A41A8BC71FFD9 /* AgentProcessTimelineView.swift in Sources */,
+				1DC6620707EA039ACF01EA4F /* AgentReferenceCitationParser.swift in Sources */,
 				C88BA42CFCD5729400DCA3D8 /* AgentServiceProtocol.swift in Sources */,
 				6CD283A859E711272C50DC42 /* AgentSheetsView.swift in Sources */,
 				CB4DE16A2653EE95562E066E /* AgentTimelineBuilder.swift in Sources */,
+				113173D2A8C9C6D93F29A06D /* AgentTokenUsageAnalyzer.swift in Sources */,
+				9D3D5ED57BA090EBFB822E48 /* AgentTokenUsageSheet.swift in Sources */,
 				F8AD11CC0379F2402461829B /* AgentVendorIconView.swift in Sources */,
 				5C9BC76F7F806C2978494A92 /* AgreementSheetView.swift in Sources */,
 				29676573C0282E0D42E0D5C8 /* AppButton.swift in Sources */,

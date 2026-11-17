@@ -1,3 +1,4 @@
+import SwiftUI
 import XCTest
 @testable import RecordAgent
 
@@ -415,6 +416,390 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(grouped[2].items.map(\.id), ["s-week"])
         XCTAssertEqual(grouped[3].items.map(\.id), ["s-older"])
     }
+
+    @MainActor
+    func testAgentDrawerContainerRestoresSafeAreaInsetsAndFullScreenCardBounds() {
+        var measuredMainFrame: CGRect = .zero
+        var measuredMainInsets: EdgeInsets = .init()
+        var measuredDrawerFrame: CGRect = .zero
+
+        let host = UIHostingController(
+            rootView: AgentDrawerContainer(
+                isEnabled: true,
+                isOpen: .constant(true)
+            ) {
+                GeometryReader { p in
+                    Color.clear
+                        .onAppear {
+                            measuredDrawerFrame = p.frame(in: .global)
+                        }
+                }
+            } main: {
+                GeometryReader { p in
+                    Color.clear
+                        .onAppear {
+                            measuredMainFrame = p.frame(in: .global)
+                            measuredMainInsets = p.safeAreaInsets
+                        }
+                }
+            }
+        )
+
+        host.additionalSafeAreaInsets = UIEdgeInsets(top: 59, left: 0, bottom: 34, right: 0)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.layoutIfNeeded()
+
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        let expectedInsets = host.view.safeAreaInsets
+
+        // main 内容位于安全区内，不因外层 ignoresSafeArea 丢失也不重复累加安全区
+        XCTAssertEqual(measuredMainFrame.minY, expectedInsets.top, accuracy: 1.0)
+        XCTAssertEqual(
+            measuredMainFrame.height,
+            852 - expectedInsets.top - expectedInsets.bottom,
+            accuracy: 1.0
+        )
+        XCTAssertEqual(measuredMainInsets.top, 0, accuracy: 1.0)
+        XCTAssertEqual(measuredDrawerFrame.minY, expectedInsets.top, accuracy: 1.0)
+    }
+
+    func testTurnTokenUsageDecodesFullBreakdownAndAggregatesSession() throws {
+        let json = """
+        {
+          "summary": {
+            "id": "s-usage",
+            "kind": "GENERAL",
+            "projectId": null,
+            "title": "Token 测试",
+            "lastMessagePreview": "完成",
+            "createdAt": "2026-11-17T08:00:00Z",
+            "updatedAt": "2026-11-17T08:01:00Z",
+            "status": "ACTIVE"
+          },
+          "messages": [
+            {
+              "id": "u-1",
+              "turnId": "t-1",
+              "role": "USER",
+              "content": "分析一下文档"
+            },
+            {
+              "id": "a-1",
+              "turnId": "t-1",
+              "role": "ASSISTANT",
+              "content": "已分析",
+              "status": "COMPLETED",
+              "durationMillis": 1400,
+              "usage": {
+                "inputTokens": 1200,
+                "outputTokens": 300,
+                "cachedInputTokens": 200,
+                "totalTokens": 1500,
+                "modelCallCount": 2,
+                "reportedCallCount": 2,
+                "status": "COMPLETE",
+                "estimatedInputTokens": 1150,
+                "estimationDeltaTokens": 50,
+                "durationMillis": 1350,
+                "breakdown": {
+                  "systemPromptTokens": 400,
+                  "historyTokens": 150,
+                  "currentUserTokens": 100,
+                  "toolSchemaTokens": 250,
+                  "toolResultTokens": 100,
+                  "profileContextTokens": 50,
+                  "memoryRecallTokens": 50,
+                  "ragContextTokens": 50,
+                  "otherTokens": 50
+                },
+                "toolUsages": [
+                  { "toolName": "read_file", "schemaTokens": 250, "resultTokens": 100 }
+                ],
+                "calls": [
+                  {
+                    "invocationId": "inv-1",
+                    "modelCallIndex": 1,
+                    "source": "chat",
+                    "purpose": "CHAT",
+                    "vendor": "openai",
+                    "model": "gpt-4o",
+                    "inputTokens": 1200,
+                    "outputTokens": 300,
+                    "cachedInputTokens": 200,
+                    "totalTokens": 1500,
+                    "durationMillis": 1350,
+                    "status": "COMPLETE"
+                  }
+                ]
+              }
+            }
+          ],
+          "usageSummary": {
+            "inputTokens": 1200,
+            "outputTokens": 300,
+            "cachedInputTokens": 200,
+            "totalTokens": 1500,
+            "turnCount": 1,
+            "trackedTurnCount": 1,
+            "modelCallCount": 2,
+            "reportedCallCount": 2,
+            "status": "COMPLETE"
+          }
+        }
+        """
+
+        let detail = try APIClient.decoder.decode(AgentSessionDetailDTO.self, from: Data(json.utf8))
+        let messages = AgentTimelineBuilder.mapTranscriptMessages(detail.messages)
+        let turns = AgentTokenUsageAnalyzer.turnOptions(from: messages)
+        let aggregated = AgentTokenUsageAnalyzer.aggregateSessionUsage(turns: turns, summary: detail.usageSummary)
+
+        XCTAssertEqual(turns.count, 1)
+        XCTAssertEqual(aggregated?.totalTokens, 1500)
+        XCTAssertEqual(aggregated?.breakdown.systemPromptTokens, 400)
+        XCTAssertEqual(aggregated?.breakdown.ragContextTokens, 50)
+        XCTAssertEqual(aggregated?.toolUsages.first?.toolName, "read_file")
+        XCTAssertEqual(aggregated?.calls.count, 1)
+        XCTAssertEqual(AgentTokenUsageAnalyzer.formatCompactTokenCount(1500), "1.5k")
+        XCTAssertEqual(AgentTokenUsageAnalyzer.formatTokenCount(1500), "1,500")
+        XCTAssertEqual(AgentTokenUsageAnalyzer.formatDuration(1350), "1.4 s")
+
+        let segments = AgentTokenUsageAnalyzer.breakdownSegments(from: aggregated!.breakdown)
+        XCTAssertEqual(segments.count, 9)
+        XCTAssertEqual(segments.first?.key, .systemPrompt)
+    }
+
+    func testImageValidatorEnforcesMagicBytesAndLimits() throws {
+        let validPNG = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D])
+        let validJPEG = Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01])
+        let invalid = Data("not-an-image-12345".utf8)
+
+        XCTAssertThrowsError(try AgentImageValidator.makeAttachment(from: Data(), existing: [])) { error in
+            XCTAssertEqual(error as? AgentImageValidationError, .empty)
+        }
+        XCTAssertThrowsError(try AgentImageValidator.makeAttachment(from: invalid, existing: [])) { error in
+            XCTAssertEqual(error as? AgentImageValidationError, .unsupportedFormat)
+        }
+
+        let first = try AgentImageValidator.makeAttachment(from: validPNG, existing: [])
+        XCTAssertEqual(first.mediaType, "image/png")
+        let second = try AgentImageValidator.makeAttachment(from: validJPEG, existing: [first])
+        XCTAssertEqual(second.mediaType, "image/jpeg")
+
+        let four = [first, second, first, second]
+        XCTAssertThrowsError(try AgentImageValidator.makeAttachment(from: validPNG, existing: four)) { error in
+            XCTAssertEqual(error as? AgentImageValidationError, .tooManyImages)
+        }
+    }
+
+    @MainActor
+    func testVisionValidationBlocksUnsupportedModelAndPreservesDraft() async throws {
+        let mock = MockAgentService()
+        await mock.setSupportsVision(false)
+        let viewModel = AgentChatViewModel(service: mock)
+        await viewModel.refreshModelState()
+
+        let validPNG = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D])
+        let token = viewModel.beginImageProcessing()
+        viewModel.appendValidatedImageData([validPNG], draftToken: token)
+        viewModel.finishImageProcessing(token: token)
+        viewModel.draftText = "看下这张图"
+
+        await viewModel.sendCurrentDraft()
+        XCTAssertNotNil(viewModel.errorMessage)
+        XCTAssertEqual(viewModel.draftText, "看下这张图")
+        XCTAssertEqual(viewModel.attachedImages.count, 1)
+        let streamCountBefore = await mock.streamRequests.count
+        XCTAssertEqual(streamCountBefore, 0)
+
+        // 切换为支持视觉的模型后，允许仅发图片并清空草稿
+        await mock.setSupportsVision(true)
+        await viewModel.refreshModelState()
+        viewModel.draftText = ""
+        await viewModel.sendCurrentDraft()
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertTrue(viewModel.attachedImages.isEmpty)
+        XCTAssertEqual(viewModel.messages.first(where: { $0.role == .user })?.images.count, 1)
+        let requests = await mock.streamRequests
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(requests.first?.images.count, 1)
+        XCTAssertEqual(requests.first?.content, "")
+    }
+
+    @MainActor
+    func testRecordReferencePickerAndSendPassesIdsAndContext() async throws {
+        let mock = MockAgentService()
+        let viewModel = AgentChatViewModel(service: mock)
+
+        viewModel.openRecordPicker()
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertTrue(viewModel.isRecordPickerOpen)
+        XCTAssertEqual(viewModel.recordReferenceOptions.count, 1)
+
+        viewModel.toggleRecordReference(viewModel.recordReferenceOptions[0])
+        XCTAssertFalse(viewModel.isRecordPickerOpen)
+        XCTAssertEqual(viewModel.selectedRecordReferences.count, 1)
+        // 引用资料时必须输入问题正文才允许发送
+        XCTAssertFalse(viewModel.canSend)
+
+        viewModel.draftText = "总结这份笔记"
+        XCTAssertTrue(viewModel.canSend)
+
+        await viewModel.sendCurrentDraft()
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertTrue(viewModel.selectedRecordReferences.isEmpty)
+        let sent = await mock.streamRequests.last
+        XCTAssertEqual(sent?.recordReferenceIds, ["rec-1"])
+        XCTAssertEqual(sent?.context, "总结这份笔记")
+        XCTAssertEqual(sent?.content, "[资料：算法刷题笔记] 总结这份笔记")
+    }
+
+    @MainActor
+    func testSwitchingSessionClearsDraftAttachmentsAndDiscardsStaleImageLoads() async throws {
+        let mock = MockAgentService()
+        let viewModel = AgentChatViewModel(service: mock)
+        let validPNG = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D])
+
+        let staleToken = viewModel.beginImageProcessing()
+        viewModel.startNewChat()
+
+        // 切换会话前的异步读图结果应被丢弃
+        viewModel.appendValidatedImageData([validPNG], draftToken: staleToken)
+        viewModel.finishImageProcessing(token: staleToken)
+
+        XCTAssertTrue(viewModel.attachedImages.isEmpty)
+        XCTAssertFalse(viewModel.isProcessingImages)
+    }
+
+    func testReferenceCitationParserExtractsUserTagsAndAssistantSnippets() {
+        let userMsg = AgentChatMessage(
+            id: "u-1",
+            turnId: "t-1",
+            role: .user,
+            content: "[资料：算法刷题笔记、复盘清单] 帮我总结核心要点",
+            thinking: nil,
+            createdAt: Date(),
+            status: .completed,
+            durationSeconds: nil,
+            tools: [],
+            blocks: [],
+            proactive: false,
+            usage: nil,
+            isStreaming: false
+        )
+        let parsedUser = AgentReferenceCitationParser.parseUserPromptAndReferences(userMsg.content)
+        XCTAssertEqual(parsedUser.referenceTitles, ["算法刷题笔记", "复盘清单"])
+        XCTAssertEqual(parsedUser.prompt, "帮我总结核心要点")
+
+        let assistantText = """
+        核心要点如下 [1][2]。
+
+        ## 引用资料
+        [1] 《算法刷题笔记》：“层序遍历使用队列按层推进”
+        [2] 复盘清单：每周日晚回顾错题
+        """
+        let assistantMsg = AgentChatMessage(
+            id: "a-1",
+            turnId: "t-1",
+            role: .assistant,
+            content: assistantText,
+            thinking: nil,
+            createdAt: Date(),
+            status: .completed,
+            durationSeconds: 2,
+            tools: [],
+            blocks: [],
+            proactive: false,
+            usage: nil,
+            isStreaming: false
+        )
+        let cachedOption = AgentRecordReferenceOption(
+            id: "rec-1",
+            recordDate: "2026-11-17",
+            type: .learning,
+            title: "算法刷题笔记",
+            summary: "摘要",
+            tags: [],
+            updatedAt: nil
+        )
+        let citations = AgentReferenceCitationParser.citedReferences(
+            forAssistantIndex: 1,
+            in: [userMsg, assistantMsg],
+            finalText: assistantText,
+            cachedMetadata: ["算法刷题笔记": cachedOption]
+        )
+
+        XCTAssertEqual(citations.count, 2)
+        XCTAssertEqual(citations[0].recordId, "rec-1")
+        XCTAssertEqual(citations[0].type, .learning)
+        XCTAssertEqual(citations[0].snippet, "层序遍历使用队列按层推进")
+        XCTAssertEqual(citations[1].title, "复盘清单")
+        XCTAssertEqual(citations[1].snippet, "每周日晚回顾错题")
+    }
+
+    func testLatestContextMetricsCalculatesWindowOccupancyAndTimestampSeconds() {
+        let usage = AgentTurnTokenUsage(
+            inputTokens: 6400,
+            outputTokens: 600,
+            cachedInputTokens: 0,
+            totalTokens: 7000,
+            calls: [
+                AgentModelInvocationUsage(
+                    invocationId: "i-1",
+                    modelCallIndex: 1,
+                    source: "chat",
+                    purpose: .chat,
+                    vendor: "deepseek",
+                    model: "deepseek-v4.1-flash-1017",
+                    inputTokens: 6400,
+                    outputTokens: 600,
+                    cachedInputTokens: 0,
+                    totalTokens: 7000,
+                    durationMillis: 1200,
+                    status: .complete,
+                    tokenCounterId: nil,
+                    estimatedInputTokens: 6200,
+                    estimationDeltaTokens: 200,
+                    breakdown: nil,
+                    toolUsages: nil
+                )
+            ]
+        )
+        let assistantMsg = AgentChatMessage(
+            id: "a-1",
+            turnId: "t-1",
+            role: .assistant,
+            content: "回答",
+            thinking: nil,
+            createdAt: Date(timeIntervalSince1970: 1_763_379_349),
+            status: .completed,
+            durationSeconds: 1,
+            tools: [],
+            blocks: [],
+            proactive: false,
+            usage: usage,
+            isStreaming: false
+        )
+
+        let metrics = AgentTokenUsageAnalyzer.latestContextMetrics(
+            from: [assistantMsg],
+            modelName: "deepseek-v4.1-flash-1017",
+            vendor: "deepseek",
+            configuredLimit: nil
+        )
+        XCTAssertEqual(metrics.currentContextTokens, 6400)
+        XCTAssertEqual(metrics.contextWindowLimit, 128_000)
+        XCTAssertEqual(metrics.occupancyPercentText, "5%")
+        XCTAssertTrue(metrics.isLimitEstimated)
+
+        let timestamp = AgentTokenUsageAnalyzer.formatTimestampSeconds(assistantMsg.createdAt)
+        XCTAssertEqual(timestamp.count, 19)
+        XCTAssertTrue(timestamp.contains(":"))
+    }
 }
 
 private final class AgentGenerationURLProtocol: URLProtocol {
@@ -442,13 +827,26 @@ private final class AgentGenerationURLProtocol: URLProtocol {
 }
 
 private actor MockAgentService: AgentServiceProtocol {
+    struct CapturedStreamRequest: Sendable {
+        let content: String
+        let context: String
+        let recordReferenceIds: [String]
+        let images: [AgentChatImagePayload]
+    }
+
     var generatedTitleCalls = 0
     var submittedApprovalIds: [String] = []
+    var streamRequests: [CapturedStreamRequest] = []
     private var requirePermission = false
+    private var visionSupported = true
     private var savedMessages: [AgentTranscriptMessageDTO] = []
 
     func setRequirePermissionOnStream(_ value: Bool) {
         requirePermission = value
+    }
+
+    func setSupportsVision(_ value: Bool) {
+        visionSupported = value
     }
 
     func listSessions() async throws -> [AgentSessionSummary] { [] }
@@ -535,18 +933,53 @@ private actor MockAgentService: AgentServiceProtocol {
 
     func fetchPlan(sessionId: String) async throws -> String? { nil }
 
+    func fetchRecordReferences(query: String, limit: Int, offset: Int) async throws -> AgentRecordReferencePage {
+        let item = AgentRecordReferenceOption(
+            id: "rec-1",
+            recordDate: "2026-11-17",
+            type: .learning,
+            title: "算法刷题笔记",
+            summary: "二叉树层序遍历与双指针模板",
+            tags: ["算法"],
+            updatedAt: Date()
+        )
+        let items = query.isEmpty || item.displayTitle.localizedCaseInsensitiveContains(query) ? [item] : []
+        return AgentRecordReferencePage(items: items, hasMore: false, nextOffset: items.count)
+    }
+
+    func fetchRecordDetail(id: String) async throws -> AgentRecordDetail {
+        AgentRecordDetail(
+            id: id,
+            recordDate: "2026-11-17",
+            type: .learning,
+            title: "算法刷题笔记",
+            contentText: "二叉树层序遍历与双指针模板正文",
+            tags: ["算法"],
+            updatedAt: Date()
+        )
+    }
+
     nonisolated func streamChat(
         runId: String,
         sessionId: String,
         content: String,
-        recordReferenceIds: [String]
+        context: String,
+        recordReferenceIds: [String],
+        images: [AgentChatImagePayload]
     ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
         AsyncThrowingStream { continuation in
             Task {
+                await self.recordStreamRequest(CapturedStreamRequest(
+                    content: content,
+                    context: context,
+                    recordReferenceIds: recordReferenceIds,
+                    images: images
+                ))
                 let needsApproval = await self.requirePermission
                 await self.setMessages([
                     AgentTranscriptMessageDTO(
-                        id: "u-1", turnId: "t-1", role: .user, content: content,
+                        id: "u-1", turnId: "t-1", role: .user,
+                        content: content.isEmpty && !images.isEmpty ? "用户发送了一张图片，请识别并回应图片内容。" : content,
                         createdAt: Date(), status: .completed, durationMillis: nil,
                         tools: nil, thinking: nil, usage: nil, proactive: false, blocks: nil
                     ),
@@ -612,10 +1045,14 @@ private actor MockAgentService: AgentServiceProtocol {
         savedMessages = items
     }
 
+    private func recordStreamRequest(_ request: CapturedStreamRequest) {
+        streamRequests.append(request)
+    }
+
     func fetchModelConfig() async throws -> AgentModelConfig {
         AgentModelConfig(
             vendor: "openai", name: "gpt-4o", apiKey: nil,
-            temperature: 0.7, stream: true, baseUrl: nil, protocol: nil, supportsVision: true
+            temperature: 0.7, stream: true, baseUrl: nil, protocol: nil, supportsVision: visionSupported
         )
     }
 
