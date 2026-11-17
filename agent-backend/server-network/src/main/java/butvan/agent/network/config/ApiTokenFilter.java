@@ -79,6 +79,7 @@ public class ApiTokenFilter extends OncePerRequestFilter {
                 || path.equals("/agent/ios-push/stream")
                 || path.equals("/api/tasks/stream")
                 || path.equals("/agent/account/avatar/content")
+                || (path.startsWith("/agent/materials/") && path.endsWith("/content"))
                 || (path.startsWith("/agent/records/") && path.contains("/attachments/") && path.endsWith("/content"));
     }
 }

@@ -104,15 +104,31 @@ public class TranscriptService {
      * @return
      */
     public synchronized String appendUserMessage(String sessionId, String content) {
-        return appendUserMessageWithTurnId(sessionId, content, UUID.randomUUID().toString());
+        return appendUserMessage(sessionId, content, List.of());
+    }
+
+    /** 在 Agent 前写入含绑定图片文件 ID 的用户消息，并返回本轮 turnId。 */
+    public synchronized String appendUserMessage(String sessionId, String content, List<String> imageFileIds) {
+        return appendUserMessageWithTurnId(sessionId, content, UUID.randomUUID().toString(), imageFileIds);
     }
 
     /** 渠道在受理落盘时即确定轮次 ID，重启可精确关联结果；已有轮次禁止重复执行。 */
     public synchronized String appendUserMessageWithTurnId(String sessionId, String content, String turnId) {
+        return appendUserMessageWithTurnId(sessionId, content, turnId, List.of());
+    }
+
+    /** 校验指定轮次 ID 是否格式合法且尚未在会话中被占用。 */
+    public synchronized void validateUnusedTurnId(String sessionId, String turnId) {
         if (turnId == null || !UUID.fromString(turnId).toString().equals(turnId)
                 || list(sessionId).stream().anyMatch(message -> turnId.equals(message.turnId()))) {
             throw new IllegalArgumentException("轮次 ID 无效或已被使用");
         }
+    }
+
+    /** 写入带固定轮次 ID 与图片文件 ID 引用的用户消息。 */
+    public synchronized String appendUserMessageWithTurnId(
+            String sessionId, String content, String turnId, List<String> imageFileIds) {
+        validateUnusedTurnId(sessionId, turnId);
         append(sessionId, new TranscriptMessageDto(
                 UUID.randomUUID().toString(),
                 turnId,
@@ -123,7 +139,10 @@ public class TranscriptService {
                 null,
                 List.of(),
                 null, // 用户消息没有思考过程
-                null // 用户消息不承载模型用量
+                null, // 用户消息不承载模型用量
+                false,
+                List.of(),
+                imageFileIds
         ));
 
         return turnId;

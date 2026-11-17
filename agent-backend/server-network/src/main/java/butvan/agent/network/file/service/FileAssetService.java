@@ -22,9 +22,11 @@ import java.util.UUID;
 public class FileAssetService {
     public static final String DOMAIN_RECORD = "RECORD";
     public static final String DOMAIN_ACCOUNT = "ACCOUNT";
+    public static final String DOMAIN_CHAT_MATERIAL = "CHAT_MATERIAL";
     public static final String ROLE_ATTACHMENT = "ATTACHMENT";
     public static final String ROLE_AVATAR = "AVATAR";
     public static final String ROLE_COVER = "COVER";
+    public static final String ROLE_CHAT_ATTACHMENT = "CHAT_ATTACHMENT";
     private static final String LOCAL_BACKEND = "LOCAL";
     private static final String AVAILABLE = "AVAILABLE";
 
@@ -35,13 +37,33 @@ public class FileAssetService {
     @Transactional
     public FileAsset createAndBind(String ownerId, String domainType, String domainId, String role,
                                    String originalName, String mediaType, InputStream content, long maximumBytes) {
+        return createAndBindInternal(ownerId, domainType, domainId, role, null, null,
+                originalName, mediaType, content, maximumBytes);
+    }
+
+    /** 写入按分类目录与扩展名落盘的内容，并在同一事务内绑定稳定唯一文件 ID。 */
+    @Transactional
+    public FileAsset createAndBindCategorized(String ownerId, String domainType, String domainId, String role,
+                                              String relativeDirectory, String extension,
+                                              String originalName, String mediaType,
+                                              InputStream content, long maximumBytes) {
+        return createAndBindInternal(ownerId, domainType, domainId, role, relativeDirectory, extension,
+                originalName, mediaType, content, maximumBytes);
+    }
+
+    private FileAsset createAndBindInternal(String ownerId, String domainType, String domainId, String role,
+                                            String relativeDirectory, String extension,
+                                            String originalName, String mediaType,
+                                            InputStream content, long maximumBytes) {
         requireIdentifier(ownerId, "用户 ID");
         requireIdentifier(domainId, "业务对象 ID");
         requireBindingValue(domainType, "业务类型");
         requireBindingValue(role, "文件角色");
 
         String fileId = UUID.randomUUID().toString().replace("-", "");
-        BlobStore.StoredBlob stored = blobStore.put(fileId, content, maximumBytes);
+        BlobStore.StoredBlob stored = relativeDirectory == null
+                ? blobStore.put(fileId, content, maximumBytes)
+                : blobStore.put(fileId, relativeDirectory, extension, content, maximumBytes);
         Instant now = Instant.now();
         FileAsset asset = new FileAsset(fileId, ownerId, safeName(originalName), safeMediaType(mediaType),
                 stored.sizeBytes(), stored.sha256(), LOCAL_BACKEND, null, stored.storageKey(), AVAILABLE,
