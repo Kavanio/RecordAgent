@@ -375,6 +375,46 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(items.count, 2)
         XCTAssertEqual(items[0].text, "**餐饮**：主要花费")
     }
+
+    func testSessionTimeGroupingSeparatesTodayYesterdayLast7DaysAndOlder() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 17, hour: 16, minute: 0))!
+        let todayDate = calendar.date(byAdding: .hour, value: -2, to: now)!
+        let yesterdayDate = calendar.date(byAdding: .day, value: -1, to: now)!
+        let weekDate = calendar.date(byAdding: .day, value: -4, to: now)!
+        let olderDate = calendar.date(byAdding: .day, value: -12, to: now)!
+
+        func makeSession(id: String, date: Date) -> AgentSessionSummary {
+            AgentSessionSummary(
+                id: id,
+                kind: .general,
+                projectId: nil,
+                title: id,
+                lastMessagePreview: nil,
+                createdAt: date,
+                updatedAt: date,
+                status: .active
+            )
+        }
+
+        let grouped = AgentSessionTimeGroup.group(
+            [
+                makeSession(id: "s-today", date: todayDate),
+                makeSession(id: "s-yesterday", date: yesterdayDate),
+                makeSession(id: "s-week", date: weekDate),
+                makeSession(id: "s-older", date: olderDate)
+            ],
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(grouped.map(\.group), [.today, .yesterday, .last7Days, .older])
+        XCTAssertEqual(grouped[0].items.map(\.id), ["s-today"])
+        XCTAssertEqual(grouped[1].items.map(\.id), ["s-yesterday"])
+        XCTAssertEqual(grouped[2].items.map(\.id), ["s-week"])
+        XCTAssertEqual(grouped[3].items.map(\.id), ["s-older"])
+    }
 }
 
 private final class AgentGenerationURLProtocol: URLProtocol {

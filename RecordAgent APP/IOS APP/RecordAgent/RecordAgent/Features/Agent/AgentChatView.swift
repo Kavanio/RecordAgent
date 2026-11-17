@@ -3,9 +3,9 @@ import SwiftUI
 /// 极简对话工作区：沿用系统纯净画布与留白层级，无模块化卡片框线。
 struct AgentChatView: View {
     @ObservedObject var viewModel: AgentChatViewModel
+    var onOpenSessionsDrawer: (() -> Void)? = nil
     @Environment(\.locale) private var locale
 
-    @State private var showSessionsSheet = false
     @State private var showModelPopover = false
     @State private var showPlanSheet = false
     @State private var showRenameAlert = false
@@ -36,11 +36,6 @@ struct AgentChatView: View {
         .task {
             await viewModel.loadInitialIfNeeded()
         }
-        .sheet(isPresented: $showSessionsSheet) {
-            AgentSessionsSheet(viewModel: viewModel) {
-                showSessionsSheet = false
-            }
-        }
         .sheet(isPresented: $showPlanSheet) {
             if let plan = viewModel.activePlanContent {
                 AgentPlanSheet(content: plan) {
@@ -65,7 +60,7 @@ struct AgentChatView: View {
         HStack(spacing: 8) {
             Button {
                 isInputFocused = false
-                showSessionsSheet = true
+                onOpenSessionsDrawer?()
             } label: {
                 Image(systemName: "line.3.horizontal")
                     .font(.body.weight(.medium))
