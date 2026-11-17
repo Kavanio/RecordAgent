@@ -237,6 +237,42 @@ final class AgentTests: XCTestCase {
         let preview = AgentTimelineBuilder.thinkingPreview("用户接着聊科技股行情。\n我应该核实一下最新情况。")
         XCTAssertEqual(preview, "用户接着聊科技股行情。")
     }
+
+    func testMarkdownParserExtractsTableBlockquoteThematicBreakAndHighlightedCode() {
+        let markdown = """
+        > 引用内容
+
+        ```python
+        def hello(name: str) -> str:
+            return f"hi {name}"
+        ```
+
+        | 列 A | 列 B |
+        |---|:---:|
+        | 1 | 2 |
+
+        ---
+        结尾段落
+        """
+
+        let segments = MarkdownSegment.parse(markdown)
+        XCTAssertEqual(segments.count, 5)
+        XCTAssertEqual(segments[0].kind, .blockquote("引用内容"))
+        XCTAssertEqual(
+            segments[1].kind,
+            .code(language: "python", code: "def hello(name: str) -> str:\n    return f\"hi {name}\"")
+        )
+        XCTAssertEqual(
+            segments[2].kind,
+            .table(headers: ["列 A", "列 B"], alignments: [.leading, .center], rows: [["1", "2"]])
+        )
+        XCTAssertEqual(segments[3].kind, .thematicBreak)
+        XCTAssertEqual(segments[4].kind, .prose("结尾段落"))
+
+        let highlighted = AgentCodeHighlighter.highlight("def hello():\n    return \"hi\"", language: "python", colorScheme: .light)
+        let coloredRuns = highlighted.runs.filter { $0.foregroundColor != nil }
+        XCTAssertGreaterThanOrEqual(coloredRuns.count, 3)
+    }
 }
 
 private final class AgentGenerationURLProtocol: URLProtocol {

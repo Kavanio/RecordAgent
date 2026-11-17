@@ -60,6 +60,24 @@ final class AgentChatViewModel: ObservableObject {
         return String(localized: "agent.model.unset")
     }
 
+    var enabledProviders: [AgentProviderConfig] {
+        (fullModelConfig?.providers ?? []).filter { provider in
+            (provider.isEnabled ?? true) && !(provider.models?.isEmpty ?? true)
+        }
+    }
+
+    func isCurrentModel(provider: AgentProviderConfig, item: AgentModelItem) -> Bool {
+        if let name = modelConfig?.name, let vendor = modelConfig?.vendor,
+           name == item.modelName && vendor == provider.type {
+            return true
+        }
+        if let active = fullModelConfig?.activeModel, let activeVendor = fullModelConfig?.activeVendor,
+           active == item.modelName && activeVendor == provider.type {
+            return true
+        }
+        return false
+    }
+
     var canSend: Bool {
         !activeSessionIsReadOnly
             && !isStreaming

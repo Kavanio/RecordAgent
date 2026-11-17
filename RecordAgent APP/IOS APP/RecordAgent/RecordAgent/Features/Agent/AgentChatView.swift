@@ -6,7 +6,6 @@ struct AgentChatView: View {
     @Environment(\.locale) private var locale
 
     @State private var showSessionsSheet = false
-    @State private var showModelPicker = false
     @State private var showPlanSheet = false
     @State private var showRenameAlert = false
     @State private var renameDraft = ""
@@ -35,11 +34,6 @@ struct AgentChatView: View {
         .sheet(isPresented: $showSessionsSheet) {
             AgentSessionsSheet(viewModel: viewModel) {
                 showSessionsSheet = false
-            }
-        }
-        .sheet(isPresented: $showModelPicker) {
-            AgentModelPickerSheet(viewModel: viewModel) {
-                showModelPicker = false
             }
         }
         .sheet(isPresented: $showPlanSheet) {
@@ -321,26 +315,46 @@ struct AgentChatView: View {
                 .disabled(viewModel.activeSessionIsReadOnly)
 
             HStack(spacing: 8) {
-                Button {
-                    isInputFocused = false
-                    Task { await viewModel.refreshModelState() }
-                    showModelPicker = true
+                Menu {
+                    if viewModel.enabledProviders.isEmpty {
+                        Text("agent.model.empty_title")
+                    } else {
+                        ForEach(viewModel.enabledProviders) { provider in
+                            Section(provider.displayTitle) {
+                                ForEach(provider.models ?? []) { model in
+                                    Button {
+                                        Task { _ = await viewModel.switchModel(provider: provider, item: model) }
+                                    } label: {
+                                        if viewModel.isCurrentModel(provider: provider, item: model) {
+                                            Label(model.displayTitle, systemImage: "checkmark")
+                                        } else {
+                                            Text(model.displayTitle)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } label: {
                     HStack(spacing: 4) {
+                        if viewModel.isSwitchingModel {
+                            ProgressView()
+                                .controlSize(.mini)
+                        }
                         Text(verbatim: viewModel.currentModelDisplayName)
                             .font(.caption.weight(.medium))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 8.5, weight: .semibold))
                             .foregroundStyle(.tertiary)
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(Color(uiColor: .tertiarySystemFill).opacity(0.6), in: Capsule())
                 }
-                .buttonStyle(.plain)
+                .disabled(viewModel.isSwitchingModel)
                 .accessibilityLabel("agent.model.picker_title")
 
                 Menu {
