@@ -1,0 +1,48 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7MTG8PAV4RPNMN8R2KFXXDS",
+  "strategy": "manual-commit",
+  "branch": "desktop/chat-materials",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-frontend/src/App.tsx",
+    "agent-frontend/src/components/chat/UserMessageContent.module.css",
+    "agent-frontend/src/components/chat/UserMessageContent.tsx",
+    "agent-frontend/src/components/layout/FeatureWorkspaceView.tsx",
+    "agent-frontend/src/components/layout/Sidebar.tsx",
+    "agent-frontend/src/components/layout/sidebarFeatures.ts",
+    "agent-frontend/src/components/materials/MaterialCollectionView.tsx",
+    "agent-frontend/src/components/materials/MaterialPreviewModal.module.css",
+    "agent-frontend/src/components/materials/MaterialPreviewModal.tsx",
+    "agent-frontend/src/components/materials/MaterialsPage.module.css",
+    "agent-frontend/src/components/materials/MaterialsPage.test.mjs",
+    "agent-frontend/src/components/materials/MaterialsPage.tsx",
+    "agent-frontend/src/components/materials/materialsPresentation.ts",
+    "agent-frontend/src/features/chat/transcriptMessages.ts",
+    "agent-frontend/src/services/materialApi.ts",
+    "agent-frontend/src/types/chat.ts",
+    "agent-frontend/src/types/material.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "redaction": {
+    "replacements": 2,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 1,
+      "credentialed_uri": 0,
+      "entropy": 1,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
