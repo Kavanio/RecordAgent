@@ -135,6 +135,89 @@ actor APIClient {
         return envelope.data
     }
 
+    /// 请求非 `Result` 包装的原生 JSON 接口，保留 204/404 给调用方处理空状态。
+    func sendRawAllowingEmpty(
+        _ path: String,
+        method: String = "GET",
+        body: Data? = nil,
+        emptyStatusCodes: Set<Int> = [204]
+    ) async throws -> Data? {
+        let base = try APIConfiguration.baseURL()
+        let server = base.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let current = keychain.getAPISession(server: server) else {
+            throw APIClientError.unauthenticated
+        }
+        let token = current.token.trimmingCharacters(in: .whitespacesAndNewlines)
+        let response = try await perform(
+            path, base: base, method: method, body: body,
+            token: token.isEmpty ? nil : token
+        )
+        if response.1.statusCode == 401 {
+            invalidateSession()
+            throw APIClientError.unauthenticated
+        }
+        if emptyStatusCodes.contains(response.1.statusCode) {
+            return nil
+        }
+        return try accepted(response)
+    }
+
+    /// 打开带 Bearer Token 鉴权的长连接字节流，供 Agent SSE 实时消费。
+    func openStreamBytes(
+        _ path: String,
+        method: String = "POST",
+        body: Data? = nil
+    ) async throws -> URLSession.AsyncBytes {
+        let base = try APIConfiguration.baseURL()
+        let server = base.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let current = keychain.getAPISession(server: server) else {
+            throw APIClientError.unauthenticated
+        }
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            throw APIClientError.invalidServer
+        }
+        components.path = path
+        guard let url = components.url else { throw APIClientError.invalidServer }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.httpBody = body
+        request.timeoutInterval = 300
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        if body != nil {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        let token = current.token.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        do {
+            let (bytes, response) = try await session.bytes(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIClientError.invalidResponse
+            }
+            if httpResponse.statusCode == 401 {
+                invalidateSession()
+                throw APIClientError.unauthenticated
+            }
+            guard (200..<300).contains(httpResponse.statusCode) else {
+                if httpResponse.statusCode == 409 { throw APIClientError.conflict }
+                if httpResponse.statusCode == 503 { throw APIClientError.unavailable }
+                throw APIClientError.server(code: "", status: httpResponse.statusCode)
+            }
+            return bytes
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as URLError where error.code == .cancelled {
+            throw CancellationError()
+        } catch let error as APIClientError {
+            throw error
+        } catch {
+            throw APIClientError.network
+        }
+    }
+
     func sendMultipartResult<T: Decodable>(
         _ path: String, fieldName: String = "file", filename: String, mimeType: String, fileData: Data
     ) async throws -> T {

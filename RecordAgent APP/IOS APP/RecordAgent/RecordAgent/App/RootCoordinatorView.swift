@@ -30,6 +30,7 @@ public struct RootCoordinatorView: View {
                     profileOverviewService: environment.profileOverviewService,
                     profileActivityService: environment.profileActivityService,
                     profileAppearanceService: environment.profileAppearanceService,
+                    agentService: environment.agentService,
                     user: environment.authService.getCurrentSession()?.user,
                     onLogout: {
                         try await environment.authService.logout()
