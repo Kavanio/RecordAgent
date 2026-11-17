@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7KJ84G1F1NQZ1WSHBKBZN12",
+  "strategy": "manual-commit",
+  "branch": "ios-app/agent-integration",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent.xcodeproj/project.pbxproj",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/App/AppEnvironment.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/App/RootCoordinatorView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Domain/Agent/AgentModels.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Domain/Agent/AgentServiceProtocol.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Domain/Agent/AgentTimelineBuilder.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentApprovalCardView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentChatView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentChatViewModel.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentMarkdownView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentProcessTimelineView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentSheetsView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Main/MainTabView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Localizable.xcstrings",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/API/APIClient.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/Agent/APIAgentService.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/Agent/SSELineParser.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgentTests/AgentTests.swift"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "redaction": {
+    "replacements": 9,
+    "layers": {
+      "betterleaks": 3,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 4,
+      "credentialed_uri": 0,
+      "entropy": 2,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
