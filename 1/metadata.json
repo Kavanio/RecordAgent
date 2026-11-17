@@ -1,0 +1,45 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7MS3D68FBQKNM69Z0AZE499",
+  "session_id": "2b5a6912-9790-49c3-b742-0caef88f89de",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-17T12:53:23.177669Z",
+  "branch": "ios-app/proactive-push",
+  "checkpoints_count": 2,
+  "save_step_count": 2,
+  "files_touched": [
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent.xcodeproj/project.pbxproj",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/App/Info.plist",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Domain/Agent/AgentModels.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Domain/Agent/AgentServiceProtocol.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentChatView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentChatViewModel.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Agent/AgentSheetsView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Main/MainTabView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Localizable.xcstrings",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/API/APIClient.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/Agent/APIAgentService.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgentTests/AgentTests.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/project.yml"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-hydrogen-high",
+  "turn_id": "8b0b14b54d80",
+  "redaction": {
+    "replacements": 1,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 1,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 2
+  }
+}
