@@ -52,6 +52,7 @@
 		4B2B36CD10FA7770013B4A6C /* LocalTaskNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C28AD7C7EA95BAB90526AE8 /* LocalTaskNotificationService.swift */; };
 		4E48743EAF2ABA7E7A2A649B /* AgentChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6E78435555E54F064BA2CB6 /* AgentChatViewModel.swift */; };
 		512B143BCF58540589BC7041 /* ProfileActivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559EC9F1B6242E9E79639F74 /* ProfileActivityService.swift */; };
+		5142EAA507866739519A146C /* AgentInlineMarkdownParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0718D4761EA080495A15DE /* AgentInlineMarkdownParser.swift */; };
 		542E6A9BC6D13410C560A6B4 /* FinanceBreakdownCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5497C8165E258E18C82DC5BB /* FinanceBreakdownCharts.swift */; };
 		54657A9C598377A4326F65D1 /* DebugServerProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD37759A01CD95CDDBE57BD9 /* DebugServerProbe.swift */; };
 		5802934A14B6122BAB7902FB /* HomeDaySummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2625C1A16D135CBB6DE3A90E /* HomeDaySummaryView.swift */; };
@@ -280,6 +281,7 @@
 		A55D2F4BE2BF39C100D898D4 /* FinanceAccountsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceAccountsView.swift; sourceTree = "<group>"; };
 		A57CB100E95D14A90837A551 /* AgentMarkdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentMarkdownView.swift; sourceTree = "<group>"; };
 		A737316BBEB08BC4E8B24B8A /* FinanceInsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinanceInsightsView.swift; sourceTree = "<group>"; };
+		AD0718D4761EA080495A15DE /* AgentInlineMarkdownParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentInlineMarkdownParser.swift; sourceTree = "<group>"; };
 		AD37759A01CD95CDDBE57BD9 /* DebugServerProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugServerProbe.swift; sourceTree = "<group>"; };
 		AFB96ED547C773F77C8F43D8 /* MockHomeDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockHomeDataService.swift; sourceTree = "<group>"; };
 		B1C994D0B147DC279C65CDDB /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -525,6 +527,7 @@
 				8A3D51DC2CF7EED482266238 /* AgentChatView.swift */,
 				E6E78435555E54F064BA2CB6 /* AgentChatViewModel.swift */,
 				07D99B66424A9839B311F9FB /* AgentCodeHighlighter.swift */,
+				AD0718D4761EA080495A15DE /* AgentInlineMarkdownParser.swift */,
 				A57CB100E95D14A90837A551 /* AgentMarkdownView.swift */,
 				430B8FD281C9130A4CEAC577 /* AgentProcessTimelineView.swift */,
 				65C6BF2C9EBF78BCF9B0E76D /* AgentSheetsView.swift */,
@@ -974,6 +977,7 @@
 				1FFB0F558BFA41D22F987A29 /* AgentChatView.swift in Sources */,
 				4E48743EAF2ABA7E7A2A649B /* AgentChatViewModel.swift in Sources */,
 				A10E5E543EE026002E0C2383 /* AgentCodeHighlighter.swift in Sources */,
+				5142EAA507866739519A146C /* AgentInlineMarkdownParser.swift in Sources */,
 				DE813975C1E1E83E97751BBD /* AgentMarkdownView.swift in Sources */,
 				A78E7EA9D8B4C191959E5C72 /* AgentModels.swift in Sources */,
 				CC1E2528EB9A41A8BC71FFD9 /* AgentProcessTimelineView.swift in Sources */,

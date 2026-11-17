@@ -175,6 +175,22 @@
         }
       }
     },
+    "agent.copied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已复制"
+          }
+        }
+      }
+    },
     "agent.copy_code": {
       "extractionState": "stale",
       "localizations": {
@@ -188,6 +204,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "复制代码"
+          }
+        }
+      }
+    },
+    "agent.copy_response": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy response"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制回复"
           }
         }
       }
@@ -607,6 +639,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "总结一下我今天的待办和日程"
+          }
+        }
+      }
+    },
+    "agent.scroll_to_bottom": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scroll to bottom"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回到底部"
           }
         }
       }

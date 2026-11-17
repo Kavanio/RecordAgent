@@ -267,7 +267,7 @@ final class AgentTests: XCTestCase {
             .table(headers: ["列 A", "列 B"], alignments: [.leading, .center], rows: [["1", "2"]])
         )
         XCTAssertEqual(segments[3].kind, .thematicBreak)
-        XCTAssertEqual(segments[4].kind, .prose("结尾段落"))
+        XCTAssertEqual(segments[4].kind, .paragraph("结尾段落"))
 
         let highlighted = AgentCodeHighlighter.highlight("def hello():\n    return \"hi\"", language: "python", colorScheme: .light)
         let coloredRuns = highlighted.runs.filter { $0.foregroundColor != nil }
@@ -283,6 +283,97 @@ final class AgentTests: XCTestCase {
 
         XCTAssertFalse(viewModel.currentSessionHasPlan)
         XCTAssertNil(viewModel.activePlanContent)
+    }
+
+    func testInlineMarkdownParserSupportsBoldAndSemanticColors() {
+        let source = "支出 **<font color=\"red\">-¥96.00</font>**，收入 <font color='green'>**+¥5,000.00**</font>，结余 <span style=\"color: #2563EB\">¥4,904.00</span>。"
+        let runs = AgentInlineMarkdownParser.parseRuns(source)
+
+        XCTAssertEqual(runs.map(\.text).joined(), "支出 -¥96.00，收入 +¥5,000.00，结余 ¥4,904.00。")
+
+        let expenseRun = runs.first { $0.text == "-¥96.00" }
+        XCTAssertNotNil(expenseRun)
+        XCTAssertEqual(expenseRun?.isBold, true)
+        XCTAssertEqual(expenseRun?.colorToken, "red")
+
+        let incomeRun = runs.first { $0.text == "+¥5,000.00" }
+        XCTAssertNotNil(incomeRun)
+        XCTAssertEqual(incomeRun?.isBold, true)
+        XCTAssertEqual(incomeRun?.colorToken, "green")
+
+        let balanceRun = runs.first { $0.text == "¥4,904.00" }
+        XCTAssertNotNil(balanceRun)
+        XCTAssertEqual(balanceRun?.isBold, false)
+        XCTAssertEqual(balanceRun?.colorToken, "#2563EB")
+    }
+
+    func testInlineMarkdownParserHandlesChinesePunctuationCodeAndStreamingTags() {
+        let chineseBold = "**11/12 小菜园**：花费 96 元；`foo_bar` 与 `<font color=\"red\">原样</font>` 不转义。"
+        let runs = AgentInlineMarkdownParser.parseRuns(chineseBold)
+        XCTAssertEqual(runs.first?.text, "11/12 小菜园")
+        XCTAssertEqual(runs.first?.isBold, true)
+        XCTAssertTrue(runs.contains { $0.isCode && $0.text == "<font color=\"red\">原样</font>" && $0.colorToken == nil })
+
+        // 流式截断：未闭合开始标签继续着色；半截尖括号暂隐防止源码闪烁
+        let streamingUnclosed = AgentInlineMarkdownParser.parseRuns("餐饮 <font color=\"red\">-96")
+        XCTAssertEqual(streamingUnclosed.map(\.text).joined(), "餐饮 -96")
+        XCTAssertEqual(streamingUnclosed.last?.colorToken, "red")
+
+        let streamingHalfOpen = AgentInlineMarkdownParser.parseRuns("合计 <font color=\"re")
+        XCTAssertEqual(streamingHalfOpen.map(\.text).joined(), "合计 ")
+
+        XCTAssertEqual(
+            AgentInlineMarkdownParser.stripMarkupTagsOnly("支出 **<font color=\"red\">-¥96.00</font>**"),
+            "支出 **-¥96.00**"
+        )
+        XCTAssertNotNil(AgentInlineMarkdownParser.resolveColor("expense", colorScheme: .light))
+        XCTAssertNotNil(AgentInlineMarkdownParser.resolveColor("income", colorScheme: .dark))
+        XCTAssertNotNil(AgentInlineMarkdownParser.resolveColor("#FF6E5A", colorScheme: .dark))
+    }
+
+    func testMarkdownSegmentParsesHeadingsListsTablesAndParagraphs() {
+        let markdown = """
+        ## 本月支出统计
+
+        | 分类 | 金额 | 占比 |
+        | :--- | ---: | ---: |
+        | 餐饮 | <font color="red">-227.00</font> | 42.1% |
+        | 基金定投 | <font color="green">+100.00</font> | 18.5% |
+
+        第一段第一行
+        第一段第二行
+
+        - **餐饮**：主要花费
+        - 奶茶：合计 45.10 元
+        """
+
+        let segments = MarkdownSegment.parse(markdown)
+        XCTAssertEqual(segments.count, 4)
+
+        guard case .heading(let level, let title) = segments[0].kind else {
+            return XCTFail("首段应为二级标题")
+        }
+        XCTAssertEqual(level, 2)
+        XCTAssertEqual(title, "本月支出统计")
+
+        guard case .table(let headers, let alignments, let rows) = segments[1].kind else {
+            return XCTFail("第二段应为表格")
+        }
+        XCTAssertEqual(headers, ["分类", "金额", "占比"])
+        XCTAssertEqual(alignments, [.leading, .trailing, .trailing])
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(rows[0][1], "<font color=\"red\">-227.00</font>")
+
+        guard case .paragraph(let para) = segments[2].kind else {
+            return XCTFail("第三段应合并为单个自然段落")
+        }
+        XCTAssertEqual(para, "第一段第一行\n第一段第二行")
+
+        guard case .list(let items) = segments[3].kind else {
+            return XCTFail("第四段应为列表")
+        }
+        XCTAssertEqual(items.count, 2)
+        XCTAssertEqual(items[0].text, "**餐饮**：主要花费")
     }
 }
 

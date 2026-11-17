@@ -177,9 +177,9 @@ private struct AgentThinkingStepRow: View {
                 Text(verbatim: content)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                    .lineSpacing(4)
+                    .lineSpacing(4.5)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(10)
+                    .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
                         Color(uiColor: .secondarySystemBackground).opacity(0.65),

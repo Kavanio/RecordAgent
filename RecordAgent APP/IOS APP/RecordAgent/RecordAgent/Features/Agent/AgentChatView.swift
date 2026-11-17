@@ -10,7 +10,11 @@ struct AgentChatView: View {
     @State private var showPlanSheet = false
     @State private var showRenameAlert = false
     @State private var renameDraft = ""
+    @State private var isAutoScrollEnabled = true
+    @State private var isBottomVisible = true
+    @State private var sendFeedbackTrigger = false
     @FocusState private var isInputFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -186,98 +190,166 @@ struct AgentChatView: View {
 
     private var messageArea: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                Group {
-                    if viewModel.isLoadingInitial || (viewModel.isLoadingMessages && viewModel.messages.isEmpty) {
-                        VStack(spacing: 12) {
-                            Spacer(minLength: 160)
-                            ProgressView()
-                            Spacer()
-                        }
-                        .frame(maxWidth: .infinity)
-                    } else if viewModel.messages.isEmpty {
-                        emptyConversationState
-                    } else {
-                        LazyVStack(alignment: .leading, spacing: 22) {
-                            ForEach(viewModel.messages) { message in
-                                AgentMessageRow(
-                                    message: message,
-                                    elapsedSeconds: message.isStreaming ? viewModel.elapsedSeconds : message.durationSeconds
-                                )
-                                .id(message.id)
+            ZStack(alignment: .bottom) {
+                ScrollView {
+                    Group {
+                        if viewModel.isLoadingInitial || (viewModel.isLoadingMessages && viewModel.messages.isEmpty) {
+                            VStack(spacing: 12) {
+                                Spacer(minLength: 160)
+                                ProgressView()
+                                Spacer()
                             }
+                            .frame(maxWidth: .infinity)
+                        } else if viewModel.messages.isEmpty {
+                            emptyConversationState
+                        } else {
+                            LazyVStack(alignment: .leading, spacing: 0) {
+                                ForEach(Array(viewModel.messages.enumerated()), id: \.element.id) { idx, message in
+                                    let topGap = messageTopSpacing(at: idx)
+                                    AgentMessageRow(
+                                        message: message,
+                                        elapsedSeconds: message.isStreaming ? viewModel.elapsedSeconds : message.durationSeconds
+                                    )
+                                    .padding(.top, topGap)
+                                    .id(message.id)
+                                }
 
-                            if let notice = viewModel.routingNotice {
-                                Text(verbatim: notice.message)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                                if let notice = viewModel.routingNotice {
+                                    Text(verbatim: notice.message)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .padding(.top, 12)
+                                }
 
-                            if let approval = viewModel.pendingApproval {
-                                AgentApprovalCardView(
-                                    approval: approval,
-                                    selections: $viewModel.approvalSelections,
-                                    isSubmitting: viewModel.isSubmittingApproval,
-                                    onViewPlan: {
-                                        Task {
-                                            if viewModel.activePlanContent == nil {
-                                                await viewModel.loadPlan()
-                                            }
-                                            if viewModel.activePlanContent != nil {
-                                                showPlanSheet = true
+                                if let approval = viewModel.pendingApproval {
+                                    AgentApprovalCardView(
+                                        approval: approval,
+                                        selections: $viewModel.approvalSelections,
+                                        isSubmitting: viewModel.isSubmittingApproval,
+                                        onViewPlan: {
+                                            Task {
+                                                if viewModel.activePlanContent == nil {
+                                                    await viewModel.loadPlan()
+                                                }
+                                                if viewModel.activePlanContent != nil {
+                                                    showPlanSheet = true
+                                                }
                                             }
                                         }
+                                    ) { overrideAll in
+                                        Task { await viewModel.submitApprovalDecisions(overrideAllApproved: overrideAll) }
                                     }
-                                ) { overrideAll in
-                                    Task { await viewModel.submitApprovalDecisions(overrideAllApproved: overrideAll) }
+                                    .padding(.top, 16)
+                                    .id("pending_approval_card")
                                 }
-                                .id("pending_approval_card")
-                            }
 
-                            Color.clear
-                                .frame(height: 8)
-                                .id("bottom_anchor")
+                                Color.clear
+                                    .frame(height: 1)
+                                    .padding(.top, 10)
+                                    .id("bottom_anchor")
+                                    .onAppear {
+                                        isBottomVisible = true
+                                    }
+                                    .onDisappear {
+                                        isBottomVisible = false
+                                    }
+                            }
+                            .padding(.horizontal, 18)
+                            .padding(.top, 12)
+                            .padding(.bottom, 16)
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 12)
-                        .padding(.bottom, 16)
                     }
                 }
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .onTapGesture {
-                isInputFocused = false
-            }
-            .onChange(of: viewModel.messages.count) { _, _ in
-                withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo("bottom_anchor", anchor: .bottom)
+                .scrollDismissesKeyboard(.interactively)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 12)
+                        .onChanged { value in
+                            // 用户手指向下滑（即向上回看历史消息）时立即停止自动抢滚
+                            if value.translation.height > 10 {
+                                isAutoScrollEnabled = false
+                            }
+                        }
+                )
+                .onTapGesture {
+                    isInputFocused = false
                 }
-            }
-            .onChange(of: viewModel.isLoadingMessages) { _, loading in
-                if !loading && !viewModel.messages.isEmpty {
-                    proxy.scrollTo("bottom_anchor", anchor: .bottom)
+                .onChange(of: viewModel.messages.count) { oldCount, newCount in
+                    if newCount > oldCount {
+                        isAutoScrollEnabled = true
+                    }
+                    scrollToBottom(proxy: proxy, animated: !reduceMotion)
                 }
-            }
-            .onChange(of: viewModel.messages.last?.content) { _, _ in
-                if viewModel.isStreaming {
-                    proxy.scrollTo("bottom_anchor", anchor: .bottom)
-                }
-            }
-            .onChange(of: viewModel.pendingApproval?.approvalId) { _, newValue in
-                if newValue != nil {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo("pending_approval_card", anchor: .bottom)
+                .onChange(of: viewModel.isLoadingMessages) { _, loading in
+                    if !loading && !viewModel.messages.isEmpty {
+                        isAutoScrollEnabled = true
+                        scrollToBottom(proxy: proxy, animated: false)
                     }
                 }
+                .onChange(of: viewModel.messages.last?.content) { _, _ in
+                    if viewModel.isStreaming && isAutoScrollEnabled {
+                        scrollToBottom(proxy: proxy, animated: false)
+                    }
+                }
+                .onChange(of: viewModel.pendingApproval?.approvalId) { _, newValue in
+                    if newValue != nil {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                            proxy.scrollTo("pending_approval_card", anchor: .bottom)
+                        }
+                    }
+                }
+
+                if !viewModel.messages.isEmpty && !isBottomVisible {
+                    Button {
+                        isAutoScrollEnabled = true
+                        scrollToBottom(proxy: proxy, animated: !reduceMotion)
+                    } label: {
+                        Image(systemName: "arrow.down")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 36, height: 36)
+                            .background(.regularMaterial, in: Circle())
+                            .overlay {
+                                Circle()
+                                    .strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5)
+                            }
+                            .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 3)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, 12)
+                    .accessibilityLabel("agent.scroll_to_bottom")
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.85).combined(with: .opacity))
+                }
             }
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isBottomVisible)
+        }
+    }
+
+    private func messageTopSpacing(at index: Int) -> CGFloat {
+        guard index > 0 else { return 0 }
+        let previous = viewModel.messages[index - 1]
+        let current = viewModel.messages[index]
+        // 同一轮对话内（用户提问 -> 助手回答）保持紧凑关联，不同轮次之间明显拉开呼吸空间
+        if previous.role == .user && current.role == .assistant {
+            return 16
+        }
+        return 26
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
+        if animated {
+            withAnimation(.easeOut(duration: 0.22)) {
+                proxy.scrollTo("bottom_anchor", anchor: .bottom)
+            }
+        } else {
+            proxy.scrollTo("bottom_anchor", anchor: .bottom)
         }
     }
 
     private var emptyConversationState: some View {
-        VStack(spacing: 24) {
-            Spacer(minLength: 100)
+        VStack(spacing: 28) {
+            Spacer(minLength: 96)
 
-            VStack(spacing: 8) {
+            VStack(spacing: 10) {
                 Text("agent.empty.title")
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(.primary)
@@ -285,14 +357,15 @@ struct AgentChatView: View {
                 Text("agent.empty.subtitle")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .lineSpacing(4)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 32)
 
             VStack(spacing: 10) {
-                quickPromptChip("agent.prompt.today_summary", keyName: "agent.prompt.today_summary")
-                quickPromptChip("agent.prompt.expense_check", keyName: "agent.prompt.expense_check")
-                quickPromptChip("agent.prompt.study_plan", keyName: "agent.prompt.study_plan")
+                quickPromptChip("agent.prompt.today_summary", keyName: "agent.prompt.today_summary", icon: "sun.max")
+                quickPromptChip("agent.prompt.expense_check", keyName: "agent.prompt.expense_check", icon: "chart.bar.xaxis")
+                quickPromptChip("agent.prompt.study_plan", keyName: "agent.prompt.study_plan", icon: "book")
             }
             .padding(.horizontal, 28)
 
@@ -302,19 +375,33 @@ struct AgentChatView: View {
     }
 
     @ViewBuilder
-    private func quickPromptChip(_ title: LocalizedStringKey, keyName: String.LocalizationValue) -> some View {
+    private func quickPromptChip(
+        _ title: LocalizedStringKey,
+        keyName: String.LocalizationValue,
+        icon: String
+    ) -> some View {
         let resolved = AppLocalization.string(keyName, locale: locale)
         Button {
+            sendFeedbackTrigger.toggle()
             Task {
                 await viewModel.sendPrompt(resolved)
             }
         } label: {
-            Text(title)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.subheadline)
+                    .foregroundStyle(AppColors.primaryBlue)
+                Text(title)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 11)
+            .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
+            .overlay {
+                Capsule()
+                    .strokeBorder(Color(uiColor: .separator).opacity(0.2), lineWidth: 0.5)
+            }
         }
         .buttonStyle(.plain)
     }
@@ -420,6 +507,8 @@ struct AgentChatView: View {
                 } else {
                     Button {
                         isInputFocused = false
+                        sendFeedbackTrigger.toggle()
+                        isAutoScrollEnabled = true
                         Task { await viewModel.sendCurrentDraft() }
                     } label: {
                         Image(systemName: "arrow.up")
@@ -433,6 +522,7 @@ struct AgentChatView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(!viewModel.canSend)
+                    .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: sendFeedbackTrigger)
                     .accessibilityLabel("agent.send")
                 }
             }
@@ -543,17 +633,19 @@ struct AgentChatView: View {
 private struct AgentMessageRow: View {
     let message: AgentChatMessage
     let elapsedSeconds: Int?
+    @State private var copied = false
 
     var body: some View {
         if message.role == .user {
             HStack {
                 Spacer(minLength: 48)
                 Text(verbatim: message.content)
-                    .font(.body)
+                    .font(.callout)
+                    .lineSpacing(4.5)
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 11)
+                    .padding(.vertical, 10)
                     .background(
                         Color(uiColor: .secondarySystemBackground),
                         in: RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -566,6 +658,7 @@ private struct AgentMessageRow: View {
 
     private var assistantBody: some View {
         let split = AgentTimelineBuilder.splitProcessAndFinalBlocks(for: message)
+        let trimmedFinal = split.finalText.trimmingCharacters(in: .whitespacesAndNewlines)
         return VStack(alignment: .leading, spacing: 10) {
             if message.proactive {
                 Text("agent.proactive.badge")
@@ -579,7 +672,7 @@ private struct AgentMessageRow: View {
                     isStreaming: message.isStreaming,
                     elapsedSeconds: elapsedSeconds
                 )
-            } else if message.isStreaming && split.finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            } else if message.isStreaming && trimmedFinal.isEmpty {
                 HStack(spacing: 8) {
                     ProgressView()
                         .controlSize(.mini)
@@ -591,9 +684,8 @@ private struct AgentMessageRow: View {
                 .padding(.vertical, 4)
             }
 
-            if !split.finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if !trimmedFinal.isEmpty {
                 AgentMarkdownView(text: split.finalText)
-                    .font(.body)
                     .foregroundStyle(.primary)
             }
 
@@ -605,6 +697,35 @@ private struct AgentMessageRow: View {
                 Text("agent.status.failed")
                     .font(.caption)
                     .foregroundStyle(AppColors.overviewExpense)
+            }
+
+            if !message.isStreaming && !trimmedFinal.isEmpty {
+                HStack(spacing: 14) {
+                    Button {
+                        UIPasteboard.general.string = AgentInlineMarkdownParser.stripMarkupTagsOnly(trimmedFinal)
+                        copied = true
+                        Task {
+                            try? await Task.sleep(for: .seconds(1.5))
+                            copied = false
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                                .font(.caption.weight(.medium))
+                            if copied {
+                                Text("agent.copied")
+                                    .font(.caption2.weight(.medium))
+                            }
+                        }
+                        .foregroundStyle(copied ? AppColors.primaryBlue : .secondary)
+                        .frame(minHeight: 28)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.6), trigger: copied)
+                    .accessibilityLabel(copied ? LocalizedStringKey("agent.copied") : LocalizedStringKey("agent.copy_response"))
+                }
+                .padding(.top, 2)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
