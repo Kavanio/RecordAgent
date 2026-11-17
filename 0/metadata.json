@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7MTG8409DJM349GSD7Y02D0",
+  "session_id": "2b5a6912-9790-49c3-b742-0caef88f89de",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-17T13:17:52.554633Z",
+  "branch": "desktop/chat-materials",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/AgentService.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/material/ChatMaterialRecorder.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/session/TranscriptService.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/session/dto/TranscriptMessageDto.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/storage/AgentStorageProperties.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/config/ApiTokenFilter.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/file/service/FileAssetService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/file/storage/BlobStore.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/file/storage/LocalBlobStore.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/material/controller/ChatMaterialController.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/material/dto/ChatMaterialDtos.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/material/model/ChatMaterial.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/material/repository/ChatMaterialRepository.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/material/service/ChatMaterialService.java",
+    "agent-backend/server-network/src/main/resources/db/migration/V37__create_chat_material_schema.sql",
+    "agent-backend/server-network/src/test/java/butvan/agent/network/material/ChatMaterialServiceTest.java"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-hydrogen-high",
+  "turn_id": "d90e90812171",
+  "checkpoint_transcript_start": 107,
+  "transcript_lines_at_start": 107,
+  "redaction": {
+    "replacements": 2,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 1,
+      "credentialed_uri": 0,
+      "entropy": 1,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 3
+  }
+}
