@@ -1,0 +1,12 @@
+{
+  "javaExe": "java.exe",
+  "mcExe": "mc.exe",
+  "userHome": "",
+  "port": 8081,
+  "startTimeoutSeconds": 240,
+  "stopTimeoutSeconds": 90,
+  "minioAlias": "recordagent-download",
+  "bucket": "recordagent",
+  "prefix": "backend",
+  "channel": "develop"
+}
