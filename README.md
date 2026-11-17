@@ -292,7 +292,7 @@ cargo check --manifest-path agent-frontend/src-tauri/Cargo.toml
 node scripts/sync-version.mjs --check
 ```
 
-GitHub Actions 不运行测试：桌面 Release 工作流只依据版本 tag 创建 Release；后端镜像工作流在 `develop` 后端相关变更时构建并推送阿里云 ACR。测试与集成验证在本地完成。
+GitHub Actions 不运行测试：桌面 Release 工作流只依据版本 tag 创建 Release；后端 JAR 工作流在 `develop` 后端相关变更时构建并发布至私有 MinIO。测试与集成验证在本地完成。
 
 ## 打包与发布
 
@@ -359,11 +359,13 @@ bash scripts/build-app.sh
 - 前端 API 地址统一由 `services/api.ts` 获取，组件中禁止硬编码地址或端口。
 - 远程部署必须设置 `BUTVAN_API_REQUIRE_TOKEN=true`、提供至少 32 字符的 `BUTVAN_API_TOKEN`、限定 CORS 来源并配置网络访问控制；当前业务仍是单用户本地数据模型，不得暴露到不可信网络。
 
-### 后端镜像自动发布
+### 后端 JAR 自动发布与 Windows 部署
 
-`develop` 的桌面后端源码、Maven 配置、Docker 文件或镜像工作流变化时，GitHub Actions 构建 Java 21 JAR 与 `linux/amd64` 镜像，推送到阿里云私有仓库 `butvan/record-agent-backend`。仅前端、iOS 或文档变化不触发；也可手动触发。需配置 Secrets `ACR_USERNAME`、`ACR_PASSWORD`。
+`develop` 的桌面后端源码、Maven 配置、Windows 部署模板或发布脚本变化时，GitHub Actions 构建 Java 21 JAR，上传到 MinIO `https://minio.server.butvan.top` 的私有 Bucket `recordagent`。需配置 Secrets `MINIO_ACCESS_KEY`、`MINIO_SECRET_KEY`；密钥不入库。流水线只发布，不连接或部署 Windows。
 
-Windows 服务器保留原 `compose.yaml`、`.env` 与 `user-data`，叠加 `agent-backend/compose.acr.yaml` 覆盖文件，登录 ACR 后拉取重建容器即可。更新、回滚与备份步骤见 [`agent-backend/DOCKER.md`](agent-backend/DOCKER.md)。
+Windows 安装 Java 21 和 MinIO Client，配置只读下载身份后，双击 `update-and-start.bat` 自动下载校验、正常停机、完整备份并后台启动；`view-logs.bat` 随时查看滚动日志，关闭窗口不停止后端。首次迁移必须先停旧容器、禁用自动重启并迁移整个用户数据目录，详见 [`agent-backend/WINDOWS.md`](agent-backend/WINDOWS.md)。
+
+旧 ACR 工作流保存在 `.github/workflow-archive/backend-image.yml.disabled`，不再自动运行；Dockerfile、Compose 与旧更新脚本继续保留备用，操作说明见 [`agent-backend/DOCKER.md`](agent-backend/DOCKER.md)。
 
 ### 桌面端版本发布
 
@@ -420,7 +422,8 @@ Windows 服务器保留原 `compose.yaml`、`.env` 与 `user-data`，叠加 `age
 - [`UI COMPONENTS.md`](UI COMPONENTS.md)：全量公共 UI 组件契约清单。
 - [`CHANGELOG.md`](CHANGELOG.md)：版本变更记录。
 - [`docs/桌面端本地打包与安装.md`](docs/桌面端本地打包与安装.md)：本机打包与安装细节。
-- [`agent-backend/DOCKER.md`](agent-backend/DOCKER.md)：后端容器部署与更新。
+- [`agent-backend/WINDOWS.md`](agent-backend/WINDOWS.md)：MinIO JAR 发布、Windows 原生部署、迁移与实时日志。
+- [`agent-backend/DOCKER.md`](agent-backend/DOCKER.md)：保留备用的后端容器部署与更新。
 
 ## License
 

@@ -1,5 +1,6 @@
 package butvan.agent.agents.tool.impl;
 
+import butvan.agent.agents.tool.shell.CommandShell;
 import io.agentscope.core.tool.Tool;
 import io.agentscope.core.tool.ToolParam;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +28,7 @@ public class BashTool {
         this.workDir = workDir != null ? workDir : System.getProperty("user.dir");
     }
 
-    @Tool(name = "custom_bash", description = "用于在 Shell 环境中执行终端命令，可查看系统硬件、电池状态、内存、磁盘空间及代码任务等。")
+    @Tool(name = "custom_bash", description = "在后端所在主机执行命令：Windows 使用 PowerShell，Linux/macOS 使用 sh；容器部署仅操作容器。支持系统查询与代码任务。")
     public String execute(
             @ToolParam(name = "command", description = "要执行的终端 Shell 指令") String command
     ) {
@@ -38,7 +39,7 @@ public class BashTool {
         Process process = null;
         CompletableFuture<String> outputFuture = null;
         try {
-            ProcessBuilder processBuilder = new ProcessBuilder("sh", "-c", command);
+            ProcessBuilder processBuilder = new ProcessBuilder(CommandShell.command(command));
             processBuilder.directory(new File(workDir));
             processBuilder.redirectErrorStream(true);
 
