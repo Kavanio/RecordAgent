@@ -1,5 +1,7 @@
 package butvan.agent.network.review.life;
 
+import butvan.agent.network.push.IosPushModels.PushCategory;
+import butvan.agent.network.push.IosPushService;
 import butvan.agent.network.review.life.LifeReviewModels.*;
 import butvan.agent.network.review.life.LifeReviewDtos.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,8 @@ public class LifeOutreachService {
     private final LifeSignalMonitorService signals;
     @Autowired(required = false)
     private LifeCompanionService companion;
+    @Autowired(required = false)
+    private IosPushService iosPushService;
 
     public LifeOutreachService(LifeReviewRepository repository, LifeAuthorizationService authorization,
             LifeDeliveryService deliveries, Clock automationClock) {
@@ -167,7 +171,14 @@ public class LifeOutreachService {
             // 冷启动：全域每日最多一次，同主题至少24小时；无新信息由唯一键阻止入队。
             if (repository.lastPresentation(owner).filter(sent -> now.isBefore(sent.plus(Duration.ofHours(24)))).isPresent()) continue;
             if (!repository.candidateState(owner, c.id(), "PENDING", "PRESENTED", now, "")) continue;
-            if (s.feishu()) deliveries.sendCandidate(owner, c);
+            if (s.feishu()) {
+                deliveries.sendCandidate(owner, c);
+            } else if (iosPushService != null) {
+                String sessionId = companion != null ? companion.view(owner).primarySessionId() : "";
+                String rendered = LifeCompanionService.naturalizeTemplateText(LifeDeliveryService.render(content.get()));
+                String kind = "REVIEW".equals(c.eventKind()) ? "LIFE_REVIEW" : c.eventKind();
+                iosPushService.publishNotice(owner, PushCategory.SIGNAL, kind, "每日复盘与跟进", rendered, sessionId, "chat");
+            }
         }
         checkIdleNudge(s, local, now);
     }

@@ -9,6 +9,7 @@ enum APIClientError: LocalizedError, Sendable {
     case unavailable
     case invalidResponse
     case server(code: String, status: Int)
+    case serverMessage(String)
 
     var errorDescription: String? {
         switch self {
@@ -19,12 +20,18 @@ enum APIClientError: LocalizedError, Sendable {
         case .unavailable: return String(localized: "api.error.unavailable")
         case .invalidResponse: return String(localized: "api.error.response")
         case .server: return String(localized: "api.error.request")
+        case .serverMessage(let message): return message
         }
     }
 }
 
 private struct ServerError: Decodable {
     let code: String
+}
+
+private struct APIStreamErrorEnvelope: Decodable {
+    let code: Int?
+    let message: String?
 }
 
 private struct APIResultEnvelope<T: Decodable>: Decodable {
@@ -239,9 +246,30 @@ actor APIClient {
                 invalidateSession()
                 throw APIClientError.unauthenticated
             }
-            guard (200..<300).contains(httpResponse.statusCode) else {
+            let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
+            let isJSON = contentType.contains("application/json")
+            if !(200..<300).contains(httpResponse.statusCode) || isJSON {
                 if httpResponse.statusCode == 409 { throw APIClientError.conflict }
                 if httpResponse.statusCode == 503 { throw APIClientError.unavailable }
+                if isJSON {
+                    var payload = Data()
+                    for try await byte in bytes {
+                        payload.append(byte)
+                        if payload.count >= 65_536 { break }
+                    }
+                    if let envelope = try? Self.decoder.decode(APIStreamErrorEnvelope.self, from: payload),
+                       let message = envelope.message?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       !message.isEmpty {
+                        if envelope.code == 423 || envelope.code == 428 {
+                            agentGeneration = nil
+                            throw APIClientError.conflict
+                        }
+                        throw APIClientError.serverMessage(message)
+                    }
+                }
+                if httpResponse.statusCode == 413 {
+                    throw APIClientError.serverMessage(String(localized: "agent.image.error.total_too_large"))
+                }
                 throw APIClientError.server(code: "", status: httpResponse.statusCode)
             }
             return bytes

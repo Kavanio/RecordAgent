@@ -179,3 +179,9 @@
 - `memory-caches` 完成前必须把 `SubagentCatalog` 恢复为内置定义；每次续做都执行内存失效，不能因文件步骤已完成而跳过。缓存清理失败继续保持屏障，不重新读取旧工作区定义。
 - 出厂重置清除聊天 Token 投影和复盘派生理解，保留系统用量、人工目标、普通任务与已冻结报告副本。未来 Hindsight Adapter 必须成为必需参与方；M1 的 `LOCAL_COMPLETE / NOT_INTEGRATED` 只表示本地完成。
 - 经历记忆基础参与方 `experience-memory` 已必需注册，真实聊天试用经 HindsightTrialService 复用同一远端删除 Gateway；重置 scopeVersion 绑定参与方与接收方，确认凭证绑定同一范围，该范围随重置日志持久化。remoteStatus 动态区分未接入、无目标、待处理、处理中、失败、未知和已核对完成；已知的远端接收方缺失、范围未确认、调用失败或删除证据未知必须通过固定、脱敏的 ResetScopeException 提示其真实原因，不得误报为本地磁盘权限问题。
+
+## iOS 主动推送
+
+- `push/` 承载 iOS 设备登记、APNs 凭据与通知队列，统一原子持久化于 `AgentStorageProperties.iosPushFile`（`~/.butvan-agent/ios-push.json`，POSIX 0600 权限、拒绝符号链接），不改动 SQLite 表结构；API 响应与日志绝不输出 `.p8` 私钥或完整 Device Token。
+- `ApnsClient` 基于 Java 21 原生 HTTP/2 `HttpClient` 与 `SHA256withECDSAinP1363Format` 签署 ES256 JWT，在独立单线程异步投递，不阻塞 `life-review-worker` 与 `automation-worker`；收到 `410 Unregistered` 或 `BadDeviceToken` 时自动清理失效 Token。
+- 主动陪伴问候（`LifeCompanionService`）、生活复盘与信号异常提醒（`LifeDeliveryService` / `LifeOutreachService`）以及自动任务提醒（`AutomationService` 事务提交后）统一汇入 `IosPushService` 并同步推流 `/agent/ios-push/stream` SSE；`IosPushResetParticipant` 在重置时清理待送达通知队列并保留 APNs 凭据与设备登记。

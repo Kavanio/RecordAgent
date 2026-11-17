@@ -5,6 +5,8 @@ import butvan.agent.agents.reset.ResetBarrier;
 import butvan.agent.agents.review.PersonalDeliveryPort;
 import butvan.agent.agents.session.SessionCatalogService;
 import butvan.agent.agents.session.TranscriptService;
+import butvan.agent.network.push.IosPushModels.PushCategory;
+import butvan.agent.network.push.IosPushService;
 import butvan.agent.network.review.life.LifeReviewModels.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +38,8 @@ public class LifeDeliveryService {
     private LifeCompanionStreamService companionStream;
     @Autowired(required = false)
     private org.springframework.beans.factory.ObjectProvider<LifeCompanionService> companionProvider;
+    @Autowired(required = false)
+    private IosPushService iosPushService;
 
     /** 只允许当前授权生成的已完成版本；重试不会重新读取资料或重新生成。 */
     public void send(String owner, String contentId, boolean retry) {
@@ -153,6 +157,9 @@ public class LifeDeliveryService {
                 sessionCatalog.touch(session.id(), text);
             }
             companionStore.appendDesktopNotice(owner, session.id(), kind, title, text, automationClock.instant());
+            if (iosPushService != null) {
+                iosPushService.publishNotice(owner, PushCategory.SIGNAL, kind, title, text, session.id(), "chat");
+            }
             var companion = companionProvider == null ? null : companionProvider.getIfAvailable();
             if (companionStream != null && companion != null) {
                 companionStream.publish(owner, companion.view(owner));

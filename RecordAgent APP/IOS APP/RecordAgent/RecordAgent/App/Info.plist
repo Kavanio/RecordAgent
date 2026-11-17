@@ -20,6 +20,8 @@
 	<string>1</string>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>NSCameraUsageDescription</key>
+	<string>用于拍摄照片并发送给智能体识别。 / Used to take photos and send them to the agent.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>用于让日历便签随手机移动轻微摇晃。 / Used to gently move calendar notes with your phone.</string>
 	<key>NSLocalNetworkUsageDescription</key>

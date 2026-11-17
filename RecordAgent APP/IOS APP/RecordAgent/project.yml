@@ -25,6 +25,7 @@ targets:
       path: RecordAgent/App/Info.plist
       properties:
         UILaunchScreen: {}
+        NSCameraUsageDescription: "用于拍摄照片并发送给智能体识别。 / Used to take photos and send them to the agent."
         NSMotionUsageDescription: "用于让日历便签随手机移动轻微摇晃。 / Used to gently move calendar notes with your phone."
         NSLocalNetworkUsageDescription: "用于在测试阶段连接同一局域网内电脑上的 RecordAgent 后端。 / Connect to the RecordAgent backend on your computer for testing."
         NSAppTransportSecurity:

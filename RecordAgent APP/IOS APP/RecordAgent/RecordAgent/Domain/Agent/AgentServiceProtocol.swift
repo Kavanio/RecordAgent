@@ -21,12 +21,16 @@ protocol AgentServiceProtocol: Sendable {
     ) async throws -> AgentPermissionDecisionResponse
     func cancelRun(sessionId: String, runId: String) async throws -> AgentRunCancelResponse
     func fetchPlan(sessionId: String) async throws -> String?
+    func fetchRecordReferences(query: String, limit: Int, offset: Int) async throws -> AgentRecordReferencePage
+    func fetchRecordDetail(id: String) async throws -> AgentRecordDetail
 
     func streamChat(
         runId: String,
         sessionId: String,
         content: String,
-        recordReferenceIds: [String]
+        context: String,
+        recordReferenceIds: [String],
+        images: [AgentChatImagePayload]
     ) -> AsyncThrowingStream<AgentStreamEvent, Error>
 
     func resumeChat(

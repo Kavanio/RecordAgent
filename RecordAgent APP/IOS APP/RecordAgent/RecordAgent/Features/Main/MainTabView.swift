@@ -54,16 +54,19 @@ enum AppTab: String, CaseIterable, Identifiable {
 @MainActor
 struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
+    @State private var isAgentDrawerOpen = false
     @StateObject private var homeModel: HomeViewModel
     @StateObject private var financeModel: FinanceWorkspaceViewModel
     @StateObject private var libraryModel: LibraryWorkspaceViewModel
     @StateObject private var recordModel: RecordWorkspaceViewModel
     @StateObject private var tasksModel: MobileTaskViewModel
     @StateObject private var agentModel: AgentChatViewModel
+    @ObservedObject private var proactiveNotifications: ProactiveNotificationCenter
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let user: AuthUser?
+    let notificationAccountID: String
     let calendarService: any CalendarDataServiceProtocol
     let financeService: any FinanceServiceProtocol
     let profileOverviewService: any ProfileOverviewServiceProtocol
@@ -85,6 +88,7 @@ struct MainTabView: View {
         profileActivityService: any ProfileActivityServiceProtocol,
         profileAppearanceService: any ProfileAppearanceServiceProtocol,
         agentService: any AgentServiceProtocol,
+        proactiveNotifications: ProactiveNotificationCenter,
         user: AuthUser?,
         onLogout: @escaping () async throws -> Void
     ) {
@@ -94,6 +98,8 @@ struct MainTabView: View {
         _recordModel = StateObject(wrappedValue: RecordWorkspaceViewModel(service: studyService))
         _tasksModel = StateObject(wrappedValue: MobileTaskViewModel(service: mobileTaskService, notifications: mobileTaskNotifications, accountID: notificationAccountID))
         _agentModel = StateObject(wrappedValue: AgentChatViewModel(service: agentService))
+        self.proactiveNotifications = proactiveNotifications
+        self.notificationAccountID = notificationAccountID
         self.calendarService = calendarService
         self.financeService = financeService
         self.profileOverviewService = profileOverviewService
@@ -109,6 +115,50 @@ struct MainTabView: View {
     }
 
     var body: some View {
+        AgentDrawerContainer(
+            isEnabled: selectedTab == .chat,
+            isOpen: $isAgentDrawerOpen
+        ) {
+            AgentSessionsDrawerView(
+                viewModel: agentModel,
+                onClose: { closeAgentDrawer() }
+            )
+        } main: {
+            mainContentShell
+        }
+        .tint(AppColors.primaryBlue)
+        .task(id: LoadKey(date: homeModel.selectedDate, locale: locale.identifier)) {
+            await homeModel.load(locale: locale)
+        }
+        .task {
+            await tasksModel.synchronizeNotifications()
+            await proactiveNotifications.activate(accountID: notificationAccountID)
+            handlePendingProactiveRoute()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task {
+                    await tasksModel.synchronizeNotifications()
+                    await proactiveNotifications.activate(accountID: notificationAccountID)
+                }
+            } else if phase == .background {
+                proactiveNotifications.enterBackground()
+            }
+        }
+        .onChange(of: proactiveNotifications.pendingRoute) { _, _ in
+            handlePendingProactiveRoute()
+        }
+        .onChange(of: proactiveNotifications.latestNoticeSignal) { _, _ in
+            if selectedTab == .chat {
+                Task { await agentModel.refreshActiveSessionIfCompanionUpdated() }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .apiSessionExpired)) { _ in
+            Task { await tasksModel.deactivate() }
+        }
+    }
+
+    private var mainContentShell: some View {
         ZStack {
             switch selectedTab {
             case .home:
@@ -118,8 +168,11 @@ struct MainTabView: View {
                 CalendarView(home: homeModel, service: calendarService, financeService: financeService)
                 .transition(pageTransition)
             case .chat:
-                AgentChatView(viewModel: agentModel)
-                    .transition(pageTransition)
+                AgentChatView(
+                    viewModel: agentModel,
+                    onOpenSessionsDrawer: { openAgentDrawer() }
+                )
+                .transition(pageTransition)
             case .workspace:
                 WorkspaceHubView { selectedTab = $0 }
                     .transition(pageTransition)
@@ -158,19 +211,40 @@ struct MainTabView: View {
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.23), value: selectedTab)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
         .safeAreaInset(edge: .bottom, spacing: 0) {
             MainNavigationBar(selection: $selectedTab)
         }
-        .tint(AppColors.primaryBlue)
-        .task(id: LoadKey(date: homeModel.selectedDate, locale: locale.identifier)) {
-            await homeModel.load(locale: locale)
+    }
+
+    private var drawerAnimation: Animation? {
+        reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.88)
+    }
+
+    private func openAgentDrawer() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        withAnimation(drawerAnimation) {
+            isAgentDrawerOpen = true
         }
-        .task { await tasksModel.synchronizeNotifications() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await tasksModel.synchronizeNotifications() } }
+    }
+
+    private func closeAgentDrawer() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        withAnimation(drawerAnimation) {
+            isAgentDrawerOpen = false
         }
-        .onReceive(NotificationCenter.default.publisher(for: .apiSessionExpired)) { _ in
-            Task { await tasksModel.deactivate() }
+    }
+
+    private func handlePendingProactiveRoute() {
+        guard let route = proactiveNotifications.consumePendingRoute() else { return }
+        switch route {
+        case .chat(let sessionId):
+            selectedTab = .chat
+            Task { await agentModel.openSessionFromNotification(sessionId: sessionId) }
+        case .tasks:
+            selectedTab = .tasks
+        case .home:
+            selectedTab = .home
         }
     }
 
