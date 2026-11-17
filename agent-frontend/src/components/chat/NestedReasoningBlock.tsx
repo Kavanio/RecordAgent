@@ -1,10 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Brain, ChevronDown } from 'lucide-react';
 import styles from './NestedReasoningBlock.module.css';
 
 const SENT_H = 46;
 const GAP = 8;
 const MAX_H = 184;
+const EXPANDED_MAX_H = 240;
 const FADE = 18;
 
 export interface NestedReasoningBlockProps {
@@ -27,7 +28,7 @@ export const NestedReasoningBlock: React.FC<NestedReasoningBlockProps> = ({
   collapseWhileActive = false,
 }) => {
   const [manualOpen, setManualOpen] = useState(false);
-  const [fade, setFade] = useState({ top: false, bottom: true });
+  const [fade, setFade] = useState({ top: false, bottom: false });
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const canToggle = isFinished || collapseWhileActive;
@@ -43,21 +44,26 @@ export const NestedReasoningBlock: React.FC<NestedReasoningBlockProps> = ({
 
   const showTop = scrollable ? fade.top : capped;
   const showBottom = scrollable ? fade.bottom : capped;
+  const useMask = scrollable ? (showTop || showBottom) : capped;
 
-  const mask = capped
+  const mask = useMask
     ? `linear-gradient(to bottom, transparent 0, #000 ${showTop ? FADE : 0}px, #000 calc(100% - ${
         showBottom ? FADE : 0
       }px), transparent 100%)`
     : 'none';
 
-  const onScroll = () => {
+  const syncFade = useCallback(() => {
     const el = viewportRef.current;
     if (!el) return;
     setFade({
       top: el.scrollTop > 1,
       bottom: el.scrollTop + el.clientHeight < el.scrollHeight - 1,
     });
-  };
+  }, []);
+
+  useEffect(() => {
+    if (scrollable) syncFade();
+  }, [scrollable, sentences, syncFade]);
 
   return (
     <div className={styles.container}>
@@ -101,15 +107,19 @@ export const NestedReasoningBlock: React.FC<NestedReasoningBlockProps> = ({
             <div
               ref={viewportRef}
               className={`${styles.viewport} ${scrollable ? styles.scrollable : ''}`}
-              style={{ height: `${viewH}px`, WebkitMaskImage: mask, maskImage: mask }}
-              onScroll={scrollable ? onScroll : undefined}
+              style={{
+                ...(scrollable ? { maxHeight: `${EXPANDED_MAX_H}px` } : { height: `${viewH}px` }),
+                WebkitMaskImage: mask,
+                maskImage: mask,
+              }}
+              onScroll={scrollable ? syncFade : undefined}
             >
               <div
-                className={styles.sentenceList}
-                style={{ transform: `translateY(${translate}px)` }}
+                className={`${styles.sentenceList} ${scrollable ? styles.sentenceListExpanded : ''}`}
+                style={scrollable ? undefined : { transform: `translateY(${translate}px)` }}
               >
                 {sentences.slice(0, count).map((line, i) => (
-                  <p key={i} className={styles.sentence}>
+                  <p key={i} className={`${styles.sentence} ${scrollable ? styles.sentenceExpanded : ''}`}>
                     {line}
                   </p>
                 ))}

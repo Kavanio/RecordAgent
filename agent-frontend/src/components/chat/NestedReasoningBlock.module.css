@@ -157,6 +157,10 @@
   will-change: transform;
 }
 
+.sentenceListExpanded {
+  gap: 4px;
+}
+
 .sentence {
   height: 46px;
   margin: 0;
@@ -170,6 +174,14 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   animation: fadeIn 250ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.sentenceExpanded {
+  height: auto;
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  line-height: 1.55;
 }
 
 @keyframes fadeIn {
