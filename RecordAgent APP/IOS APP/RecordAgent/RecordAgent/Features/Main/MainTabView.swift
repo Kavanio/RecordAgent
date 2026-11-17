@@ -1,9 +1,9 @@
 import SwiftUI
 
 enum AppTab: String, CaseIterable, Identifiable {
-    case home, calendar, workspace, finance, library, record, tasks, profile
+    case home, calendar, chat, workspace, finance, library, record, tasks, profile
     var id: String { rawValue }
-    static let primaryTabs: [AppTab] = [.home, .calendar, .workspace, .profile]
+    static let primaryTabs: [AppTab] = [.home, .calendar, .chat, .workspace, .profile]
     static let workspaceTabs: [AppTab] = [.finance, .library, .record, .tasks]
 
     var navigationTab: AppTab {
@@ -18,6 +18,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "tab.home"
         case .calendar: return "tab.calendar"
+        case .chat: return "tab.chat"
         case .workspace: return "tab.workspace"
         case .finance: return "tab.finance"
         case .library: return "tab.library"
@@ -30,6 +31,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "house"
         case .calendar: return "calendar"
+        case .chat: return "bubble.left.and.bubble.right"
         case .workspace: return "square.grid.2x2"
         case .finance: return "chart.pie"
         case .library: return "books.vertical"
@@ -57,6 +59,7 @@ struct MainTabView: View {
     @StateObject private var libraryModel: LibraryWorkspaceViewModel
     @StateObject private var recordModel: RecordWorkspaceViewModel
     @StateObject private var tasksModel: MobileTaskViewModel
+    @StateObject private var agentModel: AgentChatViewModel
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -81,6 +84,7 @@ struct MainTabView: View {
         profileOverviewService: any ProfileOverviewServiceProtocol,
         profileActivityService: any ProfileActivityServiceProtocol,
         profileAppearanceService: any ProfileAppearanceServiceProtocol,
+        agentService: any AgentServiceProtocol,
         user: AuthUser?,
         onLogout: @escaping () async throws -> Void
     ) {
@@ -89,6 +93,7 @@ struct MainTabView: View {
         _libraryModel = StateObject(wrappedValue: LibraryWorkspaceViewModel(date: .now, service: libraryService))
         _recordModel = StateObject(wrappedValue: RecordWorkspaceViewModel(service: studyService))
         _tasksModel = StateObject(wrappedValue: MobileTaskViewModel(service: mobileTaskService, notifications: mobileTaskNotifications, accountID: notificationAccountID))
+        _agentModel = StateObject(wrappedValue: AgentChatViewModel(service: agentService))
         self.calendarService = calendarService
         self.financeService = financeService
         self.profileOverviewService = profileOverviewService
@@ -112,6 +117,9 @@ struct MainTabView: View {
             case .calendar:
                 CalendarView(home: homeModel, service: calendarService, financeService: financeService)
                 .transition(pageTransition)
+            case .chat:
+                AgentChatView(viewModel: agentModel)
+                    .transition(pageTransition)
             case .workspace:
                 WorkspaceHubView { selectedTab = $0 }
                     .transition(pageTransition)

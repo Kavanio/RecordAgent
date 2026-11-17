@@ -20,7 +20,7 @@
 | 目录 | 职责与约束 |
 | --- | --- |
 | `agent-frontend/` | React、TypeScript、Vite 与 Tauri 桌面端代码；仅放置前端构建、展示和桌面壳层相关内容。 |
-| `RecordAgent APP/IOS APP/RecordAgent/` | 独立 Swift/SwiftUI iOS App 工程；直连 `agent-backend/` 单用户后端，使用服务器地址 + Bearer Token 鉴权，优先复用后端现有接口。 |
+| `RecordAgent APP/IOS APP/RecordAgent/` | 独立 Swift/SwiftUI iOS App 工程；直连 `agent-backend/` 单用户后端，使用服务器地址 + Bearer Token 鉴权，承载首页、日历、对话（Agent）、工作台与我的五大入口，优先复用后端现有接口。 |
 | `RecordAgent APP/IOS APP/backend/` | **暂停归档**：原独立 Spring Boot + PostgreSQL 多用户业务后端；保留现状，不再推进或被 iOS 端依赖。 |
 | `agent-frontend/src/components/` | 可复用视图组件；按业务域建立目录，例如 `chat/`、`model/`、`layout/`、`common/`。 |
 | `agent-frontend/src/services/` | HTTP、SSE、存储与第三方调用等基础设施适配；不得承载页面状态或 JSX。 |
