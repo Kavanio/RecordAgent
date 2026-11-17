@@ -1,56 +1,60 @@
 import SwiftUI
 
-/// 根据模型名称或厂商标识解析对应的品牌图标，保持与桌面端一致的辨识度。
+/// 与桌面端 `VendorIcon.tsx` 保持一致的厂商图标展示（匹配 `provider.type`）。
 struct AgentVendorIconView: View {
     let vendor: String?
     let modelName: String?
-    var size: CGFloat = 18
+    var size: CGFloat = 16
 
-    private var assetName: String? {
-        let model = (modelName ?? "").lowercased()
-        if model.contains("deepseek") { return "VendorDeepseek" }
-        if model.contains("qwen") || model.contains("qwq") { return "VendorDashscope" }
-        if model.contains("claude") { return "VendorAnthropic" }
-        if model.contains("gemini") { return "VendorGemini" }
-        if model.contains("gpt") || model.hasPrefix("o1") || model.hasPrefix("o3") || model.hasPrefix("o4") {
-            return "VendorOpenai"
+    private var vendorKey: String {
+        let v = (vendor ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !v.isEmpty { return v }
+        let m = (modelName ?? "").lowercased()
+        if m.contains("deepseek") { return "deepseek" }
+        if m.contains("qwen") || m.contains("qwq") { return "dashscope" }
+        if m.contains("claude") { return "anthropic" }
+        if m.contains("gemini") { return "gemini" }
+        if m.contains("gpt") || m.hasPrefix("o1") || m.hasPrefix("o3") || m.hasPrefix("o4") {
+            return "openai"
         }
-        if model.contains("llama") || model.contains("ollama") { return "VendorOllama" }
+        if m.contains("llama") || m.contains("ollama") { return "ollama" }
+        return ""
+    }
 
-        switch (vendor ?? "").lowercased() {
-        case "deepseek": return "VendorDeepseek"
-        case "dashscope": return "VendorDashscope"
-        case "anthropic": return "VendorAnthropic"
-        case "gemini": return "VendorGemini"
-        case "openai": return "VendorOpenai"
-        case "ollama": return "VendorOllama"
+    private var assetSpec: (name: String, isTemplate: Bool)? {
+        switch vendorKey {
+        case "deepseek": return ("VendorDeepseek", false)
+        case "dashscope", "qwen": return ("VendorDashscope", false)
+        case "gemini": return ("VendorGemini", false)
+        case "custom": return ("VendorCustom", false)
+        case "anthropic": return ("VendorAnthropic", true)
+        case "openai": return ("VendorOpenai", true)
+        case "ollama": return ("VendorOllama", true)
         default: return nil
         }
     }
 
-    private var isGLM: Bool {
-        let model = (modelName ?? "").lowercased()
-        let v = (vendor ?? "").lowercased()
-        return model.contains("glm") || v.contains("zhipu") || v.contains("glm")
-    }
-
     var body: some View {
-        if let assetName {
-            Image(assetName)
-                .resizable()
-                .interpolation(.high)
-                .scaledToFill()
-                .frame(width: size, height: size)
-                .clipShape(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous))
-        } else {
-            ZStack {
-                RoundedRectangle(cornerRadius: size * 0.25, style: .continuous)
-                    .fill(isGLM ? Color(red: 0.22, green: 0.45, blue: 0.96) : Color(uiColor: .tertiarySystemFill))
-                Image(systemName: isGLM ? "sparkles" : "cpu")
-                    .font(.system(size: size * 0.54, weight: .semibold))
-                    .foregroundStyle(isGLM ? .white : .secondary)
+        if let spec = assetSpec {
+            if spec.isTemplate {
+                Image(spec.name)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .foregroundStyle(.primary)
+                    .frame(width: size, height: size)
+            } else {
+                Image(spec.name)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: size, height: size)
             }
-            .frame(width: size, height: size)
+        } else {
+            Image(systemName: "square")
+                .font(.system(size: size * 0.85, weight: .regular))
+                .foregroundStyle(.secondary)
+                .frame(width: size, height: size)
         }
     }
 }
