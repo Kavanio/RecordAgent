@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7KFZAVY06P621BNGJ60094P",
+  "session_id": "6ae2fd65-40f0-4958-b8ff-a572dbb9d069",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-17T00:54:38.01491Z",
+  "branch": "desktop/interleaved-react-timeline",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/AgentRunCompleter.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/run/AgentRun.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/run/AgentRunCheckpoint.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/run/AgentRunRecoveryService.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/session/TranscriptService.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/session/dto/TranscriptMessageDto.java",
+    "agent-backend/server-agents/src/test/java/butvan/agent/agents/agent/run/AgentRunBlocksTest.java"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-hydrogen-high",
+  "turn_id": "4bed98ba95f5",
+  "redaction": {
+    "replacements": 0,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 2
+  }
+}

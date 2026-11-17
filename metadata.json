@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7KFZAVY06P621BNGJ60094P",
+  "strategy": "manual-commit",
+  "branch": "desktop/interleaved-react-timeline",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/AgentRunCompleter.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/run/AgentRun.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/run/AgentRunCheckpoint.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/run/AgentRunRecoveryService.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/session/TranscriptService.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/session/dto/TranscriptMessageDto.java",
+    "agent-backend/server-agents/src/test/java/butvan/agent/agents/agent/run/AgentRunBlocksTest.java"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 0,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
