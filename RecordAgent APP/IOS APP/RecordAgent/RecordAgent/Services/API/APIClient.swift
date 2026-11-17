@@ -33,6 +33,10 @@ private struct APIResultEnvelope<T: Decodable>: Decodable {
     let data: T?
 }
 
+private struct AgentResetGenerationDTO: Decodable {
+    let generation: Int64
+}
+
 extension Notification.Name {
     static let apiSessionExpired = Notification.Name("recordagent.api.sessionExpired")
 }
@@ -41,10 +45,17 @@ extension Notification.Name {
 actor APIClient {
     private let keychain: KeychainService
     private let session: URLSession
+    private let sessionProvider: @Sendable (String) -> AuthSession?
+    private var agentGeneration: Int64?
 
-    init(keychain: KeychainService = .shared, session: URLSession = .shared) {
+    init(
+        keychain: KeychainService = .shared,
+        session: URLSession = .shared,
+        sessionProvider: (@Sendable (String) -> AuthSession?)? = nil
+    ) {
         self.keychain = keychain
         self.session = session
+        self.sessionProvider = sessionProvider ?? { keychain.getAPISession(server: $0) }
     }
 
     func send(
@@ -59,13 +70,18 @@ actor APIClient {
                 idempotencyKey: idempotencyKey)
             return try accepted(response)
         }
-        guard let current = keychain.getAPISession(server: server) else {
+        guard let current = sessionProvider(server) else {
             throw APIClientError.unauthenticated
         }
         let token = current.token.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedToken = token.isEmpty ? nil : token
+        let generation = try await resolvedAgentGeneration(
+            for: path, method: method, base: base, token: resolvedToken
+        )
         let response = try await perform(
             path, base: base, method: method, query: query, body: body,
-            token: token.isEmpty ? nil : token, idempotencyKey: idempotencyKey)
+            token: resolvedToken, idempotencyKey: idempotencyKey,
+            agentGeneration: generation)
         if response.1.statusCode == 401 {
             invalidateSession()
             throw APIClientError.unauthenticated
@@ -75,6 +91,7 @@ actor APIClient {
 
     /// 直连校验服务器地址与 Token，成功后持久化配置与单用户会话。
     func connect(serverAddress: String, token: String) async throws -> AuthSession {
+        agentGeneration = nil
         let base = try APIConfiguration.validateBaseURL(serverAddress)
         let server = base.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         let trimmedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -117,7 +134,13 @@ actor APIClient {
         let data = try await send(
             path, method: method, query: query, body: body, authenticated: authenticated,
             idempotencyKey: idempotencyKey)
-        return try Self.decodeResult(T.self, from: data)
+        do {
+            return try Self.decodeResult(T.self, from: data)
+        } catch APIClientError.server(code: "423", status: 423),
+                APIClientError.server(code: "428", status: 428) {
+            agentGeneration = nil
+            throw APIClientError.conflict
+        }
     }
 
     func sendOptionalResult<T: Decodable>(
@@ -129,6 +152,10 @@ actor APIClient {
             idempotencyKey: idempotencyKey)
         let envelope = try Self.decoder.decode(APIResultEnvelope<T>.self, from: data)
         if envelope.code == 409 { throw APIClientError.conflict }
+        if envelope.code == 423 || envelope.code == 428 {
+            agentGeneration = nil
+            throw APIClientError.conflict
+        }
         guard envelope.code == 200 else {
             throw APIClientError.server(code: String(envelope.code), status: envelope.code)
         }
@@ -144,13 +171,17 @@ actor APIClient {
     ) async throws -> Data? {
         let base = try APIConfiguration.baseURL()
         let server = base.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let current = keychain.getAPISession(server: server) else {
+        guard let current = sessionProvider(server) else {
             throw APIClientError.unauthenticated
         }
         let token = current.token.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedToken = token.isEmpty ? nil : token
+        let generation = try await resolvedAgentGeneration(
+            for: path, method: method, base: base, token: resolvedToken
+        )
         let response = try await perform(
             path, base: base, method: method, body: body,
-            token: token.isEmpty ? nil : token
+            token: resolvedToken, agentGeneration: generation
         )
         if response.1.statusCode == 401 {
             invalidateSession()
@@ -170,9 +201,14 @@ actor APIClient {
     ) async throws -> URLSession.AsyncBytes {
         let base = try APIConfiguration.baseURL()
         let server = base.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let current = keychain.getAPISession(server: server) else {
+        guard let current = sessionProvider(server) else {
             throw APIClientError.unauthenticated
         }
+        let token = current.token.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedToken = token.isEmpty ? nil : token
+        let generation = try await resolvedAgentGeneration(
+            for: path, method: method, base: base, token: resolvedToken
+        )
         guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
             throw APIClientError.invalidServer
         }
@@ -187,9 +223,11 @@ actor APIClient {
         if body != nil {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
-        let token = current.token.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let generation {
+            request.setValue(String(generation), forHTTPHeaderField: "X-Agent-Generation")
+        }
+        if let resolvedToken {
+            request.setValue("Bearer \(resolvedToken)", forHTTPHeaderField: "Authorization")
         }
 
         do {
@@ -223,7 +261,7 @@ actor APIClient {
     ) async throws -> T {
         let base = try APIConfiguration.baseURL()
         let server = base.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let current = keychain.getAPISession(server: server) else {
+        guard let current = sessionProvider(server) else {
             throw APIClientError.unauthenticated
         }
         let boundary = "Boundary-\(UUID().uuidString)"
@@ -279,13 +317,49 @@ actor APIClient {
     }
 
     private func invalidateSession() {
+        agentGeneration = nil
         keychain.clearAPISession()
         NotificationCenter.default.post(name: .apiSessionExpired, object: nil)
     }
 
+    /// 为 Agent 非只读请求提前同步当前代次，避免 `ResetOperationAspect` 拦截。
+    private func resolvedAgentGeneration(
+        for path: String,
+        method: String,
+        base: URL,
+        token: String?
+    ) async throws -> Int64? {
+        let upper = method.uppercased()
+        if ["GET", "HEAD", "OPTIONS"].contains(upper) {
+            return agentGeneration
+        }
+        guard path.hasPrefix("/agent/") && !path.hasPrefix("/agent/reset") else {
+            return agentGeneration
+        }
+        if let agentGeneration {
+            return agentGeneration
+        }
+        let response = try await perform(
+            "/agent/reset/current",
+            base: base,
+            method: "GET",
+            token: token
+        )
+        if response.1.statusCode == 401 {
+            invalidateSession()
+            throw APIClientError.unauthenticated
+        }
+        let data = try accepted(response)
+        let status = try Self.decodeResult(AgentResetGenerationDTO.self, from: data)
+        let nextGeneration = max(agentGeneration ?? 0, status.generation)
+        agentGeneration = nextGeneration
+        return nextGeneration
+    }
+
     private func perform(
         _ path: String, base: URL, method: String, query: [URLQueryItem] = [], body: Data? = nil,
-        token: String?, idempotencyKey: UUID? = nil, contentType: String = "application/json"
+        token: String?, idempotencyKey: UUID? = nil, contentType: String = "application/json",
+        agentGeneration: Int64? = nil
     ) async throws -> (Data, HTTPURLResponse) {
         guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false)
         else { throw APIClientError.invalidServer }
@@ -300,6 +374,9 @@ actor APIClient {
         if body != nil { request.setValue(contentType, forHTTPHeaderField: "Content-Type") }
         if let idempotencyKey {
             request.setValue(idempotencyKey.uuidString, forHTTPHeaderField: "Idempotency-Key")
+        }
+        if let agentGeneration {
+            request.setValue(String(agentGeneration), forHTTPHeaderField: "X-Agent-Generation")
         }
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         do {

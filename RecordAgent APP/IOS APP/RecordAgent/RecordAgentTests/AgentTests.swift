@@ -180,6 +180,72 @@ final class AgentTests: XCTestCase {
         let decisionCalls = await mock.submittedApprovalIds
         XCTAssertEqual(decisionCalls, ["appr-1"])
     }
+
+    func testAPIClientFetchesAndAttachesAgentGenerationHeader() async throws {
+        let previousAddress = APIConfiguration.savedServerAddress()
+        addTeardownBlock {
+            if previousAddress.isEmpty {
+                APIConfiguration.clearServerAddress()
+            } else {
+                _ = try? APIConfiguration.saveServerAddress(previousAddress)
+            }
+            AgentGenerationURLProtocol.handler = nil
+        }
+
+        let testServer = "http://127.0.0.1:18081"
+        _ = try APIConfiguration.saveServerAddress(testServer)
+
+        var seenPaths: [String] = []
+        var generationHeaders: [String: String?] = [:]
+        AgentGenerationURLProtocol.handler = { request in
+            let path = request.url?.path ?? ""
+            seenPaths.append("\(request.httpMethod ?? "GET") \(path)")
+            generationHeaders[path] = request.value(forHTTPHeaderField: "X-Agent-Generation")
+            let body: Data
+            if path == "/agent/reset/current" {
+                body = Data(#"{"code":200,"data":{"resetId":null,"revision":1,"generation":7,"status":"IDLE","completedSteps":[],"message":"","retryable":false,"remoteStatus":null}}"#.utf8)
+            } else {
+                body = Data(#"{"code":200,"data":{"id":"s-1","kind":"GENERAL","projectId":null,"title":"新对话","lastMessagePreview":null,"createdAt":"2026-11-17T09:00:00Z","updatedAt":"2026-11-17T09:00:00Z","status":"ACTIVE"}}"#.utf8)
+            }
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
+            return (response, body)
+        }
+
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [AgentGenerationURLProtocol.self]
+        let testSession = AuthSession(token: "tok", refreshToken: nil, user: AuthUser(id: "u", email: "local", nickname: "B"), expiresAt: nil)
+        let client = APIClient(keychain: .shared, session: URLSession(configuration: config), sessionProvider: { _ in testSession })
+        let service = APIAgentService(client: client)
+
+        let created = try await service.createSession(kind: .general, title: "新对话", projectId: nil)
+        XCTAssertEqual(created.id, "s-1")
+        XCTAssertEqual(seenPaths, ["GET /agent/reset/current", "POST /agent/sessions"])
+        XCTAssertEqual(generationHeaders["/agent/sessions"] ?? nil, "7")
+    }
+}
+
+private final class AgentGenerationURLProtocol: URLProtocol {
+    static var handler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
 }
 
 private actor MockAgentService: AgentServiceProtocol {
