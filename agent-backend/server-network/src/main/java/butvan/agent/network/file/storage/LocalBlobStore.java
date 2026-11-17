@@ -1,7 +1,8 @@
 package butvan.agent.network.file.storage;
 
+import butvan.agent.agents.storage.AgentStorageProperties;
 import butvan.agent.network.config.database.LocalDatabaseProperties;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -14,24 +15,51 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Locale;
 
 /** 使用应用数据目录保存二进制对象，并通过临时文件与原子移动避免暴露半份内容。 */
 @Component
-@RequiredArgsConstructor
 public class LocalBlobStore implements BlobStore {
     private static final int BUFFER_SIZE = 16 * 1024;
     private static final String OBJECT_PREFIX = "files/objects/";
     private static final String LEGACY_PREFIX = "records/attachments/";
+    private static final String MATERIALS_PREFIX = "materials/";
 
     private final LocalDatabaseProperties databaseProperties;
+    private final AgentStorageProperties agentStorageProperties;
+
+    public LocalBlobStore(LocalDatabaseProperties databaseProperties) {
+        this(databaseProperties, null);
+    }
+
+    @Autowired
+    public LocalBlobStore(LocalDatabaseProperties databaseProperties,
+                          AgentStorageProperties agentStorageProperties) {
+        this.databaseProperties = databaseProperties;
+        this.agentStorageProperties = agentStorageProperties;
+    }
 
     @Override
     public StoredBlob put(String objectId, InputStream content, long maximumBytes) {
         requireObjectId(objectId);
+        String storageKey = OBJECT_PREFIX + objectId.substring(0, 2) + "/" + objectId.substring(2, 4) + "/" + objectId;
+        return writeToStorageKey(storageKey, content, maximumBytes);
+    }
+
+    @Override
+    public StoredBlob put(String objectId, String relativeDirectory, String extension,
+                          InputStream content, long maximumBytes) {
+        requireObjectId(objectId);
+        String safeDir = sanitizeRelativeDirectory(relativeDirectory);
+        String safeExt = sanitizeExtension(extension);
+        String storageKey = MATERIALS_PREFIX + safeDir + "/" + objectId + "." + safeExt;
+        return writeToStorageKey(storageKey, content, maximumBytes);
+    }
+
+    private StoredBlob writeToStorageKey(String storageKey, InputStream content, long maximumBytes) {
         if (content == null) throw new IllegalArgumentException("文件内容不能为空");
         if (maximumBytes < 1) throw new IllegalArgumentException("文件大小上限必须大于零");
 
-        String storageKey = OBJECT_PREFIX + objectId.substring(0, 2) + "/" + objectId.substring(2, 4) + "/" + objectId;
         Path target = resolve(storageKey);
         Path stagingDirectory = dataRoot().resolve("files/staging");
         Path temporary = null;
@@ -93,8 +121,19 @@ public class LocalBlobStore implements BlobStore {
     }
 
     private Path resolve(String storageKey) {
-        if (storageKey == null
-                || (!storageKey.startsWith(OBJECT_PREFIX) && !storageKey.startsWith(LEGACY_PREFIX))) {
+        if (storageKey == null) {
+            throw new IllegalArgumentException("本地文件存储键非法");
+        }
+        if (storageKey.startsWith(MATERIALS_PREFIX)) {
+            Path materialsRoot = materialsRoot();
+            String relative = storageKey.substring(MATERIALS_PREFIX.length());
+            Path resolved = materialsRoot.resolve(relative).normalize();
+            if (!resolved.startsWith(materialsRoot) || resolved.equals(materialsRoot)) {
+                throw new IllegalArgumentException("本地素材存储键越界");
+            }
+            return resolved;
+        }
+        if (!storageKey.startsWith(OBJECT_PREFIX) && !storageKey.startsWith(LEGACY_PREFIX)) {
             throw new IllegalArgumentException("本地文件存储键非法");
         }
         Path root = dataRoot();
@@ -104,6 +143,40 @@ public class LocalBlobStore implements BlobStore {
                 : root.resolve("records/attachments");
         if (!resolved.startsWith(allowedRoot)) throw new IllegalArgumentException("本地文件存储键越界");
         return resolved;
+    }
+
+    private Path materialsRoot() {
+        if (agentStorageProperties != null) {
+            return agentStorageProperties.getMaterialsDirectory().toAbsolutePath().normalize();
+        }
+        return dataRoot().resolve("materials").toAbsolutePath().normalize();
+    }
+
+    private String sanitizeRelativeDirectory(String relativeDirectory) {
+        if (relativeDirectory == null || relativeDirectory.isBlank()) {
+            throw new IllegalArgumentException("素材归档目录不能为空");
+        }
+        String normalized = relativeDirectory.replace('\\', '/').replaceAll("^/+|/+$", "");
+        String[] segments = normalized.split("/");
+        if (segments.length == 0) throw new IllegalArgumentException("素材归档目录非法");
+        for (String segment : segments) {
+            if (!segment.matches("[a-zA-Z0-9_-]{1,80}")) {
+                throw new IllegalArgumentException("素材归档目录段格式非法: " + segment);
+            }
+        }
+        return String.join("/", segments);
+    }
+
+    private String sanitizeExtension(String extension) {
+        if (extension == null || extension.isBlank()) {
+            throw new IllegalArgumentException("素材文件扩展名不能为空");
+        }
+        String clean = extension.trim().toLowerCase(Locale.ROOT);
+        if (clean.startsWith(".")) clean = clean.substring(1);
+        if (!clean.matches("[a-z0-9]{1,10}")) {
+            throw new IllegalArgumentException("素材文件扩展名格式非法");
+        }
+        return clean;
     }
 
     private Path dataRoot() {

@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct RecordAgentApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var environment = AppEnvironment.shared
 
     var body: some Scene {

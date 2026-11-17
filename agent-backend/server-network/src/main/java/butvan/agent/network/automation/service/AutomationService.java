@@ -8,6 +8,8 @@ import butvan.agent.network.automation.model.*;
 import butvan.agent.network.automation.repository.AutomationRepository;
 import butvan.agent.network.automation.dto.AutomationDtos.*;
 import butvan.agent.network.automation.event.TasksChanged;
+import butvan.agent.network.push.IosPushModels.PushCategory;
+import butvan.agent.network.push.IosPushService;
 import butvan.agent.network.review.service.ReviewCoachService;
 import butvan.agent.network.review.service.ReviewDeliveryService;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import java.nio.charset.StandardCharsets;
 import java.time.*;
@@ -42,6 +46,8 @@ public class AutomationService implements TaskReportContextPort {
     private ObjectProvider<PersonalDeliveryPort> personalDeliveries;
     @Autowired(required = false)
     private ResetBarrier resetBarrier;
+    @Autowired(required = false)
+    private IosPushService iosPushService;
     /** 仅保存最后一次原生采样时间，无法观察的间隙绝不推算为使用时长。 */
     private final Map<String, Instant> samples = new HashMap<>();
     /** 同步读取时分配序号，跨 REST/SSE 传输可比较；重启更换来源，不持久化运行态序号。 */
@@ -209,7 +215,27 @@ public class AutomationService implements TaskReportContextPort {
         if (waiting) reviewDeliveries.register(task.ownerId(), run.id(), reviewId, text, html,
                 "DAILY_REPORT".equals(s.kind()) ? 90 : "WEEKLY_REPORT".equals(s.kind()) ? 120 : 150);
         if ("ACTIVITY".equals(s.trigger())) repository.progress(task.id(), null, 0, task.status());
+        if (!failed && (s.desktop() || s.confirm()) && iosPushService != null) {
+            String summary = summarizeNonSensitiveReport(text);
+            String pushBody = summary.isBlank() ? "任务已触发，点击查看详情。" : summary;
+            scheduleAfterCommit(() -> iosPushService.publishNotice(
+                    task.ownerId(), PushCategory.AUTOMATION, "AUTOMATION_RUN",
+                    s.title(), pushBody, null, "tasks"));
+        }
         return run;
+    }
+
+    private void scheduleAfterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
     }
     private void skipped(AutomationTask t, long planned, String reason) {
         repository.insertRun(new TaskRun(UUID.randomUUID().toString(), t.id(), t.ownerId(), t.spec().title(), "",

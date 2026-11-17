@@ -3,6 +3,7 @@ import SwiftUI
 /// 首页采用连续画布，保留问候与插画氛围，中部只用留白组织信息。
 struct HomeView: View {
     @ObservedObject var viewModel: HomeViewModel
+    @EnvironmentObject private var environment: AppEnvironment
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -23,10 +24,9 @@ struct HomeView: View {
         } message: {
             Text("home.search.message")
         }
-        .alert(Text("home.notifications.title"), isPresented: $viewModel.showNotificationAlert) {
-            Button("home.notifications.dismiss", role: .cancel) {}
-        } message: {
-            Text("home.notifications.message")
+        .sheet(isPresented: $viewModel.showNotificationAlert) {
+            HomeProactiveNoticesSheet(pushCenter: environment.proactiveNotifications)
+                .presentationDetents([.medium, .large])
         }
     }
 }

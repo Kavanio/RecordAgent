@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 付费 Apple 开发者账号就绪后，可在 Xcode Signing & Capabilities 添加 Push Notifications 或将此模板启用为 RecordAgent.entitlements -->
+<plist version="1.0">
+<dict>
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

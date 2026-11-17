@@ -92,6 +92,121 @@ struct AgentSessionSummary: Identifiable, Codable, Equatable, Sendable {
     let status: AgentSessionStatus
 }
 
+enum AgentUsageStatus: String, Codable, Equatable, Sendable {
+    case complete = "COMPLETE"
+    case partial = "PARTIAL"
+    case unavailable = "UNAVAILABLE"
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self).uppercased()
+        self = AgentUsageStatus(rawValue: raw) ?? .unavailable
+    }
+}
+
+enum AgentUsagePurpose: String, Codable, Equatable, Sendable {
+    case chat = "CHAT"
+    case sessionTitle = "SESSION_TITLE"
+    case modelConnectionTest = "MODEL_CONNECTION_TEST"
+    case profileMaintenance = "PROFILE_MAINTENANCE"
+    case contextCompaction = "CONTEXT_COMPACTION"
+    case backgroundAgent = "BACKGROUND_AGENT"
+    case unknown = "UNKNOWN"
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self).uppercased()
+        self = AgentUsagePurpose(rawValue: raw) ?? .unknown
+    }
+}
+
+struct AgentInputTokenBreakdown: Codable, Equatable, Sendable {
+    let systemPromptTokens: Int64
+    let historyTokens: Int64
+    let currentUserTokens: Int64
+    let toolSchemaTokens: Int64
+    let toolResultTokens: Int64
+    let profileContextTokens: Int64
+    let memoryRecallTokens: Int64
+    let ragContextTokens: Int64
+    let otherTokens: Int64
+
+    static let empty = AgentInputTokenBreakdown(
+        systemPromptTokens: 0,
+        historyTokens: 0,
+        currentUserTokens: 0,
+        toolSchemaTokens: 0,
+        toolResultTokens: 0,
+        profileContextTokens: 0,
+        memoryRecallTokens: 0,
+        ragContextTokens: 0,
+        otherTokens: 0
+    )
+
+    init(
+        systemPromptTokens: Int64 = 0,
+        historyTokens: Int64 = 0,
+        currentUserTokens: Int64 = 0,
+        toolSchemaTokens: Int64 = 0,
+        toolResultTokens: Int64 = 0,
+        profileContextTokens: Int64 = 0,
+        memoryRecallTokens: Int64 = 0,
+        ragContextTokens: Int64 = 0,
+        otherTokens: Int64 = 0
+    ) {
+        self.systemPromptTokens = max(0, systemPromptTokens)
+        self.historyTokens = max(0, historyTokens)
+        self.currentUserTokens = max(0, currentUserTokens)
+        self.toolSchemaTokens = max(0, toolSchemaTokens)
+        self.toolResultTokens = max(0, toolResultTokens)
+        self.profileContextTokens = max(0, profileContextTokens)
+        self.memoryRecallTokens = max(0, memoryRecallTokens)
+        self.ragContextTokens = max(0, ragContextTokens)
+        self.otherTokens = max(0, otherTokens)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            systemPromptTokens: (try? c.decode(Int64.self, forKey: .systemPromptTokens)) ?? 0,
+            historyTokens: (try? c.decode(Int64.self, forKey: .historyTokens)) ?? 0,
+            currentUserTokens: (try? c.decode(Int64.self, forKey: .currentUserTokens)) ?? 0,
+            toolSchemaTokens: (try? c.decode(Int64.self, forKey: .toolSchemaTokens)) ?? 0,
+            toolResultTokens: (try? c.decode(Int64.self, forKey: .toolResultTokens)) ?? 0,
+            profileContextTokens: (try? c.decode(Int64.self, forKey: .profileContextTokens)) ?? 0,
+            memoryRecallTokens: (try? c.decode(Int64.self, forKey: .memoryRecallTokens)) ?? 0,
+            ragContextTokens: (try? c.decode(Int64.self, forKey: .ragContextTokens)) ?? 0,
+            otherTokens: (try? c.decode(Int64.self, forKey: .otherTokens)) ?? 0
+        )
+    }
+}
+
+struct AgentToolTokenUsage: Codable, Equatable, Sendable, Identifiable {
+    var id: String { toolName }
+    let toolName: String
+    let schemaTokens: Int64
+    let resultTokens: Int64
+}
+
+struct AgentModelInvocationUsage: Codable, Equatable, Sendable, Identifiable {
+    var id: String { "\(source):\(invocationId):\(modelCallIndex)" }
+    let invocationId: String
+    let modelCallIndex: Int
+    let source: String
+    let purpose: AgentUsagePurpose?
+    let vendor: String?
+    let model: String?
+    let inputTokens: Int64?
+    let outputTokens: Int64?
+    let cachedInputTokens: Int64?
+    let totalTokens: Int64?
+    let durationMillis: Int64?
+    let status: AgentUsageStatus?
+    let tokenCounterId: String?
+    let estimatedInputTokens: Int64?
+    let estimationDeltaTokens: Int64?
+    let breakdown: AgentInputTokenBreakdown?
+    let toolUsages: [AgentToolTokenUsage]?
+}
+
 struct AgentTokenUsageSummary: Codable, Equatable, Sendable {
     let inputTokens: Int64
     let outputTokens: Int64
@@ -101,6 +216,29 @@ struct AgentTokenUsageSummary: Codable, Equatable, Sendable {
     let trackedTurnCount: Int
     let modelCallCount: Int
     let reportedCallCount: Int
+    let status: AgentUsageStatus?
+
+    init(
+        inputTokens: Int64,
+        outputTokens: Int64,
+        cachedInputTokens: Int64,
+        totalTokens: Int64,
+        turnCount: Int,
+        trackedTurnCount: Int,
+        modelCallCount: Int,
+        reportedCallCount: Int,
+        status: AgentUsageStatus? = nil
+    ) {
+        self.inputTokens = inputTokens
+        self.outputTokens = outputTokens
+        self.cachedInputTokens = cachedInputTokens
+        self.totalTokens = totalTokens
+        self.turnCount = turnCount
+        self.trackedTurnCount = trackedTurnCount
+        self.modelCallCount = modelCallCount
+        self.reportedCallCount = reportedCallCount
+        self.status = status
+    }
 }
 
 struct AgentTurnTokenUsage: Codable, Equatable, Sendable {
@@ -108,7 +246,45 @@ struct AgentTurnTokenUsage: Codable, Equatable, Sendable {
     let outputTokens: Int64
     let cachedInputTokens: Int64
     let totalTokens: Int64
+    let modelCallCount: Int?
+    let reportedCallCount: Int?
+    let status: AgentUsageStatus?
+    let calls: [AgentModelInvocationUsage]?
+    let estimatedInputTokens: Int64?
+    let estimationDeltaTokens: Int64?
+    let breakdown: AgentInputTokenBreakdown?
+    let toolUsages: [AgentToolTokenUsage]?
     let durationMillis: Int64?
+
+    init(
+        inputTokens: Int64,
+        outputTokens: Int64,
+        cachedInputTokens: Int64,
+        totalTokens: Int64,
+        modelCallCount: Int? = nil,
+        reportedCallCount: Int? = nil,
+        status: AgentUsageStatus? = nil,
+        calls: [AgentModelInvocationUsage]? = nil,
+        estimatedInputTokens: Int64? = nil,
+        estimationDeltaTokens: Int64? = nil,
+        breakdown: AgentInputTokenBreakdown? = nil,
+        toolUsages: [AgentToolTokenUsage]? = nil,
+        durationMillis: Int64? = nil
+    ) {
+        self.inputTokens = inputTokens
+        self.outputTokens = outputTokens
+        self.cachedInputTokens = cachedInputTokens
+        self.totalTokens = totalTokens
+        self.modelCallCount = modelCallCount
+        self.reportedCallCount = reportedCallCount
+        self.status = status
+        self.calls = calls
+        self.estimatedInputTokens = estimatedInputTokens
+        self.estimationDeltaTokens = estimationDeltaTokens
+        self.breakdown = breakdown
+        self.toolUsages = toolUsages
+        self.durationMillis = durationMillis
+    }
 }
 
 enum AgentMessageRole: String, Codable, Equatable, Sendable {
@@ -197,6 +373,39 @@ struct AgentChatMessage: Identifiable, Equatable, Sendable {
     var proactive: Bool
     var usage: AgentTurnTokenUsage?
     var isStreaming: Bool
+    var images: [AgentChatImageAttachment]
+
+    init(
+        id: String,
+        turnId: String?,
+        role: AgentMessageRole,
+        content: String,
+        thinking: String?,
+        createdAt: Date,
+        status: AgentMessageStatus?,
+        durationSeconds: Int?,
+        tools: [AgentToolExecution],
+        blocks: [AgentMessageBlock],
+        proactive: Bool,
+        usage: AgentTurnTokenUsage?,
+        isStreaming: Bool,
+        images: [AgentChatImageAttachment] = []
+    ) {
+        self.id = id
+        self.turnId = turnId
+        self.role = role
+        self.content = content
+        self.thinking = thinking
+        self.createdAt = createdAt
+        self.status = status
+        self.durationSeconds = durationSeconds
+        self.tools = tools
+        self.blocks = blocks
+        self.proactive = proactive
+        self.usage = usage
+        self.isStreaming = isStreaming
+        self.images = images
+    }
 }
 
 struct AgentPermissionTool: Identifiable, Codable, Equatable, Sendable {
@@ -283,6 +492,29 @@ struct AgentModelConfig: Codable, Equatable, Sendable {
     let baseUrl: String?
     let `protocol`: String?
     let supportsVision: Bool?
+    let contextWindow: Int64?
+
+    init(
+        vendor: String?,
+        name: String?,
+        apiKey: String?,
+        temperature: Double?,
+        stream: Bool?,
+        baseUrl: String?,
+        protocol protocolName: String?,
+        supportsVision: Bool?,
+        contextWindow: Int64? = nil
+    ) {
+        self.vendor = vendor
+        self.name = name
+        self.apiKey = apiKey
+        self.temperature = temperature
+        self.stream = stream
+        self.baseUrl = baseUrl
+        self.`protocol` = protocolName
+        self.supportsVision = supportsVision
+        self.contextWindow = contextWindow
+    }
 
     var displayName: String {
         let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -298,6 +530,27 @@ struct AgentModelItem: Identifiable, Codable, Equatable, Sendable {
     let description: String?
     let supportsReasoning: Bool?
     let supportsVision: Bool?
+    let contextWindow: Int64?
+
+    init(
+        id: String,
+        name: String?,
+        modelName: String,
+        providerId: String?,
+        description: String?,
+        supportsReasoning: Bool?,
+        supportsVision: Bool?,
+        contextWindow: Int64? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.modelName = modelName
+        self.providerId = providerId
+        self.description = description
+        self.supportsReasoning = supportsReasoning
+        self.supportsVision = supportsVision
+        self.contextWindow = contextWindow
+    }
 
     var displayTitle: String {
         let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -329,4 +582,72 @@ struct AgentFullModelConfig: Codable, Equatable, Sendable {
     let baseUrl: String?
     let `protocol`: String?
     let providers: [AgentProviderConfig]?
+}
+
+enum AgentRecordType: String, Codable, Equatable, Sendable {
+    case quick
+    case learning
+    case weeklyReview = "weekly_review"
+    case reading
+    case journal
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = AgentRecordType(rawValue: raw) ?? .unknown
+    }
+}
+
+struct AgentRecordReferenceOption: Identifiable, Codable, Equatable, Sendable {
+    let id: String
+    let recordDate: String
+    let type: AgentRecordType
+    let title: String?
+    let summary: String
+    let tags: [String]
+    let updatedAt: Date?
+
+    var displayTitle: String {
+        let trimmed = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? String(localized: "agent.reference.untitled") : trimmed
+    }
+}
+
+struct AgentRecordReferencePage: Codable, Equatable, Sendable {
+    let items: [AgentRecordReferenceOption]
+    let hasMore: Bool
+    let nextOffset: Int
+}
+
+struct AgentRecordDetail: Identifiable, Codable, Equatable, Sendable {
+    let id: String
+    let recordDate: String
+    let type: AgentRecordType
+    let title: String?
+    let contentText: String?
+    let tags: [String]?
+    let updatedAt: Date?
+
+    var displayTitle: String {
+        let trimmed = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? String(localized: "agent.reference.untitled") : trimmed
+    }
+}
+
+struct AgentChatImagePayload: Codable, Equatable, Sendable {
+    let mediaType: String
+    let dataBase64: String
+}
+
+struct AgentChatImageAttachment: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let mediaType: String
+    let data: Data
+    let dataBase64: String
+
+    var byteCount: Int { data.count }
+
+    var payload: AgentChatImagePayload {
+        AgentChatImagePayload(mediaType: mediaType, dataBase64: dataBase64)
+    }
 }

@@ -31,10 +31,12 @@ public struct RootCoordinatorView: View {
                     profileActivityService: environment.profileActivityService,
                     profileAppearanceService: environment.profileAppearanceService,
                     agentService: environment.agentService,
+                    proactiveNotifications: environment.proactiveNotifications,
                     user: environment.authService.getCurrentSession()?.user,
                     onLogout: {
                         try await environment.authService.logout()
                         await environment.mobileTaskNotifications.clearAll()
+                        await environment.proactiveNotifications.deactivate()
                         authViewModel.isAuthenticated = false
                     })
             } else {
@@ -44,7 +46,10 @@ public struct RootCoordinatorView: View {
         .animation(.easeInOut(duration: 0.3), value: authViewModel.isAuthenticated)
         .onReceive(NotificationCenter.default.publisher(for: .apiSessionExpired)) { _ in
             authViewModel.isAuthenticated = false
-            Task { await environment.mobileTaskNotifications.clearAll() }
+            Task {
+                await environment.mobileTaskNotifications.clearAll()
+                await environment.proactiveNotifications.deactivate()
+            }
         }
     }
 

@@ -20,7 +20,7 @@
 ## 文件资产
 
 - `file/` 是通用文件资产模块：`FileAssetService` 统一维护所有权、业务绑定、大小限制、状态和内容生命周期；业务域只保存或传递稳定文件 ID，不得拼接本地路径、Bucket、Object Key 或第三方 URL。
-- 二进制内容必须通过 `BlobStore` seam 读写。本地 Adapter 将新对象保存于数据库同级的 `files/objects/`，写入必须经过 staging、实际字节上限校验、SHA-256 计算和原子移动；数据库只保存元数据，不保存大文件内容。
+- 二进制内容必须通过 `BlobStore` seam 读写。本地 Adapter 将通用对象保存于数据库同级的 `files/objects/`，对话档案素材按渠道、会话类型、会话 ID、分类格式与日期保存于 `AgentStorageProperties.materialsDirectory`（`~/.butvan-agent/materials/`）；写入均必须经过 staging、实际字节上限校验、SHA-256 计算和原子移动；数据库只保存元数据，不保存大文件内容。
 - `file_binding` 使用后端受控的 `domain_type` 与 `role`。读取、下载、解绑前必须同时校验 owner、业务对象和文件 ID，禁止只凭可猜测的文件 ID 访问内容。
 - 新增第三方存储时实现独立 Adapter，不得把供应商 SDK 类型泄漏到 `FileAssetService` 或业务域；访问密钥只允许通过专用凭据存储引用，禁止进入 SQLite 文件资产表、接口响应和日志。
 - 文件系统、SQLite 与第三方对象存储不具备共同事务；失败路径必须保留可追踪状态并清理临时内容，禁止先丢失元数据再删除实际对象。
@@ -101,6 +101,11 @@
 - 撤销授权、清除数据或扩大范围必须禁用未冻结的 AI 副本；清除同时删除本用户的复盘摘要、目标、建议与观察，保留最小授权审计。
 - 模型输出必须经确定性校验后保存：只允许本次白名单证据、目标、方法与已有行动 ID，拒绝无依据数字、心理诊断与投资承诺；校验通过不保证推理正确。
 
+## 对话档案
+
+- `material/` 独立承载与 Agent 上下文对话过程中产生和发送的图片/文件档案；通过 `server-agents` 的 `ChatMaterialRecorder` 端口在用户消息落盘前统一归档，生成唯一 32 位 `file_id` 写入 `file_asset`、`file_binding`（`CHAT_MATERIAL` / `CHAT_ATTACHMENT`）与 `chat_material`，并将 `imageFileIds` 写入 `TranscriptMessageDto`。
+- 对话档案默认永久保留，删除对话或 Agent 恢复出厂设置时不清理 `~/.butvan-agent/materials/` 与 `chat_material`，仅通过 `DELETE /agent/materials/{fileId}` 显式删除；`/agent/materials/*/content` 为受控只读资源接口，支持 Bearer Token 与原生 `access_token` 鉴权。
+
 ## 资料库
 
 - `record/` 独立承载按日期组织的个人资料库，内置随记、每日学习、每周复盘、读书心得和每日手记五种类型；产品界面统一称为“资料”，前端不得用自由字符串绕过类型约束。
@@ -179,3 +184,9 @@
 - `memory-caches` 完成前必须把 `SubagentCatalog` 恢复为内置定义；每次续做都执行内存失效，不能因文件步骤已完成而跳过。缓存清理失败继续保持屏障，不重新读取旧工作区定义。
 - 出厂重置清除聊天 Token 投影和复盘派生理解，保留系统用量、人工目标、普通任务与已冻结报告副本。未来 Hindsight Adapter 必须成为必需参与方；M1 的 `LOCAL_COMPLETE / NOT_INTEGRATED` 只表示本地完成。
 - 经历记忆基础参与方 `experience-memory` 已必需注册，真实聊天试用经 HindsightTrialService 复用同一远端删除 Gateway；重置 scopeVersion 绑定参与方与接收方，确认凭证绑定同一范围，该范围随重置日志持久化。remoteStatus 动态区分未接入、无目标、待处理、处理中、失败、未知和已核对完成；已知的远端接收方缺失、范围未确认、调用失败或删除证据未知必须通过固定、脱敏的 ResetScopeException 提示其真实原因，不得误报为本地磁盘权限问题。
+
+## iOS 主动推送
+
+- `push/` 承载 iOS 设备登记、APNs 凭据与通知队列，统一原子持久化于 `AgentStorageProperties.iosPushFile`（`~/.butvan-agent/ios-push.json`，POSIX 0600 权限、拒绝符号链接），不改动 SQLite 表结构；API 响应与日志绝不输出 `.p8` 私钥或完整 Device Token。
+- `ApnsClient` 基于 Java 21 原生 HTTP/2 `HttpClient` 与 `SHA256withECDSAinP1363Format` 签署 ES256 JWT，在独立单线程异步投递，不阻塞 `life-review-worker` 与 `automation-worker`；收到 `410 Unregistered` 或 `BadDeviceToken` 时自动清理失效 Token。
+- 主动陪伴问候（`LifeCompanionService`）、生活复盘与信号异常提醒（`LifeDeliveryService` / `LifeOutreachService`）以及自动任务提醒（`AutomationService` 事务提交后）统一汇入 `IosPushService` 并同步推流 `/agent/ios-push/stream` SSE；`IosPushResetParticipant` 在重置时清理待送达通知队列并保留 APNs 凭据与设备登记。

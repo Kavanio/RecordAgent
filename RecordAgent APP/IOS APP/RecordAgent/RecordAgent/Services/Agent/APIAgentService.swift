@@ -136,18 +136,35 @@ final class APIAgentService: AgentServiceProtocol, @unchecked Sendable {
         return trimmed.isEmpty ? nil : payload.content
     }
 
+    func fetchRecordReferences(query: String, limit: Int, offset: Int) async throws -> AgentRecordReferencePage {
+        let items = [
+            URLQueryItem(name: "query", value: query),
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset)),
+        ]
+        return try await client.sendResult("/agent/records/references", query: items)
+    }
+
+    func fetchRecordDetail(id: String) async throws -> AgentRecordDetail {
+        let escaped = Self.escapePathComponent(id)
+        return try await client.sendResult("/agent/records/\(escaped)")
+    }
+
     func streamChat(
         runId: String,
         sessionId: String,
         content: String,
-        recordReferenceIds: [String]
+        context: String,
+        recordReferenceIds: [String],
+        images: [AgentChatImagePayload]
     ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
         let payload = StreamChatPayload(
             runId: runId,
             sessionId: sessionId,
             content: content,
-            context: content,
-            recordReferenceIds: recordReferenceIds
+            context: context,
+            recordReferenceIds: recordReferenceIds,
+            images: images
         )
         return openEventStream(path: "/agent/chat/stream", payload: payload)
     }
@@ -284,6 +301,7 @@ private struct StreamChatPayload: Encodable {
     let content: String
     let context: String
     let recordReferenceIds: [String]
+    let images: [AgentChatImagePayload]
 }
 
 private struct ResumeChatPayload: Encodable {

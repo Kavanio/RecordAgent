@@ -1,4 +1,5 @@
 import type {
+  ChatImageAttachment,
   ChatMessage,
   MessageBlock,
   ToolExecution,
@@ -6,6 +7,7 @@ import type {
   TranscriptMessageDto,
   TranscriptToolExecutionDto,
 } from '../../types/chat';
+import { materialContentUrl } from '../../services/materialApi';
 
 function padTwo(value: number): string {
   return String(value).padStart(2, '0');
@@ -86,12 +88,21 @@ export function mapTranscriptToChatMessage(
   const createdAt = Number.isFinite(parsedTime) && parsedTime > 0
     ? parsedTime
     : (proactive ? 0 : Date.now());
+  const images: ChatImageAttachment[] | undefined = isUser && dto.imageFileIds && dto.imageFileIds.length > 0
+    ? dto.imageFileIds.map((fileId, idx) => ({
+        fileId,
+        mediaType: 'image/*',
+        dataUrl: materialContentUrl(fileId),
+        name: `对话图片 ${idx + 1}`,
+      }))
+    : undefined;
   return {
     id: dto.id,
     turnId: dto.turnId,
     role: isUser ? 'user' : 'assistant',
     modelName: isUser ? undefined : 'ButvanAgent',
     content: dto.content || '',
+    images,
     reasoning: dto.thinking || undefined,
     createdAt,
     status: dto.status,

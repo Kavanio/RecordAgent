@@ -54,6 +54,12 @@ public class AgentStorageProperties {
     /** 天气与节假日持久化缓存目录。 */
     private final Path dailyContextDirectory;
 
+    /** iOS 主动推送配置、设备令牌与待送达通知状态文件（含 APNs 凭据，恢复出厂保留凭据）。 */
+    private final Path iosPushFile;
+
+    /** 对话档案素材本地分类归档目录，重置时受保护保留。 */
+    private final Path materialsDirectory;
+
     public AgentStorageProperties() {
         this(Paths.get(System.getProperty("user.home"), ".butvan-agent"));
     }
@@ -77,6 +83,8 @@ public class AgentStorageProperties {
         feishuDirectory = this.rootDirectory.resolve("channels/feishu");
         hindsightConnectionFile = this.rootDirectory.resolve("hindsight-connection.json");
         dailyContextDirectory = this.rootDirectory.resolve("daily-context");
+        iosPushFile = this.rootDirectory.resolve("ios-push.json");
+        materialsDirectory = this.rootDirectory.resolve("materials");
 
         // 应用启动的时候创建本项目明确拥有的目录
         createDirectories(sessionCatalogFile.getParent());
@@ -87,6 +95,7 @@ public class AgentStorageProperties {
         createDirectories(agentStateDirectory);
         createDirectories(workspaceDirectory);
         createDirectories(dailyContextDirectory);
+        createDirectories(materialsDirectory);
     }
 
     /**

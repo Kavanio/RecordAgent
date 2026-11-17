@@ -76,8 +76,10 @@ public class ApiTokenFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         return path.equals("/agent/automations/stream")
                 || path.equals("/agent/study-sessions/stream")
+                || path.equals("/agent/ios-push/stream")
                 || path.equals("/api/tasks/stream")
                 || path.equals("/agent/account/avatar/content")
+                || (path.startsWith("/agent/materials/") && path.endsWith("/content"))
                 || (path.startsWith("/agent/records/") && path.contains("/attachments/") && path.endsWith("/content"));
     }
 }
