@@ -171,85 +171,145 @@ struct AgentReplyImageGallery: View {
         @State private var exporting = false
         @State private var exportFailed = false
 
+        private var effectiveZoom: Double {
+            min(5, max(1, zoom * pinch))
+        }
+
+        private var showChrome: Bool {
+            effectiveZoom <= 1.05
+        }
+
         var body: some View {
             GeometryReader { outer in
-                let maxModalWidth = min(outer.size.width - 32, 520.0)
-                let maxImageHeight = max(240.0, outer.size.height * 0.62)
                 let imageRatio = item.image.size.height > 0 ? (item.image.size.width / item.image.size.height) : 1.0
-                let fittedHeight = min(maxImageHeight, max(180.0, maxModalWidth / max(imageRatio, 0.2)))
+                let availableWidth = max(1, outer.size.width - 32)
+                let availableHeight = max(1, outer.size.height - outer.safeAreaInsets.top - outer.safeAreaInsets.bottom - 140)
+                let baseWidth: CGFloat = {
+                    if imageRatio <= 0 { return availableWidth }
+                    let widthForMaxHeight = availableHeight * imageRatio
+                    return min(availableWidth, widthForMaxHeight)
+                }()
+                let baseHeight = max(1, baseWidth / max(imageRatio, 0.1))
 
                 ZStack {
-                    Color.black.opacity(0.62)
+                    Color.black.opacity(0.92)
                         .ignoresSafeArea()
-                        .onTapGesture(perform: onClose)
-
-                    VStack(spacing: 0) {
-                        HStack(spacing: 12) {
-                            Button(action: onClose) {
-                                Image(systemName: "xmark")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 32, height: 32)
-                                    .background(Color(uiColor: .secondarySystemBackground), in: Circle())
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if effectiveZoom > 1.05 {
+                                withAnimation(.easeOut(duration: 0.2)) { zoom = 1.0 }
+                            } else {
+                                onClose()
                             }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("agent.image.reply.close")
-
-                            Text(verbatim: item.attachment.title)
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-
-                            Menu {
-                                Button("agent.image.reply.save", systemImage: "square.and.arrow.down") {
-                                    exporting = true
-                                }
-                                ShareLink(item: Image(uiImage: item.image),
-                                          preview: SharePreview(item.attachment.title, image: Image(uiImage: item.image)))
-                                if let source = item.attachment.source {
-                                    Link("agent.image.reply.source", destination: source)
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis.circle")
-                                    .font(.title3)
-                                    .foregroundStyle(.primary)
-                                    .frame(width: 32, height: 32)
-                            }
-                            .accessibilityLabel("agent.image.reply.actions")
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
 
-                        Divider()
-                            .opacity(0.45)
-
-                        let magnification = min(5, max(1, zoom * pinch))
-                        ScrollView([.horizontal, .vertical]) {
+                    ScrollView([.horizontal, .vertical]) {
+                        ZStack {
                             Image(uiImage: item.image)
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: maxModalWidth * magnification,
-                                       height: fittedHeight * magnification)
-                                .onTapGesture(count: 2) { zoom = zoom > 1 ? 1 : 2 }
+                                .frame(width: baseWidth * effectiveZoom, height: baseHeight * effectiveZoom)
+                                .clipShape(.rect(cornerRadius: effectiveZoom > 1.05 ? 0 : 12, style: .continuous))
+                                .shadow(color: .black.opacity(0.45), radius: 24, y: 8)
+                                .onTapGesture(count: 2) {
+                                    withAnimation(.easeOut(duration: 0.2)) {
+                                        zoom = zoom > 1 ? 1 : 2
+                                    }
+                                }
                                 .gesture(MagnifyGesture()
                                     .updating($pinch) { value, state, _ in state = value.magnification }
                                     .onEnded { value in zoom = min(5, max(1, zoom * value.magnification)) })
                                 .accessibilityLabel(Text(verbatim: item.attachment.title))
                         }
-                        .scrollIndicators(.hidden)
-                        .frame(width: maxModalWidth, height: fittedHeight)
-                        .background(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.4))
+                        .frame(minWidth: outer.size.width, minHeight: outer.size.height)
                     }
-                    .frame(width: maxModalWidth)
-                    .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(Color(uiColor: .separator).opacity(0.25), lineWidth: 0.5)
+                    .scrollIndicators(.hidden)
+
+                    VStack {
+                        HStack {
+                            Button(action: onClose) {
+                                Image(systemName: "xmark")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 36, height: 36)
+                                    .background(.ultraThinMaterial, in: Circle())
+                                    .overlay {
+                                        Circle()
+                                            .strokeBorder(Color.white.opacity(0.16), lineWidth: 0.5)
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("agent.image.reply.close")
+
+                            Spacer()
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.top, 10)
+
+                        Spacer()
+
+                        if showChrome {
+                            VStack(spacing: 12) {
+                                let title = item.attachment.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if !title.isEmpty {
+                                    Text(verbatim: title)
+                                        .font(.footnote)
+                                        .foregroundStyle(.white.opacity(0.82))
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal, 28)
+                                }
+
+                                HStack(spacing: 2) {
+                                    Button {
+                                        exporting = true
+                                    } label: {
+                                        Label("agent.image.reply.save", systemImage: "square.and.arrow.down")
+                                            .font(.footnote.weight(.medium))
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 10)
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Divider()
+                                        .frame(height: 16)
+                                        .overlay(Color.white.opacity(0.2))
+
+                                    ShareLink(
+                                        item: Image(uiImage: item.image),
+                                        preview: SharePreview(item.attachment.title, image: Image(uiImage: item.image))
+                                    ) {
+                                        Image(systemName: "square.and.arrow.up")
+                                            .font(.footnote.weight(.medium))
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 10)
+                                    }
+
+                                    if let source = item.attachment.source {
+                                        Divider()
+                                            .frame(height: 16)
+                                            .overlay(Color.white.opacity(0.2))
+
+                                        Link(destination: source) {
+                                            Label("agent.image.reply.source", systemImage: "safari")
+                                                .font(.footnote.weight(.medium))
+                                                .padding(.horizontal, 14)
+                                                .padding(.vertical, 10)
+                                        }
+                                    }
+                                }
+                                .foregroundStyle(.white)
+                                .background(.ultraThinMaterial, in: Capsule())
+                                .overlay {
+                                    Capsule()
+                                        .strokeBorder(Color.white.opacity(0.16), lineWidth: 0.5)
+                                }
+                            }
+                            .padding(.bottom, 14)
+                            .transition(.opacity)
+                        }
                     }
-                    .shadow(color: .black.opacity(0.22), radius: 24, y: 10)
-                    .padding(.horizontal, 16)
+                    .environment(\.colorScheme, .dark)
                 }
             }
             .fileExporter(isPresented: $exporting, document: ImageFile(data: item.data),
