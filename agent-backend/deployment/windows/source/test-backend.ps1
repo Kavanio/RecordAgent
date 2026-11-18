@@ -16,25 +16,19 @@ $temporary = Join-Path ([IO.Path]::GetTempPath()) ('butvan-deploy-test-' + [Guid
 try {
     $jar = Join-Path $temporary 'test.jar'
     [IO.File]::WriteAllText($jar, 'jar 测试内容', (New-Object Text.UTF8Encoding $false))
-    $manifest = @{
-        schemaVersion = 1; javaVersion = 21; commit = ('a' * 40)
-        jar = @{ key = ('backend/releases/' + ('a' * 40) + '/123-1/butvan-backend.jar')
-            sha256 = (Get-FileHash $jar -Algorithm SHA256).Hash.ToLowerInvariant()
-            size = (Get-Item $jar).Length }
-    } | ConvertTo-Json -Depth 5 | ConvertFrom-Json
-    Assert-ReleaseManifest $manifest 'backend'
-    Assert-DownloadedJar $jar $manifest.jar
-    foreach ($key in @('../escape.jar', 'backend/releases/other/butvan-backend.jar', 'https://example.com/app.jar')) {
-        $original = $manifest.jar.key
-        $manifest.jar.key = $key
-        Assert-Fails { Assert-ReleaseManifest $manifest 'backend' }
-        $manifest.jar.key = $original
-    }
-    $manifest.jar.size = 1GB + 1
-    Assert-Fails { Assert-ReleaseManifest $manifest 'backend' }
-    $manifest.jar.size = (Get-Item $jar).Length
+    $metadata = @{
+        commit = ('a' * 40)
+        sha256 = (Get-FileHash $jar -Algorithm SHA256).Hash.ToLowerInvariant()
+        size = (Get-Item $jar).Length
+    } | ConvertTo-Json | ConvertFrom-Json
+    Assert-JarMetadata $metadata
+    Assert-DownloadedJar $jar $metadata
+    $metadata.size = 1GB + 1
+    Assert-Fails { Assert-JarMetadata $metadata }
+    $metadata.size = (Get-Item $jar).Length
     [IO.File]::WriteAllText($jar, 'corrupted')
-    Assert-Fails { Assert-DownloadedJar $jar $manifest.jar }
+    Assert-Fails { Assert-DownloadedJar $jar $metadata }
+    Assert-Fails { Assert-ExecutableJar $jar }
 
     foreach ($failedStep in @('Download','Stop','Backup','Install','Start','None')) {
         $script:steps = New-Object 'Collections.Generic.List[string]'
@@ -61,18 +55,24 @@ try {
     [IO.File]::WriteAllText($envPath, 'BUTVAN_API_TOKEN=short')
     Assert-Fails { Read-BackendEnvironment $envPath }
 
+    # 首次令牌由隐藏输入保存，已有有效令牌不重复询问。
+    [IO.File]::WriteAllText($envPath, 'BUTVAN_API_TOKEN=')
+    $script:tokenPrompts = 0
+    function Read-Host { param($Prompt, [switch]$AsSecureString); $script:tokenPrompts++; return (ConvertTo-SecureString ('x' * 32) -AsPlainText -Force) }
+    Initialize-BackendToken $envPath
+    Assert-True ((Read-BackendEnvironment $envPath)['BUTVAN_API_TOKEN'] -eq ('x' * 32)) '首次令牌未正确保存。'
+    Initialize-BackendToken $envPath
+    Assert-True ($script:tokenPrompts -eq 1) '重复询问了已配置令牌。'
+
     Assert-True ((ConvertTo-NativeArgument 'C:\Program Files\Java') -eq '"C:\Program Files\Java"') '空格路径未正确引用。'
     Assert-True ((ConvertTo-NativeArgument 'C:\') -eq '"C:\\"') '尾部反斜杠未正确引用。'
     Assert-Fails { ConvertTo-NativeArgument 'bad"path' }
 
-    # 固定 HTTPS 下载地址和清单对象键拼接，拒绝跨站地址和路径穿越。
-    Assert-True ((Get-ReleaseObjectUrl 'https://example.com/recordagent/' 'backend/channels/develop.json') -eq
-        'https://example.com/recordagent/backend/channels/develop.json') '下载地址拼接错误。'
-    foreach ($base in @('http://example.com/bucket','https://user:secret@example.com/bucket','https://example.com/bucket?token=hidden')) {
-        Assert-Fails { Get-ReleaseObjectUrl $base 'backend/channels/develop.json' }
-    }
-    foreach ($key in @('backend/../private/file','backend/./file','https://other.com/file','backend/%2e%2e/file')) {
-        Assert-Fails { Get-ReleaseObjectUrl 'https://example.com/bucket' $key }
+    # 直接从固定 HTTPS JAR 下载，不再读取远端清单。
+    Assert-JarUrl 'https://example.com/recordagent/backend/butvan-backend.jar'
+    foreach ($url in @('http://example.com/app.jar', 'https://user:secret@example.com/app.jar',
+        'https://example.com/app.jar?token=hidden', 'https://example.com/manifest.json')) {
+        Assert-Fails { Assert-JarUrl $url }
     }
 
     # 首次模板初始化和旧版本配置兼容，不覆盖已经填写的真实配置。
@@ -81,13 +81,13 @@ try {
     Copy-Item (Join-Path $PSScriptRoot 'backend-settings.example.json') $configDirectory
     Copy-Item (Join-Path $PSScriptRoot 'backend.env.example') $configDirectory
     $settings = Read-BackendSettings $configDirectory
-    Assert-True ($settings.downloadBaseUrl -eq 'https://minio.server.butvan.top/recordagent') '缺少默认下载地址。'
+    Assert-True ($settings.jarUrl -eq 'https://minio.server.butvan.top/recordagent/backend/butvan-backend.jar') '缺少默认下载地址。'
     Assert-True (Test-Path (Join-Path $configDirectory 'backend.env')) '未生成首次环境配置。'
     $configPath = Join-Path $configDirectory 'backend-settings.json'
     [IO.File]::WriteAllText($configPath, '{"javaExe":"custom-java.exe","mcExe":"legacy-mc.exe"}')
     $before = [IO.File]::ReadAllText($configPath)
     $legacy = Read-BackendSettings $configDirectory
-    Assert-True ($legacy.javaExe -eq 'custom-java.exe' -and $legacy.downloadBaseUrl -match '^https://') '旧配置不兼容。'
+    Assert-True ($legacy.javaExe -eq 'custom-java.exe' -and $legacy.jarUrl -match '^https://') '旧配置不兼容。'
     Assert-True ([IO.File]::ReadAllText($configPath) -eq $before) '覆盖了已有配置。'
     [IO.File]::WriteAllText($configPath, '{ bad JSON }')
     Assert-Fails { Read-BackendSettings $configDirectory }

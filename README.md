@@ -361,9 +361,9 @@ bash scripts/build-app.sh
 
 ### 后端 JAR 自动发布与 Windows 部署
 
-`develop` 的桌面后端源码、Maven 配置、Windows 部署模板或发布脚本变化时，GitHub Actions 构建 Java 21 JAR，上传到 MinIO `https://minio.server.butvan.top` 的 Bucket `recordagent` 下 `backend/` 发布目录。需配置 Secrets `MINIO_ACCESS_KEY`、`MINIO_SECRET_KEY`；密钥不入库。流水线只发布，不连接或部署 Windows。
+`develop` 的后端源码、Maven、发布脚本或发布工作流变化时，GitHub Actions 构建 Java 21 JAR，只上传到 MinIO 的固定地址：[butvan-backend.jar](https://minio.server.butvan.top/recordagent/backend/butvan-backend.jar)。Secrets 继续使用 `MINIO_ACCESS_KEY`、`MINIO_SECRET_KEY`；提交和 SHA-256 放在 JAR 对象元数据，不另上传启动器、清单或校验文件。
 
-Windows 只需安装 Java 21，脚本通过固定 HTTPS URL 下载，无需 MinIO Client 或下载凭据。只有 `recordagent/backend/*` 允许匿名读取，其他范围保持原权限。双击 `update-and-start.bat` 自动下载校验、正常停机、完整备份并后台启动；`view-logs.bat` 随时查看滚动日志，关闭窗口不停止后端。首次迁移必须先停旧容器、禁用自动重启并迁移整个用户数据目录，详见 [`agent-backend/WINDOWS.md`](agent-backend/WINDOWS.md)。
+Windows 安装 Java 21，只需手动复制 [`agent-backend/deployment/windows/`](agent-backend/deployment/windows/) 下的四个 BAT：更新并启动、启动、停止和查看日志。运行逻辑已内置，首次自动准备到一个 `data/` 目录；更新通过 HTTPS 下载、校验、正常停机和备份后后台启动，日志随时打开查看。迁移步骤和配置见 [`agent-backend/WINDOWS.md`](agent-backend/WINDOWS.md)。
 
 旧 ACR 工作流保存在 `.github/workflow-archive/backend-image.yml.disabled`，不再自动运行；Dockerfile、Compose 与旧更新脚本继续保留备用，操作说明见 [`agent-backend/DOCKER.md`](agent-backend/DOCKER.md)。
 

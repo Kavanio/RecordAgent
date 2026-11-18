@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""发布独立 JAR 与 Windows 启动器；固定产物完成后才更新渠道清单。"""
+"""只向 MinIO 发布一个固定地址的 JAR；校验信息保存在对象元数据。"""
 
 import hashlib
 import json
@@ -7,11 +7,8 @@ import os
 from pathlib import Path
 import re
 import sys
-import tempfile
-from datetime import datetime, timezone
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
-import zipfile
 
 
 def file_info(path, key):
@@ -21,24 +18,6 @@ def file_info(path, key):
         for chunk in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(chunk)
     return {"key": key, "sha256": digest.hexdigest(), "size": path.stat().st_size}
-
-
-def package_launcher(directory, output, readme):
-    """只打包发布模板白名单，绝不包含真实配置、凭据或运行态数据。"""
-    names = ["AGENTS.md", "backend.ps1", "backend-core.ps1", "backend-download.ps1", "signal-stop.ps1",
-             "backend-settings.example.json", "backend.env.example", "logback-windows.xml",
-             "update-and-start.bat", "start-backend.bat", "stop-backend.bat", "view-logs.bat"]
-    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
-        for name in names:
-            if name.endswith((".bat", ".ps1")):
-                text = (directory / name).read_text(encoding="utf-8-sig").replace("\r\n", "\n")
-                payload = text.replace("\n", "\r\n").encode("utf-8")
-                if name.endswith(".ps1"):
-                    payload = b"\xef\xbb\xbf" + payload
-                archive.writestr(name, payload)
-            else:
-                archive.write(directory / name, name)
-        archive.write(readme, "WINDOWS.md")
 
 
 def ensure_public_downloads(client, bucket, prefix):
@@ -84,43 +63,26 @@ def ensure_public_downloads(client, bucket, prefix):
     client.put_bucket_policy(Bucket=bucket, Policy=json.dumps(policy))
 
 
-def publish(client, bucket, prefix, commit, build_id, jar, launcher, is_current):
-    """上传失败或旧提交均不得覆盖跟随清单；重复构建使用独立目录。"""
+def publish(client, bucket, prefix, commit, jar, is_current):
+    """只有当前 develop 提交可覆盖固定 JAR；一次 PUT 同时发布正文与校验头。"""
     if not re.fullmatch(r"[a-f0-9]{40}", commit):
         raise ValueError("发布提交必须为完整 SHA")
-    if not re.fullmatch(r"[0-9]+-[0-9]+", build_id):
-        raise ValueError("构建标识必须为 run-id-attempt")
     if not re.fullmatch(r"[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*", prefix):
         raise ValueError("发布前缀格式无效")
-    base = f"{prefix}/releases/{commit}/{build_id}"
-    manifest = {
-        "schemaVersion": 1, "commit": commit, "javaVersion": 21,
-        "publishedAt": datetime.now(timezone.utc).isoformat(),
-        "jar": file_info(jar, f"{base}/butvan-backend.jar"),
-        "launcher": file_info(launcher, f"{base}/windows-launcher.zip"),
-    }
-    for path, entry in [(jar, manifest["jar"]), (launcher, manifest["launcher"])]:
-        with path.open("rb") as body:
-            client.put_object(Bucket=bucket, Key=entry["key"], Body=body,
-                              ContentLength=entry["size"], ContentType="application/octet-stream")
-    client.put_object(Bucket=bucket, Key=f"{base}/butvan-backend.jar.sha256",
-                      Body=(manifest["jar"]["sha256"] + "  butvan-backend.jar\n").encode(),
-                      ContentType="text/plain")
-    payload = json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")
-    client.put_object(Bucket=bucket, Key=f"{base}/manifest.json", Body=payload,
-                      ContentType="application/json")
-    promoted = is_current()
-    if promoted:
-        with launcher.open("rb") as body:
-            client.put_object(Bucket=bucket, Key=f"{prefix}/windows-launcher.zip", Body=body,
-                              ContentType="application/zip", CacheControl="no-store, max-age=0")
-        client.put_object(Bucket=bucket, Key=f"{prefix}/channels/develop.json", Body=payload,
-                          ContentType="application/json", CacheControl="no-store, max-age=0")
-    return manifest, promoted
+    entry = file_info(jar, f"{prefix}/butvan-backend.jar")
+    if not is_current():
+        return entry, False
+    print(f"正在上传 JAR，大小 {entry['size']} 字节……", flush=True)
+    with jar.open("rb") as body:
+        client.put_object(Bucket=bucket, Key=entry["key"], Body=body,
+                          ContentLength=entry["size"], ContentType="application/java-archive",
+                          CacheControl="no-store, max-age=0",
+                          Metadata={"sha256": entry["sha256"], "commit": commit})
+    return entry, True
 
 
 def current_develop(commit):
-    """上传完成后读取权威分支，避免慢构建或手动重跑覆盖新提交。"""
+    """上传前读取权威分支，串行发布避免旧构建重跑覆盖新提交。"""
     repository = os.environ["GITHUB_REPOSITORY"]
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("仓库标识格式无效")
@@ -157,21 +119,16 @@ def main():
     prefix = os.environ.get("MINIO_PREFIX", "backend")
     ensure_public_downloads(client, bucket, prefix)
     backend = Path(__file__).resolve().parents[1]
-    with tempfile.TemporaryDirectory() as staging:
-        launcher = Path(staging) / "windows-launcher.zip"
-        package_launcher(backend / "deployment/windows", launcher, backend / "WINDOWS.md")
-        commit = os.environ["GITHUB_SHA"]
-        manifest, promoted = publish(
-            client, bucket, prefix,
-            commit, f'{os.environ["GITHUB_RUN_ID"]}-{os.environ["GITHUB_RUN_ATTEMPT"]}',
-            backend / "server-network/target/server-network-0.0.1-SNAPSHOT.jar", launcher,
-            lambda: current_develop(commit))
+    commit = os.environ["GITHUB_SHA"]
+    entry, promoted = publish(
+        client, bucket, prefix, commit,
+        backend / "server-network/target/server-network-0.0.1-SNAPSHOT.jar",
+        lambda: current_develop(commit))
     summary = (f"## 后端 JAR 发布结果\n- 提交：`{commit}`\n"
-               f'- JAR：`{manifest["jar"]["key"]}`\n'
-               f'- 启动器：`{manifest["launcher"]["key"]}`\n'
-               f"- 固定启动器地址：{endpoint.rstrip('/')}/{bucket}/{prefix}/windows-launcher.zip\n"
-               f"- develop 指针：{'已更新' if promoted else '已有新提交，未覆盖'}\n"
-               "- Windows 仍由用户运行更新脚本，本工作流不部署服务器。\n")
+               f"- 固定地址：{endpoint.rstrip('/')}/{bucket}/{entry['key']}\n"
+               f"- SHA-256：`{entry['sha256']}`（保存在 JAR 对象元数据）\n"
+               f"- 发布状态：{'已更新' if promoted else '已有新提交，未覆盖'}\n"
+               "- 仅上传 JAR；Windows BAT 保存在项目中，由用户手动复制。\n")
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
             output.write(summary)

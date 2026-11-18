@@ -1,10 +1,12 @@
-﻿param([ValidateSet('Update','Start','Stop','Logs')][string]$Action = 'Start')
+﻿param([ValidateSet('Update','Start','Stop','Logs')][string]$Action = 'Start',
+      [string]$DeploymentRoot = $PSScriptRoot)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding $false
 . "$PSScriptRoot\backend-core.ps1"
 . "$PSScriptRoot\backend-download.ps1"
-$script:DeploymentRoot = $PSScriptRoot
+$script:SupportRoot = $PSScriptRoot
+$script:DeploymentRoot = $DeploymentRoot
 
 function Write-State {
     param([string]$Path, $Value)
@@ -50,7 +52,7 @@ function Stop-Backend {
     $state = Get-Content -LiteralPath $script:StatePath -Raw -Encoding UTF8 | ConvertFrom-Json
     Write-Host '正在请求后端正常关闭……'
     $arguments = @('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',
-        (ConvertTo-NativeArgument "$script:DeploymentRoot\signal-stop.ps1"),
+        (ConvertTo-NativeArgument "$script:SupportRoot\signal-stop.ps1"),
         '-TargetProcessId', $process.ProcessId, '-CreatedTicks', $state.createdTicks, '-LaunchId', $state.launchId)
     $helper = Start-Process -FilePath "$PSHOME\powershell.exe" -ArgumentList $arguments `
         -WindowStyle Hidden -PassThru
@@ -75,8 +77,8 @@ function Start-Backend {
     Assert-PortFree
     if (-not (Test-Path -LiteralPath $script:JarPath)) { throw '尚未安装 JAR，请先运行 update-and-start.bat。' }
     $installed = Get-Content -LiteralPath "$script:DeploymentRoot\app\installed.json" -Raw -Encoding UTF8 | ConvertFrom-Json
-    Assert-ReleaseManifest $installed $script:Settings.prefix
-    Assert-DownloadedJar $script:JarPath $installed.jar
+    Assert-JarMetadata $installed
+    Assert-DownloadedJar $script:JarPath $installed
     # 所有启动路径先验证 Java 21，避免停机后才发现依赖缺失。
     Assert-Java
     foreach ($name in @('boot.out.log','boot.err.log')) {
@@ -89,7 +91,7 @@ function Start-Backend {
         "-Dbutvan.launcher.id=$launchId", '-jar', $script:JarPath,
         "--server.port=$($script:Settings.port)", '--server.address=127.0.0.1',
         '--butvan.api.require-token=true', '--server.ssl.enabled=false',
-        "--logging.config=$script:DeploymentRoot\logback-windows.xml")
+        "--logging.config=$script:SupportRoot\logback-windows.xml")
     $argumentLine = ($nativeArgs | ForEach-Object { ConvertTo-NativeArgument $_ }) -join ' '
     $restore = @{}
     try {
@@ -142,26 +144,18 @@ function Assert-Java {
     }
 }
 
-function Copy-ReleaseObject {
-    param([string]$Key, [string]$Destination, [long]$MaximumBytes)
-    $url = Get-ReleaseObjectUrl $script:Settings.downloadBaseUrl $Key
-    Save-PublicDownload $url $Destination $MaximumBytes
-}
-
 function Download-Release {
     Assert-Java
     $directory = Join-Path $script:DeploymentRoot ('staging\' + [Guid]::NewGuid().ToString('N'))
     [void](New-Item -ItemType Directory -Path $directory)
-    $manifestPath = Join-Path $directory 'manifest.json'
-    Copy-ReleaseObject "$($script:Settings.prefix)/channels/$($script:Settings.channel).json" $manifestPath 64KB
-    try { $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json }
-    catch { throw '下载的版本清单不是有效 JSON，原服务未停止。' }
-    Assert-ReleaseManifest $manifest $script:Settings.prefix
     $jar = Join-Path $directory 'butvan-backend.jar'
-    Write-Host "下载提交 $($manifest.commit)……"
-    Copy-ReleaseObject $manifest.jar.key $jar ([long]$manifest.jar.size)
-    Assert-DownloadedJar $jar $manifest.jar
-    return @{ manifest = $manifest; directory = $directory; jar = $jar }
+    Write-Host '正在下载最新后端 JAR……'
+    $metadata = Save-PublicDownload $script:Settings.jarUrl $jar 1GB -RequireJarMetadata
+    Assert-JarMetadata $metadata
+    Assert-DownloadedJar $jar $metadata
+    Assert-ExecutableJar $jar
+    Write-Host "下载校验完成，提交：$($metadata.commit)"
+    return @{ metadata = $metadata; directory = $directory; jar = $jar }
 }
 
 function Backup-Backend {
@@ -184,9 +178,9 @@ function Backup-Backend {
 function Install-Release {
     param($Release)
     Copy-Item -LiteralPath $Release.jar -Destination "$script:JarPath.new" -Force
-    Assert-DownloadedJar "$script:JarPath.new" $Release.manifest.jar
+    Assert-DownloadedJar "$script:JarPath.new" $Release.metadata
     Move-Item -LiteralPath "$script:JarPath.new" -Destination $script:JarPath -Force
-    Write-State "$script:DeploymentRoot\app\installed.json" $Release.manifest
+    Write-State "$script:DeploymentRoot\app\installed.json" $Release.metadata
 }
 
 function Watch-BackendLog {
@@ -237,12 +231,10 @@ try {
     $script:StatePath = "$script:DeploymentRoot\runtime\process.json"
     $script:JarPath = "$script:DeploymentRoot\app\butvan-backend.jar"
     $script:LogDirectory = "$script:DeploymentRoot\logs"
-    $script:Settings = Read-BackendSettings $script:DeploymentRoot
+    $script:Settings = Read-BackendSettings $script:DeploymentRoot $script:SupportRoot
     if ($script:Settings.port -lt 1024 -or $script:Settings.port -gt 65535 -or
         $script:Settings.startTimeoutSeconds -lt 10 -or $script:Settings.startTimeoutSeconds -gt 600 -or
-        $script:Settings.stopTimeoutSeconds -lt 10 -or $script:Settings.stopTimeoutSeconds -gt 600 -or
-        $script:Settings.prefix -notmatch '^[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*$' -or
-        $script:Settings.channel -ne 'develop') { throw '部署配置字段无效。' }
+        $script:Settings.stopTimeoutSeconds -lt 10 -or $script:Settings.stopTimeoutSeconds -gt 600) { throw '部署配置字段无效。' }
     if ([string]::IsNullOrWhiteSpace($script:Settings.userHome)) {
         $script:Settings.userHome = [Environment]::GetFolderPath('UserProfile')
     }
@@ -260,6 +252,7 @@ try {
         $script:DeploymentRoot -eq $script:DataDirectory) { throw '发布目录不能放在业务数据目录内。' }
     # 停止现有进程不依赖密钥、Java 或 MinIO 仍可用。
     if ($Action -eq 'Stop') { Stop-Backend; exit 0 }
+    Initialize-BackendToken "$script:DeploymentRoot\backend.env"
     $script:Environment = Read-BackendEnvironment "$script:DeploymentRoot\backend.env"
     if ($Action -eq 'Update') {
         Invoke-BackendUpdate -Download { Download-Release } -Stop { Stop-Backend } `

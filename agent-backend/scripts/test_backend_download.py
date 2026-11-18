@@ -8,9 +8,11 @@ import subprocess
 import tempfile
 import threading
 import unittest
+import io
+import zipfile
 
 PWSH = os.environ.get("BUTVAN_TEST_PWSH") or shutil.which("pwsh")
-MODULE = Path(__file__).resolve().parents[1] / "deployment/windows/backend-download.ps1"
+MODULE = Path(__file__).resolve().parents[1] / "deployment/windows/source/backend-download.ps1"
 PAYLOAD = bytes(range(256)) * 3
 
 
@@ -30,6 +32,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             if self.path != "/unknown-length":
                 self.send_header("Content-Length", str(len(PAYLOAD)))
+            if self.path != "/no-metadata":
+                self.send_header("x-amz-meta-sha256", hashlib.sha256(PAYLOAD).hexdigest())
+                self.send_header("x-amz-meta-commit", "a" * 40)
             self.end_headers()
             self.wfile.write(PAYLOAD)
 
@@ -53,12 +58,13 @@ class DownloadTest(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.target = Path(self.temporary.name) / "download.bin"
 
-    def download(self, path="/ok", maximum=len(PAYLOAD)):
+    def download(self, path="/ok", maximum=len(PAYLOAD), require_metadata=False):
         def quoted(value):
             return "'" + str(value).replace("'", "''") + "'"
         url = f"http://127.0.0.1:{self.server.server_port}{path}"
+        required = " -RequireJarMetadata" if require_metadata else ""
         command = (f"$ErrorActionPreference='Stop'; . {quoted(MODULE)}; "
-                   f"try {{ Save-PublicDownload {quoted(url)} {quoted(self.target)} {maximum} }} "
+                   f"try {{ Save-PublicDownload {quoted(url)} {quoted(self.target)} {maximum}{required} }} "
                    "catch { Write-Output $_.Exception.Message; exit 1 }")
         return subprocess.run([PWSH, "-NoLogo", "-NoProfile", "-Command", command],
                               capture_output=True, text=True, timeout=10)
@@ -73,6 +79,29 @@ class DownloadTest(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertNotEqual(self.download(path, maximum=10).returncode, 0)
                 self.assertFalse(self.target.exists())
+
+    def test_jar_metadata_comes_from_the_same_get_response(self):
+        result = self.download(require_metadata=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.target.unlink()
+        result = self.download("/no-metadata", require_metadata=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.target.exists())
+
+    def test_executable_backend_jar_manifest_is_required(self):
+        valid = io.BytesIO()
+        with zipfile.ZipFile(valid, "w") as jar:
+            jar.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n"
+                         "Main-Class: org.springframework.boot.loader.launch.JarLauncher\n"
+                         "Start-Class: butvan.agent.network.ButVanAgentApplication\n")
+        for payload, expected in [(valid.getvalue(), 0), (b"not a jar", 1)]:
+            self.target.write_bytes(payload)
+            quote = lambda text: "'" + str(text).replace("'", "''") + "'"
+            code = (f". {quote(MODULE)}; try {{ Assert-ExecutableJar {quote(self.target)} }} "
+                    "catch { exit 1 }")
+            result = subprocess.run([PWSH, "-NoLogo", "-NoProfile", "-Command", code],
+                                    capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, expected)
 
     def test_failed_create_never_deletes_existing_file(self):
         self.target.write_bytes(b"original")
