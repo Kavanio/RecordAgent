@@ -6,15 +6,20 @@ import com.sun.jna.Pointer;
 
 /** macOS 仅允许已登录且未锁定的本机图形会话。 */
 final class MacScreenDesktop {
+    /** CGSession.h 中 kCGSessionOnConsoleKey 宏展开后的字典键。 */
+    private static final String ON_CONSOLE_KEY = "kCGSSessionOnConsoleKey";
+
     private MacScreenDesktop() { }
 
     static void requireUnlockedConsole() {
         Pointer info = Graphics.API.CGSessionCopyCurrentDictionary();
         if (info == null) throw unavailable();
         try {
-            if (!flag(info, "kCGSessionOnConsoleKey") || !flag(info, "kCGSessionLoginDoneKey")
-                    || flag(info, "CGSSessionScreenIsLocked")) {
+            if (!flag(info, ON_CONSOLE_KEY) || !flag(info, "kCGSessionLoginDoneKey")) {
                 throw unavailable();
+            }
+            if (flag(info, "CGSSessionScreenIsLocked")) {
+                throw new IllegalStateException("macOS 桌面已锁定，请解锁后再截图。");
             }
         } finally {
             Foundation.API.CFRelease(info);
@@ -38,7 +43,7 @@ final class MacScreenDesktop {
     }
 
     private static IllegalStateException unavailable() {
-        return new IllegalStateException("macOS 桌面已锁定或当前没有已登录的本机图形会话。");
+        return new IllegalStateException("后端进程当前没有已登录的 macOS 本机图形会话。");
     }
 
     interface Graphics extends Library {
