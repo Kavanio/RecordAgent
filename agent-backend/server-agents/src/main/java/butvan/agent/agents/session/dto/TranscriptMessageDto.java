@@ -1,5 +1,6 @@
 package butvan.agent.agents.session.dto;
 
+import butvan.agent.agents.material.ReplyImages;
 import butvan.agent.agents.usage.TurnTokenUsage;
 
 import java.time.Instant;
@@ -19,7 +20,8 @@ public record TranscriptMessageDto(
         TurnTokenUsage usage,
         boolean proactive,
         List<MessageBlockDto> blocks,
-        List<String> imageFileIds
+        List<String> imageFileIds,
+        List<ReplyImages.Attachment> replyImages
 ) {
 
     public TranscriptMessageDto(
@@ -70,12 +72,22 @@ public record TranscriptMessageDto(
         this(id, turnId, role, content, createdAt, status, durationMillis, tools, thinking, usage, proactive, blocks, List.of());
     }
 
+    public TranscriptMessageDto(
+            String id, String turnId, MessageRole role, String content, Instant createdAt, MessageStatus status,
+            Long durationMillis, List<ToolExecutionDto> tools, String thinking, TurnTokenUsage usage,
+            boolean proactive, List<MessageBlockDto> blocks, List<String> imageFileIds
+    ) {
+        this(id, turnId, role, content, createdAt, status, durationMillis, tools, thinking, usage,
+                proactive, blocks, imageFileIds, List.of());
+    }
+
     public TranscriptMessageDto {
         content = content == null ? "" : content;
         tools = tools == null ? List.of() : List.copyOf(tools);
         thinking = (thinking == null || thinking.isBlank()) ? null : thinking;
         blocks = blocks == null ? List.of() : List.copyOf(blocks);
         imageFileIds = imageFileIds == null ? List.of() : List.copyOf(imageFileIds);
+        replyImages = replyImages == null ? List.of() : List.copyOf(replyImages);
     }
 
     public enum BlockKind {

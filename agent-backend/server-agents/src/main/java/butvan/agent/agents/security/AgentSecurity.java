@@ -1,5 +1,6 @@
 package butvan.agent.agents.security;
 
+import butvan.agent.agents.material.ReplyImages;
 import butvan.agent.agents.session.dto.SessionPermissionMode;
 import io.agentscope.core.permission.PermissionBehavior;
 import io.agentscope.core.permission.PermissionContextState;
@@ -47,6 +48,7 @@ public class AgentSecurity {
             "write_file",
             "edit_file",
             "web_search",
+            "web_image_search",
             "agent_generate",
             "agent_spawn",
             "agent_send"
@@ -76,6 +78,9 @@ public class AgentSecurity {
         };
         PermissionContextState.Builder builder = PermissionContextState.builder().mode(frameworkMode);
 
+        String screenTool = ReplyImages.SCREEN_TOOL;
+        builder.addAskRule(screenTool, new PermissionRule(
+                screenTool, null, PermissionBehavior.ASK, "screenCaptureOnce"));
         SAFE_TOOLS.forEach(toolName -> addAllow(builder, toolName, "builtInSafeTool"));
 
         if (mode == SessionPermissionMode.AUTO_EDIT) {

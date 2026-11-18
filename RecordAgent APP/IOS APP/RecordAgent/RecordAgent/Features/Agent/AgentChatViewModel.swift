@@ -911,6 +911,10 @@ final class AgentChatViewModel: ObservableObject {
         }
     }
 
+    func loadReplyImage(fileId: String) async throws -> Data {
+        try await service.fetchReplyImage(fileId: fileId)
+    }
+
     private func syncSessionAfterStream(sessionId: String, shouldGenerateTitle: Bool) async {
         if let detail = try? await service.getSessionDetail(sessionId: sessionId) {
             if let idx = sessions.firstIndex(where: { $0.id == detail.summary.id }) {

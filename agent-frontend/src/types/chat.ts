@@ -165,6 +165,7 @@ export interface MessageBlock {
  */
 export interface ChatImageAttachment {
   fileId?: string;
+  sourceUrl?: string;
   mediaType: string;
   dataUrl: string;
   name?: string;
@@ -256,6 +257,7 @@ export interface TranscriptMessageDto {
   proactive?: boolean;
   blocks?: TranscriptMessageBlockDto[];
   imageFileIds?: string[];
+  replyImages?: { fileId: string; title: string; sourceUrl?: string | null }[];
 }
 
 export interface SessionDetailDto {

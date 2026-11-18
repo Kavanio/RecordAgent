@@ -395,6 +395,7 @@ struct AgentChatView: View {
                                             isInputFocused = false
                                             selectedCitation = citation
                                         },
+                                        loadReplyImage: viewModel.loadReplyImage,
                                         onPreviewImage: { attachment in
                                             isInputFocused = false
                                             previewImageItem = attachment
@@ -935,6 +936,7 @@ private struct AgentMessageRow: View {
     let citedReferences: [AgentCitedReference]
     let onOpenTurnUsage: () -> Void
     let onSelectCitation: (AgentCitedReference) -> Void
+    let loadReplyImage: (String) async throws -> Data
     let onPreviewImage: (AgentChatImageAttachment) -> Void
     @State private var copied = false
 
@@ -1085,6 +1087,10 @@ private struct AgentMessageRow: View {
             if !trimmedFinal.isEmpty {
                 AgentMarkdownView(text: split.finalText)
                     .foregroundStyle(.primary)
+            }
+
+            if !message.replyImages.isEmpty {
+                AgentReplyImageGallery(attachments: message.replyImages, load: loadReplyImage)
             }
 
             if message.status == .cancelled {

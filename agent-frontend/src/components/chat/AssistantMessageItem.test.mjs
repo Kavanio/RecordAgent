@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { Blob as NodeBlob } from 'node:buffer';
 import { before, after, afterEach, test } from 'node:test';
-import { startHarness, stopHarness, loadModule, mount } from '../../testing/harness.mjs';
+import { startHarness, stopHarness, loadModule, mount, useFetchStub, deferred } from '../../testing/harness.mjs';
 
 let React, AssistantMessageItem, mapTranscriptMessages, view;
 
@@ -104,4 +105,43 @@ test('主动推送消息底部渲染精确到秒的时间，普通对话回复�
   assert.equal(timeNodes.length, 2);
   assert.equal(timeNodes[0].textContent, expectedLocalSecondTime(proactiveIso));
   assert.equal(timeNodes[1].textContent, expectedLocalSecondTime(legacyProactiveIso));
+});
+
+test('历史助手消息通过文件接口读取图片并打开可保存的预览', async () => {
+  const { MessageProvider } = await loadModule('/src/components/common/Message.tsx');
+  const requests = [];
+  const downloaded = deferred();
+  const fetchStub = useFetchStub((url) => {
+    requests.push(url);
+    return downloaded.promise;
+  });
+  const msg = mapTranscriptMessages([{
+    id: 'reply-image', turnId: 'turn', role: 'ASSISTANT', content: '',
+    status: 'COMPLETED', replyImages: [{
+      fileId: 'file-1', title: '庭院参考图', sourceUrl: 'https://example.net/garden.png',
+    }],
+  }])[0];
+
+  try {
+    view = await mount(React.createElement(MessageProvider, null,
+      React.createElement(AssistantMessageItem, { msg, tokenUsageActive: false, onOpenTokenUsage() {} })));
+    await React.act(async () => {
+      downloaded.resolve({
+        ok: true,
+        headers: new Headers({ 'Content-Type': 'image/png' }),
+        blob: async () => new NodeBlob([Uint8Array.of(1)], { type: 'image/png' }),
+      });
+    });
+    const thumbnail = view.query('button[aria-label="预览 庭院参考图"]');
+    assert.ok(thumbnail, view.text());
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].pathname, '/agent/materials/file-1/content');
+    const { act } = React;
+    await act(async () => thumbnail.click());
+    const dialog = document.querySelector('[role="dialog"]');
+    assert.match(dialog.textContent, /保存图片/);
+    assert.equal(dialog.querySelector('a').href, 'https://example.net/garden.png');
+  } finally {
+    fetchStub.restore();
+  }
 });

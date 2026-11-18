@@ -36,6 +36,22 @@ public class ChatMaterialService implements ChatMaterialRecorder {
     @Override
     @Transactional
     public List<String> recordUserImages(SaveImagesCommand command) {
+        return archiveImages(command, "chat-image");
+    }
+
+    @Override
+    @Transactional
+    public List<String> recordReplyImages(SaveImagesCommand command) {
+        return archiveImages(command, "agent-image");
+    }
+
+    @Override
+    @Transactional
+    public void discardImages(String ownerId, List<String> fileIds) {
+        fileIds.forEach(fileId -> delete(ownerId, fileId));
+    }
+
+    private List<String> archiveImages(SaveImagesCommand command, String namePrefix) {
         if (command == null || command.images().isEmpty()) {
             return List.of();
         }
@@ -65,7 +81,7 @@ public class ChatMaterialService implements ChatMaterialRecorder {
                     monthText,
                     dateText
             );
-            String originalName = "chat-image-" + dateText + "-" + (index + 1) + "." + extension;
+            String originalName = namePrefix + "-" + dateText + "-" + (index + 1) + "." + extension;
 
             FileAsset asset = fileAssetService.createAndBindCategorized(
                     ownerId,

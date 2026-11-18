@@ -46,6 +46,9 @@ class AgentServiceChannelResultTest {
     @BeforeEach void prepare() {
         when(model.isInitialized()).thenReturn(true); when(model.getModel().getModelName()).thenReturn("test");
         when(factory.currentAgent("session")).thenReturn(agent);
+        var summary = mock(butvan.agent.agents.session.dto.SessionSummaryDto.class);
+        when(summary.kind()).thenReturn(butvan.agent.agents.session.dto.SessionKind.GENERAL);
+        when(sessions.requireActive("session")).thenReturn(summary);
         when(sessions.getPermissionMode("session")).thenReturn(SessionPermissionMode.ASK);
         when(transcript.appendUserMessageWithTurnId("session", "input", turn, List.of())).thenReturn(turn);
         when(context.assemble(any())).thenReturn(ContextEnvelope.empty());

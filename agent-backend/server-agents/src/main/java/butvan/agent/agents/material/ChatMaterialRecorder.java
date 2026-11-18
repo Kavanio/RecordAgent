@@ -20,6 +20,14 @@ public interface ChatMaterialRecorder {
      */
     List<String> recordUserImages(SaveImagesCommand command);
 
+    /** 统一归档助手回复中的图片，以便来源可以独立扩展。 */
+    default List<String> recordReplyImages(SaveImagesCommand command) {
+        return recordUserImages(command);
+    }
+
+    /** 清除尚未发布的助手附件。 */
+    default void discardImages(String ownerId, List<String> fileIds) { }
+
     /** 默认空实现，用于仅加载 {@code server-agents} 的隔离单元测试。 */
     static ChatMaterialRecorder noop() {
         return command -> List.of();

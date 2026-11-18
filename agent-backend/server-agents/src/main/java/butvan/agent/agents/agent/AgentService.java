@@ -10,6 +10,8 @@ import butvan.agent.agents.context.ContextRequest;
 import butvan.agent.agents.context.ConversationContextAssembler;
 import butvan.agent.agents.context.ProfileMaintenanceScheduler;
 import butvan.agent.agents.identity.CurrentUserProvider;
+import butvan.agent.agents.material.ChatMaterialRecorder;
+import butvan.agent.agents.material.ReplyImages;
 import butvan.agent.agents.model.ModelHolder;
 import butvan.agent.agents.model.ModelSelector;
 import butvan.agent.agents.routing.ToolCapabilityRouter;
@@ -52,7 +54,7 @@ public class AgentService {
 
     private butvan.agent.agents.memory.MemoryTurnLifecycle memoryLifecycle = butvan.agent.agents.memory.MemoryTurnLifecycle.disabled();
     private butvan.agent.agents.review.UserTurnActivityListener userTurnActivityListener;
-    private butvan.agent.agents.material.ChatMaterialRecorder chatMaterialRecorder = butvan.agent.agents.material.ChatMaterialRecorder.noop();
+    private ChatMaterialRecorder chatMaterialRecorder = ChatMaterialRecorder.noop();
 
     /** 仅 agents 模块运行时保持关闭 Adapter；不改变既有构造和聊天依赖。 */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -175,7 +177,7 @@ public class AgentService {
                         ? request.memoryChannel().name()
                         : sessionCatalogService.getChannel(request.sessionId()).name();
                 imageFileIds = chatMaterialRecorder.recordUserImages(
-                        new butvan.agent.agents.material.ChatMaterialRecorder.SaveImagesCommand(
+                        new ChatMaterialRecorder.SaveImagesCommand(
                                 userId,
                                 channel,
                                 currentSession.kind().name(),
@@ -200,6 +202,12 @@ public class AgentService {
                 log.warn("经历来源登记未完成，聊天继续：errorType={}", exception.getClass().getSimpleName());
             }
             RuntimeContext context = createRuntimeContext(userId, request.sessionId());
+            if (!feishuSession) {
+                context.put(ReplyImages.class, new ReplyImages(
+                                new ChatMaterialRecorder.SaveImagesCommand(
+                                        userId, "DESKTOP", currentSession.kind().name(), request.sessionId(),
+                                        currentSession.projectId(), currentSession.title(), turnId, List.of())));
+            }
             run = new AgentRun(request.sessionId(), userId, turnId, context);
             checkpointService.save(run);
             boolean remoteEligible = currentSession != null
@@ -559,8 +567,13 @@ public class AgentService {
                     putEvent(streamSession, new AgentStreamEvent.Failed("请先完成模型配置"));
                     return;
                 }
-                runAgentStream(approval.run(),
-                        List.of(buildResumeMessage(approval.toConfirmResults())), streamSession);
+                List<ConfirmResult> results = approval.toConfirmResults();
+                ReplyImages images = approval.run().runtimeContext().get(ReplyImages.class);
+                if (images != null && results.stream().anyMatch(result -> result.isConfirmed()
+                        && ReplyImages.SCREEN_TOOL.equals(result.getToolCall().getName()))) {
+                    images.approveScreenshot();
+                }
+                runAgentStream(approval.run(), List.of(buildResumeMessage(results)), streamSession);
             } catch (Exception exception) {
                 if (streamSession.isCancelled() || Thread.currentThread().isInterrupted()) {
                     Thread.currentThread().interrupt();

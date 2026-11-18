@@ -7,7 +7,6 @@ import type {
   TranscriptMessageDto,
   TranscriptToolExecutionDto,
 } from '../../types/chat';
-import { materialContentUrl } from '../../services/materialApi';
 
 function padTwo(value: number): string {
   return String(value).padStart(2, '0');
@@ -88,14 +87,20 @@ export function mapTranscriptToChatMessage(
   const createdAt = Number.isFinite(parsedTime) && parsedTime > 0
     ? parsedTime
     : (proactive ? 0 : Date.now());
-  const images: ChatImageAttachment[] | undefined = isUser && dto.imageFileIds && dto.imageFileIds.length > 0
-    ? dto.imageFileIds.map((fileId, idx) => ({
+  const images: ChatImageAttachment[] | undefined = isUser
+    ? dto.imageFileIds?.map((fileId, idx) => ({
         fileId,
         mediaType: 'image/*',
-        dataUrl: materialContentUrl(fileId),
+        dataUrl: '',
         name: `对话图片 ${idx + 1}`,
       }))
-    : undefined;
+    : dto.replyImages?.map(({ fileId, title, sourceUrl }) => ({
+        fileId,
+        name: title,
+        sourceUrl: sourceUrl ?? undefined,
+        mediaType: 'image/*',
+        dataUrl: '',
+      }));
   return {
     id: dto.id,
     turnId: dto.turnId,

@@ -116,6 +116,8 @@ struct AgentProcessTimelineView: View {
 
     static func friendlyToolLabel(_ name: String) -> String {
         switch name {
+        case "capture_screen": return String(localized: "agent.tool.capture_screen")
+        case "web_image_search": return String(localized: "agent.tool.web_image_search")
         case "read_file": return String(localized: "agent.tool.read_file")
         case "write_file": return String(localized: "agent.tool.write_file")
         case "edit_file": return String(localized: "agent.tool.edit_file")

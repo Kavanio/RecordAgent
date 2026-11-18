@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ChatMessage } from '../../types/chat';
 import { Copy, ThumbsUp, ThumbsDown, Maximize2 } from 'lucide-react';
+import { ChatImageGallery } from './ChatImageGallery';
 import { AgentResponse } from './AgentResponse';
 import { SubagentActivity } from './SubagentActivity';
 import { MarkdownContent } from '../common/MarkdownContent';
@@ -59,6 +60,8 @@ export const AssistantMessageItem: React.FC<AssistantMessageItemProps> = ({
           msg.content && <MarkdownContent content={msg.content} />
         )
       )}
+
+      <ChatImageGallery images={msg.images} />
 
       {(msg.status === 'CANCELLED' || msg.status === 'FAILED') && (
         <div
