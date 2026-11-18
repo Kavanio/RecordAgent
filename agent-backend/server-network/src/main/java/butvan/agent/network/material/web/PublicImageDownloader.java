@@ -14,11 +14,17 @@ import org.apache.hc.core5.util.Timeout;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
@@ -27,7 +33,10 @@ import java.util.concurrent.TimeoutException;
 /** 从公开 HTTPS 站点取得有界的位图，实际连接只使用通过校验的 DNS 结果。 */
 @Component
 final class PublicImageDownloader {
-    private static final Timeout SOCKET_TIMEOUT = Timeout.ofSeconds(3);
+    private static final Timeout SOCKET_TIMEOUT = Timeout.ofSeconds(5);
+    private static final String BROWSER_USER_AGENT =
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                    + "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
     private final CloseableHttpClient client = HttpClients.custom()
             .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
                     .setDnsResolver(new PublicDns())
@@ -52,12 +61,12 @@ final class PublicImageDownloader {
     DownloadedImage download(String url) throws IOException, InterruptedException {
         URI uri = validateUrl(url);
         HttpGet request = new HttpGet(uri);
-        request.setHeader("Accept", "image/png,image/jpeg,image/webp,image/gif");
+        request.setHeader("Accept", "image/png,image/jpeg,image/webp,image/gif,*/*;q=0.8");
+        request.setHeader("User-Agent", BROWSER_USER_AGENT);
         var task = new FutureTask<>(() -> client.execute(request, response -> {
             var entity = response.getEntity();
             if (response.getCode() != 200 || entity == null) throw new IOException("image unavailable");
-            String contentType = entity.getContentType();
-            if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+            if (!isAcceptableContentType(entity.getContentType())) {
                 throw new IOException("not an image response");
             }
             if (entity.getContentLength() > AgentImageAttachment.MAX_BYTES) throw new IOException("image too large");
@@ -69,7 +78,7 @@ final class PublicImageDownloader {
         }));
         Thread.ofVirtual().start(task);
         try {
-            return task.get(5, TimeUnit.SECONDS);
+            return task.get(8, TimeUnit.SECONDS);
         } catch (ExecutionException | TimeoutException exception) {
             throw new IOException("image download failed", exception);
         } finally {
@@ -78,6 +87,15 @@ final class PublicImageDownloader {
                 task.cancel(true);
             }
         }
+    }
+
+    static boolean isAcceptableContentType(String contentType) {
+        if (contentType == null) return false;
+        String lower = contentType.toLowerCase(Locale.ROOT);
+        // 实际格式仍由 AgentImages.parse 按魔数校验；放行部分对象存储默认的二进制流类型。
+        return lower.startsWith("image/")
+                || lower.startsWith("application/octet-stream")
+                || lower.startsWith("binary/octet-stream");
     }
 
     static URI validateUrl(String address) {
@@ -112,6 +130,39 @@ final class PublicImageDownloader {
                 && !(first == 203 && second == 0 && third == 113);
     }
 
+    static boolean isAllowedResolvedAddress(InetAddress address, Set<InetAddress> localFakeIpInterfaces) {
+        if (publicAddress(address)) return true;
+        // 桌面端开启 TUN Fake-IP（如 Clash / Surge / Mihomo）时，系统 DNS 会把公网域名解析到
+        // 本机虚拟网卡同网段的 198.18.0.0/15 地址；仅在本机确有该网段网卡且非本机自身地址时放行。
+        return isBenchmarkFakeIp(address)
+                && localFakeIpInterfaces != null
+                && !localFakeIpInterfaces.isEmpty()
+                && !localFakeIpInterfaces.contains(address);
+    }
+
+    static boolean isBenchmarkFakeIp(InetAddress address) {
+        if (!(address instanceof Inet4Address)) return false;
+        byte[] bytes = address.getAddress();
+        int first = bytes[0] & 0xff;
+        int second = bytes[1] & 0xff;
+        return first == 198 && (second == 18 || second == 19);
+    }
+
+    private static Set<InetAddress> localFakeIpInterfaces() {
+        try {
+            Set<InetAddress> addresses = new HashSet<>();
+            for (NetworkInterface netIf : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (!netIf.isUp() || netIf.isLoopback()) continue;
+                for (InetAddress addr : Collections.list(netIf.getInetAddresses())) {
+                    if (isBenchmarkFakeIp(addr)) addresses.add(addr);
+                }
+            }
+            return addresses;
+        } catch (SocketException ignored) {
+            return Set.of();
+        }
+    }
+
     @PreDestroy
     void close() throws IOException {
         client.close();
@@ -123,8 +174,13 @@ final class PublicImageDownloader {
         @Override
         public InetAddress[] resolve(String host) throws UnknownHostException {
             InetAddress[] addresses = InetAddress.getAllByName(host);
+            Set<InetAddress> fakeIpInterfaces = null;
             for (InetAddress address : addresses) {
-                if (!publicAddress(address)) throw new UnknownHostException("non-public image host");
+                if (publicAddress(address)) continue;
+                if (fakeIpInterfaces == null) fakeIpInterfaces = localFakeIpInterfaces();
+                if (!isAllowedResolvedAddress(address, fakeIpInterfaces)) {
+                    throw new UnknownHostException("non-public image host");
+                }
             }
             return addresses;
         }

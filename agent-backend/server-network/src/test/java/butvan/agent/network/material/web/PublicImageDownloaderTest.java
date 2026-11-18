@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,5 +22,26 @@ class PublicImageDownloaderTest {
             assertFalse(PublicImageDownloader.publicAddress(InetAddress.getByName(ip)), ip);
         }
         assertTrue(PublicImageDownloader.publicAddress(InetAddress.getByName("93.184.215.14")));
+    }
+
+    @Test
+    void allowsTunFakeIpOnlyWhenLocalTunAdapterIsPresent() throws Exception {
+        InetAddress fakeIp = InetAddress.getByName("198.18.0.24");
+        InetAddress tunGateway = InetAddress.getByName("198.18.0.1");
+        assertFalse(PublicImageDownloader.isAllowedResolvedAddress(fakeIp, Set.of()));
+        assertTrue(PublicImageDownloader.isAllowedResolvedAddress(fakeIp, Set.of(tunGateway)));
+        assertFalse(PublicImageDownloader.isAllowedResolvedAddress(tunGateway, Set.of(tunGateway)));
+        assertFalse(PublicImageDownloader.isAllowedResolvedAddress(InetAddress.getByName("127.0.0.1"), Set.of(tunGateway)));
+        assertFalse(PublicImageDownloader.isAllowedResolvedAddress(InetAddress.getByName("192.168.1.1"), Set.of(tunGateway)));
+        assertFalse(PublicImageDownloader.isAllowedResolvedAddress(InetAddress.getByName("169.254.169.254"), Set.of(tunGateway)));
+    }
+
+    @Test
+    void acceptsImageAndOctetStreamContentTypesOnly() {
+        assertTrue(PublicImageDownloader.isAcceptableContentType("image/jpeg"));
+        assertTrue(PublicImageDownloader.isAcceptableContentType("image/webp; charset=utf-8"));
+        assertTrue(PublicImageDownloader.isAcceptableContentType("application/octet-stream"));
+        assertFalse(PublicImageDownloader.isAcceptableContentType("text/html; charset=utf-8"));
+        assertFalse(PublicImageDownloader.isAcceptableContentType(null));
     }
 }

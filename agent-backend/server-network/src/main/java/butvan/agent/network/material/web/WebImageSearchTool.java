@@ -33,7 +33,8 @@ public class WebImageSearchTool implements AgentToolModule {
             int requested = Math.min(reply.remainingSlots(), count == null ? 3 : Math.clamp(count, 1, 4));
             if (requested == 0) return ToolResultBlock.error("本轮图片数量已达上限。");
             int added = 0;
-            for (var result : search.findImages(query.strip(), requested + 2)) {
+            int candidateLimit = Math.min(10, requested + 4);
+            for (var result : search.findImages(query.strip(), candidateLimit)) {
                 PublicImageDownloader.DownloadedImage image;
                 try {
                     image = downloader.download(result.url());
@@ -46,8 +47,10 @@ public class WebImageSearchTool implements AgentToolModule {
                 try {
                     reply.add(image.image(), title.substring(0, Math.min(title.length(), 120)), image.verifiedUrl());
                 } catch (IllegalArgumentException exception) {
-                    if (added == 0) return ToolResultBlock.error(exception.getMessage());
-                    break;
+                    if (added == 0) continue;
+                    // 已达到单轮张数或总大小上限时跳过当前大图，尝试后续较小候选。
+                    if (reply.remainingSlots() == 0) break;
+                    continue;
                 }
                 if (++added == requested) break;
             }
