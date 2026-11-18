@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7P5NGPKREVN4977XZHK9DR6",
+  "strategy": "manual-commit",
+  "branch": "desktop/windows-minio-backend",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-backend/WINDOWS.md",
+    "agent-backend/deployment/windows/source/backend.ps1",
+    "agent-backend/deployment/windows/source/test-java.ps1",
+    "agent-backend/deployment/windows/start-backend.bat",
+    "agent-backend/deployment/windows/stop-backend.bat",
+    "agent-backend/deployment/windows/update-and-start.bat",
+    "agent-backend/deployment/windows/view-logs.bat",
+    "agent-backend/scripts/test_backend_java.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 7,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 6,
+      "credentialed_uri": 1,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
