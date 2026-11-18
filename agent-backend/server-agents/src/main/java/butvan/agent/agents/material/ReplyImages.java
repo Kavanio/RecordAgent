@@ -10,6 +10,11 @@ import java.util.List;
 /** 仅由当前对话轮持有的图片输出，审批恢复沿用同一实例。 */
 public final class ReplyImages {
     public static final String SCREEN_TOOL = "capture_screen";
+    public static final String WEB_IMAGE_TOOL = "web_image_search";
+
+    private static final class ChannelDisabled {
+        private static final ChannelDisabled INSTANCE = new ChannelDisabled();
+    }
 
     private final ChatMaterialRecorder.SaveImagesCommand scope;
     private final List<Image> images = new ArrayList<>();
@@ -19,6 +24,19 @@ public final class ReplyImages {
 
     public ReplyImages(ChatMaterialRecorder.SaveImagesCommand scope) {
         this.scope = scope;
+    }
+
+    /** 标记当前渠道不支持助手图片回复，供工具筛选隐藏相关 Schema。 */
+    public static void disableForChannel(RuntimeContext context) {
+        if (context != null) context.put(ChannelDisabled.class, ChannelDisabled.INSTANCE);
+    }
+
+    public static boolean isChannelDisabled(RuntimeContext context) {
+        return context != null && context.get(ChannelDisabled.class) != null;
+    }
+
+    public static boolean isReplyImageTool(String toolName) {
+        return SCREEN_TOOL.equals(toolName) || WEB_IMAGE_TOOL.equals(toolName);
     }
 
     /** 工具只从可信运行上下文取得当前会话，子会话无法使用父会话的附件槽。 */

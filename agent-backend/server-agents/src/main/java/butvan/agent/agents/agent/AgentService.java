@@ -202,7 +202,9 @@ public class AgentService {
                 log.warn("经历来源登记未完成，聊天继续：errorType={}", exception.getClass().getSimpleName());
             }
             RuntimeContext context = createRuntimeContext(userId, request.sessionId());
-            if (!feishuSession) {
+            if (feishuSession) {
+                ReplyImages.disableForChannel(context);
+            } else {
                 context.put(ReplyImages.class, new ReplyImages(
                                 new ChatMaterialRecorder.SaveImagesCommand(
                                         userId, "DESKTOP", currentSession.kind().name(), request.sessionId(),
@@ -228,8 +230,13 @@ public class AgentService {
             }
 
             // 当前用户轮次的 Jev 路由结果；只存入本轮 RuntimeContext
+            java.util.Set<String> availableGroups = feishuSession
+                    ? toolCapabilityCatalog.groupNames().stream()
+                            .filter(group -> !"screen".equals(group))
+                            .collect(java.util.stream.Collectors.toUnmodifiableSet())
+                    : toolCapabilityCatalog.groupNames();
             ToolRoutingDecision routingDecision = toolCapabilityRouter.route(
-                    new ToolRoutingRequest(displayContent, toolCapabilityCatalog.groupNames())
+                    new ToolRoutingRequest(displayContent, availableGroups)
             );
             // 当前 AgentRun 独享的运行上下文；以类型作为决策的读取键
             context.put(ToolRoutingDecision.class, routingDecision);

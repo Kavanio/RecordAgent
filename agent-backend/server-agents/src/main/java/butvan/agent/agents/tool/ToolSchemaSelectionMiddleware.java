@@ -1,5 +1,6 @@
 package butvan.agent.agents.tool;
 
+import butvan.agent.agents.material.ReplyImages;
 import butvan.agent.agents.routing.ToolRoutingDecision;
 import io.agentscope.core.agent.Agent;
 import io.agentscope.core.agent.RuntimeContext;
@@ -104,13 +105,13 @@ public class ToolSchemaSelectionMiddleware implements MiddlewareBase {
 
         if (decision == null || !decision.appliesToModelCall()
                 || agent == null || agent.getToolkit() == null) {
-            return next.apply(input);
+            return next.apply(filterChannelDisabledTools(context, input));
         }
 
         // 主模型调用过 reset_equipped_tools 后，AgentScope 的会话状态成为权威来源。
         SelectionState selection = context.get(SelectionState.class);
         if (selection != null && selection.manual) {
-            return next.apply(input);
+            return next.apply(filterChannelDisabledTools(context, input));
         }
 
         // selectedByName：按 Tool 名称去重，并保持“常驻工具在前、路由工具在后”的顺序。
@@ -144,7 +145,18 @@ public class ToolSchemaSelectionMiddleware implements MiddlewareBase {
                 input.options(),
                 input.model()
         );
-        return next.apply(routedInput);
+        return next.apply(filterChannelDisabledTools(context, routedInput));
+    }
+
+    private ModelCallInput filterChannelDisabledTools(RuntimeContext context, ModelCallInput input) {
+        if (!ReplyImages.isChannelDisabled(context) || input.tools() == null || input.tools().isEmpty()) {
+            return input;
+        }
+        List<ToolSchema> filtered = input.tools().stream()
+                .filter(schema -> schema != null && !ReplyImages.isReplyImageTool(schema.getName()))
+                .toList();
+        if (filtered.size() == input.tools().size()) return input;
+        return new ModelCallInput(input.messages(), filtered, input.options(), input.model());
     }
 
     /**
