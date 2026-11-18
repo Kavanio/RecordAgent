@@ -1,10 +1,13 @@
 ﻿# BAT 内置的明文引导；由普通 -File 调用，遵循现有执行策略。
 $ErrorActionPreference = 'Stop'
+__ORIGIN_FUNCTION__
+$stage = 'initialize-directory'
 try {
     $self = $env:BUTVAN_LAUNCHER_FILE
     $root = [IO.Path]::GetDirectoryName($self)
     $data = Join-Path $root 'data'
     [void][IO.Directory]::CreateDirectory($data)
+    $stage = 'lock-runtime'
     $lock = $null
     $deadline = [DateTime]::UtcNow.AddSeconds(15)
     while ($null -eq $lock) {
@@ -15,6 +18,7 @@ try {
         }
     }
     try {
+        $stage = 'validate-runtime'
         $text = [IO.File]::ReadAllText($self, [Text.Encoding]::UTF8)
         $match = [regex]::Match($text, '(?ms)^::BEGIN_RUNTIME\r?\n(.*?)^::END_RUNTIME\r?$')
         if (-not $match.Success) { throw '缺少明文运行文件。' }
@@ -42,12 +46,7 @@ try {
             } elseif ($line -ne '') { throw '明文文件分段损坏。' }
         }
         if ($null -ne $name -or $files.Count -ne $expected.Count) { throw '明文运行文件不完整。' }
-        # 来源标记随派生文件保留，不自动解除互联网来源限制。
-        $zone = $null
-        if ($env:OS -eq 'Windows_NT') {
-            try { $zone = [IO.File]::ReadAllBytes($self + ':Zone.Identifier') }
-            catch [IO.FileNotFoundException] { $zone = $null }
-        }
+        $stage = 'prepare-runtime'
         $runtime = Join-Path (Join-Path $data 'launcher') $hash
         [void][IO.Directory]::CreateDirectory($runtime)
         foreach ($name in $expected) {
@@ -58,9 +57,10 @@ try {
             $matches = (Test-Path -LiteralPath $target) -and
                 ([BitConverter]::ToString([IO.File]::ReadAllBytes($target)) -eq [BitConverter]::ToString($bytes))
             if (-not $matches) { [IO.File]::WriteAllBytes($target, $bytes) }
-            if ($null -ne $zone) { [IO.File]::WriteAllBytes($target + ':Zone.Identifier', $zone) }
+            Copy-LauncherOrigin $self $target
         }
         [IO.File]::WriteAllText((Join-Path $runtime 'complete'), $hash)
+        $stage = 'import-configuration'
         foreach ($name in @('backend.env','backend-settings.json')) {
             $old = Join-Path $root $name
             $current = Join-Path $data $name
@@ -69,9 +69,12 @@ try {
             }
         }
     } finally { $lock.Dispose() }
-    if ($env:BUTVAN_LAUNCHER_ACTION -eq 'Extract') { return }
-    & (Join-Path $runtime 'backend.ps1') -Action $env:BUTVAN_LAUNCHER_ACTION -DeploymentRoot $data
 } catch {
-    Write-Host '启动器准备失败，请检查 BAT 是否完整、目录权限和系统脚本执行策略。' -ForegroundColor Red
+    # 此处只准备脚本与复制配置文件，不读取配置正文；仅输出底层异常和准备阶段。
+    $failure = $_.Exception
+    while ($null -ne $failure.InnerException) { $failure = $failure.InnerException }
+    [Console]::Error.WriteLine('Launcher runtime preparation failed [' + $stage + '] ' + $failure.GetType().FullName + ': ' + $failure.Message)
     exit 1
 }
+if ($env:BUTVAN_LAUNCHER_ACTION -eq 'Extract') { return }
+& (Join-Path $runtime 'backend.ps1') -Action $env:BUTVAN_LAUNCHER_ACTION -DeploymentRoot $data

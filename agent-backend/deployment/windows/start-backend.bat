@@ -5,7 +5,8 @@ chcp 65001 >nul
 set "BUTVAN_LAUNCHER_FILE=%~f0"
 set "BUTVAN_LAUNCHER_ACTION=Start"
 set "BUTVAN_LAUNCHER_PREPARE=%~dp0data\prepare-%RANDOM%-%RANDOM%.ps1"
-powershell.exe -NoLogo -NoProfile -Command "$ErrorActionPreference='Stop'; try { $self=$env:BUTVAN_LAUNCHER_FILE; $target=$env:BUTVAN_LAUNCHER_PREPARE; $text=[IO.File]::ReadAllText($self,[Text.Encoding]::UTF8); $marker=':__BUTVAN_BOOTSTRAP__'+[char]13+[char]10; $index=$text.LastIndexOf($marker); if ($index -lt 0) { throw 'Missing bootstrap' }; [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)); $file=[IO.File]::Open($target,'CreateNew','Write','None'); try { $writer=New-Object IO.StreamWriter($file,(New-Object Text.UTF8Encoding $true)); try { $writer.Write($text.Substring($index+$marker.Length)) } finally { $writer.Dispose() } } finally { $file.Dispose() }; if ($env:OS -eq 'Windows_NT') { try { $zone=[IO.File]::ReadAllBytes($self+':Zone.Identifier') } catch [IO.FileNotFoundException] { $zone=$null }; if ($null -ne $zone) { [IO.File]::WriteAllBytes($target+':Zone.Identifier',$zone) } }; } catch { Write-Error 'Unable to prepare launcher files.'; exit 1 }"
+echo Preparing backend launcher...
+powershell.exe -NoLogo -NoProfile -Command "$ErrorActionPreference='Stop'; function Copy-LauncherOrigin { param([string]$SourceFile, [string]$TargetFile); if ($env:OS -ne 'Windows_NT') { return }; $streams = @(Get-Item -LiteralPath $SourceFile -Stream * -ErrorAction Stop); $origin = @($streams | Where-Object { $_.Stream -eq 'Zone.Identifier' }); if ($origin.Count -eq 0) { return }; $read = @{ LiteralPath = $SourceFile; Stream = 'Zone.Identifier'; ReadCount = 0; ErrorAction = 'Stop' }; if ($PSVersionTable.PSVersion.Major -ge 6) { $read.AsByteStream = $true } else { $read.Encoding = 'Byte' }; $zone = Get-Content @read; $write = @{ LiteralPath = $TargetFile; Stream = 'Zone.Identifier'; Value = $zone; ErrorAction = 'Stop' }; if ($PSVersionTable.PSVersion.Major -ge 6) { $write.AsByteStream = $true } else { $write.Encoding = 'Byte' }; Set-Content @write; }; $stage='read-bat'; try { $self=$env:BUTVAN_LAUNCHER_FILE; $target=$env:BUTVAN_LAUNCHER_PREPARE; $text=[IO.File]::ReadAllText($self,[Text.Encoding]::UTF8); $stage='find-bootstrap'; $marker=':__BUTVAN_BOOTSTRAP__'+[char]13+[char]10; $index=$text.LastIndexOf($marker); if ($index -lt 0) { throw 'Missing bootstrap' }; $stage='write-bootstrap'; [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)); $file=[IO.File]::Open($target,'CreateNew','Write','None'); try { $writer=New-Object IO.StreamWriter($file,(New-Object Text.UTF8Encoding $true)); try { $writer.Write($text.Substring($index+$marker.Length)) } finally { $writer.Dispose() } } finally { $file.Dispose() }; $stage='copy-origin'; Copy-LauncherOrigin $self $target; } catch { $failure=$_.Exception; while ($null -ne $failure.InnerException) { $failure=$failure.InnerException }; [Console]::Error.WriteLine('Launcher preparation failed ['+$stage+'] '+$failure.GetType().FullName+': '+$failure.Message); exit 1 }"
 if errorlevel 1 goto prepare-failed
 powershell.exe -NoLogo -NoProfile -File "%BUTVAN_LAUNCHER_PREPARE%"
 set "BACKEND_RESULT=%ERRORLEVEL%"
@@ -14,7 +15,7 @@ if not "%BACKEND_RESULT%"=="0" echo Operation failed. Read the error above; scri
 pause
 exit /b %BACKEND_RESULT%
 :prepare-failed
-echo Cannot prepare launcher files. Check directory access and the original BAT.
+echo Launcher preparation stopped. Read the failure stage and details above.
 pause
 exit /b 1
 ::BEGIN_RUNTIME
@@ -569,11 +570,29 @@ exit /b 1
 :__BUTVAN_BOOTSTRAP__
 # BAT 内置的明文引导；由普通 -File 调用，遵循现有执行策略。
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 的 .NET File API 不支持普通 ADS 路径，使用文件系统 Provider。
+# 分号用于生成器将同一份函数作为明文命令嵌入 BAT，不执行动态脚本文本。
+function Copy-LauncherOrigin {
+    param([string]$SourceFile, [string]$TargetFile);
+    if ($env:OS -ne 'Windows_NT') { return };
+    $streams = @(Get-Item -LiteralPath $SourceFile -Stream * -ErrorAction Stop);
+    $origin = @($streams | Where-Object { $_.Stream -eq 'Zone.Identifier' });
+    if ($origin.Count -eq 0) { return };
+    $read = @{ LiteralPath = $SourceFile; Stream = 'Zone.Identifier'; ReadCount = 0; ErrorAction = 'Stop' };
+    if ($PSVersionTable.PSVersion.Major -ge 6) { $read.AsByteStream = $true } else { $read.Encoding = 'Byte' };
+    $zone = Get-Content @read;
+    $write = @{ LiteralPath = $TargetFile; Stream = 'Zone.Identifier'; Value = $zone; ErrorAction = 'Stop' };
+    if ($PSVersionTable.PSVersion.Major -ge 6) { $write.AsByteStream = $true } else { $write.Encoding = 'Byte' };
+    Set-Content @write;
+}
+
+$stage = 'initialize-directory'
 try {
     $self = $env:BUTVAN_LAUNCHER_FILE
     $root = [IO.Path]::GetDirectoryName($self)
     $data = Join-Path $root 'data'
     [void][IO.Directory]::CreateDirectory($data)
+    $stage = 'lock-runtime'
     $lock = $null
     $deadline = [DateTime]::UtcNow.AddSeconds(15)
     while ($null -eq $lock) {
@@ -584,6 +603,7 @@ try {
         }
     }
     try {
+        $stage = 'validate-runtime'
         $text = [IO.File]::ReadAllText($self, [Text.Encoding]::UTF8)
         $match = [regex]::Match($text, '(?ms)^::BEGIN_RUNTIME\r?\n(.*?)^::END_RUNTIME\r?$')
         if (-not $match.Success) { throw '缺少明文运行文件。' }
@@ -611,12 +631,7 @@ try {
             } elseif ($line -ne '') { throw '明文文件分段损坏。' }
         }
         if ($null -ne $name -or $files.Count -ne $expected.Count) { throw '明文运行文件不完整。' }
-        # 来源标记随派生文件保留，不自动解除互联网来源限制。
-        $zone = $null
-        if ($env:OS -eq 'Windows_NT') {
-            try { $zone = [IO.File]::ReadAllBytes($self + ':Zone.Identifier') }
-            catch [IO.FileNotFoundException] { $zone = $null }
-        }
+        $stage = 'prepare-runtime'
         $runtime = Join-Path (Join-Path $data 'launcher') $hash
         [void][IO.Directory]::CreateDirectory($runtime)
         foreach ($name in $expected) {
@@ -627,9 +642,10 @@ try {
             $matches = (Test-Path -LiteralPath $target) -and
                 ([BitConverter]::ToString([IO.File]::ReadAllBytes($target)) -eq [BitConverter]::ToString($bytes))
             if (-not $matches) { [IO.File]::WriteAllBytes($target, $bytes) }
-            if ($null -ne $zone) { [IO.File]::WriteAllBytes($target + ':Zone.Identifier', $zone) }
+            Copy-LauncherOrigin $self $target
         }
         [IO.File]::WriteAllText((Join-Path $runtime 'complete'), $hash)
+        $stage = 'import-configuration'
         foreach ($name in @('backend.env','backend-settings.json')) {
             $old = Join-Path $root $name
             $current = Join-Path $data $name
@@ -638,9 +654,12 @@ try {
             }
         }
     } finally { $lock.Dispose() }
-    if ($env:BUTVAN_LAUNCHER_ACTION -eq 'Extract') { return }
-    & (Join-Path $runtime 'backend.ps1') -Action $env:BUTVAN_LAUNCHER_ACTION -DeploymentRoot $data
 } catch {
-    Write-Host '启动器准备失败，请检查 BAT 是否完整、目录权限和系统脚本执行策略。' -ForegroundColor Red
+    # 此处只准备脚本与复制配置文件，不读取配置正文；仅输出底层异常和准备阶段。
+    $failure = $_.Exception
+    while ($null -ne $failure.InnerException) { $failure = $failure.InnerException }
+    [Console]::Error.WriteLine('Launcher runtime preparation failed [' + $stage + '] ' + $failure.GetType().FullName + ': ' + $failure.Message)
     exit 1
 }
+if ($env:BUTVAN_LAUNCHER_ACTION -eq 'Extract') { return }
+& (Join-Path $runtime 'backend.ps1') -Action $env:BUTVAN_LAUNCHER_ACTION -DeploymentRoot $data

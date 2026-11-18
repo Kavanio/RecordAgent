@@ -15,22 +15,32 @@ BOOTSTRAP_MARKER = ":__BUTVAN_BOOTSTRAP__"
 # 源 BAT 若带互联网来源标记，生成的 PS1 同样保留该标记，交由系统执行策略判断。
 PREPARE_COMMAND = (
     'powershell.exe -NoLogo -NoProfile -Command "'
-    "$ErrorActionPreference='Stop'; try { "
+    "$ErrorActionPreference='Stop'; __ORIGIN_FUNCTION__; $stage='read-bat'; try { "
     "$self=$env:BUTVAN_LAUNCHER_FILE; $target=$env:BUTVAN_LAUNCHER_PREPARE; "
-    "$text=[IO.File]::ReadAllText($self,[Text.Encoding]::UTF8); "
+    "$text=[IO.File]::ReadAllText($self,[Text.Encoding]::UTF8); $stage='find-bootstrap'; "
     f"$marker='{BOOTSTRAP_MARKER}'+[char]13+[char]10; "
     "$index=$text.LastIndexOf($marker); if ($index -lt 0) { throw 'Missing bootstrap' }; "
-    "[void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)); "
+    "$stage='write-bootstrap'; [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)); "
     "$file=[IO.File]::Open($target,'CreateNew','Write','None'); "
     "try { $writer=New-Object IO.StreamWriter($file,(New-Object Text.UTF8Encoding $true)); "
     "try { $writer.Write($text.Substring($index+$marker.Length)) } finally { $writer.Dispose() } "
-    "} finally { $file.Dispose() }; "
-    "if ($env:OS -eq 'Windows_NT') { "
-    "try { $zone=[IO.File]::ReadAllBytes($self+':Zone.Identifier') } "
-    "catch [IO.FileNotFoundException] { $zone=$null }; "
-    "if ($null -ne $zone) { [IO.File]::WriteAllBytes($target+':Zone.Identifier',$zone) } }; "
-    "} catch { Write-Error 'Unable to prepare launcher files.'; exit 1 }\""
+    "} finally { $file.Dispose() }; $stage='copy-origin'; Copy-LauncherOrigin $self $target; "
+    "} catch { $failure=$_.Exception; "
+    "while ($null -ne $failure.InnerException) { $failure=$failure.InnerException }; "
+    "[Console]::Error.WriteLine('Launcher preparation failed ['+$stage+'] '+"
+    "$failure.GetType().FullName+': '+$failure.Message); exit 1 }\""
 )
+
+
+def origin_function(source):
+    """引导命令与脚本共享一份来源标记逻辑。"""
+    return (source / "launcher-origin.ps1").read_text(encoding="utf-8-sig")
+
+
+def prepare_command(source):
+    function = " ".join(line.strip() for line in origin_function(source).splitlines()
+                        if not line.lstrip().startswith("#"))
+    return PREPARE_COMMAND.replace("__ORIGIN_FUNCTION__", function)
 
 
 def runtime_text(source):
@@ -47,10 +57,12 @@ def generate(source):
     payload = runtime_text(source)
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
     bootstrap = (source / "bootstrap.ps1").read_text(encoding="utf-8-sig")
+    bootstrap = bootstrap.replace("__ORIGIN_FUNCTION__", origin_function(source))
     bootstrap = bootstrap.replace("__BUNDLE_SHA__", digest)
     bootstrap = bootstrap.replace("__SOURCE_FILES__", ",".join(f"'{name}'" for name in SOURCE_FILES))
     bootstrap = "\r\n".join(bootstrap.splitlines()) + "\r\n"
-    if len(PREPARE_COMMAND) > 8000:
+    command = prepare_command(source)
+    if len(command) > 8000:
         raise ValueError("启动引导超过 Windows 命令行长度限制")
     result = {}
     for name, action in ACTIONS.items():
@@ -58,13 +70,13 @@ def generate(source):
                   "setlocal DisableDelayedExpansion", "chcp 65001 >nul",
                   'set "BUTVAN_LAUNCHER_FILE=%~f0"', f'set "BUTVAN_LAUNCHER_ACTION={action}"',
                   'set "BUTVAN_LAUNCHER_PREPARE=%~dp0data\\prepare-%RANDOM%-%RANDOM%.ps1"',
-                  PREPARE_COMMAND, "if errorlevel 1 goto prepare-failed",
+                  'echo Preparing backend launcher...', command, "if errorlevel 1 goto prepare-failed",
                   'powershell.exe -NoLogo -NoProfile -File "%BUTVAN_LAUNCHER_PREPARE%"',
                   'set "BACKEND_RESULT=%ERRORLEVEL%"',
                   'del /q "%BUTVAN_LAUNCHER_PREPARE%" >nul 2>&1',
                   'if not "%BACKEND_RESULT%"=="0" echo Operation failed. Read the error above; script policy is unchanged.',
                   "pause", "exit /b %BACKEND_RESULT%", ":prepare-failed",
-                  'echo Cannot prepare launcher files. Check directory access and the original BAT.',
+                  'echo Launcher preparation stopped. Read the failure stage and details above.',
                   "pause", "exit /b 1", "::BEGIN_RUNTIME"]
         result[name] = ("\r\n".join(header) + "\r\n" + payload + "::END_RUNTIME\r\n" +
                         BOOTSTRAP_MARKER + "\r\n" + bootstrap).encode("utf-8")
