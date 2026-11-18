@@ -49,3 +49,4 @@ agent-backend/deployment/windows/app/
 agent-backend/deployment/windows/runtime/
 agent-backend/deployment/windows/staging/
 agent-backend/deployment/windows/backups/
+agent-backend/deployment/windows/data/

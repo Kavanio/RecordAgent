@@ -4,7 +4,5 @@
   "port": 8081,
   "startTimeoutSeconds": 240,
   "stopTimeoutSeconds": 90,
-  "downloadBaseUrl": "https://minio.server.butvan.top/recordagent",
-  "prefix": "backend",
-  "channel": "develop"
+  "jarUrl": "https://minio.server.butvan.top/recordagent/backend/butvan-backend.jar"
 }
