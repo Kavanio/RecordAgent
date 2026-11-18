@@ -46,7 +46,7 @@ class PublisherTest(unittest.TestCase):
         self.assertEqual(manifest["jar"]["sha256"], publisher.hashlib.sha256(b"jar content").hexdigest())
 
     def test_each_partial_upload_failure_preserves_existing_channel(self):
-        for fail_at in range(4):
+        for fail_at in range(5):
             client = FakeS3(fail_at=fail_at)
             with self.assertRaises(OSError):
                 self.publish(client)
@@ -56,6 +56,13 @@ class PublisherTest(unittest.TestCase):
         client = FakeS3()
         self.assertFalse(self.publish(client, current=False)[1])
         self.assertNotIn("backend/channels/develop.json", client.objects)
+        self.assertNotIn("backend/windows-launcher.zip", client.objects)
+
+    def test_fixed_launcher_is_written_before_channel(self):
+        client = FakeS3()
+        self.publish(client)
+        self.assertEqual(client.objects["backend/windows-launcher.zip"], b"launcher content")
+        self.assertEqual(list(client.objects)[-2:], ["backend/windows-launcher.zip", "backend/channels/develop.json"])
 
     def test_package_excludes_credentials_and_local_runtime(self):
         backend = Path(__file__).resolve().parents[1]
@@ -68,6 +75,66 @@ class PublisherTest(unittest.TestCase):
             self.assertNotIn(b"\n", bat.replace(b"\r\n", b""))
             self.assertFalse(bat.startswith(b"\xef\xbb\xbf"))
             self.assertTrue(archive.read("backend.ps1").startswith(b"\xef\xbb\xbf"))
+
+
+class PublicPolicyTest(unittest.TestCase):
+    class Client:
+        def __init__(self, statements):
+            self.policy = {"Version": "2012-10-17", "Statement": statements}
+            self.writes = 0
+
+        def get_bucket_policy(self, **kwargs):
+            return {"Policy": json.dumps(self.policy)}
+
+        def put_bucket_policy(self, **kwargs):
+            self.policy = json.loads(kwargs["Policy"])
+            self.writes += 1
+
+    def test_only_release_prefix_get_object_and_preserves_existing_policy(self):
+        original = {"Sid": "ExistingPrivateRule", "Effect": "Deny", "Action": ["s3:DeleteObject"],
+                    "Principal": {"AWS": ["*"]}, "Resource": ["arn:aws:s3:::test-bucket/protected/*"]}
+        client = self.Client([original])
+        publisher.ensure_public_downloads(client, "test-bucket", "backend")
+        self.assertEqual(client.policy["Statement"][0], original)
+        added = client.policy["Statement"][1]
+        self.assertEqual(added["Action"], ["s3:GetObject"])
+        self.assertEqual(added["Resource"], ["arn:aws:s3:::test-bucket/backend/*"])
+        publisher.ensure_public_downloads(client, "test-bucket", "backend")
+        self.assertEqual(client.writes, 1)
+
+    def test_conflicting_owned_statement_is_not_overwritten(self):
+        original = {"Sid": "RecordAgentBackendPublicRead", "Effect": "Deny"}
+        client = self.Client([original])
+        with self.assertRaises(ValueError):
+            publisher.ensure_public_downloads(client, "test-bucket", "backend")
+        self.assertEqual(client.writes, 0)
+        self.assertEqual(client.policy["Statement"], [original])
+
+    def test_equivalent_server_serialization_is_idempotent(self):
+        rule = {"Sid": "RecordAgentBackendPublicRead", "Effect": "Allow", "Principal": "*",
+                "Action": "s3:GetObject", "Resource": "arn:aws:s3:::test-bucket/backend/*", "Condition": {}}
+        client = self.Client([rule])
+        publisher.ensure_public_downloads(client, "test-bucket", "backend")
+        self.assertEqual(client.writes, 0)
+
+    def test_absent_policy_is_created_but_permission_failure_is_not_treated_as_empty(self):
+        class S3Error(Exception):
+            def __init__(self, code):
+                self.response = {"Error": {"Code": code}}
+
+        class Client(self.Client):
+            def get_bucket_policy(self, **kwargs):
+                raise S3Error(self.code)
+
+        client = Client([])
+        client.code = "NoSuchBucketPolicy"
+        publisher.ensure_public_downloads(client, "test-bucket", "backend")
+        self.assertEqual(len(client.policy["Statement"]), 1)
+        client = Client([])
+        client.code = "AccessDenied"
+        with self.assertRaises(S3Error):
+            publisher.ensure_public_downloads(client, "test-bucket", "backend")
+        self.assertEqual(client.writes, 0)
 
 
 if __name__ == "__main__":

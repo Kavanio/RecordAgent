@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding $false
 . "$PSScriptRoot\backend-core.ps1"
+. "$PSScriptRoot\backend-download.ps1"
 $script:DeploymentRoot = $PSScriptRoot
 
 function Write-State {
@@ -131,22 +132,20 @@ function Assert-Java {
     # 标准错误重定向到临时文件，既能读取版本，也不将 JVM 错误文本暴露为配置日志。
     $check = Join-Path $script:DeploymentRoot 'runtime\java-check.err'
     $stdout = Join-Path $script:DeploymentRoot 'runtime\java-check.out'
-    $java = Start-Process -FilePath $script:Settings.javaExe -ArgumentList '-version' -PassThru `
-        -WindowStyle Hidden -RedirectStandardError $check -RedirectStandardOutput $stdout
+    try {
+        $java = Start-Process -FilePath $script:Settings.javaExe -ArgumentList '-version' -PassThru `
+            -WindowStyle Hidden -RedirectStandardError $check -RedirectStandardOutput $stdout
+    } catch { throw '找不到或无法启动 Java；请安装 Java 21，并将 javaExe 设置为 java.exe 的完整路径。' }
     if (-not $java.WaitForExit(10000)) { throw 'Java 版本检查超时。' }
     if ($java.ExitCode -ne 0 -or (Get-Content -LiteralPath $check -Raw) -notmatch 'version "21[\."]') {
         throw '请安装 Java 21，并在 backend-settings.json 中配置 javaExe。'
     }
 }
 
-function Copy-MinIOObject {
-    param([string]$Key, [string]$Destination)
-    $source = "$($script:Settings.minioAlias)/$($script:Settings.bucket)/$Key"
-    # 客户端使用本机已保存的只读别名；输出丢弃，防止异常响应泄露凭据。
-    & $script:Settings.mcExe --quiet cp -- $source $Destination *> $null
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $Destination)) {
-        throw 'MinIO 下载失败，请核对 S3 API、只读别名、网络和对象权限。原服务未停止。'
-    }
+function Copy-ReleaseObject {
+    param([string]$Key, [string]$Destination, [long]$MaximumBytes)
+    $url = Get-ReleaseObjectUrl $script:Settings.downloadBaseUrl $Key
+    Save-PublicDownload $url $Destination $MaximumBytes
 }
 
 function Download-Release {
@@ -154,13 +153,13 @@ function Download-Release {
     $directory = Join-Path $script:DeploymentRoot ('staging\' + [Guid]::NewGuid().ToString('N'))
     [void](New-Item -ItemType Directory -Path $directory)
     $manifestPath = Join-Path $directory 'manifest.json'
-    Copy-MinIOObject "$($script:Settings.prefix)/channels/$($script:Settings.channel).json" $manifestPath
-    if ((Get-Item -LiteralPath $manifestPath).Length -gt 64KB) { throw '版本清单超过大小限制。' }
-    $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    Copy-ReleaseObject "$($script:Settings.prefix)/channels/$($script:Settings.channel).json" $manifestPath 64KB
+    try { $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json }
+    catch { throw '下载的版本清单不是有效 JSON，原服务未停止。' }
     Assert-ReleaseManifest $manifest $script:Settings.prefix
     $jar = Join-Path $directory 'butvan-backend.jar'
     Write-Host "下载提交 $($manifest.commit)……"
-    Copy-MinIOObject $manifest.jar.key $jar
+    Copy-ReleaseObject $manifest.jar.key $jar ([long]$manifest.jar.size)
     Assert-DownloadedJar $jar $manifest.jar
     return @{ manifest = $manifest; directory = $directory; jar = $jar }
 }
@@ -238,12 +237,10 @@ try {
     $script:StatePath = "$script:DeploymentRoot\runtime\process.json"
     $script:JarPath = "$script:DeploymentRoot\app\butvan-backend.jar"
     $script:LogDirectory = "$script:DeploymentRoot\logs"
-    $script:Settings = Get-Content -LiteralPath "$script:DeploymentRoot\backend-settings.json" -Raw -Encoding UTF8 | ConvertFrom-Json
+    $script:Settings = Read-BackendSettings $script:DeploymentRoot
     if ($script:Settings.port -lt 1024 -or $script:Settings.port -gt 65535 -or
         $script:Settings.startTimeoutSeconds -lt 10 -or $script:Settings.startTimeoutSeconds -gt 600 -or
         $script:Settings.stopTimeoutSeconds -lt 10 -or $script:Settings.stopTimeoutSeconds -gt 600 -or
-        $script:Settings.minioAlias -notmatch '^[a-zA-Z0-9_-]+$' -or
-        $script:Settings.bucket -notmatch '^[a-z0-9][a-z0-9.-]+[a-z0-9]$' -or
         $script:Settings.prefix -notmatch '^[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*$' -or
         $script:Settings.channel -ne 'develop') { throw '部署配置字段无效。' }
     if ([string]::IsNullOrWhiteSpace($script:Settings.userHome)) {

@@ -25,7 +25,7 @@ def file_info(path, key):
 
 def package_launcher(directory, output, readme):
     """只打包发布模板白名单，绝不包含真实配置、凭据或运行态数据。"""
-    names = ["AGENTS.md", "backend.ps1", "backend-core.ps1", "signal-stop.ps1",
+    names = ["AGENTS.md", "backend.ps1", "backend-core.ps1", "backend-download.ps1", "signal-stop.ps1",
              "backend-settings.example.json", "backend.env.example", "logback-windows.xml",
              "update-and-start.bat", "start-backend.bat", "stop-backend.bat", "view-logs.bat"]
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -39,6 +39,49 @@ def package_launcher(directory, output, readme):
             else:
                 archive.write(directory / name, name)
         archive.write(readme, "WINDOWS.md")
+
+
+def ensure_public_downloads(client, bucket, prefix):
+    """合并唯一受控的匿名 GetObject 语句，保留原策略，不授予列举或写入。"""
+    if not re.fullmatch(r"[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*", prefix):
+        raise ValueError("发布前缀格式无效")
+    try:
+        policy = json.loads(client.get_bucket_policy(Bucket=bucket)["Policy"])
+    except Exception as error:
+        code = getattr(error, "response", {}).get("Error", {}).get("Code")
+        if code != "NoSuchBucketPolicy":
+            raise
+        policy = {"Version": "2012-10-17", "Statement": []}
+    statements = policy.get("Statement")
+    if not isinstance(statements, list):
+        raise ValueError("现有 Bucket Policy 结构无效，未修改")
+    statement = {
+        "Sid": "RecordAgentBackendPublicRead",
+        "Effect": "Allow", "Principal": {"AWS": ["*"]},
+        "Action": ["s3:GetObject"],
+        "Resource": [f"arn:aws:s3:::{bucket}/{prefix}/*"],
+    }
+    existing = [item for item in statements if item.get("Sid") == statement["Sid"]]
+    if existing:
+        def normalise(rule):
+            # S3 服务可能将单元素数组序列化为字符串；不把等价策略误判为冲突。
+            result = dict(rule)
+            for key in ("Action", "Resource"):
+                if isinstance(result.get(key), str):
+                    result[key] = [result[key]]
+            principal = result.get("Principal")
+            if principal == "*":
+                result["Principal"] = {"AWS": ["*"]}
+            elif isinstance(principal, dict) and isinstance(principal.get("AWS"), str):
+                result["Principal"] = {**principal, "AWS": [principal["AWS"]]}
+            if result.get("Condition") == {}:
+                result.pop("Condition")
+            return result
+        if len(existing) != 1 or normalise(existing[0]) != statement:
+            raise ValueError("现有同名策略不同，未自动覆盖")
+        return
+    statements.append(statement)
+    client.put_bucket_policy(Bucket=bucket, Policy=json.dumps(policy))
 
 
 def publish(client, bucket, prefix, commit, build_id, jar, launcher, is_current):
@@ -68,6 +111,9 @@ def publish(client, bucket, prefix, commit, build_id, jar, launcher, is_current)
                       ContentType="application/json")
     promoted = is_current()
     if promoted:
+        with launcher.open("rb") as body:
+            client.put_object(Bucket=bucket, Key=f"{prefix}/windows-launcher.zip", Body=body,
+                              ContentType="application/zip", CacheControl="no-store, max-age=0")
         client.put_object(Bucket=bucket, Key=f"{prefix}/channels/develop.json", Body=payload,
                           ContentType="application/json", CacheControl="no-store, max-age=0")
     return manifest, promoted
@@ -104,19 +150,26 @@ def main():
                               request_checksum_calculation="when_required",
                               retries={"max_attempts": 3, "mode": "standard"},
                               connect_timeout=15, read_timeout=180))
+    # 仓库部署契约已明确授权仅公开发布前缀；开关必须显式启用。
+    if os.environ.get("MINIO_PUBLIC_DOWNLOADS") != "true":
+        raise ValueError("请显式启用 MINIO_PUBLIC_DOWNLOADS")
+    bucket = os.environ["MINIO_BUCKET"]
+    prefix = os.environ.get("MINIO_PREFIX", "backend")
+    ensure_public_downloads(client, bucket, prefix)
     backend = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory() as staging:
         launcher = Path(staging) / "windows-launcher.zip"
         package_launcher(backend / "deployment/windows", launcher, backend / "WINDOWS.md")
         commit = os.environ["GITHUB_SHA"]
         manifest, promoted = publish(
-            client, os.environ["MINIO_BUCKET"], os.environ.get("MINIO_PREFIX", "backend"),
+            client, bucket, prefix,
             commit, f'{os.environ["GITHUB_RUN_ID"]}-{os.environ["GITHUB_RUN_ATTEMPT"]}',
             backend / "server-network/target/server-network-0.0.1-SNAPSHOT.jar", launcher,
             lambda: current_develop(commit))
     summary = (f"## 后端 JAR 发布结果\n- 提交：`{commit}`\n"
                f'- JAR：`{manifest["jar"]["key"]}`\n'
                f'- 启动器：`{manifest["launcher"]["key"]}`\n'
+               f"- 固定启动器地址：{endpoint.rstrip('/')}/{bucket}/{prefix}/windows-launcher.zip\n"
                f"- develop 指针：{'已更新' if promoted else '已有新提交，未覆盖'}\n"
                "- Windows 仍由用户运行更新脚本，本工作流不部署服务器。\n")
     if os.environ.get("GITHUB_STEP_SUMMARY"):
@@ -129,5 +182,8 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as error:
-        print(f"发布失败（{type(error).__name__}）；未自动部署，请检查连接、权限和构建配置。", file=sys.stderr)
+        code = getattr(error, "response", {}).get("Error", {}).get("Code", "")
+        safe_code = code if isinstance(code, str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", code) else ""
+        print(f"发布失败（{type(error).__name__}{'/' + safe_code if safe_code else ''}）；"
+              "请检查连接、Bucket Policy 权限和构建配置。未自动部署 Windows。", file=sys.stderr)
         sys.exit(1)

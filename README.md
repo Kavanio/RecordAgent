@@ -292,7 +292,7 @@ cargo check --manifest-path agent-frontend/src-tauri/Cargo.toml
 node scripts/sync-version.mjs --check
 ```
 
-GitHub Actions 不运行测试：桌面 Release 工作流只依据版本 tag 创建 Release；后端 JAR 工作流在 `develop` 后端相关变更时构建并发布至私有 MinIO。测试与集成验证在本地完成。
+GitHub Actions 不运行测试：桌面 Release 工作流只依据版本 tag 创建 Release；后端 JAR 工作流在 `develop` 后端相关变更时构建并发布至 MinIO 程序目录。测试与集成验证在本地完成。
 
 ## 打包与发布
 
@@ -361,9 +361,9 @@ bash scripts/build-app.sh
 
 ### 后端 JAR 自动发布与 Windows 部署
 
-`develop` 的桌面后端源码、Maven 配置、Windows 部署模板或发布脚本变化时，GitHub Actions 构建 Java 21 JAR，上传到 MinIO `https://minio.server.butvan.top` 的私有 Bucket `recordagent`。需配置 Secrets `MINIO_ACCESS_KEY`、`MINIO_SECRET_KEY`；密钥不入库。流水线只发布，不连接或部署 Windows。
+`develop` 的桌面后端源码、Maven 配置、Windows 部署模板或发布脚本变化时，GitHub Actions 构建 Java 21 JAR，上传到 MinIO `https://minio.server.butvan.top` 的 Bucket `recordagent` 下 `backend/` 发布目录。需配置 Secrets `MINIO_ACCESS_KEY`、`MINIO_SECRET_KEY`；密钥不入库。流水线只发布，不连接或部署 Windows。
 
-Windows 安装 Java 21 和 MinIO Client，配置只读下载身份后，双击 `update-and-start.bat` 自动下载校验、正常停机、完整备份并后台启动；`view-logs.bat` 随时查看滚动日志，关闭窗口不停止后端。首次迁移必须先停旧容器、禁用自动重启并迁移整个用户数据目录，详见 [`agent-backend/WINDOWS.md`](agent-backend/WINDOWS.md)。
+Windows 只需安装 Java 21，脚本通过固定 HTTPS URL 下载，无需 MinIO Client 或下载凭据。只有 `recordagent/backend/*` 允许匿名读取，其他范围保持原权限。双击 `update-and-start.bat` 自动下载校验、正常停机、完整备份并后台启动；`view-logs.bat` 随时查看滚动日志，关闭窗口不停止后端。首次迁移必须先停旧容器、禁用自动重启并迁移整个用户数据目录，详见 [`agent-backend/WINDOWS.md`](agent-backend/WINDOWS.md)。
 
 旧 ACR 工作流保存在 `.github/workflow-archive/backend-image.yml.disabled`，不再自动运行；Dockerfile、Compose 与旧更新脚本继续保留备用，操作说明见 [`agent-backend/DOCKER.md`](agent-backend/DOCKER.md)。
 

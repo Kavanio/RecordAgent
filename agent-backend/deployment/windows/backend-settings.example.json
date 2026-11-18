@@ -1,12 +1,10 @@
 {
   "javaExe": "java.exe",
-  "mcExe": "mc.exe",
   "userHome": "",
   "port": 8081,
   "startTimeoutSeconds": 240,
   "stopTimeoutSeconds": 90,
-  "minioAlias": "recordagent-download",
-  "bucket": "recordagent",
+  "downloadBaseUrl": "https://minio.server.butvan.top/recordagent",
   "prefix": "backend",
   "channel": "develop"
 }
