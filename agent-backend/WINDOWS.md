@@ -31,6 +31,8 @@ MinIO 只发布一个固定地址的 JAR，Windows 只需手动复制四个 BAT�
 
 新版遵循 Windows 现有 PowerShell 执行策略，保留 BAT 的互联网来源标记到派生 PS1，不自动修改策略或解除来源限制。如果提示“禁止运行脚本”或“未进行数字签名”，先用 `Get-ExecutionPolicy -List` 查看原因，再按设备管理要求审核脚本及签名／执行授权。`Restricted` 不允许运行脚本，`AllSigned` 要求签名，`RemoteSigned` 对互联网来源脚本要求签名；参见 [Microsoft 执行策略说明](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies/)。当前交付脚本没有发行签名，要求签名的设备需先完成可信签名分发，不能直接双击运行。
 
+启动器开始时显示 `Preparing backend launcher...`。准备失败会输出阶段、异常类型和底层原因，例如 `[write-bootstrap]` 表示写入引导文件失败，`[copy-origin]` 表示读取或复制来源标记失败；此时尚未下载或启动 JAR。保留该行错误用于排查，不要发送本机配置正文。Windows PowerShell 5.1 的来源标记通过文件系统 Provider 的 `-Stream` 参数读写；不把 `文件名:Zone.Identifier` 交给 .NET Framework 普通文件接口，来源标记仍按原字节保留。接口依据见 [Get-Content 5.1](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/get-content?view=powershell-5.1) 与 [Set-Content 5.1](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/set-content?view=powershell-5.1)。
+
 本地自动测试覆盖明文文件准备和模拟来源标记传递；开发环境为 macOS，无法验证真实火绒引擎或 Windows 策略结果，新版是否通过火绒仍须在目标电脑复核。
 
 ## MinIO 发布
@@ -76,4 +78,4 @@ python3 agent-backend/scripts/build-windows-launchers.py --check
 python3 -m unittest discover -s agent-backend/scripts -p 'test_*.py'
 ```
 
-PowerShell 测试通过 PATH 的 `pwsh` 或 `BUTVAN_TEST_PWSH` 指定的程序运行；缺失时对应测试明确跳过。还可运行 `deployment/windows/source/test-backend.ps1`。测试使用临时目录和本地模拟服务，覆盖单独复制 BAT、明文文件准备、普通脚本调用、模拟来源标记传递、配置保留、损坏内容、下载元数据、文件校验、停止和备份边界，不触碰个人业务数据。真实 Windows 的双击、后台控制台、Ctrl+C 正常关闭仍需实际验收。
+PowerShell 测试通过 PATH 的 `pwsh` 或 `BUTVAN_TEST_PWSH` 指定的程序运行；缺失时对应测试明确跳过。还可运行 `deployment/windows/source/test-backend.ps1`。Windows 上另有真实 `cmd.exe` + `powershell.exe` 准备路径测试，只准备文件，不启动业务后端；macOS 明确跳过，受限执行策略也保持跳过，不自动放宽策略。测试使用临时目录和本地模拟服务，覆盖单独复制 BAT、明文文件准备、普通脚本调用、模拟来源标记传递、配置保留、损坏内容、下载元数据、文件校验、停止和备份边界，不触碰个人业务数据。真实 Windows 的双击、后台控制台、Ctrl+C 正常关闭仍需实际验收。
