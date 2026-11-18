@@ -1,6 +1,6 @@
 # Windows 极简 JAR 部署
 
-MinIO 只发布一个固定地址的 JAR，Windows 只需手动复制四个 BAT。BAT 包含所需运行逻辑，首次自动准备文件，无需另外上传 PS1、JSON 模板、XML、说明文档或安装 MinIO Client。
+MinIO 只发布一个固定地址的 JAR，Windows 只需手动复制四个 BAT。BAT 以明文包含所需运行逻辑，首次自动准备文件，无需另外上传 PS1、JSON 模板、XML、说明文档或安装 MinIO Client。
 
 ## 复制与运行
 
@@ -22,6 +22,16 @@ MinIO 只发布一个固定地址的 JAR，Windows 只需手动复制四个 BAT�
 本机配置保存在 `data/backend.env`、`data/backend-settings.json`。默认监听 `127.0.0.1:8081`，强制业务 Token，继续沿用宿主机 HTTPS 反向代理与受限 CORS。`jarUrl` 默认是下方固定地址；Java 不在 PATH 时，可将 `javaExe` 改为 Java 21 的 `java.exe` 完整路径。`userHome` 留空表示当前 Windows 用户主目录，业务数据仍在其 `.butvan-agent/` 下，与脚本的 `data/` 不是同一目录。
 
 真实配置不入库；配置文件权限限定为当前用户、SYSTEM 与管理员。备份含业务数据和凭据，部署目录与备份应限制访问，并定期清理确认不用的旧备份。
+
+## 安全软件和脚本执行策略
+
+2026-11-18 的火绒安全日志显示，旧版 `update-and-start.bat` 在执行时被文件实时监控按 `Trojan/BAT.Agent.df` 删除。该日志没有给出具体命中特征，不能单凭检测名断定误报。旧版包含编码命令和压缩内嵌脚本；新版已移除这些打包方式，改为可直接查看的明文源码、提取到文件后普通 PowerShell `-File` 执行，停止辅助脚本也使用普通可见进程。
+
+重新复制项目中的四个新版 BAT 覆盖旧入口，保留既有 `data/` 与业务数据。不要从隔离区恢复旧版后继续运行。保持安全软件正常工作，先扫描新版；若仍被识别，保留检测名、日志、文件和 SHA-256，通过[火绒官方病毒反馈](https://bbs.huorong.cn/forum-44-1.html)提交复核，不以扩大信任目录来处理未知判定。仅提交不含本机配置的 BAT；不要附带 `data/` 或业务数据。
+
+新版遵循 Windows 现有 PowerShell 执行策略，保留 BAT 的互联网来源标记到派生 PS1，不自动修改策略或解除来源限制。如果提示“禁止运行脚本”或“未进行数字签名”，先用 `Get-ExecutionPolicy -List` 查看原因，再按设备管理要求审核脚本及签名／执行授权。`Restricted` 不允许运行脚本，`AllSigned` 要求签名，`RemoteSigned` 对互联网来源脚本要求签名；参见 [Microsoft 执行策略说明](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies/)。当前交付脚本没有发行签名，要求签名的设备需先完成可信签名分发，不能直接双击运行。
+
+本地自动测试覆盖明文文件准备和模拟来源标记传递；开发环境为 macOS，无法验证真实火绒引擎或 Windows 策略结果，新版是否通过火绒仍须在目标电脑复核。
 
 ## MinIO 发布
 
@@ -66,4 +76,4 @@ python3 agent-backend/scripts/build-windows-launchers.py --check
 python3 -m unittest discover -s agent-backend/scripts -p 'test_*.py'
 ```
 
-PowerShell 测试通过 PATH 的 `pwsh` 或 `BUTVAN_TEST_PWSH` 指定的程序运行；缺失时对应测试明确跳过。还可运行 `deployment/windows/source/test-backend.ps1`。测试使用临时目录和本地模拟服务，覆盖单独复制 BAT、自解压、配置保留、损坏包、下载元数据、文件校验、停止和备份边界，不触碰个人业务数据。真实 Windows 的双击、后台控制台、Ctrl+C 正常关闭仍需实际验收。
+PowerShell 测试通过 PATH 的 `pwsh` 或 `BUTVAN_TEST_PWSH` 指定的程序运行；缺失时对应测试明确跳过。还可运行 `deployment/windows/source/test-backend.ps1`。测试使用临时目录和本地模拟服务，覆盖单独复制 BAT、明文文件准备、普通脚本调用、模拟来源标记传递、配置保留、损坏内容、下载元数据、文件校验、停止和备份边界，不触碰个人业务数据。真实 Windows 的双击、后台控制台、Ctrl+C 正常关闭仍需实际验收。
