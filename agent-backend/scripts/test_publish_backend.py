@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-import zipfile
 
 spec = importlib.util.spec_from_file_location("publisher", Path(__file__).with_name("publish-backend.py"))
 publisher = importlib.util.module_from_spec(spec)
@@ -17,6 +16,7 @@ class FakeS3:
         self.fail_at = fail_at
 
     def put_object(self, **kwargs):
+        self.last_arguments = kwargs
         if len(self.objects) == self.fail_at:
             raise OSError("模拟上传失败")
         body = kwargs["Body"]
@@ -28,53 +28,33 @@ class PublisherTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.jar = Path(self.temp.name) / "app.jar"
-        self.launcher = Path(self.temp.name) / "launcher.zip"
         self.jar.write_bytes(b"jar content")
-        self.launcher.write_bytes(b"launcher content")
 
     def publish(self, client, current=True):
-        return publisher.publish(client, "test-bucket", "backend", "a" * 40, "123-1",
-                                 self.jar, self.launcher, lambda: current)
+        return publisher.publish(client, "test-bucket", "backend", "a" * 40,
+                                 self.jar, lambda: current)
 
-    def test_channel_is_written_last_with_exact_artifact_hash(self):
+    def test_uploads_only_one_fixed_jar_with_integrity_headers(self):
         client = FakeS3()
-        manifest, promoted = self.publish(client)
+        entry, promoted = self.publish(client)
         self.assertTrue(promoted)
-        self.assertEqual(list(client.objects)[-1], "backend/channels/develop.json")
-        self.assertEqual(json.loads(client.objects["backend/channels/develop.json"]), manifest)
-        self.assertEqual(manifest["jar"]["size"], len(b"jar content"))
-        self.assertEqual(manifest["jar"]["sha256"], publisher.hashlib.sha256(b"jar content").hexdigest())
+        self.assertEqual(list(client.objects), ["backend/butvan-backend.jar"])
+        self.assertEqual(client.objects[entry["key"]], b"jar content")
+        self.assertEqual(client.last_arguments["Metadata"], {"commit": "a" * 40, "sha256": entry["sha256"]})
+        self.assertEqual(client.last_arguments["ContentLength"], len(b"jar content"))
+        self.assertEqual(entry["sha256"], publisher.hashlib.sha256(b"jar content").hexdigest())
 
-    def test_each_partial_upload_failure_preserves_existing_channel(self):
-        for fail_at in range(5):
-            client = FakeS3(fail_at=fail_at)
-            with self.assertRaises(OSError):
-                self.publish(client)
-            self.assertNotIn("backend/channels/develop.json", client.objects)
+    def test_failed_upload_preserves_previous_jar(self):
+        client = FakeS3(fail_at=1)
+        client.objects["backend/butvan-backend.jar"] = b"previous jar"
+        with self.assertRaises(OSError):
+            self.publish(client)
+        self.assertEqual(client.objects, {"backend/butvan-backend.jar": b"previous jar"})
 
-    def test_old_commit_uploads_without_promoting(self):
+    def test_old_commit_writes_nothing(self):
         client = FakeS3()
         self.assertFalse(self.publish(client, current=False)[1])
-        self.assertNotIn("backend/channels/develop.json", client.objects)
-        self.assertNotIn("backend/windows-launcher.zip", client.objects)
-
-    def test_fixed_launcher_is_written_before_channel(self):
-        client = FakeS3()
-        self.publish(client)
-        self.assertEqual(client.objects["backend/windows-launcher.zip"], b"launcher content")
-        self.assertEqual(list(client.objects)[-2:], ["backend/windows-launcher.zip", "backend/channels/develop.json"])
-
-    def test_package_excludes_credentials_and_local_runtime(self):
-        backend = Path(__file__).resolve().parents[1]
-        publisher.package_launcher(backend / "deployment/windows", self.launcher, backend / "WINDOWS.md")
-        with zipfile.ZipFile(self.launcher) as archive:
-            self.assertIn("backend-settings.example.json", archive.namelist())
-            self.assertNotIn("backend-settings.json", archive.namelist())
-            self.assertNotIn("backend.env", archive.namelist())
-            bat = archive.read("update-and-start.bat")
-            self.assertNotIn(b"\n", bat.replace(b"\r\n", b""))
-            self.assertFalse(bat.startswith(b"\xef\xbb\xbf"))
-            self.assertTrue(archive.read("backend.ps1").startswith(b"\xef\xbb\xbf"))
+        self.assertEqual(client.objects, {})
 
 
 class PublicPolicyTest(unittest.TestCase):

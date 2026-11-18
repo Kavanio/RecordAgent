@@ -1,18 +1,12 @@
 ﻿# 更新边界与校验函数：无顶层副作用，可用临时目录与模拟操作验证。
 Set-StrictMode -Version Latest
 
-function Assert-ReleaseManifest {
-    param($Manifest, [string]$Prefix)
-    if ($Manifest.schemaVersion -ne 1 -or $Manifest.javaVersion -ne 21 -or
-        $Manifest.commit -cnotmatch '^[a-f0-9]{40}$') {
-        throw '版本清单格式或 Java 版本不支持。'
-    }
-    $keyPattern = '^' + [regex]::Escape($Prefix) + '/releases/' + $Manifest.commit + '/[0-9]+-[0-9]+/butvan-backend\.jar$'
-    if ($Manifest.jar.key -cnotmatch $keyPattern -or
-        $Manifest.jar.sha256 -cnotmatch '^[a-f0-9]{64}$' -or
-        $Manifest.jar.size -isnot [ValueType] -or $Manifest.jar.size -le 0 -or
-        $Manifest.jar.size -gt 1GB -or [long]$Manifest.jar.size -ne $Manifest.jar.size) {
-        throw 'JAR 路径、大小或 SHA-256 清单字段无效。'
+function Assert-JarMetadata {
+    param($Entry)
+    if ($Entry.commit -cnotmatch '^[a-f0-9]{40}$' -or $Entry.sha256 -cnotmatch '^[a-f0-9]{64}$' -or
+        $Entry.size -isnot [ValueType] -or $Entry.size -le 0 -or $Entry.size -gt 1GB -or
+        [long]$Entry.size -ne $Entry.size) {
+        throw 'JAR 的提交、大小或 SHA-256 元数据无效，原服务未停止。'
     }
 }
 
@@ -57,6 +51,21 @@ function Read-BackendEnvironment {
         throw '当前运行器使用本机 HTTP 健康检查，请由现有反向代理提供 HTTPS。'
     }
     return $values
+}
+
+function Initialize-BackendToken {
+    param([string]$Path)
+    $lines = [IO.File]::ReadAllLines($Path, [Text.Encoding]::UTF8)
+    $tokenLine = @($lines | Where-Object { $_ -match '^BUTVAN_API_TOKEN=' })
+    if ($tokenLine.Count -ne 1 -or $tokenLine[0] -ne 'BUTVAN_API_TOKEN=') { return }
+    Write-Host '首次运行，请输入原后端的 API Token；输入不显示，配置只保存于本机。'
+    $secret = Read-Host 'API Token' -AsSecureString
+    $value = (New-Object Net.NetworkCredential('', $secret)).Password
+    if ($value.Trim().Length -lt 32 -or $value.Contains("`r") -or $value.Contains("`n")) {
+        throw 'API Token 至少需要 32 字符，且不能包含换行。'
+    }
+    $content = ($lines | ForEach-Object { if ($_ -eq 'BUTVAN_API_TOKEN=') { 'BUTVAN_API_TOKEN=' + $value.Trim() } else { $_ } }) -join "`r`n"
+    [IO.File]::WriteAllText($Path, $content + "`r`n", (New-Object Text.UTF8Encoding $false))
 }
 
 function ConvertTo-NativeArgument {
