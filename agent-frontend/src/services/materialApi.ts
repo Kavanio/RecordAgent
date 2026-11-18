@@ -47,3 +47,12 @@ export function materialContentUrl(fileId: string, download = false): string {
   const suffix = download ? '?download=true' : '';
   return apiResourceUrl(`/agent/materials/${encodeURIComponent(fileId)}/content${suffix}`);
 }
+
+/** 聊天图片走认证请求头，下载后的 Blob 地址只在本次界面中使用。 */
+export async function fetchMaterialImage(fileId: string, signal: AbortSignal): Promise<Blob> {
+  const response = await apiFetch(`${getApiBaseUrl()}/agent/materials/${encodeURIComponent(fileId)}/content`, { signal });
+  if (!response.ok || !response.headers.get('content-type')?.startsWith('image/')) {
+    throw new Error('图片加载失败');
+  }
+  return response.blob();
+}

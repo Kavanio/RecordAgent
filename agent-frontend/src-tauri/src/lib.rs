@@ -1,6 +1,8 @@
 #[cfg(desktop)]
 mod backend;
 #[cfg(desktop)]
+mod chat_image;
+#[cfg(desktop)]
 mod system_settings;
 #[cfg(target_os = "macos")]
 mod notification_authorization;
@@ -63,6 +65,7 @@ pub fn run() {
   #[cfg(desktop)]
   let builder = builder.invoke_handler(tauri::generate_handler![
     backend::get_backend_mode,
+    chat_image::save_chat_image,
     backend::get_backend_port,
     backend::get_backend_connection,
     backend::get_backend_api_token,

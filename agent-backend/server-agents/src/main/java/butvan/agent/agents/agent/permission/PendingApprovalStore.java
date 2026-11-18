@@ -1,5 +1,6 @@
 package butvan.agent.agents.agent.permission;
 
+import butvan.agent.agents.material.ReplyImages;
 import butvan.agent.agents.agent.run.AgentRun;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -42,10 +43,13 @@ public class PendingApprovalStore {
     }
 
     public void remember(String userId, String sessionId, ToolUseBlock tool, boolean approved) {
-        sessionDecisions.put(key(userId, sessionId, tool), approved);
+        if (!ReplyImages.SCREEN_TOOL.equals(tool.getName())) {
+            sessionDecisions.put(key(userId, sessionId, tool), approved);
+        }
     }
 
     public Optional<Boolean> remembered(String userId, String sessionId, ToolUseBlock tool) {
+        if (ReplyImages.SCREEN_TOOL.equals(tool.getName())) return Optional.empty();
         return Optional.ofNullable(sessionDecisions.get(key(userId, sessionId, tool)));
     }
 

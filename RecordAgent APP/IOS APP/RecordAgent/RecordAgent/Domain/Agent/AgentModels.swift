@@ -338,6 +338,21 @@ struct AgentTranscriptBlockDTO: Codable, Equatable, Sendable {
     let tools: [AgentToolExecution]?
 }
 
+/// 助手图片的稳定文件引用，正文与图片按需独立加载。
+struct AgentReplyImage: Identifiable, Codable, Equatable, Sendable {
+    var id: String { fileId }
+    let fileId: String
+    let title: String
+    let sourceUrl: String?
+
+    var source: URL? {
+        guard let sourceUrl, let url = URL(string: sourceUrl),
+              url.scheme?.lowercased() == "https", url.host != nil,
+              url.user == nil, url.password == nil else { return nil }
+        return url
+    }
+}
+
 struct AgentTranscriptMessageDTO: Codable, Equatable, Sendable {
     let id: String
     let turnId: String?
@@ -351,6 +366,7 @@ struct AgentTranscriptMessageDTO: Codable, Equatable, Sendable {
     let usage: AgentTurnTokenUsage?
     let proactive: Bool?
     let blocks: [AgentTranscriptBlockDTO]?
+    var replyImages: [AgentReplyImage]? = nil
 }
 
 struct AgentSessionDetailDTO: Codable, Equatable, Sendable {
@@ -374,6 +390,7 @@ struct AgentChatMessage: Identifiable, Equatable, Sendable {
     var usage: AgentTurnTokenUsage?
     var isStreaming: Bool
     var images: [AgentChatImageAttachment]
+    var replyImages: [AgentReplyImage]
 
     init(
         id: String,
@@ -389,7 +406,8 @@ struct AgentChatMessage: Identifiable, Equatable, Sendable {
         proactive: Bool,
         usage: AgentTurnTokenUsage?,
         isStreaming: Bool,
-        images: [AgentChatImageAttachment] = []
+        images: [AgentChatImageAttachment] = [],
+        replyImages: [AgentReplyImage] = []
     ) {
         self.id = id
         self.turnId = turnId
@@ -405,6 +423,7 @@ struct AgentChatMessage: Identifiable, Equatable, Sendable {
         self.usage = usage
         self.isStreaming = isStreaming
         self.images = images
+        self.replyImages = replyImages
     }
 }
 

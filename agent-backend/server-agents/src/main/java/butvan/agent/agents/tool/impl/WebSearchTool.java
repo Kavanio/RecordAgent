@@ -14,7 +14,10 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -92,13 +95,7 @@ public class WebSearchTool implements AgentToolModule {
             body.put("include_answer", true); // 让 tavily 额外生成一段综合回答
 
             // 发起请求
-            String responseBody = restClient.post()
-                    .uri(TAVILY_URL)
-                    .header("Authorization", "Bearer" + config.apiKey())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .body(String.class);
+            String responseBody = request(config, body);
 
             return formatResults(query, responseBody);
         } catch (Exception e) {
@@ -106,6 +103,40 @@ public class WebSearchTool implements AgentToolModule {
             return "搜索失败：" + e.getMessage();
         }
     }
+
+    /** 通过现有搜索连接检索图片候选，候选地址只供受控下载器使用。 */
+    public List<ImageResult> findImages(String query, int limit) throws JsonProcessingException {
+        TavilyConfigData config = tavilyProperties.load();
+        if (!config.isReady()) {
+            throw new IllegalArgumentException("联网搜索未启用，请先配置 Tavily。");
+        }
+        var body = Map.of(
+                "query", query,
+                "max_results", limit,
+                "include_images", true,
+                "include_image_descriptions", true
+        );
+        var results = new ArrayList<ImageResult>();
+        for (JsonNode item : objectMapper.readTree(request(config, body)).path("images")) {
+            String url = item.isTextual() ? item.asText() : item.path("url").asText("");
+            if (!url.isBlank()) results.add(new ImageResult(url, item.path("description").asText("")));
+            if (results.size() >= limit) break;
+        }
+        return List.copyOf(results);
+    }
+
+    private String request(TavilyConfigData config, Map<String, ?> body) {
+        return restClient.post()
+                .uri(TAVILY_URL)
+                .headers(headers -> headers.setBearerAuth(config.apiKey()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(String.class);
+    }
+
+    /** 搜索返回的公开图片候选。 */
+    public record ImageResult(String url, String description) { }
 
     /**
      * 把 Tavily 返回的 JSON 整理成模型容易理解阅读的纯文本

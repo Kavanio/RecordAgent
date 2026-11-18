@@ -1,5 +1,6 @@
 package butvan.agent.agents.tool;
 
+import butvan.agent.agents.material.ReplyImages;
 import butvan.agent.agents.routing.ToolRoutingDecision;
 import io.agentscope.core.agent.Agent;
 import io.agentscope.core.agent.RuntimeContext;
@@ -37,6 +38,9 @@ class ToolSchemaSelectionMiddlewareTest {
         registerSchema("read_file");
         registerSchema("calendar_query");
         registerSchema("method_search");
+        registerSchema("web_search");
+        registerSchema("web_image_search");
+        registerSchema("capture_screen");
         registerSchema("diagnostic_ping");
         ToolSchemaRoutingPolicy.apply(toolkit, catalog);
         when(agent.getToolkit()).thenReturn(toolkit);
@@ -149,6 +153,16 @@ class ToolSchemaSelectionMiddlewareTest {
             return Flux.empty();
         }).blockLast();
         return captured.get();
+    }
+
+    @Test
+    void channelDisabledHidesReplyImageTools() {
+        RuntimeContext context = activeContext(Set.of("web", "screen"));
+        ReplyImages.disableForChannel(context);
+
+        ModelCallInput routed = invokeModelCall(context, input(toolkit.getToolSchemas(List.of("web", "screen"))));
+
+        assertEquals(Set.of("reset_equipped_tools", "diagnostic_ping", "web_search"), names(routed.tools()));
     }
 
     private ModelCallInput input(List<ToolSchema> tools) {

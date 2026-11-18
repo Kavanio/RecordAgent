@@ -1,5 +1,6 @@
 package butvan.agent.agents.session;
 
+import butvan.agent.agents.material.ReplyImages;
 import butvan.agent.agents.session.dto.TranscriptMessageDto;
 import butvan.agent.agents.storage.AgentStorageProperties;
 import butvan.agent.agents.usage.TurnTokenUsage;
@@ -178,6 +179,18 @@ public class TranscriptService {
             TurnTokenUsage usage,
             List<TranscriptMessageDto.MessageBlockDto> blocks
     ) {
+        appendAssistantMessage(sessionId, turnId, content, thinking, status, durationMillis, tools, usage,
+                blocks, List.of());
+    }
+
+    /** 把已归档的图片附件和助手终态一次写入会话。 */
+    public synchronized void appendAssistantMessage(
+            String sessionId, String turnId, String content, String thinking,
+            TranscriptMessageDto.MessageStatus status, Long durationMillis,
+            List<TranscriptMessageDto.ToolExecutionDto> tools, TurnTokenUsage usage,
+            List<TranscriptMessageDto.MessageBlockDto> blocks,
+            List<ReplyImages.Attachment> replyImages
+    ) {
         if (hasAssistantMessage(sessionId, turnId)) return;
         append(sessionId, new TranscriptMessageDto(
                 UUID.randomUUID().toString(),
@@ -191,7 +204,9 @@ public class TranscriptService {
                 thinking,
                 usage,
                 false,
-                blocks
+                blocks,
+                List.of(),
+                replyImages
         ));
     }
 

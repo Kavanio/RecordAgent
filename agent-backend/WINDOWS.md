@@ -21,6 +21,8 @@ MinIO 只发布一个固定地址的 JAR，Windows 只需手动复制四个 BAT�
 
 本机配置保存在 `data/backend.env`、`data/backend-settings.json`。默认监听 `127.0.0.1:8081`，强制业务 Token，继续沿用宿主机 HTTPS 反向代理与受限 CORS。`jarUrl` 默认是下方固定地址；Java 不在 PATH 时，可将 `javaExe` 改为 Java 21 的 `java.exe` 完整路径。`userHome` 留空表示当前 Windows 用户主目录，业务数据仍在其 `.butvan-agent/` 下，与脚本的 `data/` 不是同一目录。
 
+需要从聊天请求 Windows 主屏截图时，可在 `data/backend.env` 添加 `BUTVAN_SCREEN_CAPTURE_ENABLED=true`，正常停止后重新启动。后端须由要截图的 Windows 用户在仍连接、未锁定的交互桌面运行。截图工具每次经当前对话审批，配置、图片限额和验收见 [聊天图片回复契约](../docs/聊天图片回复契约.md)。
+
 Java 检测会把 `javaExe` 解析为可执行文件完整路径，并在本次启动中固定使用同一结果；通过直接持有的 .NET Process 查询 `-version`，同时读取 stdout／stderr，只有退出码为 0 且主版本为 21 才通过。Windows `Start-Process` 重定向后可能返回空退出码的背景见 [PowerShell 问题记录](https://github.com/PowerShell/PowerShell/issues/5421)。空退出码、非零退出码、无法识别版本、版本不符和超时分别提示，不再统一提示重装 Java。
 
 检测完成后的摘要在 `data/runtime/java-check.json`，包含时间、实际程序路径、版本和退出码；`java-check.err`／`java-check.out` 只保留识别出的版本文本，不保存完整 JVM 输出。出现 Java 检查错误时，可提供该摘要协助排查，不需要发送业务 Token 或本机配置。
