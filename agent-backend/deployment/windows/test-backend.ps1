@@ -65,6 +65,33 @@ try {
     Assert-True ((ConvertTo-NativeArgument 'C:\') -eq '"C:\\"') '尾部反斜杠未正确引用。'
     Assert-Fails { ConvertTo-NativeArgument 'bad"path' }
 
+    # 固定 HTTPS 下载地址和清单对象键拼接，拒绝跨站地址和路径穿越。
+    Assert-True ((Get-ReleaseObjectUrl 'https://example.com/recordagent/' 'backend/channels/develop.json') -eq
+        'https://example.com/recordagent/backend/channels/develop.json') '下载地址拼接错误。'
+    foreach ($base in @('http://example.com/bucket','https://user:secret@example.com/bucket','https://example.com/bucket?token=hidden')) {
+        Assert-Fails { Get-ReleaseObjectUrl $base 'backend/channels/develop.json' }
+    }
+    foreach ($key in @('backend/../private/file','backend/./file','https://other.com/file','backend/%2e%2e/file')) {
+        Assert-Fails { Get-ReleaseObjectUrl 'https://example.com/bucket' $key }
+    }
+
+    # 首次模板初始化和旧版本配置兼容，不覆盖已经填写的真实配置。
+    $configDirectory = Join-Path $temporary 'configuration'
+    [void](New-Item -ItemType Directory -Path $configDirectory)
+    Copy-Item (Join-Path $PSScriptRoot 'backend-settings.example.json') $configDirectory
+    Copy-Item (Join-Path $PSScriptRoot 'backend.env.example') $configDirectory
+    $settings = Read-BackendSettings $configDirectory
+    Assert-True ($settings.downloadBaseUrl -eq 'https://minio.server.butvan.top/recordagent') '缺少默认下载地址。'
+    Assert-True (Test-Path (Join-Path $configDirectory 'backend.env')) '未生成首次环境配置。'
+    $configPath = Join-Path $configDirectory 'backend-settings.json'
+    [IO.File]::WriteAllText($configPath, '{"javaExe":"custom-java.exe","mcExe":"legacy-mc.exe"}')
+    $before = [IO.File]::ReadAllText($configPath)
+    $legacy = Read-BackendSettings $configDirectory
+    Assert-True ($legacy.javaExe -eq 'custom-java.exe' -and $legacy.downloadBaseUrl -match '^https://') '旧配置不兼容。'
+    Assert-True ([IO.File]::ReadAllText($configPath) -eq $before) '覆盖了已有配置。'
+    [IO.File]::WriteAllText($configPath, '{ bad JSON }')
+    Assert-Fails { Read-BackendSettings $configDirectory }
+
     # 验证真实备份函数：源目录不存在时保留旧 JAR 和版本；存在时整目录复制。
     $script:DeploymentRoot = $temporary
     $script:JarPath = Join-Path $temporary 'app/butvan-backend.jar'

@@ -25,6 +25,8 @@ env:
   MINIO_ENDPOINT: https://minio.server.butvan.top
   MINIO_BUCKET: recordagent
   MINIO_PREFIX: backend
+  # 仅允许 backend/* 匿名 GetObject；保留 Bucket 其他策略。
+  MINIO_PUBLIC_DOWNLOADS: 'true'
 
 jobs:
   publish:
