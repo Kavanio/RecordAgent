@@ -39,7 +39,8 @@ final class MacScreenDesktop {
     }
 
     static boolean hasCapturePermission() {
-        return Graphics.API.CGPreflightScreenCaptureAccess() != 0;
+        return Graphics.API.CGPreflightScreenCaptureAccess() != 0
+                || Graphics.API.CGRequestScreenCaptureAccess() != 0;
     }
 
     private static IllegalStateException unavailable() {
@@ -50,6 +51,7 @@ final class MacScreenDesktop {
         Graphics API = Native.load("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", Graphics.class);
         Pointer CGSessionCopyCurrentDictionary();
         byte CGPreflightScreenCaptureAccess();
+        byte CGRequestScreenCaptureAccess();
     }
 
     interface Foundation extends Library {
