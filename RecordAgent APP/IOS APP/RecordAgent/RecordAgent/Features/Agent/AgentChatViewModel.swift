@@ -233,7 +233,10 @@ final class AgentChatViewModel: ObservableObject {
     }
 
     func loadInitialIfNeeded() async {
-        guard !hasLoadedOnce else { return }
+        if hasLoadedOnce {
+            await refreshOnChatAppear()
+            return
+        }
         hasLoadedOnce = true
         isLoadingInitial = true
         defer { isLoadingInitial = false }
@@ -243,6 +246,21 @@ final class AgentChatViewModel: ObservableObject {
         _ = await (loadedSessions, loadedModels)
 
         if activeSessionId == nil, let latest = sessions.first {
+            await selectSession(latest, readOnly: false)
+        }
+    }
+
+    /// 从其他页面切回对话 Tab 时静默刷新会话列表与当前会话最新消息，保持画面不闪烁。
+    func refreshOnChatAppear() async {
+        guard !isStreaming, pendingApproval == nil else { return }
+        await loadSessionsInternal()
+        if let activeSessionId {
+            await reloadSessionDetail(sessionId: activeSessionId, readOnly: activeSessionIsReadOnly, showLoading: false)
+        } else if messages.isEmpty,
+                  draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  attachedImages.isEmpty,
+                  selectedRecordReferences.isEmpty,
+                  let latest = sessions.first {
             await selectSession(latest, readOnly: false)
         }
     }
@@ -327,6 +345,7 @@ final class AgentChatViewModel: ObservableObject {
         clearDraftAttachmentsAndPanels()
         activeSessionId = summary.id
         activeSessionIsReadOnly = readOnly
+        messages = []
         sessionUsageSummary = nil
         pendingApproval = nil
         approvalSelections = [:]
@@ -742,12 +761,14 @@ final class AgentChatViewModel: ObservableObject {
         }
     }
 
-    private func reloadSessionDetail(sessionId: String, readOnly: Bool) async {
+    private func reloadSessionDetail(sessionId: String, readOnly: Bool, showLoading: Bool = true) async {
         loadGeneration += 1
         let expectedGen = loadGeneration
-        isLoadingMessages = true
+        if showLoading {
+            isLoadingMessages = true
+        }
         defer {
-            if loadGeneration == expectedGen {
+            if showLoading && loadGeneration == expectedGen {
                 isLoadingMessages = false
             }
         }
