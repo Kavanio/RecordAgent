@@ -152,18 +152,61 @@ exit /b 1
 ::|    throw '后端健康检查超时，进程和现场已保留；请打开日志查看，未自动回退。'
 ::|}
 ::|
+::|function New-JavaCheckProcess {
+::|    # 直接持有 .NET Process 句柄，避免 Windows Start-Process 重定向后的空 ExitCode。
+::|    return New-Object Diagnostics.Process
+::|}
+::|
 ::|function Assert-Java {
-::|    # 标准错误重定向到临时文件，既能读取版本，也不将 JVM 错误文本暴露为配置日志。
-::|    $check = Join-Path $script:DeploymentRoot 'runtime\java-check.err'
-::|    $stdout = Join-Path $script:DeploymentRoot 'runtime\java-check.out'
+::|    $java = New-JavaCheckProcess
 ::|    try {
-::|        $java = Start-Process -FilePath $script:Settings.javaExe -ArgumentList '-version' -PassThru `
-::|            -WindowStyle Hidden -RedirectStandardError $check -RedirectStandardOutput $stdout
-::|    } catch { throw '找不到或无法启动 Java；请安装 Java 21，并将 javaExe 设置为 java.exe 的完整路径。' }
-::|    if (-not $java.WaitForExit(10000)) { throw 'Java 版本检查超时。' }
-::|    if ($java.ExitCode -ne 0 -or (Get-Content -LiteralPath $check -Raw) -notmatch 'version "21[\."]') {
-::|        throw '请安装 Java 21，并在 backend-settings.json 中配置 javaExe。'
-::|    }
+::|        try {
+::|            $javaExe = [string]$script:Settings.javaExe
+::|            if ([string]::IsNullOrWhiteSpace($javaExe)) { throw 'Missing javaExe' }
+::|            $application = @(Get-Command -Name $javaExe -CommandType Application -TotalCount 1 -ErrorAction Stop)[0]
+::|            if ($null -eq $application) { throw 'Java not found' }
+::|            # 检测和后续启动使用同一解析结果，仅更新本次内存配置。
+::|            $script:Settings.javaExe = $application.Source
+::|            $java.StartInfo.FileName = $application.Source
+::|            $java.StartInfo.Arguments = '-version'
+::|            $java.StartInfo.UseShellExecute = $false
+::|            $java.StartInfo.CreateNoWindow = $true
+::|            $java.StartInfo.RedirectStandardError = $true
+::|            $java.StartInfo.RedirectStandardOutput = $true
+::|            if (-not $java.Start()) { throw 'Java process did not start' }
+::|        } catch { throw '找不到或无法启动 Java；请在 data/backend-settings.json 中将 javaExe 设置为 Java 21 的完整路径。' }
+::|        # 同时读取两条流，避免管道阻塞；等待正文完成后再检查版本。
+::|        $errorOutput = $java.StandardError.ReadToEndAsync()
+::|        $standardOutput = $java.StandardOutput.ReadToEndAsync()
+::|        if (-not $java.WaitForExit(10000)) { throw 'Java 版本检查超时，已停止本次操作。' }
+::|        if (-not [Threading.Tasks.Task]::WaitAll([Threading.Tasks.Task[]]@($errorOutput, $standardOutput), 2000)) {
+::|            throw 'Java 版本输出读取超时，已停止本次操作。'
+::|        }
+::|        $exitCode = $java.ExitCode
+::|        $versionPattern = '(?m)^(?:openjdk|java) version "(?<version>(?<major>[0-9]+)(?:[._+\-][0-9A-Za-z]+)*)"'
+::|        $errorVersion = [regex]::Match($errorOutput.Result, $versionPattern)
+::|        $outputVersion = [regex]::Match($standardOutput.Result, $versionPattern)
+::|        $version = if ($errorVersion.Success) { $errorVersion } else { $outputVersion }
+::|        $number = if ($version.Success) { $version.Groups['version'].Value } else { $null }
+::|        # 只保存识别出的版本和退出码，过滤 JVM 选项、环境值等原始输出。
+::|        foreach ($entry in @(@{ name = 'java-check.err'; match = $errorVersion }, @{ name = 'java-check.out'; match = $outputVersion })) {
+::|            $safeOutput = if ($entry.match.Success) { 'java version "' + $entry.match.Groups['version'].Value + '"' } else { '' }
+::|            [IO.File]::WriteAllText((Join-Path $script:DeploymentRoot ('runtime/' + $entry.name)), $safeOutput, (New-Object Text.UTF8Encoding $false))
+::|        }
+::|        Write-State (Join-Path $script:DeploymentRoot 'runtime/java-check.json') @{
+::|            checkedAtUtc = [DateTime]::UtcNow.ToString('o')
+::|            executable = $script:Settings.javaExe
+::|            version = $number
+::|            exitCode = $exitCode
+::|        }
+::|        if ($null -eq $exitCode) { throw 'Java 检查无法取得退出码，请查看 data/runtime/java-check.json；未判定为版本不符。' }
+::|        if ($exitCode -ne 0) { throw "Java 版本查询失败（退出码 $exitCode），请核对 JVM 启动配置；详情见 data/runtime/java-check.json。" }
+::|        if (-not $version.Success) { throw '无法识别 Java 版本，请将 data/backend-settings.json 的 javaExe 指向 Java 21；详情见 data/runtime/java-check.json。' }
+::|        if ($version.Groups['major'].Value -ne '21') {
+::|            throw "检测到 Java $number，需要 Java 21；请修改 data/backend-settings.json 的 javaExe。"
+::|        }
+::|        Write-Host "Java $number 检查通过。"
+::|    } finally { $java.Dispose() }
 ::|}
 ::|
 ::|function Download-Release {
@@ -611,7 +654,7 @@ try {
         $hasher = [Security.Cryptography.SHA256]::Create()
         try { $hash = [BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($payload))).Replace('-', '').ToLowerInvariant() }
         finally { $hasher.Dispose() }
-        if ($hash -ne '51b3ff4a724a06d43da8ab76a696d7e604d9e031178e11dd2a35983568cf46c9') { throw 'BAT 文件不完整，请重新复制原文件。' }
+        if ($hash -ne '5fd154723bcf6e82cb7a07ab3866356e23ba9d6c7aa5e0d495d8a3ed0d617200') { throw 'BAT 文件不完整，请重新复制原文件。' }
         $expected = @('backend.ps1','backend-core.ps1','backend-download.ps1','signal-stop.ps1','backend-settings.example.json','backend.env.example','logback-windows.xml')
         $files = @{}
         $name = $null
