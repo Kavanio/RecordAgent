@@ -21,6 +21,12 @@ MinIO 只发布一个固定地址的 JAR，Windows 只需手动复制四个 BAT�
 
 本机配置保存在 `data/backend.env`、`data/backend-settings.json`。默认监听 `127.0.0.1:8081`，强制业务 Token，继续沿用宿主机 HTTPS 反向代理与受限 CORS。`jarUrl` 默认是下方固定地址；Java 不在 PATH 时，可将 `javaExe` 改为 Java 21 的 `java.exe` 完整路径。`userHome` 留空表示当前 Windows 用户主目录，业务数据仍在其 `.butvan-agent/` 下，与脚本的 `data/` 不是同一目录。
 
+需要从聊天请求 Windows 主屏截图时，可在 `data/backend.env` 添加 `BUTVAN_SCREEN_CAPTURE_ENABLED=true`，正常停止后重新启动。后端须由要截图的 Windows 用户在仍连接、未锁定的交互桌面运行。截图工具每次经当前对话审批，配置、图片限额和验收见 [聊天图片回复契约](../docs/聊天图片回复契约.md)。
+
+Java 检测会把 `javaExe` 解析为可执行文件完整路径，并在本次启动中固定使用同一结果；通过直接持有的 .NET Process 查询 `-version`，同时读取 stdout／stderr，只有退出码为 0 且主版本为 21 才通过。Windows `Start-Process` 重定向后可能返回空退出码的背景见 [PowerShell 问题记录](https://github.com/PowerShell/PowerShell/issues/5421)。空退出码、非零退出码、无法识别版本、版本不符和超时分别提示，不再统一提示重装 Java。
+
+检测完成后的摘要在 `data/runtime/java-check.json`，包含时间、实际程序路径、版本和退出码；`java-check.err`／`java-check.out` 只保留识别出的版本文本，不保存完整 JVM 输出。出现 Java 检查错误时，可提供该摘要协助排查，不需要发送业务 Token 或本机配置。
+
 真实配置不入库；配置文件权限限定为当前用户、SYSTEM 与管理员。备份含业务数据和凭据，部署目录与备份应限制访问，并定期清理确认不用的旧备份。
 
 ## 安全软件和脚本执行策略
@@ -78,4 +84,4 @@ python3 agent-backend/scripts/build-windows-launchers.py --check
 python3 -m unittest discover -s agent-backend/scripts -p 'test_*.py'
 ```
 
-PowerShell 测试通过 PATH 的 `pwsh` 或 `BUTVAN_TEST_PWSH` 指定的程序运行；缺失时对应测试明确跳过。还可运行 `deployment/windows/source/test-backend.ps1`。Windows 上另有真实 `cmd.exe` + `powershell.exe` 准备路径测试，只准备文件，不启动业务后端；macOS 明确跳过，受限执行策略也保持跳过，不自动放宽策略。测试使用临时目录和本地模拟服务，覆盖单独复制 BAT、明文文件准备、普通脚本调用、模拟来源标记传递、配置保留、损坏内容、下载元数据、文件校验、停止和备份边界，不触碰个人业务数据。真实 Windows 的双击、后台控制台、Ctrl+C 正常关闭仍需实际验收。
+PowerShell 测试通过 PATH 的 `pwsh` 或 `BUTVAN_TEST_PWSH` 指定的程序运行；缺失时对应测试明确跳过。还可运行 `deployment/windows/source/test-backend.ps1`。Java 检测回归使用 `source/test-java.ps1`（也由 Python 测试发现）；设置 `BUTVAN_TEST_JAVA` 为 Java 21 完整路径后，除模拟分支外还执行真实 `-version` 查询，不启动业务后端。Windows 上另有真实 `cmd.exe` + `powershell.exe` 准备路径测试，只准备文件，不启动业务后端；macOS 明确跳过，受限执行策略也保持跳过，不自动放宽策略。测试使用临时目录和本地模拟服务，覆盖单独复制 BAT、明文文件准备、普通脚本调用、模拟来源标记传递、配置保留、损坏内容、下载元数据、文件校验、停止和备份边界，不触碰个人业务数据。真实 Windows 的双击、后台控制台、Ctrl+C 正常关闭仍需实际验收。

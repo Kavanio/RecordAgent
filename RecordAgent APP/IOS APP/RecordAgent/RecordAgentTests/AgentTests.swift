@@ -87,6 +87,19 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(split.finalText, "今天共有两项待办。")
     }
 
+    func testAssistantReplyImageSurvivesHistoryDecoding() throws {
+        let json = """
+        {"id":"reply","role":"ASSISTANT","replyImages":[
+          {"fileId":"image-id","title":"参考图","sourceUrl":"https://example.com/photo.png"}
+        ]}
+        """
+        let dto = try JSONDecoder().decode(AgentTranscriptMessageDTO.self, from: Data(json.utf8))
+        let reply = AgentTimelineBuilder.mapTranscriptMessage(dto)
+        XCTAssertEqual(reply.replyImages.first?.id, "image-id")
+        XCTAssertEqual(reply.replyImages.first?.source?.host, "example.com")
+        XCTAssertNil(AgentReplyImage(fileId: "unsafe", title: "", sourceUrl: "file:///tmp/secret").source)
+    }
+
     func testTranscriptMappingSupportsBlocksAndProactiveDetection() {
         let dtos: [AgentTranscriptMessageDTO] = [
             AgentTranscriptMessageDTO(
@@ -222,6 +235,37 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(created.id, "s-1")
         XCTAssertEqual(seenPaths, ["GET /agent/reset/current", "POST /agent/sessions"])
         XCTAssertEqual(generationHeaders["/agent/sessions"] ?? nil, "7")
+    }
+
+    func testReplyImageUsesBearerHeaderAndCompactFileIdentifier() async throws {
+        let previousAddress = APIConfiguration.savedServerAddress()
+        addTeardownBlock {
+            if previousAddress.isEmpty {
+                APIConfiguration.clearServerAddress()
+            } else {
+                _ = try? APIConfiguration.saveServerAddress(previousAddress)
+            }
+            AgentGenerationURLProtocol.handler = nil
+        }
+        _ = try APIConfiguration.saveServerAddress("http://127.0.0.1:18081")
+        let fileId = "a6e04bb4f2664f1196500e850c2fcd5a"
+        let pngHeader = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0])
+        AgentGenerationURLProtocol.handler = { request in
+            let url = try XCTUnwrap(request.url)
+            XCTAssertEqual(url.path, "/agent/materials/\(fileId)/content")
+            XCTAssertNil(url.query)
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-token")
+            let response = try XCTUnwrap(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+                                                        headerFields: ["Content-Type": "image/png"]))
+            return (response, pngHeader)
+        }
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [AgentGenerationURLProtocol.self]
+        let credentials = AuthSession(token: "test-token", refreshToken: nil,
+            user: AuthUser(id: "u", email: "local", nickname: "B"), expiresAt: nil)
+        let client = APIClient(keychain: .shared, session: URLSession(configuration: config), sessionProvider: { _ in credentials })
+        let image = try await APIAgentService(client: client).fetchReplyImage(fileId: fileId)
+        XCTAssertEqual(image, pngHeader)
     }
 
     func testTimelineFormattingExtractsReadableParametersAndThinkingPreview() {

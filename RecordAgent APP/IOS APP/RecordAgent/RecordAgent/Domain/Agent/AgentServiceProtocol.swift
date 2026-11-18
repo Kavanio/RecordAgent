@@ -2,6 +2,7 @@ import Foundation
 
 /// Agent 会话、流式对话、权限审批与模型切换服务协议。
 protocol AgentServiceProtocol: Sendable {
+    func fetchReplyImage(fileId: String) async throws -> Data
     func listSessions() async throws -> [AgentSessionSummary]
     func listFeishuSessions() async throws -> [AgentSessionSummary]
     func getSessionDetail(sessionId: String) async throws -> AgentSessionDetailDTO
@@ -48,4 +49,14 @@ protocol AgentServiceProtocol: Sendable {
         baseUrl: String?,
         protocolName: String?
     ) async throws
+}
+
+extension AgentServiceProtocol {
+    func fetchReplyImage(fileId: String) async throws -> Data {
+        throw AgentReplyImageError.unavailable
+    }
+}
+
+enum AgentReplyImageError: Error {
+    case unavailable
 }

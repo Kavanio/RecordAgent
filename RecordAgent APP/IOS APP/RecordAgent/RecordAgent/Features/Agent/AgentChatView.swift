@@ -21,6 +21,7 @@ struct AgentChatView: View {
     @State private var isAutoScrollEnabled = true
     @State private var isBottomVisible = true
     @State private var sendFeedbackTrigger = false
+    @State private var scrollToBottomTask: Task<Void, Never>?
     @FocusState private var isInputFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -395,6 +396,7 @@ struct AgentChatView: View {
                                             isInputFocused = false
                                             selectedCitation = citation
                                         },
+                                        loadReplyImage: viewModel.loadReplyImage,
                                         onPreviewImage: { attachment in
                                             isInputFocused = false
                                             previewImageItem = attachment
@@ -451,6 +453,7 @@ struct AgentChatView: View {
                     }
                 }
                 .scrollDismissesKeyboard(.interactively)
+                .id(viewModel.activeSessionId ?? "__new_chat__")
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 12)
                         .onChanged { value in
@@ -463,16 +466,35 @@ struct AgentChatView: View {
                 .onTapGesture {
                     isInputFocused = false
                 }
+                .onAppear {
+                    if !viewModel.messages.isEmpty {
+                        isAutoScrollEnabled = true
+                        scheduleScrollToBottom(proxy: proxy, animated: false)
+                    }
+                }
+                .onDisappear {
+                    scrollToBottomTask?.cancel()
+                }
+                .onChange(of: viewModel.activeSessionId) { _, _ in
+                    isAutoScrollEnabled = true
+                }
                 .onChange(of: viewModel.messages.count) { oldCount, newCount in
                     if newCount > oldCount {
                         isAutoScrollEnabled = true
                     }
-                    scrollToBottom(proxy: proxy, animated: !reduceMotion)
+                    if isAutoScrollEnabled && newCount > 0 {
+                        scheduleScrollToBottom(proxy: proxy, animated: oldCount > 0 && !reduceMotion)
+                    }
+                }
+                .onChange(of: viewModel.messages.last?.id) { _, _ in
+                    if isAutoScrollEnabled && !viewModel.messages.isEmpty {
+                        scheduleScrollToBottom(proxy: proxy, animated: false)
+                    }
                 }
                 .onChange(of: viewModel.isLoadingMessages) { _, loading in
                     if !loading && !viewModel.messages.isEmpty {
                         isAutoScrollEnabled = true
-                        scrollToBottom(proxy: proxy, animated: false)
+                        scheduleScrollToBottom(proxy: proxy, animated: false)
                     }
                 }
                 .onChange(of: viewModel.messages.last?.content) { _, _ in
@@ -523,6 +545,16 @@ struct AgentChatView: View {
             return 16
         }
         return 26
+    }
+
+    private func scheduleScrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
+        scrollToBottom(proxy: proxy, animated: animated)
+        scrollToBottomTask?.cancel()
+        scrollToBottomTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(70))
+            guard !Task.isCancelled, isAutoScrollEnabled, !viewModel.messages.isEmpty else { return }
+            scrollToBottom(proxy: proxy, animated: false)
+        }
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
@@ -935,6 +967,7 @@ private struct AgentMessageRow: View {
     let citedReferences: [AgentCitedReference]
     let onOpenTurnUsage: () -> Void
     let onSelectCitation: (AgentCitedReference) -> Void
+    let loadReplyImage: (String) async throws -> Data
     let onPreviewImage: (AgentChatImageAttachment) -> Void
     @State private var copied = false
 
@@ -1085,6 +1118,10 @@ private struct AgentMessageRow: View {
             if !trimmedFinal.isEmpty {
                 AgentMarkdownView(text: split.finalText)
                     .foregroundStyle(.primary)
+            }
+
+            if !message.replyImages.isEmpty {
+                AgentReplyImageGallery(attachments: message.replyImages, load: loadReplyImage)
             }
 
             if message.status == .cancelled {
