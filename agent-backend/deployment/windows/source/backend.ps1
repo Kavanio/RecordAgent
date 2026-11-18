@@ -51,11 +51,11 @@ function Stop-Backend {
     if ($null -eq $process) { Assert-PortFree; return }
     $state = Get-Content -LiteralPath $script:StatePath -Raw -Encoding UTF8 | ConvertFrom-Json
     Write-Host '正在请求后端正常关闭……'
-    $arguments = @('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',
+    $arguments = @('-NoLogo','-NoProfile','-NonInteractive','-File',
         (ConvertTo-NativeArgument "$script:SupportRoot\signal-stop.ps1"),
         '-TargetProcessId', $process.ProcessId, '-CreatedTicks', $state.createdTicks, '-LaunchId', $state.launchId)
     $helper = Start-Process -FilePath "$PSHOME\powershell.exe" -ArgumentList $arguments `
-        -WindowStyle Hidden -PassThru
+        -PassThru
     if (-not $helper.WaitForExit(15000) -or $helper.ExitCode -ne 0) {
         throw '发送正常关闭信号失败，已停止操作；不会强杀 Java 或替换 JAR。'
     }
