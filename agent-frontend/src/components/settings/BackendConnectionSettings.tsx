@@ -2,14 +2,20 @@ import { useEffect, useState } from 'react';
 import { SettingsGroup, SettingsRow } from './SettingsGroup';
 import { SettingsPageLayout } from './SettingsPageLayout';
 import { BackendConnectionModal } from './BackendConnectionModal';
+import { DesktopControlSettingsSection } from './DesktopControlSettingsSection';
 import { Button } from '../common/Button';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { useMessage } from '../common/Message';
 import { fetchBackendConnection, restartApplication, type BackendConnectionInfo } from '../../services/api';
 import styles from './BackendConnectionSettings.module.css';
 
+interface BackendConnectionSettingsProps {
+  /** 仅在已接入正常后端的设置页展示电脑操控配置，启动保护页不发起额外业务请求。 */
+  showDesktopControl?: boolean;
+}
+
 /** 区分本次实际连接与下次启动配置，保存变更后由用户确认自动重启。 */
-export function BackendConnectionSettings() {
+export function BackendConnectionSettings({ showDesktopControl = false }: BackendConnectionSettingsProps) {
   const [connection, setConnection] = useState<BackendConnectionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -58,6 +64,7 @@ export function BackendConnectionSettings() {
           </div>}
         />
       </SettingsGroup>
+      {showDesktopControl && <DesktopControlSettingsSection />}
       <SettingsGroup title="设备提醒说明">
         <p className={styles.note}>日报、周报、月报和邮件由当前连接的后端执行，连接远程时由服务器持续执行。桌面通知、休息遮罩和久坐采样由本机 App 处理；电脑关机或 App 完全退出时，本机采样与提醒会暂停。未确认的普通桌面通知超过 15 分钟后会过期跳过，待确认提醒会保留到你处理。</p>
       </SettingsGroup>

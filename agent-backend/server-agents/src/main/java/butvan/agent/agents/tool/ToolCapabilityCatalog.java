@@ -37,6 +37,8 @@ public class ToolCapabilityCatalog {
                     names("web_search", "web_image_search")),
             capability("screen", "请求截取后端所在电脑的主屏幕并发送给用户",
                     names("capture_screen")),
+            capability("desktop", "查看并操作后端所在电脑的桌面应用、窗口与无障碍界面元素（仅在配置启用时可用）",
+                    prefixes("desktop_")),
             capability("calendar", "查询、创建、更新、完成或删除日程与待办",
                     prefixes("calendar_")),
             capability("finance", "查询财务数据、创建账户和记录收支",

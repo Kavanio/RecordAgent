@@ -94,6 +94,7 @@ public class AgentFactory {
                 .name("butvan_agent")
                 .sysPrompt(systemPrompt)
                 .model(model)
+                .maxIters(25)
                 .middleware(new butvan.agent.agents.prompts.RuntimeDateMiddleware())
                 .middleware(contextInjectionMiddleware) // 先向消息列表临时注入有界个人上下文
                 .middleware(toolSchemaSelectionMiddleware)

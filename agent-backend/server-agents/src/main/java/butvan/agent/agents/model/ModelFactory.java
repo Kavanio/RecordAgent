@@ -3,7 +3,6 @@ package butvan.agent.agents.model;
 import io.agentscope.core.model.GenerateOptions;
 import io.agentscope.core.model.Model;
 import io.agentscope.extensions.model.anthropic.AnthropicChatModel;
-import io.agentscope.extensions.model.dashscope.DashScopeChatModel;
 import io.agentscope.extensions.model.gemini.GeminiChatModel;
 import io.agentscope.extensions.model.openai.OpenAIChatModel;
 import io.agentscope.extensions.model.openai.formatter.DeepSeekFormatter;
@@ -65,7 +64,10 @@ public sealed interface ModelFactory {
         }
     }
 
+    /** 百炼统一走 OpenAI 兼容端点，避免原生 SDK 按模型名前缀猜测 text/multimodal 路径导致新模型报 url error。 */
     record DashScope() implements ModelFactory {
+        static final String DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+
         @Override
         public String vendor() {
             return "dashscope";
@@ -78,12 +80,13 @@ public sealed interface ModelFactory {
                     .stream(modelSelector.stream())
                     .build();
 
-            DashScopeChatModel model = DashScopeChatModel.builder()
+            String baseUrl = ModelEndpoint.normalize(modelSelector.baseUrl());
+            return OpenAIChatModel.builder()
                     .modelName(modelSelector.name())
                     .apiKey(modelSelector.apiKey())
-                    .defaultOptions(options)
+                    .baseUrl(baseUrl == null ? DEFAULT_BASE_URL : baseUrl)
+                    .generateOptions(options)
                     .build();
-            return model;
         }
     }
 

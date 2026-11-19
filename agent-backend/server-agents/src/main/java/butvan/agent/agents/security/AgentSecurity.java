@@ -40,7 +40,14 @@ public class AgentSecurity {
             "library_search",
             "library_get",
             "study_query",
-            "acceptance_report"
+            "acceptance_report",
+            "desktop_status",
+            "desktop_apps",
+            "desktop_snapshot",
+            "desktop_find",
+            "desktop_inspect",
+            "desktop_wait",
+            "desktop_guide"
     );
 
     /** 自动批准编辑模式额外允许的工作区编辑与常规智能体协作工具。 */

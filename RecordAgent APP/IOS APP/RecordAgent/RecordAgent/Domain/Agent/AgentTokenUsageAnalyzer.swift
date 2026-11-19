@@ -28,6 +28,20 @@ enum AgentTokenBreakdownKey: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    var symbolName: String {
+        switch self {
+        case .systemPrompt: return "terminal.fill"
+        case .history: return "clock.arrow.circlepath"
+        case .currentUser: return "text.bubble.fill"
+        case .toolSchema: return "wrench.and.screwdriver.fill"
+        case .toolResult: return "gearshape.2.fill"
+        case .profileContext: return "person.crop.circle.fill"
+        case .memoryRecall: return "brain.head.profile"
+        case .ragContext: return "doc.text.magnifyingglass"
+        case .other: return "ellipsis.circle.fill"
+        }
+    }
+
     func value(in breakdown: AgentInputTokenBreakdown) -> Int64 {
         switch self {
         case .systemPrompt: return breakdown.systemPromptTokens
@@ -79,6 +93,26 @@ struct AgentTokenUsageSnapshot: Equatable, Sendable {
 
     var hasBreakdown: Bool {
         estimatedInputTokens > 0 || !AgentTokenUsageAnalyzer.breakdownSegments(from: breakdown).isEmpty
+    }
+
+    /// 缓存输入占总输入 Token 的比例（0.0...1.0）；无输入或无缓存时返回 nil。
+    var cacheHitRatio: Double? {
+        guard inputTokens > 0, cachedInputTokens > 0 else { return nil }
+        return min(1.0, max(0.0, Double(cachedInputTokens) / Double(inputTokens)))
+    }
+
+    /// 输入 Token 占（输入 + 输出）的比例（0.0...1.0）。
+    var inputShare: Double {
+        let sum = max(0, inputTokens) + max(0, outputTokens)
+        guard sum > 0 else { return 0.5 }
+        return min(1.0, max(0.0, Double(max(0, inputTokens)) / Double(sum)))
+    }
+
+    /// 输出 Token 占（输入 + 输出）的比例（0.0...1.0）。
+    var outputShare: Double {
+        let sum = max(0, inputTokens) + max(0, outputTokens)
+        guard sum > 0 else { return 0.5 }
+        return min(1.0, max(0.0, Double(max(0, outputTokens)) / Double(sum)))
     }
 }
 
