@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * 智能体安全与 AgentScope PermissionContext 适配中心。
  * <p>
- * 负责将 {@link PermissionChecker} 加载的三层规则与安全模式，
+ * 负责将内置安全规则与会话安全模式，
  * 组装为 AgentScope 原生 {@link PermissionContextState} 并注入 HarnessAgent。
  */
 @Slf4j
@@ -60,21 +60,6 @@ public class AgentSecurity {
             "agent_spawn",
             "agent_send"
     );
-
-    /**
-     *
-     *
-     * @param checker 权限检查与配置加载器
-     * @return 组装完毕的 PermissionContextState 实例
-     */
-    public PermissionContextState createPermissionContext(PermissionChecker checker) {
-        PermissionMode configured = checker == null ? PermissionMode.DEFAULT : checker.getMode();
-        return createPermissionContext(switch (configured) {
-            case ACCEPT_EDITS -> SessionPermissionMode.AUTO_EDIT;
-            case BYPASS -> SessionPermissionMode.FULL_ACCESS;
-            default -> SessionPermissionMode.ASK;
-        });
-    }
 
     /** 为单个会话构造完整权限上下文，避免不同模式之间残留动态规则。 */
     public PermissionContextState createPermissionContext(SessionPermissionMode mode) {
