@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7RP278WBFKWVJM2H247ZQEW",
+  "strategy": "manual-commit",
+  "branch": "ios-app/desktop-control-settings",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent.xcodeproj/project.pbxproj",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/App/AppEnvironment.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Domain/DesktopControl/DesktopControlModels.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Profile/DesktopControlSettingsView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Features/Profile/ProfileSettingsView.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Resources/Localizable.xcstrings",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgent/Services/DesktopControl/APIDesktopControlService.swift",
+    "RecordAgent APP/IOS APP/RecordAgent/RecordAgentTests/DesktopControlTests.swift"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "redaction": {
+    "replacements": 23,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 3,
+      "credentialed_uri": 0,
+      "entropy": 20,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
