@@ -18,12 +18,12 @@ import io.agentscope.harness.agent.filesystem.spec.LocalFilesystemSpec;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
 import io.agentscope.harness.agent.subagent.task.TaskRepository;
 import io.agentscope.harness.agent.workspace.LocalFsMode;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -34,8 +34,9 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class AgentFactory {
+
+    static final int DEFAULT_MAX_CACHED_AGENTS = 16;
 
     private final ModelHolder modelHolder;
     private final ToolRegistry toolRegistry;
@@ -49,9 +50,63 @@ public class AgentFactory {
     private final ToolSchemaSelectionMiddleware toolSchemaSelectionMiddleware;
     private final SessionCatalogService sessionCatalogService;
     private final ProjectRegistry projectRegistry;
+    private final int maxCachedAgents;
 
-    /** 按会话与项目根隔离 Agent，避免会话之间互相修改 Toolkit 的可变激活分组。 */
-    private final Map<AgentCacheKey, HarnessAgent> cachedAgents = new HashMap<>();
+    /** 按会话与项目根隔离 Agent，使用 LRU 上限避免长驻运行后实例无限增长。 */
+    private final Map<AgentCacheKey, HarnessAgent> cachedAgents = new LinkedHashMap<>(16, 0.75f, true);
+
+    @Autowired
+    public AgentFactory(
+            ModelHolder modelHolder,
+            ToolRegistry toolRegistry,
+            AgentStorageProperties storageProperties,
+            AgentStateStore agentStateStore,
+            TaskRepository subagentTaskRepository,
+            MessageBus subagentMessageBus,
+            SubagentCatalog subagentCatalog,
+            TokenUsageMiddleware tokenUsageMiddleware,
+            ContextInjectionMiddleware contextInjectionMiddleware,
+            ToolSchemaSelectionMiddleware toolSchemaSelectionMiddleware,
+            SessionCatalogService sessionCatalogService,
+            ProjectRegistry projectRegistry
+    ) {
+        this(modelHolder, toolRegistry, storageProperties, agentStateStore, subagentTaskRepository,
+                subagentMessageBus, subagentCatalog, tokenUsageMiddleware, contextInjectionMiddleware,
+                toolSchemaSelectionMiddleware, sessionCatalogService, projectRegistry, DEFAULT_MAX_CACHED_AGENTS);
+    }
+
+    AgentFactory(
+            ModelHolder modelHolder,
+            ToolRegistry toolRegistry,
+            AgentStorageProperties storageProperties,
+            AgentStateStore agentStateStore,
+            TaskRepository subagentTaskRepository,
+            MessageBus subagentMessageBus,
+            SubagentCatalog subagentCatalog,
+            TokenUsageMiddleware tokenUsageMiddleware,
+            ContextInjectionMiddleware contextInjectionMiddleware,
+            ToolSchemaSelectionMiddleware toolSchemaSelectionMiddleware,
+            SessionCatalogService sessionCatalogService,
+            ProjectRegistry projectRegistry,
+            int maxCachedAgents
+    ) {
+        if (maxCachedAgents < 1) {
+            throw new IllegalArgumentException("maxCachedAgents 必须大于 0");
+        }
+        this.modelHolder = modelHolder;
+        this.toolRegistry = toolRegistry;
+        this.storageProperties = storageProperties;
+        this.agentStateStore = agentStateStore;
+        this.subagentTaskRepository = subagentTaskRepository;
+        this.subagentMessageBus = subagentMessageBus;
+        this.subagentCatalog = subagentCatalog;
+        this.tokenUsageMiddleware = tokenUsageMiddleware;
+        this.contextInjectionMiddleware = contextInjectionMiddleware;
+        this.toolSchemaSelectionMiddleware = toolSchemaSelectionMiddleware;
+        this.sessionCatalogService = sessionCatalogService;
+        this.projectRegistry = projectRegistry;
+        this.maxCachedAgents = maxCachedAgents;
+    }
 
     /** 项目根变化时重建文件系统能力；无绑定会话的兼容入口独占一个缓存项。 */
     private record AgentCacheKey(String sessionId, Path projectRoot) {}
@@ -78,7 +133,23 @@ public class AgentFactory {
         Path projectRoot = resolveProjectRoot(sessionId);
         AgentCacheKey cacheKey = new AgentCacheKey(
                 sessionId == null || sessionId.isBlank() ? null : sessionId, projectRoot);
-        return cachedAgents.computeIfAbsent(cacheKey, ignored -> createHarnessAgent(currentModel, projectRoot));
+        HarnessAgent existing = cachedAgents.get(cacheKey);
+        if (existing != null) {
+            return existing;
+        }
+        HarnessAgent created = createHarnessAgent(currentModel, projectRoot);
+        cachedAgents.put(cacheKey, created);
+        evictOverflow();
+        return created;
+    }
+
+    private void evictOverflow() {
+        var iterator = cachedAgents.entrySet().iterator();
+        while (cachedAgents.size() > maxCachedAgents && iterator.hasNext()) {
+            HarnessAgent evicted = iterator.next().getValue();
+            iterator.remove();
+            closeQuietly(evicted);
+        }
     }
 
     /** 构建 Agent 时只指定根目录和状态存储，不拼接任何 sessionDir。 */

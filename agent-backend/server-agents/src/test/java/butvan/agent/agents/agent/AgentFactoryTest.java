@@ -184,6 +184,63 @@ class AgentFactoryTest {
         sibling.close();
     }
 
+    @Test
+    void evictsLeastRecentlyUsedAgentWhenCacheExceedsCapacity() throws Exception {
+        Model model = new StubModel();
+        ModelHolder modelHolder = new ModelHolder() {
+            @Override
+            public Model getModel() {
+                return model;
+            }
+        };
+        AgentStorageProperties storage = new AgentStorageProperties(temporaryDirectory.resolve("lru-runtime"));
+        CurrentUserProvider user = new CurrentUserProvider();
+        ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+        ProjectRegistry projects = new ProjectRegistry(storage, user, mapper);
+        SessionCatalogService sessions = new SessionCatalogService(storage, user, mapper, projects);
+        SubagentCatalog subagents = new SubagentCatalog(new AgentDefinitionLoader(), storage) {
+            @Override
+            public List<io.agentscope.harness.agent.subagent.SubagentDeclaration> declarations() {
+                return List.of();
+            }
+        };
+        ToolCapabilityCatalog capabilityCatalog = new ToolCapabilityCatalog();
+        AgentFactory factory = new AgentFactory(
+                modelHolder,
+                new ToolRegistry(List.of(), capabilityCatalog),
+                storage,
+                new InMemoryAgentStateStore(),
+                null,
+                null,
+                subagents,
+                new TokenUsageMiddleware(new ApproximateTokenCounter(), mapper),
+                new ContextInjectionMiddleware(),
+                new ToolSchemaSelectionMiddleware(capabilityCatalog),
+                sessions,
+                projects,
+                2
+        );
+
+        String sessionA = sessions.create(new CreateSessionRequest(SessionKind.GENERAL, "A", null)).id();
+        String sessionB = sessions.create(new CreateSessionRequest(SessionKind.GENERAL, "B", null)).id();
+        String sessionC = sessions.create(new CreateSessionRequest(SessionKind.GENERAL, "C", null)).id();
+
+        HarnessAgent agentA = factory.currentAgent(sessionA);
+        HarnessAgent agentB = factory.currentAgent(sessionB);
+        // 再次访问 A，使 B 成为最久未使用的缓存项
+        assertSame(agentA, factory.currentAgent(sessionA));
+
+        HarnessAgent agentC = factory.currentAgent(sessionC);
+        assertSame(agentA, factory.currentAgent(sessionA));
+        assertSame(agentC, factory.currentAgent(sessionC));
+        HarnessAgent recreatedB = factory.currentAgent(sessionB);
+        assertNotSame(agentB, recreatedB);
+
+        agentA.close();
+        agentC.close();
+        recreatedB.close();
+    }
+
     private int schemaTokens(List<ToolSchema> schemas) throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         ApproximateTokenCounter counter = new ApproximateTokenCounter();
