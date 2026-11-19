@@ -259,6 +259,37 @@ public class DesktopCliRunner {
         }
     }
 
+    /**
+     * 使用操作系统原生命令（macOS {@code open} / Windows {@code start} / Linux {@code xdg-open}）直接打开已校验的 HTTP(S) URL，
+     * 避免在浏览器地址栏模拟打字被历史记录自动补全劫持。
+     */
+    public CliExecutionResult openUrl(String app, String validatedHttpUrl, Duration timeout) {
+        String os = hostOs();
+        List<String> command = new ArrayList<>();
+        if ("macos".equals(os)) {
+            command.add("/usr/bin/open");
+            if (app != null && !app.isBlank()) {
+                command.add("-a");
+                command.add(app.strip());
+            }
+            command.add(validatedHttpUrl);
+        } else if ("windows".equals(os)) {
+            command.add("cmd.exe");
+            command.add("/c");
+            command.add("start");
+            command.add("");
+            command.add(validatedHttpUrl);
+        } else {
+            command.add("xdg-open");
+            command.add(validatedHttpUrl);
+        }
+        try {
+            return runSingleCandidate(command.get(0), command.subList(1, command.size()), null, timeout);
+        } catch (ProcessStartException exception) {
+            return CliExecutionResult.notFound("无法调用系统命令打开网址：" + exception.ioCause.getMessage());
+        }
+    }
+
     private record StreamCapture(String text, boolean truncated) {}
 
     private static final class ProcessStartException extends Exception {

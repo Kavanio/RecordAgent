@@ -230,6 +230,48 @@ public class DesktopControlService {
         }
     }
 
+    /**
+     * 供 {@code desktop_window(action="open-url")} 调用：通过系统原生命令在指定或默认浏览器中打开精确 HTTP(S) URL，
+     * 并激活目标浏览器窗口。
+     */
+    public ToolInvocationOutcome openUrlForTool(String app, String validatedHttpUrl) {
+        DesktopControlConfigData config = properties.load();
+        if (!config.enabled()) {
+            return ToolInvocationOutcome.error(
+                    "电脑桌面操控尚未开启。请先在桌面端「设置 -> 后端连接」或手机端「设置 -> 电脑操控」中启用，"
+                            + "或在 ~/.butvan-agent/config.json 中设置 desktopControl.enabled=true。");
+        }
+
+        boolean acquired = false;
+        try {
+            acquired = writeLock.tryAcquire(WRITE_LOCK_WAIT_SECONDS, TimeUnit.SECONDS);
+            if (!acquired) {
+                return ToolInvocationOutcome.error("当前有另一项桌面操作正在执行，请稍后再试。");
+            }
+
+            CliExecutionResult result = cliRunner.openUrl(app, validatedHttpUrl, Duration.ofSeconds(10));
+            if (!result.started() || result.timedOut()) {
+                return ToolInvocationOutcome.error(result.failureMessage());
+            }
+            if (result.exitCode() != 0) {
+                String stderr = result.stderr().strip();
+                return ToolInvocationOutcome.error(stderr.isEmpty()
+                        ? "打开网址失败（退出码 " + result.exitCode() + "）。"
+                        : "打开网址失败：" + stderr);
+            }
+            return ToolInvocationOutcome.success(
+                    "{\"ok\":true,\"command\":\"open-url\",\"data\":{\"app\":\""
+                            + app.replace("\"", "\\\"") + "\",\"url\":\"" + validatedHttpUrl + "\"}}");
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return ToolInvocationOutcome.error("桌面操作已取消。");
+        } catch (DesktopCliRunner.CommandCancelledException exception) {
+            return ToolInvocationOutcome.error("桌面操作已取消。");
+        } finally {
+            if (acquired) writeLock.release();
+        }
+    }
+
     /** 将聊天 sessionId 归一化为合法的 agent-desktop session 名称（1-64 字符，仅字母/数字/-/_）。 */
     static String sanitizeSessionScope(String sessionId) {
         if (sessionId == null || sessionId.isBlank()) return null;

@@ -411,7 +411,8 @@ public class DesktopControlTool implements AgentToolModule {
     @Tool(name = "desktop_input",
             description = "向桌面元素输入文本、设值、清空或发送按键与快捷键（mode 为 type/set-value/clear/press）。"
                     + "press 与默认未显式设 headed=false 的 type 会启用物理焦点投递（--headed）以确保按键不丢失；"
-                    + "在浏览器地址栏或聊天框输入并回车提交时，应优先用 mode=type（或 press cmd+l 聚焦后输入）再调 mode=press（combo=return，传 app 或 windowId），避免仅用无头 set-value 导致焦点未激活而回车无效。"
+                    + "注意：若要打开网页 URL，请优先调用 desktop_window 的 open-url 动作直接精确打开网址，避免浏览器地址栏历史记录自动补全（如把 chatgpt.com 补全为 chatgpt.com/images）；"
+                    + "若必须在地址栏 type 网址，请在网址末尾加一个空格（如 'https://chatgpt.com/ '）以抑制浏览器自动补全后再 press return。"
                     + "macOS 快捷键用 cmd+l/cmd+t/cmd+c，Windows 用 ctrl+l/ctrl+t/ctrl+c。需要用户审批。")
     public ToolResultBlock input(
             @ToolParam(name = "request", description = "mode（必填）；type/set-value/clear 需 ref；type/set-value 需 text；press 需 combo 与可选 app/windowId；可选 headed") InputRequest request,
@@ -434,7 +435,7 @@ public class DesktopControlTool implements AgentToolModule {
                     args.add("type");
                     args.add("--stdin");
                     args.add(ref);
-                    stdinText = request.text();
+                    stdinText = preventBrowserOmniboxAutocomplete(request.text());
                 }
                 case "set-value" -> {
                     String ref = validateRef(request.ref(), "ref");
@@ -471,10 +472,11 @@ public class DesktopControlTool implements AgentToolModule {
     }
 
     @Tool(name = "desktop_window",
-            description = "管理后端所在电脑的应用与窗口（launch/close-app/focus-window/minimize/maximize/restore/resize-window/move-window）。"
+            description = "管理后端所在电脑的应用与窗口（launch/open-url/close-app/focus-window/minimize/maximize/restore/resize-window/move-window）。"
+                    + "访问网页时优先使用 action=open-url（传 url 与可选浏览器 app 如 'Google Chrome'），可直接精确打开目标网址，避免在浏览器地址栏打字触发历史记录自动补全错误路径。"
                     + "close-app 仅优雅退出，不强杀进程。需要用户审批。")
     public ToolResultBlock window(
-            @ToolParam(name = "request", description = "action（必填）及对应目标 app、windowId、title、width/height、x/y") WindowRequest request,
+            @ToolParam(name = "request", description = "action（必填）及对应目标 app、url（open-url 必填，仅限 http/https）、windowId、title、width/height、x/y") WindowRequest request,
             RuntimeContext context
     ) {
         try {
@@ -486,6 +488,15 @@ public class DesktopControlTool implements AgentToolModule {
                     args.add("launch");
                     args.add("--activate");
                     args.add(validatePlainValue(required(request.app(), "app"), "app"));
+                    if (!isBlank(request.url())) {
+                        args.add("--arg");
+                        args.add(validateHttpUrl(request.url()));
+                    }
+                }
+                case "open-url" -> {
+                    String url = validateHttpUrl(required(request.url(), "url"));
+                    String app = isBlank(request.app()) ? "Google Chrome" : validatePlainValue(request.app(), "app");
+                    return toResult(service.openUrlForTool(app, url));
                 }
                 case "close-app" -> {
                     args.add("close-app");
@@ -611,6 +622,42 @@ public class DesktopControlTool implements AgentToolModule {
         return raw;
     }
 
+    static String validateHttpUrl(String rawUrl) {
+        String value = required(rawUrl, "url");
+        if (value.length() > 2048 || containsControlChars(value) || value.contains(" ")) {
+            throw new IllegalArgumentException("参数 url 格式非法");
+        }
+        if (!value.contains("://") && value.matches("^[A-Za-z0-9.-]+\\.[A-Za-z]{2,}(/.*)?$")) {
+            value = "https://" + value;
+        }
+        try {
+            java.net.URI uri = java.net.URI.create(value);
+            String scheme = uri.getScheme();
+            if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))
+                    || isBlank(uri.getHost())) {
+                throw new IllegalArgumentException("url 仅支持合法的 http:// 或 https:// 网址");
+            }
+            return uri.toASCIIString();
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("url 仅支持合法的 http:// 或 https:// 网址");
+        }
+    }
+
+    /**
+     * 当向输入框 type 纯域名或无子路径的 http(s) 根网址（例如 {@code https://chatgpt.com} 或 {@code chatgpt.com}）时，
+     * 在末尾自动补一个空格（如 {@code https://chatgpt.com/ }），抑制 Chrome/Safari/Edge 地址栏的联机历史子路径自动补全
+     * （例如自动高亮补全成 {@code https://chatgpt.com/images} 导致按回车进错页面）。
+     */
+    static String preventBrowserOmniboxAutocomplete(String text) {
+        if (text == null) return null;
+        String stripped = text.strip();
+        if (stripped.matches("^(https?://)?[A-Za-z0-9.-]+\\.[A-Za-z]{2,}/?$")) {
+            String withSlash = stripped.endsWith("/") ? stripped : stripped + "/";
+            return withSlash + " ";
+        }
+        return text;
+    }
+
     private static boolean containsControlChars(String value) {
         for (int i = 0; i < value.length(); i++) {
             char ch = value.charAt(i);
@@ -686,6 +733,7 @@ public class DesktopControlTool implements AgentToolModule {
     public record WindowRequest(
             String action,
             String app,
+            String url,
             String windowId,
             String title,
             Integer width,

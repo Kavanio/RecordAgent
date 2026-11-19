@@ -70,6 +70,18 @@ class DesktopControlServiceTest {
         RecordedCall pressCall = runner.recordedCalls.get(2);
         assertEquals(List.of("--session", "chat-abc_123", "--headed", "press",
                 "--app", "Google Chrome", "--window-id", "w-17804", "return"), pressCall.args());
+
+        tool.input(new DesktopControlTool.InputRequest(
+                "type", "@s1:e5", "https://chatgpt.com", null, null, null, true), context("abc/123"));
+
+        RecordedCall urlTypeCall = runner.recordedCalls.get(3);
+        assertEquals("https://chatgpt.com/ ", urlTypeCall.stdinText());
+
+        ToolResultBlock openUrlResult = tool.window(new DesktopControlTool.WindowRequest(
+                "open-url", "Google Chrome", "chatgpt.com", null, null, null, null, null, null), context("abc/123"));
+        assertTrue(extractText(openUrlResult).contains("\"command\":\"open-url\""));
+        assertEquals(1, runner.openedUrls.size());
+        assertEquals("Google Chrome|https://chatgpt.com", runner.openedUrls.get(0));
     }
 
     @Test
@@ -87,9 +99,14 @@ class DesktopControlServiceTest {
         assertTrue(extractText(badRef).contains("@ref"));
 
         ToolResultBlock badFlag = tool.window(new DesktopControlTool.WindowRequest(
-                "close-app", "--force", null, null, null, null, null, null), context("s1"));
+                "close-app", "--force", null, null, null, null, null, null, null), context("s1"));
         assertTrue(extractText(badFlag).contains("格式非法"));
+
+        ToolResultBlock badUrl = tool.window(new DesktopControlTool.WindowRequest(
+                "open-url", "Google Chrome", "file:///etc/passwd", null, null, null, null, null, null), context("s1"));
+        assertTrue(extractText(badUrl).contains("http:// 或 https://"));
         assertTrue(runner.recordedCalls.isEmpty());
+        assertTrue(runner.openedUrls.isEmpty());
     }
 
     @Test
@@ -176,6 +193,7 @@ class DesktopControlServiceTest {
     private static final class RecordingRunner extends DesktopCliRunner {
         private final CliExecutionResult fixedResult;
         private final List<RecordedCall> recordedCalls = new ArrayList<>();
+        private final List<String> openedUrls = new ArrayList<>();
 
         private RecordingRunner(CliExecutionResult fixedResult) {
             this.fixedResult = fixedResult;
@@ -189,6 +207,12 @@ class DesktopControlServiceTest {
         @Override
         public CliExecutionResult execute(String configuredCliPath, List<String> arguments, String stdinText, Duration timeout) {
             recordedCalls.add(new RecordedCall(configuredCliPath, List.copyOf(arguments), stdinText, timeout));
+            return fixedResult;
+        }
+
+        @Override
+        public CliExecutionResult openUrl(String app, String validatedHttpUrl, Duration timeout) {
+            openedUrls.add(app + "|" + validatedHttpUrl);
             return fixedResult;
         }
     }
