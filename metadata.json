@@ -1,0 +1,36 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7RRC9BP35JT89ZMDGP8XCF5",
+  "strategy": "manual-commit",
+  "branch": "desktop/agent-desktop-integration",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-backend/server-network/AGENTS.md",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/desktop/DesktopCliRunner.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/desktop/DesktopControlService.java",
+    "agent-backend/server-network/src/main/java/butvan/agent/network/desktop/DesktopControlTool.java",
+    "agent-backend/server-network/src/test/java/butvan/agent/network/desktop/DesktopControlServiceTest.java"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 1,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 1,
+      "credentialed_uri": 0,
+      "entropy": 1,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
