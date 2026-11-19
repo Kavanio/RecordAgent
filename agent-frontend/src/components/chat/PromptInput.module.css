@@ -71,7 +71,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-  flex-shrink: 1;
+  flex: 0 1 auto;
 }
 
 .toolbarRight {
@@ -79,7 +79,8 @@
   align-items: center;
   gap: 6px;
   margin-left: auto;
-  flex-shrink: 0;
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
 .divider {
@@ -90,6 +91,7 @@
 }
 
 .jevButton {
+  flex-shrink: 0;
   min-height: 28px;
   padding: 3px 5px;
   border: 0;
@@ -128,6 +130,7 @@
 
 .iconBtn {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   width: 32px;
@@ -167,6 +170,7 @@
 
 .sendBtn {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   width: 32px;
@@ -193,6 +197,7 @@
 
 .stopBtn {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   width: 32px;
