@@ -612,6 +612,10 @@ final class AgentTests: XCTestCase {
         let segments = AgentTokenUsageAnalyzer.breakdownSegments(from: aggregated!.breakdown)
         XCTAssertEqual(segments.count, 9)
         XCTAssertEqual(segments.first?.key, .systemPrompt)
+        XCTAssertFalse(segments.first?.key.symbolName.isEmpty ?? true)
+        XCTAssertEqual(aggregated?.inputShare ?? 0, 0.8, accuracy: 0.001)
+        XCTAssertEqual(aggregated?.outputShare ?? 0, 0.2, accuracy: 0.001)
+        XCTAssertEqual(aggregated?.cacheHitRatio ?? 0, 200.0 / 1200.0, accuracy: 0.001)
     }
 
     func testImageValidatorEnforcesMagicBytesAndLimits() throws {

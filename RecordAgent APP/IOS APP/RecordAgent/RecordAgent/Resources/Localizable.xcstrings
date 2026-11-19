@@ -2278,6 +2278,7 @@
       }
     },
     "agent.usage.calls_title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2310,7 +2311,6 @@
       }
     },
     "agent.usage.context.model" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2327,7 +2327,6 @@
       }
     },
     "agent.usage.context.permission" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2361,7 +2360,6 @@
       }
     },
     "agent.usage.context.turns" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2378,7 +2376,6 @@
       }
     },
     "agent.usage.context.vision" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2526,7 +2523,6 @@
       }
     },
     "agent.usage.metric.cached" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2611,7 +2607,6 @@
       }
     },
     "agent.usage.metric.total" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2745,6 +2740,7 @@
       }
     },
     "agent.usage.tools_title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
