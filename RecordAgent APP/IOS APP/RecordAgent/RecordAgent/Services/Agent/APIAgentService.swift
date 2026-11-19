@@ -8,6 +8,19 @@ final class APIAgentService: AgentServiceProtocol, @unchecked Sendable {
         self.client = client
     }
 
+    func fetchReplyImage(fileId: String) async throws -> Data {
+        guard (1...64).contains(fileId.count),
+              fileId.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }) else {
+            throw AgentReplyImageError.unavailable
+        }
+        let data = try await client.send("/agent/materials/\(fileId)/content")
+        guard data.count <= AgentImageValidator.maxSingleBytes,
+              AgentImageValidator.detectMediaType(in: data) != nil else {
+            throw AgentReplyImageError.unavailable
+        }
+        return data
+    }
+
     func listSessions() async throws -> [AgentSessionSummary] {
         try await client.sendResult("/agent/sessions")
     }

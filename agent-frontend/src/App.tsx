@@ -1,5 +1,4 @@
 import { AutomationProvider } from './context/AutomationContext';
-import { TaskPage } from './components/task/TaskPage';
 import { TaskReminderWindow } from './components/task/TaskReminderWindow';
 import type { RecordEntry, RecordType } from './types/record';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -7,20 +6,13 @@ import { ModelProviderContext } from './context/ModelContext';
 import { StudyRealtimeProvider } from './context/StudyRealtimeContext';
 import { SidebarLayoutProvider } from './context/SidebarLayoutContext';
 import { mapTranscriptMessages } from './features/chat/transcriptMessages';
-import {
-  appendTextBlock,
-  appendThinkingBlock,
-  applyToolResultBlock,
-  upsertToolCallBlock,
-} from './features/chat/messageBlocks';
+import { appendTextBlock, appendThinkingBlock, applyToolResultBlock, upsertToolCallBlock } from './features/chat/messageBlocks';
 import { useConversationSelection } from './components/chat/useConversationSelection';
 import { ChannelConversationView } from './components/chat/ChannelConversationView';
 import { Sidebar } from './components/layout/Sidebar';
+import { FeatureWorkspaceView } from './components/layout/FeatureWorkspaceView';
+import type { SidebarFeatureId } from './components/layout/sidebarFeatures';
 import { ChatWorkspace } from './components/chat/ChatWorkspace';
-import { CalendarView } from './components/calendar/CalendarView';
-import { FinancePage } from './components/finance/FinancePage';
-import { RecordPage } from './components/record/RecordPage';
-import { StudyPage } from './components/study/StudyPage';
 import { StudyWindowLayer } from './components/study/StudyWindowLayer';
 import { SystemStudyWindow } from './components/study/SystemStudyWindow';
 import { ModelSettingsPage } from './components/model/ModelSettingsPage';
@@ -34,7 +26,6 @@ import type { AgentAnalysisContextRequest, ChatImageAttachment, ChatSession, Cha
 import type { SubagentProgressDto, TaskDto } from './types/team';
 import { cancelSubagentTask, fetchSubagentTasks, subscribeSubagentTaskEvents } from './services/taskApi';
 import { fetchProjects, importProject, removeProject as removeProjectApi } from './services/projectApi';
-import { LifeStatusPage } from './components/review/status/LifeStatusPage';
 import { useCompanionNotifications } from './components/review/useCompanionNotifications';
 
 interface ActiveChatRun {
@@ -90,7 +81,7 @@ export const MainLayout: React.FC<{
   const { activeSessionId, setActiveSessionId, feishuSession, selectFeishuSession } = useConversationSelection();
   const [recordInitialType, setRecordInitialType] = useState<RecordType>('quick');
   const [recordTarget, setRecordTarget] = useState<RecordEntry | null | undefined>(undefined);
-  const [activeFeature, setActiveFeature] = useState<'chat' | 'calendar' | 'finance' | 'record' | 'study' | 'task' | 'status'>('chat');
+  const [activeFeature, setActiveFeature] = useState<SidebarFeatureId>('chat');
   const [pendingPermissions, setPendingPermissions] = useState<Record<string, PendingPermissionState>>({});
   const [isPermissionSubmitting, setIsPermissionSubmitting] = useState(false);
   const [subagentTasks, setSubagentTasks] = useState<TaskDto[]>([]);
@@ -961,18 +952,18 @@ export const MainLayout: React.FC<{
             onOpenSettings={() => { setSettingsTab('config'); setIsSettingsOpen(true); }}
             onOpenAccountSettings={() => { setSettingsTab('account'); setIsSettingsOpen(true); }}
           />
-          {activeFeature === 'task' ? (
-            <TaskPage onOpenSettings={() => { setSettingsTab('task'); setIsSettingsOpen(true); }} />
-          ) : activeFeature === 'status' ? (
-            <LifeStatusPage onOpenSettings={(tab = 'review') => { setSettingsTab(tab); setIsSettingsOpen(true); }} />
-          ) : activeFeature === 'calendar' ? (
-            <CalendarView />
-          ) : activeFeature === 'finance' ? (
-            <FinancePage />
-          ) : activeFeature === 'record' ? (
-            <RecordPage initialEntry={recordTarget} initialType={recordInitialType} />
-          ) : activeFeature === 'study' ? (
-            <StudyPage />
+          {activeFeature !== 'chat' ? (
+            <FeatureWorkspaceView
+              activeFeature={activeFeature}
+              recordTarget={recordTarget}
+              recordInitialType={recordInitialType}
+              existingSessionIds={new Set(sessions.map((s) => s.id))}
+              onOpenSession={(sessionId) => {
+                void handleSelectSession(sessionId);
+                setActiveFeature('chat');
+              }}
+              onOpenSettings={(tab) => { setSettingsTab(tab); setIsSettingsOpen(true); }}
+            />
           ) : (
             <ChannelConversationView session={feishuSession}>
               <ChatWorkspace

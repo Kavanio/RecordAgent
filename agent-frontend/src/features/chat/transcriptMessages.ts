@@ -1,4 +1,5 @@
 import type {
+  ChatImageAttachment,
   ChatMessage,
   MessageBlock,
   ToolExecution,
@@ -86,12 +87,27 @@ export function mapTranscriptToChatMessage(
   const createdAt = Number.isFinite(parsedTime) && parsedTime > 0
     ? parsedTime
     : (proactive ? 0 : Date.now());
+  const images: ChatImageAttachment[] | undefined = isUser
+    ? dto.imageFileIds?.map((fileId, idx) => ({
+        fileId,
+        mediaType: 'image/*',
+        dataUrl: '',
+        name: `对话图片 ${idx + 1}`,
+      }))
+    : dto.replyImages?.map(({ fileId, title, sourceUrl }) => ({
+        fileId,
+        name: title,
+        sourceUrl: sourceUrl ?? undefined,
+        mediaType: 'image/*',
+        dataUrl: '',
+      }));
   return {
     id: dto.id,
     turnId: dto.turnId,
     role: isUser ? 'user' : 'assistant',
     modelName: isUser ? undefined : 'ButvanAgent',
     content: dto.content || '',
+    images,
     reasoning: dto.thinking || undefined,
     createdAt,
     status: dto.status,

@@ -1,0 +1,3 @@
+# Windows 部署入口必须保持原生换行，避免 BAT 被错误分行执行。
+agent-backend/deployment/windows/*.bat text eol=crlf
+agent-backend/deployment/windows/source/*.ps1 text eol=crlf

@@ -46,8 +46,11 @@ class AgentServiceChannelResultTest {
     @BeforeEach void prepare() {
         when(model.isInitialized()).thenReturn(true); when(model.getModel().getModelName()).thenReturn("test");
         when(factory.currentAgent("session")).thenReturn(agent);
+        var summary = mock(butvan.agent.agents.session.dto.SessionSummaryDto.class);
+        when(summary.kind()).thenReturn(butvan.agent.agents.session.dto.SessionKind.GENERAL);
+        when(sessions.requireActive("session")).thenReturn(summary);
         when(sessions.getPermissionMode("session")).thenReturn(SessionPermissionMode.ASK);
-        when(transcript.appendUserMessageWithTurnId("session", "input", turn)).thenReturn(turn);
+        when(transcript.appendUserMessageWithTurnId("session", "input", turn, List.of())).thenReturn(turn);
         when(context.assemble(any())).thenReturn(ContextEnvelope.empty());
         when(router.route(any())).thenReturn(mock(ToolRoutingDecision.class));
         completer = new AgentRunCompleter(transcript, sessions, checkpoints);
@@ -148,7 +151,7 @@ class AgentServiceChannelResultTest {
         var result = stream.completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(MessageStatus.COMPLETED, result.status());
         var order = inOrder(transcript, lifecycle);
-        order.verify(transcript).appendUserMessageWithTurnId("session", "input", turn);
+        order.verify(transcript).appendUserMessageWithTurnId("session", "input", turn, List.of());
         order.verify(lifecycle).admitted(any(), eq("local-default"), eq(turn));
         order.verify(transcript).appendAssistantMessage(anyString(), eq(turn), anyString(), anyString(), eq(MessageStatus.COMPLETED), anyLong(), anyList(), any());
         order.verify(lifecycle).completed("local-default", "session", turn, MessageStatus.COMPLETED);

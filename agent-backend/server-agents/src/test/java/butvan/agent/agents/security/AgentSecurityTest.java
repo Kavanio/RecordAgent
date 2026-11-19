@@ -14,6 +14,18 @@ class AgentSecurityTest {
     private final AgentSecurity security = new AgentSecurity();
 
     @Test
+    void screenshotAsksEvenInBypassMode() {
+        var tool = org.mockito.Mockito.mock(io.agentscope.core.tool.ToolBase.class);
+        org.mockito.Mockito.when(tool.getName()).thenReturn("capture_screen");
+        org.mockito.Mockito.when(tool.generateSuggestions(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.List.of());
+        for (SessionPermissionMode mode : SessionPermissionMode.values()) {
+            var engine = new io.agentscope.core.permission.PermissionEngine(security.createPermissionContext(mode));
+            var decision = engine.checkPermission(tool, java.util.Map.of()).block();
+            assertEquals(io.agentscope.core.permission.PermissionBehavior.ASK, decision.getBehavior());
+        }
+    }
+
+    @Test
     void autoEditAllowsRoutineAgentWorkButLeavesRiskyOperationsUnruled() {
         PermissionContextState context = security.createPermissionContext(SessionPermissionMode.AUTO_EDIT);
 

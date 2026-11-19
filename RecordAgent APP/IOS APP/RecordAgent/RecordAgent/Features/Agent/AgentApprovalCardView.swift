@@ -160,21 +160,23 @@ struct AgentApprovalCardView: View {
                 .padding(.top, 2)
             }
 
-            Toggle(isOn: Binding(
-                get: { current.rememberForSession },
-                set: { remember in
-                    selections[tool.toolCallId] = AgentPermissionDecisionInput(
-                        toolCallId: tool.toolCallId,
-                        approved: current.approved,
-                        rememberForSession: remember
-                    )
+            if tool.toolName != "capture_screen" {
+                Toggle(isOn: Binding(
+                    get: { current.rememberForSession },
+                    set: { remember in
+                        selections[tool.toolCallId] = AgentPermissionDecisionInput(
+                            toolCallId: tool.toolCallId,
+                            approved: current.approved,
+                            rememberForSession: remember
+                        )
+                    }
+                )) {
+                    Text("agent.approval.remember_session")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-            )) {
-                Text("agent.approval.remember_session")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                .tint(AppColors.primaryBlue)
             }
-            .tint(AppColors.primaryBlue)
         }
     }
 }

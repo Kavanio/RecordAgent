@@ -20,7 +20,7 @@
 ## 文件资产
 
 - `file/` 是通用文件资产模块：`FileAssetService` 统一维护所有权、业务绑定、大小限制、状态和内容生命周期；业务域只保存或传递稳定文件 ID，不得拼接本地路径、Bucket、Object Key 或第三方 URL。
-- 二进制内容必须通过 `BlobStore` seam 读写。本地 Adapter 将新对象保存于数据库同级的 `files/objects/`，写入必须经过 staging、实际字节上限校验、SHA-256 计算和原子移动；数据库只保存元数据，不保存大文件内容。
+- 二进制内容必须通过 `BlobStore` seam 读写。本地 Adapter 将通用对象保存于数据库同级的 `files/objects/`，对话档案素材按渠道、会话类型、会话 ID、分类格式与日期保存于 `AgentStorageProperties.materialsDirectory`（`~/.butvan-agent/materials/`）；写入均必须经过 staging、实际字节上限校验、SHA-256 计算和原子移动；数据库只保存元数据，不保存大文件内容。
 - `file_binding` 使用后端受控的 `domain_type` 与 `role`。读取、下载、解绑前必须同时校验 owner、业务对象和文件 ID，禁止只凭可猜测的文件 ID 访问内容。
 - 新增第三方存储时实现独立 Adapter，不得把供应商 SDK 类型泄漏到 `FileAssetService` 或业务域；访问密钥只允许通过专用凭据存储引用，禁止进入 SQLite 文件资产表、接口响应和日志。
 - 文件系统、SQLite 与第三方对象存储不具备共同事务；失败路径必须保留可追踪状态并清理临时内容，禁止先丢失元数据再删除实际对象。
@@ -86,6 +86,7 @@
 
 ## 聊天上下文适配
 
+- 助手图片来源适配放在 `material/`，经当前运行暂存并由终态统一归档。截图和远端图片下载遵守 [聊天图片回复契约](../../docs/聊天图片回复契约.md)。
 - 聊天图片在 Base64 解码前检查视觉能力、数量、单张编码长度与总预算，解码后按文件头复核；`ChatRequestSizeAdvice` 在 Jackson 反序列化前限制聊天 JSON 的实际输入流，不以 Content-Length 或 multipart 配置代替。业务分析命令与图片不兼容时明确拒绝，不得静默丢弃附件。
 
 - 稳定资料 ID 必须在 `chat/` 内校验所有权与可引用状态后再读取正文；前端不得自行展开资料正文，也不得提交可伪造的 RAG Token 归因。
@@ -100,6 +101,11 @@
 - 邮件采用两段式冻结：AI 等待期间 `email_status='WAITING'` 不进入发送队列；成功或到期后一次性写入最终正文并转为 `PENDING`。结果晚到不得补发第二封邮件，也不得改写已冻结副本。
 - 撤销授权、清除数据或扩大范围必须禁用未冻结的 AI 副本；清除同时删除本用户的复盘摘要、目标、建议与观察，保留最小授权审计。
 - 模型输出必须经确定性校验后保存：只允许本次白名单证据、目标、方法与已有行动 ID，拒绝无依据数字、心理诊断与投资承诺；校验通过不保证推理正确。
+
+## 对话档案
+
+- `material/` 独立承载与 Agent 上下文对话过程中产生和发送的图片/文件档案；通过 `server-agents` 的 `ChatMaterialRecorder` 端口在用户消息落盘前统一归档，生成唯一 32 位 `file_id` 写入 `file_asset`、`file_binding`（`CHAT_MATERIAL` / `CHAT_ATTACHMENT`）与 `chat_material`，并将 `imageFileIds` 写入 `TranscriptMessageDto`。
+- 对话档案默认永久保留，删除对话或 Agent 恢复出厂设置时不清理 `~/.butvan-agent/materials/` 与 `chat_material`，仅通过 `DELETE /agent/materials/{fileId}` 显式删除；`/agent/materials/*/content` 为受控只读资源接口，支持 Bearer Token 与原生 `access_token` 鉴权。
 
 ## 资料库
 

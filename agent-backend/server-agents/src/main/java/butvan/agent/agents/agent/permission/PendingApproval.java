@@ -1,5 +1,6 @@
 package butvan.agent.agents.agent.permission;
 
+import butvan.agent.agents.material.ReplyImages;
 import butvan.agent.agents.agent.run.AgentRun;
 import io.agentscope.core.event.ConfirmResult;
 import io.agentscope.core.message.ToolUseBlock;
@@ -101,7 +102,8 @@ public final class PendingApproval {
     public synchronized void approveAll() {
         requireWaiting();
         for (ToolUseBlock tool : tools) {
-            decisions.putIfAbsent(tool.getId(), new Decision(true));
+            decisions.putIfAbsent(tool.getId(),
+                    new Decision(!ReplyImages.SCREEN_TOOL.equals(tool.getName())));
         }
     }
 

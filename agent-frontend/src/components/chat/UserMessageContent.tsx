@@ -1,6 +1,7 @@
 import type { ChatImageAttachment } from '../../types/chat';
 import { findSlashCommand, parseSlashCommand } from '../../features/slash-command/slashCommands';
 import { parseSlashCommandDisplayArguments } from '../../features/slash-command/slashCommandDisplay';
+import { ChatImageGallery } from './ChatImageGallery';
 import { RecordReferenceTag } from './RecordReferenceTag';
 import { SlashCommandChip } from './SlashCommandChip';
 import styles from './UserMessageContent.module.css';
@@ -13,14 +14,7 @@ export function UserMessageContent({ content, images = [] }: { content: string; 
   const display = parseSlashCommandDisplayArguments(composed && parsed ? parsed.args : content);
   return (
     <div className={styles.userMessage}>
-      {images.length > 0 && (
-        <div className={styles.images}>
-          {images.map((image, index) => (
-            <img key={`${image.name || 'image'}-${index}`} className={styles.image}
-              src={image.dataUrl} alt={image.name || `图片 ${index + 1}`} />
-          ))}
-        </div>
-      )}
+      <ChatImageGallery images={images} />
       <div className={styles.text}>
         {composed && command && <SlashCommandChip command={command} />}
         {display.referenceTitles.map((title, index) => <RecordReferenceTag key={`${title}-${index}`} title={title} />)}

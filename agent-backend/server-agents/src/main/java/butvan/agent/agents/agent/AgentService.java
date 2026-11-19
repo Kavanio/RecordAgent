@@ -10,6 +10,8 @@ import butvan.agent.agents.context.ContextRequest;
 import butvan.agent.agents.context.ConversationContextAssembler;
 import butvan.agent.agents.context.ProfileMaintenanceScheduler;
 import butvan.agent.agents.identity.CurrentUserProvider;
+import butvan.agent.agents.material.ChatMaterialRecorder;
+import butvan.agent.agents.material.ReplyImages;
 import butvan.agent.agents.model.ModelHolder;
 import butvan.agent.agents.model.ModelSelector;
 import butvan.agent.agents.routing.ToolCapabilityRouter;
@@ -52,6 +54,7 @@ public class AgentService {
 
     private butvan.agent.agents.memory.MemoryTurnLifecycle memoryLifecycle = butvan.agent.agents.memory.MemoryTurnLifecycle.disabled();
     private butvan.agent.agents.review.UserTurnActivityListener userTurnActivityListener;
+    private ChatMaterialRecorder chatMaterialRecorder = ChatMaterialRecorder.noop();
 
     /** 仅 agents 模块运行时保持关闭 Adapter；不改变既有构造和聊天依赖。 */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -64,6 +67,16 @@ public class AgentService {
         this.userTurnActivityListener = (ownerId, sessionId, channel) -> {
             var listener = provider.getIfAvailable();
             if (listener != null) listener.onUserTurnRecorded(ownerId, sessionId, channel);
+        };
+    }
+
+    /** 注入可选的对话素材持久化实现；图片落盘并入库后将唯一文件 ID 写入用户消息 transcript。 */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setChatMaterialRecorder(
+            org.springframework.beans.factory.ObjectProvider<butvan.agent.agents.material.ChatMaterialRecorder> provider) {
+        this.chatMaterialRecorder = command -> {
+            var recorder = provider.getIfAvailable();
+            return recorder == null ? List.of() : recorder.recordUserImages(command);
         };
     }
 
@@ -151,10 +164,32 @@ public class AgentService {
             String displayContent = request.content() == null || request.content().isBlank()
                     ? input : request.content().strip();
 
-            // 2. 用户消息只在初始化请求时保存一次，回复确认时不再重复保存
-            String turnId = request.turnId() == null
-                    ? transcriptService.appendUserMessage(request.sessionId(), displayContent)
-                    : transcriptService.appendUserMessageWithTurnId(request.sessionId(), displayContent, request.turnId());
+            // 2. 用户消息只在初始化请求时保存一次，回复确认时不再重复保存；若附带图片先落盘绑定唯一 ID
+            String resolvedTurnId = request.turnId();
+            if (resolvedTurnId != null) {
+                transcriptService.validateUnusedTurnId(request.sessionId(), resolvedTurnId);
+            } else {
+                resolvedTurnId = UUID.randomUUID().toString();
+            }
+            List<String> imageFileIds = List.of();
+            if (!request.images().isEmpty()) {
+                String channel = request.memoryChannel() != null
+                        ? request.memoryChannel().name()
+                        : sessionCatalogService.getChannel(request.sessionId()).name();
+                imageFileIds = chatMaterialRecorder.recordUserImages(
+                        new ChatMaterialRecorder.SaveImagesCommand(
+                                userId,
+                                channel,
+                                currentSession.kind().name(),
+                                request.sessionId(),
+                                currentSession.projectId(),
+                                currentSession.title(),
+                                resolvedTurnId,
+                                request.images()
+                        ));
+            }
+            String turnId = transcriptService.appendUserMessageWithTurnId(
+                    request.sessionId(), displayContent, resolvedTurnId, imageFileIds);
             if (userTurnActivityListener != null) {
                 try {
                     userTurnActivityListener.onUserTurnRecorded(userId, request.sessionId(), request.memoryChannel());
@@ -167,6 +202,14 @@ public class AgentService {
                 log.warn("经历来源登记未完成，聊天继续：errorType={}", exception.getClass().getSimpleName());
             }
             RuntimeContext context = createRuntimeContext(userId, request.sessionId());
+            if (feishuSession) {
+                ReplyImages.disableForChannel(context);
+            } else {
+                context.put(ReplyImages.class, new ReplyImages(
+                                new ChatMaterialRecorder.SaveImagesCommand(
+                                        userId, "DESKTOP", currentSession.kind().name(), request.sessionId(),
+                                        currentSession.projectId(), currentSession.title(), turnId, List.of())));
+            }
             run = new AgentRun(request.sessionId(), userId, turnId, context);
             checkpointService.save(run);
             boolean remoteEligible = currentSession != null
@@ -187,8 +230,13 @@ public class AgentService {
             }
 
             // 当前用户轮次的 Jev 路由结果；只存入本轮 RuntimeContext
+            java.util.Set<String> availableGroups = feishuSession
+                    ? toolCapabilityCatalog.groupNames().stream()
+                            .filter(group -> !"screen".equals(group))
+                            .collect(java.util.stream.Collectors.toUnmodifiableSet())
+                    : toolCapabilityCatalog.groupNames();
             ToolRoutingDecision routingDecision = toolCapabilityRouter.route(
-                    new ToolRoutingRequest(displayContent, toolCapabilityCatalog.groupNames())
+                    new ToolRoutingRequest(displayContent, availableGroups)
             );
             // 当前 AgentRun 独享的运行上下文；以类型作为决策的读取键
             context.put(ToolRoutingDecision.class, routingDecision);
@@ -526,8 +574,13 @@ public class AgentService {
                     putEvent(streamSession, new AgentStreamEvent.Failed("请先完成模型配置"));
                     return;
                 }
-                runAgentStream(approval.run(),
-                        List.of(buildResumeMessage(approval.toConfirmResults())), streamSession);
+                List<ConfirmResult> results = approval.toConfirmResults();
+                ReplyImages images = approval.run().runtimeContext().get(ReplyImages.class);
+                if (images != null && results.stream().anyMatch(result -> result.isConfirmed()
+                        && ReplyImages.SCREEN_TOOL.equals(result.getToolCall().getName()))) {
+                    images.approveScreenshot();
+                }
+                runAgentStream(approval.run(), List.of(buildResumeMessage(results)), streamSession);
             } catch (Exception exception) {
                 if (streamSession.isCancelled() || Thread.currentThread().isInterrupted()) {
                     Thread.currentThread().interrupt();

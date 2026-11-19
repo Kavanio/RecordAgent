@@ -29,10 +29,12 @@
 | `agent-frontend/src/types/` | 前端领域类型、接口和 DTO 定义；禁止放置运行逻辑。 |
 | `agent-frontend/src-tauri/` | Tauri/Rust 桌面端能力；系统权限与原生能力必须最小化授权。 |
 | `agent-frontend/src-tauri/binaries/` | Tauri sidecar 产物目录：启动器脚本入库，fat jar 与最小 JRE 运行时不入库。 |
-| `agent-backend/scripts/` | 后端构建与打包脚本（sidecar 产物生成）；不得混入业务代码。 |
+| `agent-backend/scripts/` | 后端构建、sidecar 打包与 MinIO 发布脚本；不得混入业务代码。 |
+| `agent-backend/deployment/windows/` | Windows 原生 JAR 交付：根目录四个自包含 BAT 入库供用户手动复制，维护源码在 source/，运行文件统一自动生成到 Windows 的 data/；真实配置与运行数据不入库。 |
 | `scripts/` | 项目级一键打包脚本（前端 + 后端 sidecar 组装）；不得混入业务代码。 |
 | `scripts/backend-launcher/` | Windows 后端 sidecar 原生启动器源码（Rust）；由打包脚本在 Windows 上编译生成 exe。 |
-| `.github/workflows/` | GitHub Actions 自动化；SemVer tag 创建桌面端 Release，另允许 `develop` 后端相关变更构建并推送 ACR 私有镜像；不构建桌面安装包、不自动部署服务器、不运行 CI 测试。 |
+| `.github/workflows/` | GitHub Actions 自动化；SemVer tag 创建桌面端 Release，`develop` 后端相关变更构建 JAR 并发布至 MinIO 的独立程序发布目录；不构建桌面安装包、不自动部署服务器、不运行 CI 测试。 |
+| `.github/workflow-archive/` | 停用工作流的备份；使用非 `.yml` 后缀且不位于 workflows 中，不自动执行。 |
 | `agent-backend/server-network/` | Spring Boot 启动、Controller、DTO、API 通用能力、AOP、网络适配层、自动任务、业务 Agent Tool Adapter、通用文件资产与存储 Adapter，以及单机业务数据的 SQLite 持久化；业务表必须按领域归属，禁止形成通用数据大杂烩。 |
 | `agent-backend/server-network/src/main/java/butvan/agent/network/review/` | 长期复盘：独立授权、固定模型身份、结构化事实摘要、用户目标、建议与反馈、有界后台生成与两段式邮件冻结；使用现有 SQLite，默认关闭，未授权时不调用模型。 |
 | `agent-backend/server-agents/` | AgentScope、模型工厂、智能体编排、Tool 注册 seam、工作区与配置领域逻辑；不得反向依赖 `server-network` 的业务实现。 |
@@ -50,7 +52,7 @@
 - 一个文件只承担一个清晰职责；页面编排、可复用组件、请求服务、领域类型和样式不得无边界混写。
 - 重命名、移动或删除文件后，必须同步更新所有导入、文档、测试和相关 `AGENTS.md` 索引。
 - 桌面端打包采用 Tauri sidecar 方案：统一入口为 `scripts/build-app.sh`（内部执行 `pnpm tauri build`，由 beforeBuildCommand 调用 `agent-backend/scripts/package-sidecar.sh` 生成后端 sidecar）；`pnpm tauri dev` 不打包、不拉起 sidecar，开发时后端在 IDEA 等本机环境启动（默认 8081）。打包模式默认由 Tauri（`src-tauri/src/backend.rs`）启动、健康检查与退出清理 sidecar，端口动态分配；用户通过桌面设置“后端连接”的配置弹窗选择本机或远程、填写 API 地址与 Token；页面分别显示本次实际连接和已保存配置，保存有变化时提示用户确认自动重启（可稍后重启并保留待生效入口），配置不变不要求重启，重启必须通过 Tauri 正常退出流程清理原 sidecar；启动时先检查远程健康状态，8 秒未通过则本次自动降级到本机后端，重启后重新尝试远程连接；开发模式降级到本机 8081。远程可用时不启动本地 sidecar，远程不可用时才启动，保证自动任务只有一个调度器。前端 API 地址由 `services/api.ts` 统一获取，禁止在组件中硬编码后端地址或端口。远程部署必须设置 `BUTVAN_API_REQUIRE_TOKEN=true`、通过受保护环境配置提供至少 32 字符的 `BUTVAN_API_TOKEN`、设置受限 CORS 来源并配置网络访问控制；当前业务仍是单用户本地数据模型，不得暴露到不可信网络或作为多用户服务。
-- 桌面 Release 工作流 `.github/workflows/release.yml`：只有推送严格格式 `v<major>.<minor>.<patch>` 或带 `-alpha.N`、`-beta.N`、`-rc.N` 后缀的 SemVer tag 才会运行；工作流校验 tag、根目录 `VERSION`、版本同步状态、tag 是否已合入 `develop`，以及 `CHANGELOG.md` 中对应的非空章节，然后仅创建 GitHub Release 并引用该章节作为说明。带预发布后缀的 tag 创建 GitHub Pre-release；普通版本 tag 创建正式 Release。工作流不运行构建、测试或安装包上传。该 Release 工作流不响应 PR、分支 push 或 iOS 后端路径变更。独立的 `.github/workflows/backend-image.yml` 仅在 `develop` 的桌面后端源码、Maven 配置、镜像构建文件或该工作流变化时自动运行，也允许在 `develop` 手动触发；使用 Java 21 构建 JAR（跳过测试），只发布 `linux/amd64` 到阿里云 ACR，保留 `sha-<完整提交号>` 标签与摘要，只有提交仍是 `develop` 最新提交时才更新 `develop` 镜像标签。ACR 用户名和密码仅通过 GitHub Secrets 注入；不得自动连接或部署 Windows 服务器，不影响既有数据挂载；操作说明与 Compose 覆盖文件分别位于 `agent-backend/DOCKER.md`、`agent-backend/compose.acr.yaml`。版本准备、变更日志格式和 tag 操作步骤见 `README.md` 的“桌面端版本发布”一节；Windows sidecar 仍由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
+- 桌面 Release 工作流 `.github/workflows/release.yml`：只有推送严格格式 `v<major>.<minor>.<patch>` 或带 `-alpha.N`、`-beta.N`、`-rc.N` 后缀的 SemVer tag 才会运行；工作流校验 tag、根目录 `VERSION`、版本同步状态、tag 是否已合入 `develop`，以及 `CHANGELOG.md` 中对应的非空章节，然后仅创建 GitHub Release 并引用该章节作为说明。带预发布后缀的 tag 创建 GitHub Pre-release；普通版本 tag 创建正式 Release。工作流不运行构建、测试或安装包上传。该 Release 工作流不响应 PR、分支 push 或 iOS 后端路径变更。独立的 `.github/workflows/backend-jar.yml` 仅在 `develop` 后端源码、Maven、发布脚本或该工作流变化时构建 Java 21 JAR（跳过测试），也允许在 `develop` 手动触发；串行发布且上传前核对当前提交，仅向 MinIO 的固定 `backend/butvan-backend.jar` 上传一个 JAR，不上传 ZIP、版本清单、校验文本或 BAT。提交号和 SHA-256 放在同一 JAR 对象的元数据，Windows 在同一次 HTTPS GET 内验证正文与响应头。四个自包含 BAT 保存在项目目录，用户手动复制，维护源码在 `deployment/windows/source/`，修改后由 `build-windows-launchers.py` 同步生成并检查；交付脚本使用可审查的明文分段与普通 PowerShell `-File`，保留来源标记并遵循系统执行策略；运行文件只保存在 Windows 同级 `data/`。BAT 或文档变化不触发 JAR 发布。上传凭据仅由 GitHub Secrets 注入；已授权仅 `recordagent/backend/*` 匿名 `s3:GetObject`，不增加匿名列目录或写入权限，其余范围保留原策略。流水线不得连接或部署 Windows。原 ACR 工作流归档于 `.github/workflow-archive/backend-image.yml.disabled`，Docker 方案保留备用。原生后端默认本机监听、强制业务 Token，更新在下载校验、正常停机与完整备份后替换，不强杀、不自动回退数据库；迁移必须先停旧后端，保证只有一个调度器。操作约束见 `agent-backend/deployment/windows/AGENTS.md`、`agent-backend/WINDOWS.md`。版本准备、变更日志格式和 tag 操作步骤见 `README.md` 的“桌面端版本发布”一节；Windows sidecar 仍由 Rust 原生启动器（`scripts/backend-launcher/`）支持。
 
 ### 分支管理策略
 
@@ -61,7 +63,7 @@
 | `ios-app/*` | iOS App（`RecordAgent APP/IOS APP/RecordAgent/`）的代码分支；从 `main` 创建，完成后合并回 `main`。 |
 | `desktop/*` | 桌面端及其本地 Agent/后端的代码分支；从 `main` 创建，完成后合并回 `main`。 |
 | `main` | 本地集成分支；用于汇聚已完成的功能分支，在本地执行完整测试与验证。验证通过后合并到 `develop`。不直接向远程推送，仅作为本地集成测试的中间层。 |
-| `develop` | 生产推送分支；`main` 本地验证通过后合并到此分支并推送到远程仓库。版本 tag 触发桌面 Release；后端相关变更触发 ACR 镜像发布。 |
+| `develop` | 生产推送分支；`main` 本地验证通过后合并到此分支并推送到远程仓库。版本 tag 触发桌面 Release；后端相关变更触发 MinIO JAR 发布。 |
 
 - 修改 `agent-frontend/`、`agent-backend/` 或桌面端打包与运行代码，分支名必须以 `desktop/` 开头；修改 `RecordAgent APP/IOS APP/RecordAgent/` 代码，分支名必须以 `ios-app/` 开头；开始代码修改前先核对当前分支。
 - 同一任务涉及两端代码时，按端拆成各自前缀的分支；共同的接口契约先确定，再分别实施。仅修改全局文档时不受这两个代码分支前缀限制。
@@ -95,7 +97,8 @@
 - `AgentFactory` 按会话 ID 与权威项目根隔离 Agent／Toolkit；同一项目下不同会话也不得共用可变工具分组，防止并发会话互相停用已向模型暴露的工具。相同会话继续复用自身状态，模型切换时统一关闭旧实例；不得以开放全量工具或绕过权限修复分组不一致。
 - 手动工具分组选取状态只属于当前 run，以共享引用跨越 RuntimeContext 浅复制及审批恢复，不写 AgentState／transcript。缓存 Agent 的当前日期在每次 System Prompt 组装时刷新；历史归因使用 transcript 时间。已知框架未授权／参数校验／工具缺失错误按失败发布，判定仅检查当前工具结果前缀，不扫描历史正文中的错误字样。
 - Agent 聊天运行必须使用稳定 `runId` 贯穿请求、SSE、运行注册表和终态收尾关联；显式取消必须通过后端取消接口向 AgentScope、生产线程、模型适配器和工具传播。传输层断开与用户显式取消必须区分；取消后必须保留 partial assistant、工具状态和 usage，且只有一个终态路径可写入。真正可恢复的暂停只能在有明确 checkpoint、待恢复动作和工具幂等语义后开放，不得用 Java 线程 suspend/resume 冒充。
-- 聊天图片附件（桌面端上传、飞书下载）统一经 `AgentImages` 按文件头校验后包装成 `AgentImageAttachment`，仅接受 PNG／JPEG／WebP／GIF、单张 ≤ 10 MiB、每轮 ≤ 4 张且原始字节合计 ≤ 12 MiB；`mediaType` 与扩展名不可信。图片只在本轮内存中存在，不得写入 transcript、checkpoint、渠道账本或 Token 用量，请求记录里只能保存可读文字说明。发送图片前必须检查 `ModelHolder.supportsVision()`，未标注一律按纯文本模型拒绝。HTTP JSON 请求体另限 17 MiB，必须在反序列化前对实际读取字节执行限制；桌面草稿随会话隔离，迟到读图不得进入另一会话。修改图片接口、输入框或限额时阅读 `docs/聊天图片输入契约.md`。
+- 聊天图片附件（桌面端上传、飞书下载）统一经 `AgentImages` 按文件头校验后包装成 `AgentImageAttachment`，仅接受 PNG／JPEG／WebP／GIF、单张 ≤ 10 MiB、每轮 ≤ 4 张且原始字节合计 ≤ 12 MiB；`mediaType` 与扩展名不可信。图片原始字节不写入 transcript、checkpoint、渠道账本或 Token 用量，请求记录里保存可读文字说明与绑定后的稳定 `imageFileIds`；图片按渠道、会话类型、会话 ID、分类格式与日期归档于 `~/.butvan-agent/materials/` 并在 SQLite 绑定唯一文件 ID，供“档案”工作区展示与历史回显，删除会话及 Agent 重置时默认受保护保留。发送图片前必须检查 `ModelHolder.supportsVision()`，未标注一律按纯文本模型拒绝。HTTP JSON 请求体另限 17 MiB，必须在反序列化前对实际读取字节执行限制；桌面草稿随会话隔离，迟到读图不得进入另一会话。修改图片接口、输入框或限额时阅读 `docs/聊天图片输入契约.md`。
+- 助手图片在本轮终态通过对话档案写入并以 `replyImages` 回显；截图只允许目标宿主显式启用后通过当前轮次单次审批，公开图片下载必须限制目的地址与字节数。修改输出附件、截图或联网找图时阅读 `docs/聊天图片回复契约.md`。
 - Agent 正常终态正文使用主 Agent 的 `AgentResultEvent` 完整快照，增量只用于运行中展示；子 Agent 结果不得覆盖主回复。非 HTTP 渠道通过 `AgentStreamSession.completion()` 取得已持久化且运行解注册后的精确 `AgentTurnResult`，禁止仅凭队列增量拼接判定最终正文；持久化渠道在受理时固定 `turnId` 并通过 `AgentUserCall` 传递，已有轮次不可重复追加或重放。权限暂停时 completion 仅表示本段生产者收尾，结果可以为空，必须先等待其解注册再恢复原 runId。
 - 工具审批以“每用户、每会话最多一个待处理批次”为硬约束，审批必须绑定原始 `runId`，恢复前必须原子领取并立即释放旧批次槽位，禁止以新 `runId` 重放同一批工具。同一批次的全部未决工具必须在一张审批卡片内展示，允许逐项决定或批量选择，并通过单次原子请求提交完整决定，禁止前端逐项提交形成半完成状态。桌面端刷新后通过后端权威查询恢复审批卡片；正常 HITL 恢复必须优先消费完整 `ConfirmResult`，不得启用会在确认前补写失败结果的框架自动恢复。进程重启不承诺继续旧审批，只有新用户轮次开始且不存在应用审批句柄时，才允许把遗留 AgentScope 工具调用安全收尾为中断结果，避免会话永久停留在 `ASKING`。
 - 学习状态跨窗口同步统一使用后端 SSE：所有写入在事务成功提交后发布领域事件，连接建立及自动重连时必须先下发当前权威快照；主窗口内只允许一个共享订阅，禁止使用定时 HTTP 轮询或仅依赖前端本地事件推断状态。
@@ -125,7 +128,7 @@
 - 同一组件的尺寸、间距、圆角、状态颜色、禁用态、加载态和错误态必须一致；新增变体优先通过受控 `variant`、`size`、`state` 等属性扩展，而不是复制一份组件。
 - 组件对应样式使用 CSS Modules，与组件同目录同名保存；禁止在业务页面持续扩张大段内联样式。仅一次性的动态数值可使用内联样式。
 - 引入或调整组件时，必须检查已有组件能否复用；若发现重复实现，应在本次改动中合并或记录明确的后续重构任务。
-- 日历、财务、资料、记录及后续同级工作区统一使用 `common/TopBar`：左侧为图标、页面名称与可选副标题，搜索通过 `search` 插槽接入，操作通过 `actions` 接入。顶部按钮统一使用 `TopBarAction`：主要操作用 `primary`、次要操作用 `outline`、轻量操作用 `ghost`；纯图标操作设置 `iconOnly` 和中文 `aria-label`。尺寸、颜色、圆角、间距、焦点与窗口安全内边距由公共组件维护，页面通过属性扩展，不覆盖按钮外观。
+- 日历、财务、资料、档案、记录及后续同级工作区统一使用 `common/TopBar`：左侧为图标、页面名称与可选副标题，搜索通过 `search` 插槽接入，操作通过 `actions` 接入。顶部按钮统一使用 `TopBarAction`：主要操作用 `primary`、次要操作用 `outline`、轻量操作用 `ghost`；纯图标操作设置 `iconOnly` 和中文 `aria-label`。尺寸、颜色、圆角、间距、焦点与窗口安全内边距由公共组件维护，页面通过属性扩展，不覆盖按钮外观。
 - 根目录 `UI COMPONENTS.md` 为全量统一封装 UI 组件的权威表格清单与长期维护契约；凡新增、修改、重构、移动或废弃公共 UI 组件及领域统一复用组件，必须同步更新 `UI COMPONENTS.md` 中的表格记录（包含组件名称、源码路径、样式/依赖、核心职责、接口契约、状态变体与应用场景），确保契约与实现严格对齐。
 
 ### 前端分层与状态
@@ -158,6 +161,8 @@
 - 长期复盘默认关闭且保存配置不等于授权；只有用户显式确认范围、周期、回看窗口和固定模型连接后才可生成。模型选择固定为该连接，不跟随聊天默认模型；撤销授权立即生效并禁用未冻结的 AI 邮件副本，已经发送的邮件无法撤回。复盘生成在独立线程与短事务中运行，不阻塞原任务调度，失败、超时或超预算一律降级为基础报告且不自动重试；同一周期数据补录默认复用既有结果。复盘反馈只由用户提交，未反馈不得判为失败。
 
 ## 六、子级 DOX 索引
+
+- 已建立子级 `AGENTS.md`：`agent-backend/deployment/windows/`（Windows 原生部署、更新、停止、数据与日志生命周期）。
 
 - 已建立子级 `AGENTS.md`：`agent-backend/server-feishu/`（渠道集成模块职责与配置约束）。
 - 已建立子级 `AGENTS.md`：`agent-backend/server-network/`（HTTP 接口与本地 SQLite 持久化约束）。

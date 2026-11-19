@@ -15,6 +15,9 @@ import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.ModelCallEndEvent;
 import io.agentscope.core.event.ModelCallStartEvent;
 import io.agentscope.core.model.ChatUsage;
+import butvan.agent.agents.agent.AgentImageAttachment;
+import butvan.agent.agents.material.ChatMaterialRecorder;
+import butvan.agent.agents.material.ReplyImages;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -28,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class TranscriptTokenUsageTest {
 
@@ -165,6 +169,45 @@ class TranscriptTokenUsageTest {
                 () -> assertEquals("旧消息", message.content()),
                 () -> assertNull(message.usage())
         );
+    }
+
+    @Test
+    void writesReplyImagesOnlyForTheSuccessfulTerminalMessage() {
+        Fixture fixture = fixture("reply-images");
+        String session = fixture.catalog().create(new CreateSessionRequest(SessionKind.GENERAL, "图片")).id();
+        AgentRunCompleter completer = new AgentRunCompleter(fixture.transcript(), fixture.catalog(),
+                new AgentRunCheckpointService(fixture.storage(), fixture.mapper()));
+        var writes = new java.util.ArrayList<String>();
+        completer.setMaterialRecorder(command -> {
+            writes.add(command.turnId());
+            assertEquals("local-default", command.ownerId());
+            assertEquals(session, command.sessionId());
+            assertEquals(1, command.images().size());
+            return List.of("file-1");
+        });
+
+        for (var status : List.of(TranscriptMessageDto.MessageStatus.COMPLETED,
+                TranscriptMessageDto.MessageStatus.CANCELLED)) {
+            String turn = status.name();
+            var context = RuntimeContext.builder().userId("local-default").sessionId(session).build();
+            var run = new AgentRun(session, "local-default", turn, context);
+            var replies = new ReplyImages(new ChatMaterialRecorder.SaveImagesCommand(
+                    "local-default", "DESKTOP", "GENERAL", session, null, "图片", turn, List.of()));
+            context.put(ReplyImages.class, replies);
+            assertThrows(IllegalArgumentException.class, replies::beginScreenshot);
+            replies.approveScreenshot();
+            replies.beginScreenshot();
+            assertThrows(IllegalArgumentException.class, replies::beginScreenshot);
+            replies.add(new AgentImageAttachment("image/png", new byte[32]), "截图", null);
+            completer.complete(run, status);
+            completer.complete(run, status);
+        }
+
+        assertEquals(List.of("COMPLETED"), writes);
+        var messages = fixture.transcript().list(session);
+        assertEquals(List.of(new ReplyImages.Attachment("file-1", "截图", null)),
+                messages.get(0).replyImages());
+        assertEquals(List.of(), messages.get(1).replyImages());
     }
 
     private Fixture fixture(String directory) {

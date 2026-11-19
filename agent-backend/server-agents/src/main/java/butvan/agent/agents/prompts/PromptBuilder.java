@@ -1,5 +1,6 @@
 package butvan.agent.agents.prompts;
 
+import butvan.agent.agents.tool.shell.CommandShell;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.time.LocalDate;
@@ -18,7 +19,7 @@ public class PromptBuilder {
      * @param workDir   当前智能体工作根目录
      * @param os        宿主操作系统名称（如 macos, windows 11, linux）
      * @param arch      宿主 CPU 架构（如 x86_64, aarch64）
-     * @param shell     当前使用的终端 Shell 名称（如 bash, zsh, cmd.exe）
+     * @param shell     命令工具实际使用的 Shell 名称（sh 或 Windows PowerShell）
      * @param isGitRepo 当前工作目录是否处于 Git 仓库中
      * @param gitBranch 当前 Git 分支名称（若非 Git 仓库则为空）
      * @param model     当前调用的大语言模型标识/名称
@@ -80,11 +81,8 @@ public class PromptBuilder {
         String os = System.getProperty("os.name", "unknown").toLowerCase();
         String arch = System.getProperty("os.arch", "unknown");
 
-        // 3. 读取用户 Shell 环境
-        String shell = System.getenv("SHELL");
-        if (shell == null || shell.isEmpty()) {
-            shell = os.contains("win") ? "cmd.exe" : "bash";
-        }
+        // 3. 与命令工具保持一致，不使用登录 Shell 猜测执行环境。
+        String shell = CommandShell.displayName();
 
         boolean isGitRepo = false;
         String gitBranch = "";

@@ -223,6 +223,7 @@ struct MainTabView: View {
 
     private func openAgentDrawer() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        Task { await agentModel.refreshSessions() }
         withAnimation(drawerAnimation) {
             isAgentDrawerOpen = true
         }

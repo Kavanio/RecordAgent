@@ -44,7 +44,8 @@ enum AgentTimelineBuilder {
             blocks: mappedBlocks,
             proactive: isProactive,
             usage: dto.usage,
-            isStreaming: false
+            isStreaming: false,
+            replyImages: dto.role == .assistant ? (dto.replyImages ?? []) : []
         )
     }
 
