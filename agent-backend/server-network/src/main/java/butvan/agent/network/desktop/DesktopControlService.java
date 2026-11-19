@@ -4,6 +4,7 @@ import butvan.agent.agents.config.DesktopControlConfigData;
 import butvan.agent.agents.config.DesktopControlProperties;
 import butvan.agent.network.desktop.DesktopCliRunner.CliExecutionResult;
 import butvan.agent.network.desktop.DesktopControlDtos.CheckResponse;
+import butvan.agent.network.desktop.DesktopControlDtos.PermissionRequestResponse;
 import butvan.agent.network.desktop.DesktopControlDtos.StatusResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -91,6 +92,71 @@ public class DesktopControlService {
             return new CheckResponse(false, "", cliRunner.hostOs(), "unknown", "unknown",
                     "无法解析 agent-desktop 返回的状态结果（退出码 " + result.exitCode() + "）。",
                     "请确认配置的 CLI 路径指向正版 agent-desktop 可执行文件。");
+        }
+    }
+
+    /**
+     * 在 macOS 后端宿主机上触发系统辅助功能权限弹窗与引导面板；
+     * 由后端进程发起可确保系统识别到正确的宿主应用，完成后无需重启即可生效。
+     */
+    public PermissionRequestResponse requestPermission() {
+        String hostOs = cliRunner.hostOs();
+        if (!"macos".equals(hostOs)) {
+            return new PermissionRequestResponse(false, "unknown", "unsupported",
+                    "当前后端主机为 " + hostOs + "，无需通过 macOS 系统弹窗申请辅助功能权限。");
+        }
+
+        DesktopControlConfigData config = properties.load();
+        CliExecutionResult requestResult = cliRunner.execute(
+                config.cliPath(), List.of("permissions", "--request"), null, CHECK_TIMEOUT);
+        if (!requestResult.started() || requestResult.timedOut()) {
+            return new PermissionRequestResponse(false, "unknown", "failed", requestResult.failureMessage());
+        }
+
+        String accessibilityState = parseAccessibilityState(requestResult.stdout());
+        if ("granted".equalsIgnoreCase(accessibilityState)) {
+            return new PermissionRequestResponse(true, "granted", "not_needed",
+                    "系统辅助功能权限已授予，可直接点击「检测环境」确认。");
+        }
+
+        CliExecutionResult guideResult = cliRunner.execute(
+                config.cliPath(), List.of("permissions", "--guide"), null, CHECK_TIMEOUT);
+        String guideState = parseGuideState(guideResult.stdout());
+        String latestAccessibility = parseAccessibilityState(guideResult.stdout());
+        if (!"unknown".equals(latestAccessibility)) {
+            accessibilityState = latestAccessibility;
+        }
+
+        if ("granted".equalsIgnoreCase(accessibilityState) || "not_needed".equalsIgnoreCase(guideState)) {
+            return new PermissionRequestResponse(true, "granted", guideState,
+                    "系统辅助功能权限已就绪，可直接点击「检测环境」确认。");
+        }
+
+        if (guideResult.started() && !guideResult.timedOut()) {
+            return new PermissionRequestResponse(true, accessibilityState, guideState,
+                    "已弹出 macOS 系统权限引导，请按提示完成授权后点击「检测环境」（无需重启应用）。");
+        }
+        return new PermissionRequestResponse(true, accessibilityState, "requested",
+                "已触发 macOS 系统授权请求，请在系统设置中勾选允许后点击「检测环境」。");
+    }
+
+    private String parseAccessibilityState(String rawStdout) {
+        if (rawStdout == null || rawStdout.isBlank()) return "unknown";
+        try {
+            JsonNode root = objectMapper.readTree(rawStdout.strip());
+            return root.path("data").path("accessibility").path("state").asText("unknown");
+        } catch (Exception ignored) {
+            return "unknown";
+        }
+    }
+
+    private String parseGuideState(String rawStdout) {
+        if (rawStdout == null || rawStdout.isBlank()) return "unknown";
+        try {
+            JsonNode root = objectMapper.readTree(rawStdout.strip());
+            return root.path("data").path("guide").asText("started");
+        } catch (Exception ignored) {
+            return "started";
         }
     }
 

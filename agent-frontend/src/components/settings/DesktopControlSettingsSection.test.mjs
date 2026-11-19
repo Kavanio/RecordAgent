@@ -49,6 +49,15 @@ beforeEach(() => {
     if (url.pathname === '/agent/desktop-control/check' && method === 'GET') {
       return jsonResponse(checkData);
     }
+    if (url.pathname === '/agent/desktop-control/request-permission' && method === 'POST') {
+      writes.push({ action: 'request-permission' });
+      return jsonResponse({
+        triggered: true,
+        accessibilityState: 'denied',
+        guideState: 'started',
+        message: '已弹出 macOS 系统权限引导，请按提示完成授权后点击「检测环境」（无需重启应用）。',
+      });
+    }
     return jsonResponse(null, 404);
   });
 });
@@ -104,4 +113,23 @@ test('支持保存自定义 CLI 路径与手动检测运行环境', async () => 
   await clickButton('检测环境');
   assert.match(view.text(), /已就绪/);
   assert.match(view.text(), /v1\.3\.1/);
+});
+
+test('macOS 未授予辅助功能权限时提供去授权入口并拉起系统引导', async () => {
+  statusData = { enabled: true, cliPath: '', hostOs: 'macos' };
+  checkData = {
+    available: true,
+    version: '1.3.1',
+    platform: 'macos',
+    accessibilityState: 'denied',
+    screenRecordingState: 'granted',
+    message: '已检测到 agent-desktop v1.3.1（macos），但系统辅助功能权限未授予。',
+    suggestion: '',
+  };
+  await render();
+  await clickButton('检测环境');
+  assert.match(view.text(), /需授予权限/);
+  await clickButton('去授权');
+  assert.deepEqual(writes[0], { action: 'request-permission' });
+  assert.match(document.body.textContent, /已弹出 macOS 系统权限引导/);
 });

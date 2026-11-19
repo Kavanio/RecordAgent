@@ -128,6 +128,30 @@ class DesktopControlServiceTest {
         assertEquals("agent-desktop", mac.get(0));
     }
 
+    @Test
+    void triggersMacosPermissionRequestAndGuideWhenDenied(@TempDir Path tempDir) {
+        DesktopControlProperties properties = new DesktopControlProperties(objectMapper, tempDir.resolve("config.json"));
+        String deniedJson = """
+                {
+                  "ok": true,
+                  "data": {
+                    "accessibility": { "state": "denied" },
+                    "guide": "started"
+                  }
+                }
+                """;
+        RecordingRunner runner = new RecordingRunner(
+                new CliExecutionResult(true, false, 0, deniedJson, "", false, null));
+        DesktopControlService service = new DesktopControlService(properties, runner, objectMapper);
+
+        var response = service.requestPermission();
+        assertTrue(response.triggered());
+        assertEquals("started", response.guideState());
+        assertEquals(2, runner.recordedCalls.size());
+        assertEquals(List.of("permissions", "--request"), runner.recordedCalls.get(0).args());
+        assertEquals(List.of("permissions", "--guide"), runner.recordedCalls.get(1).args());
+    }
+
     private static String extractText(ToolResultBlock block) {
         return block.getOutput().stream()
                 .filter(TextBlock.class::isInstance)

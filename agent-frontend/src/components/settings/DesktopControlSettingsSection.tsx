@@ -7,6 +7,7 @@ import { SettingsGroup, SettingsRow } from './SettingsGroup';
 import {
   checkDesktopControlEnvironment,
   fetchDesktopControlStatus,
+  requestDesktopControlPermission,
   updateDesktopControlConfig,
   type DesktopControlCheckResult,
   type DesktopControlStatus,
@@ -30,6 +31,7 @@ export function DesktopControlSettingsSection() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [requestingPermission, setRequestingPermission] = useState(false);
   const [checkResult, setCheckResult] = useState<DesktopControlCheckResult | null>(null);
   const { showMessage } = useMessage();
 
@@ -97,7 +99,27 @@ export function DesktopControlSettingsSection() {
     }
   };
 
+  const handleRequestPermission = async () => {
+    if (requestingPermission) return;
+    setRequestingPermission(true);
+    try {
+      const result = await requestDesktopControlPermission();
+      showMessage(result.triggered ? 'success' : 'error', result.message);
+      if (result.accessibilityState === 'granted') {
+        const refreshed = await checkDesktopControlEnvironment();
+        setCheckResult(refreshed);
+      }
+    } catch (error) {
+      showMessage('error', error instanceof Error ? error.message : '拉起系统权限引导失败');
+    } finally {
+      setRequestingPermission(false);
+    }
+  };
+
   const pathDirty = status !== null && cliPathDraft.trim() !== (status.cliPath ?? '');
+  const canRequestMacPermission = status?.hostOs?.toLowerCase() === 'macos'
+    && Boolean(checkResult?.available)
+    && checkResult?.accessibilityState !== 'granted';
 
   const badgeClass = !checkResult
     ? ''
@@ -151,6 +173,15 @@ export function DesktopControlSettingsSection() {
           <div className={styles.inlineActions}>
             {checkResult && (
               <span className={`${styles.statusBadge} ${badgeClass}`}>{badgeText}</span>
+            )}
+            {canRequestMacPermission && (
+              <Button
+                variant="primary"
+                disabled={requestingPermission}
+                onClick={() => void handleRequestPermission()}
+              >
+                {requestingPermission ? '拉起中…' : '去授权'}
+              </Button>
             )}
             <Button variant="outline" disabled={loading || checking || Boolean(loadError)} onClick={() => void handleCheck()}>
               {checking ? '检测中…' : '检测环境'}

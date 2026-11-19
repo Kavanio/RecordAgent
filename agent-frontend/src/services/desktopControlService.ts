@@ -16,6 +16,13 @@ export interface DesktopControlCheckResult {
   suggestion: string;
 }
 
+export interface DesktopControlPermissionRequestResult {
+  triggered: boolean;
+  accessibilityState: string;
+  guideState: string;
+  message: string;
+}
+
 async function request<T>(path = '', init?: RequestInit, fallbackError = '电脑操控配置请求失败'): Promise<T> {
   const response = await apiFetch(`${getApiBaseUrl()}/agent/desktop-control${path}`, {
     headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
@@ -43,3 +50,11 @@ export const updateDesktopControlConfig = (payload: { enabled: boolean; cliPath?
 /** 触发一次有界环境检测（agent-desktop status），核验安装与辅助功能权限。 */
 export const checkDesktopControlEnvironment = () =>
   request<DesktopControlCheckResult>('/check', undefined, '检测电脑操控环境失败');
+
+/** 在 macOS 后端宿主机上触发系统辅助功能权限弹窗与引导面板。 */
+export const requestDesktopControlPermission = () =>
+  request<DesktopControlPermissionRequestResult>(
+    '/request-permission',
+    { method: 'POST' },
+    '拉起系统权限引导失败',
+  );

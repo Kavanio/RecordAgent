@@ -3,11 +3,13 @@ package butvan.agent.network.desktop;
 import butvan.agent.network.annotation.ApiLog;
 import butvan.agent.network.common.Result;
 import butvan.agent.network.desktop.DesktopControlDtos.CheckResponse;
+import butvan.agent.network.desktop.DesktopControlDtos.PermissionRequestResponse;
 import butvan.agent.network.desktop.DesktopControlDtos.StatusResponse;
 import butvan.agent.network.desktop.DesktopControlDtos.UpdateRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,5 +48,12 @@ public class DesktopControlController {
     @GetMapping("/check")
     public Result<CheckResponse> checkEnvironment() {
         return Result.success(desktopControlService.checkEnvironment());
+    }
+
+    /** 在 macOS 宿主机上触发系统辅助功能权限弹窗与引导面板。 */
+    @ApiLog("请求电脑操控系统权限")
+    @PostMapping("/request-permission")
+    public Result<PermissionRequestResponse> requestPermission() {
+        return Result.success(desktopControlService.requestPermission());
     }
 }

@@ -30,4 +30,12 @@ public final class DesktopControlDtos {
             String message,
             String suggestion
     ) {}
+
+    /** 触发后端宿主机系统权限弹窗/引导后的结果摘要。 */
+    public record PermissionRequestResponse(
+            boolean triggered,
+            String accessibilityState,
+            String guideState,
+            String message
+    ) {}
 }
