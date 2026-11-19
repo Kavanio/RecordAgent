@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7SJYQB6JDPHQK101TFWYA4Y",
+  "session_id": "36f204f4-6b04-4a9e-a874-73e75ed8b97e",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-19T09:42:10.313313Z",
+  "branch": "desktop/agent-core-refactor",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/AgentApprovalCoordinator.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/AgentService.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/AgentStreamExecutor.java",
+    "agent-backend/server-agents/src/main/java/butvan/agent/agents/agent/AgentTurnPreparation.java",
+    "agent-backend/server-agents/src/test/java/butvan/agent/agents/agent/AgentTurnPreparationParallelTest.java"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-hydrogen-medium",
+  "turn_id": "8077adb5cba9",
+  "checkpoint_transcript_start": 102,
+  "transcript_lines_at_start": 102,
+  "redaction": {
+    "replacements": 0,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 2
+  }
+}
