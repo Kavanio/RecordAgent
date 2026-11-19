@@ -1,0 +1,62 @@
+2026-11-19T10:18:08.168+08:00  INFO 25507 --- [    virtual-240] i.a.h.a.middleware.AgentTraceMiddleware  : [butvan_agent] PRE_REASONING  | model=deepseek-v4.1-flash-1017, messages=3
+2026-11-19T10:18:08.613+08:00  WARN 25507 --- [onPool-worker-9] i.a.c.model.transport.JdkHttpTransport   : HTTP request failed. URL: https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation | Status: 400 | Error: id:1
+event:error
+:HTTP_STATUS/400
+data:{"request_id":"16fcf257-d3e3-93f9-8b14-bc4c04a21bf3","code":"InvalidParameter","message":"url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url"}
+
+
+2026-11-19T10:18:08.614+08:00  WARN 25507 --- [undedElastic-11] i.a.h.a.middleware.CompactionMiddleware  : Compaction failed, continuing without compaction: HTTP request failed with status 400 | id:1
+event:error
+:HTTP_STATUS/400
+data:{"request_id":"16fcf257-d3e3-93f9-8b14-bc4c04a21bf3","code":"InvalidParameter","message":"url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url"}
+
+ | Response body: id:1
+event:error
+:HTTP_STATUS/400
+data:{"request_id":"16fcf257-d3e3-93f9-8b14-bc4c04a21bf3","code":"InvalidParameter","message":"url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url"}
+
+
+2026-11-19T10:18:08.864+08:00  WARN 25507 --- [onPool-worker-9] i.a.c.model.transport.JdkHttpTransport   : HTTP request failed. URL: https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation | Status: 400 | Error: id:1
+event:error
+:HTTP_STATUS/400
+data:{"request_id":"216d45ac-6ad7-9d3d-a102-67439c6c29d3","code":"InvalidParameter","message":"url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url"}
+
+
+2026-11-19T10:18:08.865+08:00  INFO 25507 --- [undedElastic-11] i.a.h.a.middleware.AgentTraceMiddleware  : [butvan_agent] ERROR | HttpTransportException: HTTP request failed with status 400 | id:1
+event:error
+:HTTP_STATUS/400
+data:{"request_id":"216d45ac-6ad7-9d3d-a102-67439c6c29d3","code":"InvalidParameter","message":"url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url"}
+
+ | Response body: id:1
+event:error
+:HTTP_STATUS/400
+data:{"request_id":"216d45ac-6ad7-9d3d-a102-67439c6c29d3","code":"InvalidParameter","message":"url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url"}
+
+
+2026-11-19T10:18:08.865+08:00 ERROR 25507 --- [    virtual-240] butvan.agent.agents.agent.AgentService   : Agent 流处理失败：sessionId=11c7eef1-d513-4fc5-85c3-529e36a6e170
+
+io.agentscope.core.model.transport.HttpTransportException: HTTP request failed with status 400 | id:1
+event:error
+:HTTP_STATUS/400
+data:{"request_id":"216d45ac-6ad7-9d3d-a102-67439c6c29d3","code":"InvalidParameter","message":"url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url"}
+
+ | Response body: id:1
+event:error
+:HTTP_STATUS/400
+data:{"request_id":"216d45ac-6ad7-9d3d-a102-67439c6c29d3","code":"InvalidParameter","message":"url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url"}
+
+
+	at io.agentscope.core.model.transport.JdkHttpTransport.lambda$stream$0(JdkHttpTransport.java:214) ~[agentscope-core-2.0.0.jar:na]
+	at java.base/java.util.concurrent.CompletableFuture$UniApply.tryFire(CompletableFuture.java:646) ~[na:na]
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:510) ~[na:na]
+	at java.base/java.util.concurrent.CompletableFuture.postFire(CompletableFuture.java:614) ~[na:na]
+	at java.base/java.util.concurrent.CompletableFuture$UniWhenComplete.tryFire(CompletableFuture.java:844) ~[na:na]
+	at java.base/java.util.concurrent.CompletableFuture$Completion.exec(CompletableFuture.java:483) ~[na:na]
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387) ~[na:na]
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1310) ~[na:na]
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1841) ~[na:na]
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1806) ~[na:na]
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188) ~[na:na]
+
+
+我感觉你这样有点写死了，我感觉主要应该不是模型的问题，因为我换一个百炼平台的模型也不行
