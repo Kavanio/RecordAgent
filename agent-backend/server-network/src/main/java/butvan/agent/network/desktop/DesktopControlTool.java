@@ -356,7 +356,7 @@ public class DesktopControlTool implements AgentToolModule {
 
     @Tool(name = "desktop_action",
             description = "对无障碍树中的 @ref 元素执行交互操作（click/double-click/right-click/focus/select/toggle/check/uncheck/expand/collapse/scroll/scroll-to）。"
-                    + "默认无头语义执行；仅当目标控件不支持无头操作时才传 headed=true。需要用户审批。")
+                    + "默认无头语义执行；当需要激活输入框光标（如浏览器地址栏、网页搜索框）或目标控件不支持无头操作时传 headed=true。需要用户审批。")
     public ToolResultBlock action(
             @ToolParam(name = "request", description = "action、ref（必填）；select 传 value；scroll 传 direction 与 amount；可选 headed") ActionRequest request,
             RuntimeContext context
@@ -409,17 +409,21 @@ public class DesktopControlTool implements AgentToolModule {
     }
 
     @Tool(name = "desktop_input",
-            description = "向桌面元素输入文本、设值、清空或发送快捷键组合（mode 为 type/set-value/clear/press）。"
-                    + "文本内容通过标准输入安全传递；macOS 使用 cmd+c、Windows 使用 ctrl+c。需要用户审批。")
+            description = "向桌面元素输入文本、设值、清空或发送按键与快捷键（mode 为 type/set-value/clear/press）。"
+                    + "press 与默认未显式设 headed=false 的 type 会启用物理焦点投递（--headed）以确保按键不丢失；"
+                    + "在浏览器地址栏或聊天框输入并回车提交时，应优先用 mode=type（或 press cmd+l 聚焦后输入）再调 mode=press（combo=return，传 app 或 windowId），避免仅用无头 set-value 导致焦点未激活而回车无效。"
+                    + "macOS 快捷键用 cmd+l/cmd+t/cmd+c，Windows 用 ctrl+l/ctrl+t/ctrl+c。需要用户审批。")
     public ToolResultBlock input(
-            @ToolParam(name = "request", description = "mode（必填）；type/set-value/clear 需 ref；type/set-value 需 text；press 需 combo 与可选 windowId；可选 headed") InputRequest request,
+            @ToolParam(name = "request", description = "mode（必填）；type/set-value/clear 需 ref；type/set-value 需 text；press 需 combo 与可选 app/windowId；可选 headed") InputRequest request,
             RuntimeContext context
     ) {
         try {
             if (request == null) throw new IllegalArgumentException("input 请求参数不能为空");
             String mode = required(request.mode(), "mode").toLowerCase(Locale.ROOT);
             List<String> args = new ArrayList<>();
-            if (Boolean.TRUE.equals(request.headed())) {
+            boolean defaultHeadedMode = "press".equals(mode) || "type".equals(mode);
+            boolean useHeaded = request.headed() != null ? request.headed() : defaultHeadedMode;
+            if (useHeaded) {
                 args.add("--headed");
             }
             String stdinText = null;
@@ -448,6 +452,10 @@ public class DesktopControlTool implements AgentToolModule {
                 case "press" -> {
                     String combo = validatePlainValue(required(request.combo(), "combo"), "combo");
                     args.add("press");
+                    if (!isBlank(request.app())) {
+                        args.add("--app");
+                        args.add(validatePlainValue(request.app(), "app"));
+                    }
                     if (!isBlank(request.windowId())) {
                         args.add("--window-id");
                         args.add(validatePlainValue(request.windowId(), "windowId"));
@@ -670,6 +678,7 @@ public class DesktopControlTool implements AgentToolModule {
             String ref,
             String text,
             String combo,
+            String app,
             String windowId,
             Boolean headed
     ) {}

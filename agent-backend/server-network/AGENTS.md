@@ -195,4 +195,4 @@
 ## 电脑操控
 
 - `desktop/` 封装基于 `agent-desktop` CLI 的后端宿主机桌面观察与交互能力，配置保存于 `~/.butvan-agent/config.json` 的 `desktopControl` 节点（`enabled` 默认关闭，可选 `cliPath`），经 `GET/PUT /agent/desktop-control`、`GET /agent/desktop-control/check` 与 `POST /agent/desktop-control/request-permission` 提供双端设置、有界环境检测及 macOS 系统授权引导；修改配置保留其他所有 `config.json` 节点并立即生效。
-- 所有 `desktop_*` 工具归入延迟加载的 `desktop` 能力组，按聊天 `sessionId` 隔离 `--session` 命名空间，执行前实时核验开关状态；只读观察工具（`desktop_status/apps/snapshot/find/inspect/wait/guide`）自动放行，写操作工具（`desktop_action/input/window`）强制人工审批并串行互斥，默认无头语义交互，文本经 stdin 传递且禁止暴露强杀或危险绕过参数。
+- 所有 `desktop_*` 工具归入延迟加载的 `desktop` 能力组，按聊天 `sessionId` 隔离 `--session` 命名空间，执行前实时核验开关状态；只读观察工具（`desktop_status/apps/snapshot/find/inspect/wait/guide`）自动放行，写操作工具（`desktop_action/input/window`）强制人工审批并串行互斥，`desktop_action` 与 `set-value/clear` 默认无头语义交互，物理键盘输入（`desktop_input` 的 `press` 与 `type`）默认启用 `--headed` 焦点投递（除非显式传 `headed=false`），文本经 stdin 传递且禁止暴露强杀或危险绕过参数。

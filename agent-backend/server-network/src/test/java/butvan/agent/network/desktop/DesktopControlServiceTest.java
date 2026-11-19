@@ -58,11 +58,18 @@ class DesktopControlServiceTest {
                 "--skeleton", "-i", "--compact"), snapshotCall.args());
 
         tool.input(new DesktopControlTool.InputRequest(
-                "type", "@s1:e9", "hello world", null, null, false), context("abc/123"));
+                "type", "@s1:e9", "hello world", null, null, null, false), context("abc/123"));
 
         RecordedCall typeCall = runner.recordedCalls.get(1);
         assertEquals(List.of("--session", "chat-abc_123", "type", "--stdin", "@s1:e9"), typeCall.args());
         assertEquals("hello world", typeCall.stdinText());
+
+        tool.input(new DesktopControlTool.InputRequest(
+                "press", null, null, "return", "Google Chrome", "w-17804", null), context("abc/123"));
+
+        RecordedCall pressCall = runner.recordedCalls.get(2);
+        assertEquals(List.of("--session", "chat-abc_123", "--headed", "press",
+                "--app", "Google Chrome", "--window-id", "w-17804", "return"), pressCall.args());
     }
 
     @Test
