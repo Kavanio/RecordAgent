@@ -1,0 +1,60 @@
+.inlineActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pathControl {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pathInput {
+  width: 240px;
+  max-width: 100%;
+}
+
+.statusBadge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.statusReady {
+  color: var(--success-color, #15803d);
+  background: rgba(21, 128, 61, 0.12);
+}
+
+.statusWarn {
+  color: var(--warning-color, #b45309);
+  background: rgba(180, 83, 9, 0.12);
+}
+
+.statusError {
+  color: var(--danger-color, #b91c1c);
+  background: rgba(185, 28, 28, 0.12);
+}
+
+.checkBanner {
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.checkSuggestion {
+  margin: 4px 0 0;
+  color: var(--text-muted, var(--text-secondary));
+}

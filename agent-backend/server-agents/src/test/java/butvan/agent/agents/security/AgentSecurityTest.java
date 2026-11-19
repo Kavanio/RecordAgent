@@ -64,5 +64,13 @@ class AgentSecurityTest {
                 .getAllowRules().containsKey("memory_save"));
         assertFalse(ask.getAllowRules().containsKey("memory_write"));
         assertFalse(ask.getAllowRules().containsKey("plan_exit"));
+        assertTrue(ask.getAllowRules().containsKey("desktop_status"));
+        assertTrue(ask.getAllowRules().containsKey("desktop_snapshot"));
+        assertTrue(ask.getAllowRules().containsKey("desktop_wait"));
+        assertFalse(ask.getAllowRules().containsKey("desktop_action"));
+        assertFalse(ask.getAllowRules().containsKey("desktop_input"));
+        assertFalse(ask.getAllowRules().containsKey("desktop_window"));
+        assertFalse(security.createPermissionContext(SessionPermissionMode.AUTO_EDIT)
+                .getAllowRules().containsKey("desktop_action"));
     }
 }

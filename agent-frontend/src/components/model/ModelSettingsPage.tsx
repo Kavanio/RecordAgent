@@ -1062,7 +1062,7 @@ export const ModelSettingsPage: React.FC<ModelSettingsPageProps> = ({ onBack, in
 
         {activeTab === 'review' && <LifeReviewSettings onOpenStatus={onOpenStatus} />}
 
-        {activeTab === 'backend' && <BackendConnectionSettings />}
+        {activeTab === 'backend' && <BackendConnectionSettings showDesktopControl />}
 
         {activeTab === 'context' && <PersonalContextSettingsPage />}
 

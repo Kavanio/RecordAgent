@@ -14,6 +14,8 @@ class ToolCapabilityCatalogTest {
         assertEquals("calendar", catalog.groupFor("calendar_query").orElseThrow().name());
         assertEquals("workspace", catalog.groupFor("read_file").orElseThrow().name());
         assertEquals("methods", catalog.groupFor("method_search").orElseThrow().name());
+        assertEquals("desktop", catalog.groupFor("desktop_snapshot").orElseThrow().name());
+        assertEquals("desktop", catalog.groupFor("desktop_action").orElseThrow().name());
         assertTrue(catalog.groupFor("diagnostic_ping").isEmpty());
     }
 
