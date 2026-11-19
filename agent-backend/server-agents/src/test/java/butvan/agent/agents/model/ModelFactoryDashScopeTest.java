@@ -1,62 +1,51 @@
 package butvan.agent.agents.model;
 
-import io.agentscope.extensions.model.dashscope.DashScopeChatModel;
-import io.agentscope.extensions.model.dashscope.EndpointType;
+import io.agentscope.core.model.GenerateOptions;
+import io.agentscope.extensions.model.openai.OpenAIChatModel;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 验证 DashScope 端点选择与基础地址透传，规避 SDK 2.0.0 对多模态 qwen3.7-max 快照的误判。 */
+/** 验证 DashScope 供应商统一走百炼 OpenAI 兼容端点，并支持自定义基础地址覆盖。 */
 class ModelFactoryDashScopeTest {
 
-    @Test
-    void selectsMultimodalEndpointForMultimodalQwen37MaxSnapshots() {
-        var juneSnapshot = new ModelSelector("dashscope", "qwen3.7-max-2026-06-08", "test-key", 0.7, true);
-        var laterSnapshot = new ModelSelector("dashscope", "QWEN3.7-MAX-2026-09-01", "test-key", 0.7, true);
-        var mayTextSnapshot = new ModelSelector("dashscope", "qwen3.7-max-2026-05-20", "test-key", 0.7, true);
+    @ParameterizedTest
+    @ValueSource(strings = {"qwen3.7-max-2026-06-08", "deepseek-v4.1-flash-1017", "qwen-plus"})
+    void usesDashScopeCompatibleModeEndpointForAllModels(String modelName) throws Exception {
+        var selector = new ModelSelector("dashscope", modelName, "test-key", 0.7, true);
 
-        assertEquals(EndpointType.MULTIMODAL, ModelFactory.DashScope.resolveEndpointType(juneSnapshot));
-        assertEquals(EndpointType.MULTIMODAL, ModelFactory.DashScope.resolveEndpointType(laterSnapshot));
-        assertEquals(EndpointType.AUTO, ModelFactory.DashScope.resolveEndpointType(mayTextSnapshot));
+        var model = assertInstanceOf(OpenAIChatModel.class, ModelFactory.create(selector));
+
+        assertEquals(modelName, model.getModelName());
+        assertEquals(ModelFactory.DashScope.DEFAULT_BASE_URL, extractBaseUrl(model));
     }
 
     @Test
-    void selectsMultimodalForRollingQwen37MaxOnlyWhenVisionEnabledAndLeavesOtherModelsAuto() {
-        var rollingText = new ModelSelector("dashscope", "qwen3.7-max", "test-key", 0.7, true, null, null, false);
-        var rollingVision = new ModelSelector("dashscope", "qwen3.7-max", "test-key", 0.7, true, null, null, true);
-        var otherModel = new ModelSelector("dashscope", "qwen-plus", "test-key", 0.7, true, null, null, true);
-
-        assertEquals(EndpointType.AUTO, ModelFactory.DashScope.resolveEndpointType(rollingText));
-        assertEquals(EndpointType.MULTIMODAL, ModelFactory.DashScope.resolveEndpointType(rollingVision));
-        assertEquals(EndpointType.AUTO, ModelFactory.DashScope.resolveEndpointType(otherModel));
-    }
-
-    @Test
-    void appliesEndpointTypeAndOptionalBaseUrlWhenCreatingDashScopeModel() throws Exception {
+    void respectsCustomDashScopeBaseUrl() throws Exception {
         var selector = new ModelSelector(
                 "dashscope",
                 "qwen3.7-max-2026-06-08",
                 "test-key",
                 0.7,
                 true,
-                "https://dashscope-intl.aliyuncs.com/",
+                "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/",
                 null,
-                false
+                true
         );
 
-        var model = assertInstanceOf(DashScopeChatModel.class, ModelFactory.create(selector));
+        var model = assertInstanceOf(OpenAIChatModel.class, ModelFactory.create(selector));
 
-        Field endpointTypeField = DashScopeChatModel.class.getDeclaredField("endpointType");
-        endpointTypeField.setAccessible(true);
-        assertEquals(EndpointType.MULTIMODAL, endpointTypeField.get(model));
+        assertEquals("https://dashscope-intl.aliyuncs.com/compatible-mode/v1", extractBaseUrl(model));
+    }
 
-        Field httpClientField = DashScopeChatModel.class.getDeclaredField("httpClient");
-        httpClientField.setAccessible(true);
-        Object httpClient = httpClientField.get(model);
-        Field baseUrlField = httpClient.getClass().getDeclaredField("baseUrl");
-        baseUrlField.setAccessible(true);
-        assertEquals("https://dashscope-intl.aliyuncs.com", baseUrlField.get(httpClient));
+    private static String extractBaseUrl(OpenAIChatModel model) throws Exception {
+        Field optionsField = OpenAIChatModel.class.getDeclaredField("configuredOptions");
+        optionsField.setAccessible(true);
+        GenerateOptions options = (GenerateOptions) optionsField.get(model);
+        return options.getBaseUrl();
     }
 }

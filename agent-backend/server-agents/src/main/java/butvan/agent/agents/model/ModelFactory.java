@@ -3,17 +3,11 @@ package butvan.agent.agents.model;
 import io.agentscope.core.model.GenerateOptions;
 import io.agentscope.core.model.Model;
 import io.agentscope.extensions.model.anthropic.AnthropicChatModel;
-import io.agentscope.extensions.model.dashscope.DashScopeChatModel;
-import io.agentscope.extensions.model.dashscope.EndpointType;
 import io.agentscope.extensions.model.gemini.GeminiChatModel;
 import io.agentscope.extensions.model.openai.OpenAIChatModel;
 import io.agentscope.extensions.model.openai.formatter.DeepSeekFormatter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public sealed interface ModelFactory {
 
@@ -70,10 +64,9 @@ public sealed interface ModelFactory {
         }
     }
 
+    /** 百炼统一走 OpenAI 兼容端点，避免原生 SDK 按模型名前缀猜测 text/multimodal 路径导致新模型报 url error。 */
     record DashScope() implements ModelFactory {
-        /** 2026-06-08 及之后的 qwen3.7-max 快照已支持多模态，需规避 SDK 2.0.0 将其一刀切为纯文本端点的缺陷。 */
-        private static final Pattern QWEN37_MAX_DATED_PATTERN = Pattern.compile("^qwen3\\.7-max-(\\d{4}-\\d{2}-\\d{2})$");
-        private static final String QWEN37_MAX_MULTIMODAL_SINCE = "2026-06-08";
+        static final String DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 
         @Override
         public String vendor() {
@@ -87,34 +80,13 @@ public sealed interface ModelFactory {
                     .stream(modelSelector.stream())
                     .build();
 
-            DashScopeChatModel.Builder builder = DashScopeChatModel.builder()
+            String baseUrl = ModelEndpoint.normalize(modelSelector.baseUrl());
+            return OpenAIChatModel.builder()
                     .modelName(modelSelector.name())
                     .apiKey(modelSelector.apiKey())
-                    .endpointType(resolveEndpointType(modelSelector))
-                    .defaultOptions(options);
-            String baseUrl = ModelEndpoint.normalize(modelSelector.baseUrl());
-            if (baseUrl != null) {
-                builder.baseUrl(baseUrl);
-            }
-            return builder.build();
-        }
-
-        static EndpointType resolveEndpointType(ModelSelector modelSelector) {
-            String modelName = modelSelector == null || modelSelector.name() == null
-                    ? ""
-                    : modelSelector.name().trim().toLowerCase(Locale.ROOT);
-            if (!modelName.startsWith("qwen3.7-max")) {
-                return EndpointType.AUTO;
-            }
-            Matcher matcher = QWEN37_MAX_DATED_PATTERN.matcher(modelName);
-            if (matcher.matches()) {
-                return matcher.group(1).compareTo(QWEN37_MAX_MULTIMODAL_SINCE) >= 0
-                        ? EndpointType.MULTIMODAL
-                        : EndpointType.AUTO;
-            }
-            return modelSelector != null && modelSelector.visionCapable()
-                    ? EndpointType.MULTIMODAL
-                    : EndpointType.AUTO;
+                    .baseUrl(baseUrl == null ? DEFAULT_BASE_URL : baseUrl)
+                    .generateOptions(options)
+                    .build();
         }
     }
 
