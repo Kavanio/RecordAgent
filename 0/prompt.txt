@@ -1,0 +1,34 @@
+2026-11-19T10:07:21.171+08:00  INFO 25507 --- [nio-8081-exec-1] b.agent.network.aspect.ApiLogAspect      : [API-LOG] >>> START | Description: [Agent对话SSE流式推流] | Method: [POST /agent/chat/stream] | Client: [0:0:0:0:0:0:0:1] | Handler: [AgentController.streamChat] | Args: [AgentChatRequest{sessionId='11c7eef1-d513-4fc5-85c3-529e36a6e170', contentLength=5, referenceCount=0}]
+2026-11-19T10:07:21.173+08:00  INFO 25507 --- [nio-8081-exec-1] b.agent.network.aspect.ApiLogAspect      : [API-LOG] <<< END   | Description: [Agent对话SSE流式推流] | Method: [POST /agent/chat/stream] | Status: [SUCCESS] | Cost: [2 ms] | Result: SseEmitter
+2026-11-19T10:07:22.706+08:00  WARN 25507 --- [    virtual-207] b.a.n.m.client.HindsightHttpAdapter      : 记忆 HTTP 结果未知：stage=recall,errorType=IOException
+2026-11-19T10:07:24.123+08:00  INFO 25507 --- [    virtual-205] b.a.a.routing.JevToolCapabilityRouter    : Jev Tool 路由完成： status=ACTIVE, groups=[], probabilities={workspace=0.07, skills=0.09, library=0.07, memory=0.09, study=0.06, delegation=0.08, methods=0.11, web=0.05, calendar=0.05, desktop=0.04, screen=0.19, planning=0.08, finance=0.05}, costMs=1406
+2026-11-19T10:07:24.134+08:00  INFO 25507 --- [    virtual-205] i.a.h.a.middleware.AgentTraceMiddleware  : [butvan_agent] PRE_CALL  | 1 input message(s)
+2026-11-19T10:07:24.138+08:00  INFO 25507 --- [    virtual-205] i.a.h.a.middleware.AgentTraceMiddleware  : [butvan_agent] PRE_REASONING  | model=qwen3.7-max-2026-06-08, messages=3
+2026-11-19T10:07:24.516+08:00  WARN 25507 --- [oundedElastic-8] i.a.h.a.middleware.CompactionMiddleware  : Compaction failed, continuing without compaction: DashScope API error: url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url
+2026-11-19T10:07:24.934+08:00  INFO 25507 --- [oundedElastic-8] i.a.h.a.middleware.AgentTraceMiddleware  : [butvan_agent] ERROR | DashScopeHttpException: DashScope API error: url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url
+2026-11-19T10:07:24.934+08:00 ERROR 25507 --- [    virtual-205] butvan.agent.agents.agent.AgentService   : Agent 流处理失败：sessionId=11c7eef1-d513-4fc5-85c3-529e36a6e170
+
+io.agentscope.extensions.model.dashscope.DashScopeHttpClient$DashScopeHttpException: DashScope API error: url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url
+	at io.agentscope.extensions.model.dashscope.DashScopeHttpClient.lambda$stream$2(DashScopeHttpClient.java:298) ~[agentscope-extensions-model-dashscope-2.0.0.jar:na]
+	at reactor.core.publisher.FluxHandle$HandleSubscriber.onNext(FluxHandle.java:113) ~[reactor-core-3.7.3.jar:3.7.3]
+	at reactor.core.publisher.FluxFilter$FilterConditionalSubscriber.onNext(FluxFilter.java:247) ~[reactor-core-3.7.3.jar:3.7.3]
+	at reactor.core.publisher.FluxMap$MapConditionalSubscriber.onNext(FluxMap.java:224) ~[reactor-core-3.7.3.jar:3.7.3]
+	at reactor.core.publisher.FluxSubscribeOn$SubscribeOnSubscriber.onNext(FluxSubscribeOn.java:151) ~[reactor-core-3.7.3.jar:3.7.3]
+	at reactor.core.publisher.FluxOnErrorResume$ResumeSubscriber.onNext(FluxOnErrorResume.java:79) ~[reactor-core-3.7.3.jar:3.7.3]
+	at reactor.core.publisher.FluxPublishOn$PublishOnSubscriber.runAsync(FluxPublishOn.java:446) ~[reactor-core-3.7.3.jar:3.7.3]
+	at reactor.core.publisher.FluxPublishOn$PublishOnSubscriber.run(FluxPublishOn.java:533) ~[reactor-core-3.7.3.jar:3.7.3]
+	at reactor.core.scheduler.WorkerTask.call(WorkerTask.java:84) ~[reactor-core-3.7.3.jar:3.7.3]
+	at reactor.core.scheduler.WorkerTask.call(WorkerTask.java:37) ~[reactor-core-3.7.3.jar:3.7.3]
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317) ~[na:na]
+	at java.base/java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:304) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[na:na]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[na:na]
+
+
+
+为啥失败了，我配置的信息应该没错才对
+
+---
+
+我选择方案二
