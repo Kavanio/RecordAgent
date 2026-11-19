@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7RNW9KEDZKVGW3P06CGT0FC",
+  "session_id": "e5ff280c-e94a-4acc-bc9e-8d5a4a7dd1e8",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-19T01:14:02.057663Z",
+  "branch": "desktop/agent-desktop-integration",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "UI COMPONENTS.md",
+    "agent-frontend/src/components/model/ModelSettingsPage.tsx",
+    "agent-frontend/src/components/settings/BackendConnectionSettings.tsx",
+    "agent-frontend/src/components/settings/DesktopControlSettingsSection.module.css",
+    "agent-frontend/src/components/settings/DesktopControlSettingsSection.test.mjs",
+    "agent-frontend/src/components/settings/DesktopControlSettingsSection.tsx",
+    "agent-frontend/src/services/desktopControlService.ts"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-neon-high",
+  "turn_id": "30ff0706ce2b",
+  "checkpoint_transcript_start": 137,
+  "transcript_lines_at_start": 137,
+  "redaction": {
+    "replacements": 23,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 3,
+      "credentialed_uri": 0,
+      "entropy": 20,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 4
+  }
+}
