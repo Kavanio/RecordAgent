@@ -30,13 +30,9 @@ import butvan.agent.agents.usage.ModelIdentity;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.*;
 import io.agentscope.core.message.Msg;
-import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.ToolUseBlock;
-import io.agentscope.harness.agent.HarnessAgent;
-import io.agentscope.core.permission.PermissionMode;
-import io.agentscope.harness.agent.workspace.plan.PlanModeManager;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -49,7 +45,6 @@ import java.util.*;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AgentService {
 
     private butvan.agent.agents.memory.MemoryTurnLifecycle memoryLifecycle = butvan.agent.agents.memory.MemoryTurnLifecycle.disabled();
@@ -102,6 +97,48 @@ public class AgentService {
     private final ToolCapabilityCatalog toolCapabilityCatalog;
     /** toolRoutingStateSynchronizer：让模型可见 Schema 与会话级工具执行状态保持一致。 */
     private final ToolRoutingStateSynchronizer toolRoutingStateSynchronizer;
+    private final AgentRuntimeAdapter runtimeAdapter;
+
+    @Autowired
+    public AgentService(
+            ModelHolder modelHolder,
+            CurrentUserProvider currentUserProvider,
+            SessionCatalogService sessionCatalogService,
+            TranscriptService transcriptService,
+            PendingApprovalStore pendingApprovalStore,
+            AgentEventManager agentEventManager,
+            AgentFactory agentFactory,
+            AgentSecurity agentSecurity,
+            AgentRunCompleter agentRunCompleter,
+            AgentRunCheckpointService checkpointService,
+            ConversationContextAssembler contextAssembler,
+            ProfileMaintenanceScheduler profileMaintenanceScheduler,
+            ActiveAgentRunRegistry activeRunRegistry,
+            OrphanedToolCallRecovery orphanedToolCallRecovery,
+            ToolCapabilityRouter toolCapabilityRouter,
+            ToolCapabilityCatalog toolCapabilityCatalog,
+            ToolRoutingStateSynchronizer toolRoutingStateSynchronizer
+    ) {
+        this.modelHolder = modelHolder;
+        this.currentUserProvider = currentUserProvider;
+        this.sessionCatalogService = sessionCatalogService;
+        this.transcriptService = transcriptService;
+        this.pendingApprovalStore = pendingApprovalStore;
+        this.agentEventManager = agentEventManager;
+        this.agentFactory = agentFactory;
+        this.agentSecurity = agentSecurity;
+        this.agentRunCompleter = agentRunCompleter;
+        this.checkpointService = checkpointService;
+        this.contextAssembler = contextAssembler;
+        this.profileMaintenanceScheduler = profileMaintenanceScheduler;
+        this.activeRunRegistry = activeRunRegistry;
+        this.orphanedToolCallRecovery = orphanedToolCallRecovery;
+        this.toolCapabilityRouter = toolCapabilityRouter;
+        this.toolCapabilityCatalog = toolCapabilityCatalog;
+        this.toolRoutingStateSynchronizer = toolRoutingStateSynchronizer;
+        this.runtimeAdapter = new AgentRuntimeAdapter(
+                agentFactory, agentSecurity, orphanedToolCallRecovery, toolRoutingStateSynchronizer);
+    }
 
     /**
      * 创建一次 HTTP 流对应的队列和生产虚拟线程。
@@ -288,13 +325,7 @@ public class AgentService {
     }
 
     private void recoverOrphanedToolCalls(String userId, String sessionId) {
-        HarnessAgent agent = agentFactory.currentAgent(sessionId);
-        int recovered = orphanedToolCallRecovery.recover(
-                agent.getDelegate().getAgentState(userId, sessionId), agent.getName());
-        if (recovered > 0) {
-            agent.getDelegate().saveAgentState(userId, sessionId);
-            log.warn("已安全收尾进程遗留工具调用：sessionId={}, 数量={}", sessionId, recovered);
-        }
+        runtimeAdapter.recoverOrphanedToolCalls(userId, sessionId);
     }
 
     /** 将 ACTIVE 路由决策写入当前会话状态，并在模型调用前持久化。 */
@@ -303,13 +334,7 @@ public class AgentService {
             String sessionId,
             ToolRoutingDecision decision
     ) {
-        if (decision == null || !decision.appliesToModelCall()) return;
-
-        HarnessAgent agent = agentFactory.currentAgent(sessionId);
-        var state = agent.getDelegate().getAgentState(userId, sessionId);
-        if (toolRoutingStateSynchronizer.apply(state, decision)) {
-            agent.getDelegate().saveAgentState(userId, sessionId);
-        }
+        runtimeAdapter.synchronizeToolRoutingState(userId, sessionId, decision);
     }
 
     /** Jev 降级时发送非终态提示，使聊天继续执行且桌面端可以告知用户。 */
@@ -355,18 +380,10 @@ public class AgentService {
      * @param streamSession
      */
     private void runAgentStream(AgentRun run, List<Msg> inputMessages, AgentStreamSession streamSession) {
-        HarnessAgent agent = agentFactory.currentAgent(run.sessionId());
-        streamSession.bindCancellationAction(
-                () -> agent.getDelegate().interrupt(run.userId(), run.sessionId()));
         ModelIdentity modelIdentity = currentModelIdentity();
         SessionPermissionMode productMode = sessionCatalogService.getPermissionMode(run.sessionId());
-        agent.getDelegate().getAgentState(run.userId(), run.sessionId())
-                .setPermissionContext(agentSecurity.createPermissionContext(productMode));
-        // setPermissionMode 同时重建当前会话的权限引擎并持久化新的上下文。
-        agent.setPermissionMode(run.userId(), run.sessionId(), toAgentScopeMode(productMode));
 
-        for (AgentEvent event : agent.streamEvents(inputMessages,
-                run.runtimeContext()).toIterable()) {
+        for (AgentEvent event : runtimeAdapter.streamEvents(run, productMode, inputMessages, streamSession)) {
             // Token usage 必须在 UI 映射之前采集，包含工具循环和子 Agent 原始事件。
             run.recordModelEvent(event, modelIdentity);
 
@@ -421,22 +438,7 @@ public class AgentService {
         }
     }
 
-    /** 将产品文案稳定映射到 AgentScope 的运行模式。 */
-    private PermissionMode toAgentScopeMode(SessionPermissionMode mode) {
-        return switch (mode) {
-            case ASK -> PermissionMode.DEFAULT;
-            case AUTO_EDIT -> PermissionMode.ACCEPT_EDITS;
-            case FULL_ACCESS -> PermissionMode.BYPASS;
-        };
-    }
-
-    /**
-     * 优先应用已经记住的决定，未解决的工具进入待确认批次
-     * @param run
-     * @param askedTools
-     * @param streamSession
-     * @return
-     */
+    /** 优先应用已经记住的决定，未解决的工具进入待确认批次。 */
     private boolean pauseForConfirmation(AgentRun run, List<ToolUseBlock> askedTools, AgentStreamSession streamSession) {
         List<ConfirmResult> rememberResults = new ArrayList<>();
         List<ToolUseBlock> unresolved = new ArrayList<>();
@@ -547,16 +549,7 @@ public class AgentService {
      * @return
      */
     private Msg buildResumeMessage(List<ConfirmResult> results) {
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put(Msg.METADATA_CONFIRM_RESULTS, results);
-
-        // 这是框架恢复信号，不是用户的新提问。
-        return Msg.builder()
-                .name("user")
-                .role(MsgRole.USER)
-                .textContent("permission confirmation received")
-                .metadata(metadata)
-                .build();
+        return runtimeAdapter.buildResumeMessage(results);
     }
 
     /** 使用原 runId 恢复权限确认后的同一轮运行。 */
@@ -636,24 +629,14 @@ public class AgentService {
         // 复用会话有效性校验，防止读取已删除会话的文件
         sessionCatalogService.requireActive(sessionId);
         if (!modelHolder.isInitialized()) return "";
-        HarnessAgent agent = agentFactory.currentAgent(sessionId);
-        RuntimeContext context = createRuntimeContext(currentUserProvider.currentUserId(), sessionId);
-        // 计划文件默认位于工作区 plans/PLAN.md
-        String planPath = PlanModeManager.DEFAULT_PLAN_DIR + "/PLAN.md";
-        return agent.getWorkspaceManager()
-                .readManagedWorkspaceFileUtf8(context, planPath);
+        return runtimeAdapter.readPlan(currentUserProvider.currentUserId(), sessionId);
     }
 
 
 
     /** 只在此处构造 RuntimeContext，保证所有 Agent 调用都使用同一个用户身份规则。 */
     private RuntimeContext createRuntimeContext(String userId, String sessionId) {
-        RuntimeContext context = RuntimeContext.builder()
-                .userId(userId)
-                .sessionId(sessionId)
-                .build();
-        butvan.agent.agents.tool.ToolSchemaSelectionMiddleware.prepareContext(context);
-        return context;
+        return runtimeAdapter.createRuntimeContext(userId, sessionId);
     }
 
     /** 每段 Agent 流开始时固化模型身份，兼容权限暂停期间切换模型的情况。 */
@@ -726,15 +709,7 @@ public class AgentService {
         transcriptService.appendProactiveAssistantMessage(sessionId, normalized);
         sessionCatalogService.touch(sessionId, normalized);
         if (modelHolder.isInitialized()) {
-            try {
-                HarnessAgent agent = agentFactory.currentAgent(sessionId);
-                var state = agent.getDelegate().getAgentState(userId, sessionId);
-                state.contextMutable().add(Msg.builder().role(MsgRole.ASSISTANT).textContent(normalized).build());
-                agent.getDelegate().saveAgentState(userId, sessionId);
-            } catch (RuntimeException exception) {
-                log.debug("同步主动消息到 AgentState 跳过：sessionId={}, errorType={}",
-                        sessionId, exception.getClass().getSimpleName());
-            }
+            runtimeAdapter.appendAssistantMessageToState(userId, sessionId, normalized);
         }
     }
 
