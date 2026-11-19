@@ -17,14 +17,14 @@
   "model": "gemini-4-neon-high",
   "turn_id": "30ff0706ce2b",
   "redaction": {
-    "replacements": 18,
+    "replacements": 23,
     "layers": {
       "betterleaks": 0,
       "connection_string": 0,
       "credential_key": 0,
-      "credential_value": 1,
+      "credential_value": 3,
       "credentialed_uri": 0,
-      "entropy": 17,
+      "entropy": 20,
       "key_context": 0,
       "provider_token": 0,
       "shell_stdin": 0
