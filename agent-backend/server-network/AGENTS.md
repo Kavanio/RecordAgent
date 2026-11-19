@@ -191,3 +191,8 @@
 - `push/` 承载 iOS 设备登记、APNs 凭据与通知队列，统一原子持久化于 `AgentStorageProperties.iosPushFile`（`~/.butvan-agent/ios-push.json`，POSIX 0600 权限、拒绝符号链接），不改动 SQLite 表结构；API 响应与日志绝不输出 `.p8` 私钥或完整 Device Token。
 - `ApnsClient` 基于 Java 21 原生 HTTP/2 `HttpClient` 与 `SHA256withECDSAinP1363Format` 签署 ES256 JWT，在独立单线程异步投递，不阻塞 `life-review-worker` 与 `automation-worker`；收到 `410 Unregistered` 或 `BadDeviceToken` 时自动清理失效 Token。
 - 主动陪伴问候（`LifeCompanionService`）、生活复盘与信号异常提醒（`LifeDeliveryService` / `LifeOutreachService`）以及自动任务提醒（`AutomationService` 事务提交后）统一汇入 `IosPushService` 并同步推流 `/agent/ios-push/stream` SSE；`IosPushResetParticipant` 在重置时清理待送达通知队列并保留 APNs 凭据与设备登记。
+
+## 电脑操控
+
+- `desktop/` 封装基于 `agent-desktop` CLI 的后端宿主机桌面观察与交互能力，配置保存于 `~/.butvan-agent/config.json` 的 `desktopControl` 节点（`enabled` 默认关闭，可选 `cliPath`），经 `GET/PUT /agent/desktop-control` 与 `GET /agent/desktop-control/check` 提供双端设置与有界环境检测；修改配置保留其他所有 `config.json` 节点并立即生效。
+- 所有 `desktop_*` 工具归入延迟加载的 `desktop` 能力组，按聊天 `sessionId` 隔离 `--session` 命名空间，执行前实时核验开关状态；只读观察工具（`desktop_status/apps/snapshot/find/inspect/wait/guide`）自动放行，写操作工具（`desktop_action/input/window`）强制人工审批并串行互斥，默认无头语义交互，文本经 stdin 传递且禁止暴露强杀或危险绕过参数。

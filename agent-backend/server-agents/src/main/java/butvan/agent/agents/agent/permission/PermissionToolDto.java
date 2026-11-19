@@ -35,6 +35,9 @@ public record PermissionToolDto(
             case "write_file", "edit_file" -> "将修改本地文件内容";
             case "execute", "custom_bash" -> "将在本地 Shell 中执行命令";
             case "capture_screen" -> "将截取当前后端所在电脑的主屏幕并发到此对话";
+            case "desktop_action" -> "将在后端所在电脑上点击或操作桌面界面元素";
+            case "desktop_input" -> "将在后端所在电脑上输入文本或发送键盘快捷键";
+            case "desktop_window" -> "将在后端所在电脑上启动、关闭或调整应用窗口";
             case "http_request", "web_search" -> "将向外部网络发送请求";
             case "plan_exit" -> "将提交任务计划书，等待你审核批准后开始执行";
             default -> toolName.endsWith("_create") || toolName.endsWith("_update")
