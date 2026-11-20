@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7VSEVZYPP0G1KD8MVNDW45F",
+  "session_id": "298141e3-60b3-4d23-9749-8f2f3286eff1",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-20T06:14:19.582043Z",
+  "branch": "desktop/agent-core-refactor",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-backend/scripts/publish-backend.py",
+    "agent-backend/scripts/test_publish_backend.py"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-neon-high",
+  "turn_id": "1e57c34c28a1",
+  "redaction": {
+    "replacements": 8,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 6,
+      "credentialed_uri": 0,
+      "entropy": 2,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 1
+  }
+}
