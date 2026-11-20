@@ -19,7 +19,7 @@
 
 .content {
   width: 100%;
-  max-width: 1180px;
+  max-width: 1380px;
   min-height: 100%;
   margin: 0 auto;
 }
@@ -27,14 +27,14 @@
 .calendarLayout {
   min-height: calc(100vh - 48px);
   display: grid;
-  grid-template-columns: minmax(520px, 1.2fr) minmax(390px, 0.8fr);
-  column-gap: 40px;
+  grid-template-columns: minmax(600px, 1.38fr) minmax(350px, 0.72fr);
+  column-gap: 28px;
   align-items: stretch;
 }
 
 .monthPanel {
   min-width: 0;
-  padding: 28px 32px 30px;
+  padding: 24px 20px 30px;
   background: var(--bg-app);
 }
 
@@ -47,34 +47,35 @@
 }
 
 .monthTitleRow {
-  align-items: center;
-  margin-bottom: 22px;
+  align-items: baseline;
+  margin-bottom: 20px;
 }
 
 .monthTitleRow h2,
 .dayHeading h2 {
-  color: var(--text-primary);
-  font-size: 16px;
-  font-weight: 650;
-  letter-spacing: -0.015em;
-  line-height: 1.35;
+  color: #0d0d0d;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
 }
 
 .monthTitleRow > span {
-  color: var(--text-muted);
-  font-size: 11px;
+  color: #8e8ea0;
+  font-size: 11.5px;
 }
 
 .weekHeader {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .weekHeader span {
-  padding: 0 8px 9px;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 550;
+  padding: 0 4px 12px;
+  color: #8e8ea0;
+  font-size: 11.5px;
+  font-weight: 500;
   text-align: center;
 }
 
@@ -551,14 +552,14 @@
 
 .monthStats small { display: block; margin-top: 5px; color: var(--text-muted); font-size: 10px; }
 
- .itemLegend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; color: var(--text-muted); font-size: 10px; }
+ .itemLegend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; color: var(--text-muted); font-size: 10.5px; }
 .itemLegend span { display: inline-flex; align-items: center; gap: 5px; }
-.itemLegend i { display: inline-block; width: 3px; height: 9px; border-radius: 2px; }
-.todoMarker { background: #8fa9ce; }
-.scheduleMarker { background: #b69bc2; }
-.studyMarker { background: #91b6ad; }
-.recordMarker { background: #c9b17c; }
-.expenseMarker { background: #cda08e; }
+.itemLegend i { display: inline-block; width: 2.5px; height: 10px; border-radius: 999px; }
+.todoMarker { background: #7c9bc4; }
+.scheduleMarker { background: #a98bb8; }
+.studyMarker { background: #6fa398; }
+.recordMarker { background: #c7a667; }
+.expenseMarker { background: #c88773; }
 .monthStats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding-top: 16px; border-top: 1px solid #edf0ee; }
 .monthStats dd { font-size: 12px; font-weight: 550; }
 @media (max-width: 620px) { .monthStats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

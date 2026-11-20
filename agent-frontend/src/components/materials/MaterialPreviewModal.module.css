@@ -1,17 +1,17 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .previewStage {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 12px;
+  background: var(--bg-surface, #f8f9fa);
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: 10px;
+  padding: 16px;
   max-height: 46vh;
   overflow: hidden;
 }
@@ -20,42 +20,52 @@
   max-width: 100%;
   max-height: 42vh;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: var(--radius-md, 6px);
 }
 
-.badges {
+.summaryLine {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary, #4b5563);
+}
+
+.dot {
+  color: var(--border-medium, #d1d5db);
 }
 
 .metaGrid {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px 14px;
+  border-top: 1px solid var(--border-subtle, #e5e7eb);
 }
 
 .metaRow {
   display: grid;
-  grid-template-columns: 106px 1fr;
-  gap: 10px;
+  grid-template-columns: 104px 1fr;
+  gap: 12px;
   align-items: start;
-  font-size: 13px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
+  font-size: 12.5px;
+}
+
+.metaRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .metaRow dt {
-  color: #64748b;
-  font-weight: 500;
+  color: var(--text-muted, #9ca3af);
+  font-weight: 450;
 }
 
 .metaRow dd {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-primary, #111827);
   word-break: break-all;
   display: flex;
   align-items: center;
@@ -70,18 +80,19 @@
 .copyBtn {
   border: none;
   background: transparent;
-  color: #64748b;
+  color: var(--text-muted, #9ca3af);
   padding: 3px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm, 4px);
   cursor: pointer;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
+  transition: background var(--transition-fast, 150ms ease), color var(--transition-fast, 150ms ease);
 }
 
 .copyBtn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: var(--bg-surface-hover, #f1f3f5);
+  color: var(--text-primary, #111827);
 }
 
 .footerBar {

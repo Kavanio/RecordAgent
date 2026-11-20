@@ -1084,6 +1084,12 @@ private struct AgentMessageRow: View {
 
     private var assistantBody: some View {
         let split = AgentTimelineBuilder.splitProcessAndFinalBlocks(for: message)
+        let liveBlocks = message.isStreaming
+            ? AgentTimelineBuilder.groupTimelineBlocks(AgentTimelineBuilder.normalizedBlocks(for: message))
+            : []
+        let completedProcessBlocks = message.isStreaming
+            ? []
+            : AgentTimelineBuilder.groupTimelineBlocks(split.processBlocks)
         let trimmedFinal = split.finalText.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasTurnTokenInfo = message.usage.map {
             $0.totalTokens > 0 || ($0.reportedCallCount ?? 0) > 0 || ($0.estimatedInputTokens ?? 0) > 0
@@ -1097,27 +1103,33 @@ private struct AgentMessageRow: View {
                     .foregroundStyle(.secondary)
             }
 
-            if split.hasProcessTrace {
-                AgentProcessTimelineView(
-                    blocks: split.processBlocks,
-                    isStreaming: message.isStreaming,
-                    elapsedSeconds: elapsedSeconds
-                )
-            } else if message.isStreaming && trimmedFinal.isEmpty {
-                HStack(spacing: 8) {
-                    ProgressView()
-                        .controlSize(.mini)
-                        .tint(AppColors.primaryBlue)
-                    Text("agent.thinking.in_progress")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+            if message.isStreaming {
+                if !liveBlocks.isEmpty {
+                    AgentLiveTimelineView(blocks: liveBlocks)
+                } else {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(AppColors.primaryBlue)
+                        Text("agent.thinking.in_progress")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
-            }
+            } else {
+                if split.hasProcessTrace && !completedProcessBlocks.isEmpty {
+                    AgentProcessTimelineView(
+                        blocks: completedProcessBlocks,
+                        isStreaming: false,
+                        elapsedSeconds: elapsedSeconds
+                    )
+                }
 
-            if !trimmedFinal.isEmpty {
-                AgentMarkdownView(text: split.finalText)
-                    .foregroundStyle(.primary)
+                if !trimmedFinal.isEmpty {
+                    AgentMarkdownView(text: split.finalText)
+                        .foregroundStyle(.primary)
+                }
             }
 
             if !message.replyImages.isEmpty {

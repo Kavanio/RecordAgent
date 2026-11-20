@@ -175,12 +175,20 @@ public final class DailyEventModels {
             int completedTodoCount,
             int scheduleCount,
             BigDecimal expenseTotal,
+            BigDecimal incomeTotal,
             String headline,
             List<CalendarItem> items) {
         /** 兼容基础统计组装，事项在 Service 统一补齐。 */
         public DailyDaySummary(LocalDate date, int eventCount, int todoCount, int completedTodoCount,
                 int scheduleCount, BigDecimal expenseTotal, String headline) {
-            this(date, eventCount, todoCount, completedTodoCount, scheduleCount, expenseTotal, headline, List.of());
+            this(date, eventCount, todoCount, completedTodoCount, scheduleCount,
+                    expenseTotal, BigDecimal.ZERO, headline, List.of());
+        }
+
+        public DailyDaySummary(LocalDate date, int eventCount, int todoCount, int completedTodoCount,
+                int scheduleCount, BigDecimal expenseTotal, String headline, List<CalendarItem> items) {
+            this(date, eventCount, todoCount, completedTodoCount, scheduleCount,
+                    expenseTotal, BigDecimal.ZERO, headline, items);
         }
     }
 }

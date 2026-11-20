@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { CaretRightIcon } from '@phosphor-icons/react';
 import { fetchCalendarDetails } from '../../services/calendarDetails';
 import { toCalendarDayEntry } from './dailyEventViewModel';
 import type {
@@ -9,6 +10,7 @@ import { formatStudyDuration } from './calendarPresentation';
 import { useStudyRealtime } from '../../context/studyRealtimeState';
 import { Skeleton } from '../common/Skeleton';
 import styles from './CalendarDayDetails.module.css';
+
 const LABELS: Record<FinanceTransactionType, string> = {
   income: '收入',
   expense: '支出',
@@ -18,28 +20,41 @@ const LABELS: Record<FinanceTransactionType, string> = {
   adjustment_increase: '校准增加',
   adjustment_decrease: '校准减少',
 };
+
 const decreases = new Set<FinanceTransactionType>([
   'expense',
   'transfer_out',
   'adjustment_decrease',
 ]);
+
 function Section({
   title,
+  meta,
   children,
   compact,
 }: {
   title: string;
+  meta?: string;
   children: ReactNode;
   compact: boolean;
 }) {
   return compact ? (
     <details className={styles.section}>
-      <summary>{title}</summary>
-      {children}
+      <summary className={styles.summaryTrigger}>
+        <span className={styles.summaryTitle}>
+          <CaretRightIcon size={11} className={styles.chevron} aria-hidden="true" />
+          <span>{title}</span>
+        </span>
+        {meta && <span className={styles.summaryMeta}>{meta}</span>}
+      </summary>
+      <div className={styles.sectionBody}>{children}</div>
     </details>
   ) : (
     <section className={styles.section}>
-      <h4>{title}</h4>
+      <h4>
+        <span>{title}</span>
+        {meta && <span className={styles.headingMeta}>{meta}</span>}
+      </h4>
       {children}
     </section>
   );
@@ -59,10 +74,11 @@ function Row({
   return (
     <div className={`${styles.row} ${styles[tone]}`}>
       <span>{title}</span>
-      <small>{meta}</small>
+      {meta && <small>{meta}</small>}
     </div>
   );
 }
+
 /** 浮层按分类折叠，右侧补充展示资产、学习和资料；共用读取与降级逻辑。 */
 export function CalendarDayDetails({
   date,
@@ -78,6 +94,7 @@ export function CalendarDayDetails({
     ReturnType<typeof fetchCalendarDetails>
   > | null>(null);
   const [retry, setRetry] = useState(0);
+
   useEffect(() => {
     let active = true;
     setData(null);
@@ -88,6 +105,7 @@ export function CalendarDayDetails({
       active = false;
     };
   }, [date, retry, syncGeneration, revision]);
+
   const entry =
     data?.daily.status === 'fulfilled'
       ? toCalendarDayEntry(data.daily.value)
@@ -98,6 +116,23 @@ export function CalendarDayDetails({
   const groups = new Map<string, FinanceTransaction[]>();
   for (const item of assets)
     groups.set(item.accountId, [...(groups.get(item.accountId) ?? []), item]);
+
+  const expenseSum = entry?.expenses.reduce((n, item) => n + item.amount, 0) ?? 0;
+  const incomeSum = entry?.incomes.reduce((n, item) => n + item.amount, 0) ?? 0;
+  const studySeconds = data?.study.status === 'fulfilled' ? data.study.value.totalDurationSeconds : 0;
+  const studySessions = data?.sessions.status === 'fulfilled' ? data.sessions.value : [];
+  const records = data?.records.status === 'fulfilled' ? data.records.value : [];
+  const manualJournals = entry?.journals?.filter((item) => item.source !== 'record') ?? [];
+
+  const showStudySection = !compact || studySeconds > 0 || studySessions.length > 0 || data?.study.status === 'rejected';
+  const hasAnyCompactSection = Boolean(
+    (entry && (entry.todos.length > 0 || entry.schedules.length > 0 || entry.expenses.length > 0 || entry.incomes.length > 0 || manualJournals.length > 0))
+    || groups.size > 0
+    || studySeconds > 0
+    || studySessions.length > 0
+    || records.length > 0,
+  );
+
   return (
     <div className={compact ? styles.compact : styles.full}>
       {!data ? (
@@ -115,48 +150,41 @@ export function CalendarDayDetails({
               </button>
             </p>
           )}
+          {compact && entry && (expenseSum > 0 || incomeSum > 0) && (
+            <div className={styles.summary}>
+              <div className={styles.summaryItem}>
+                <span>支出</span>
+                <b className={expenseSum > 0 ? styles.expenseVal : styles.zeroVal}>
+                  ¥{expenseSum.toFixed(2)}
+                </b>
+              </div>
+              <div className={styles.summaryItem}>
+                <span>收入</span>
+                <b className={incomeSum > 0 ? styles.incomeVal : styles.zeroVal}>
+                  ¥{incomeSum.toFixed(2)}
+                </b>
+              </div>
+            </div>
+          )}
           {compact && entry && (
             <>
-              <div className={styles.summary}>
-                <span>
-                  支出{' '}
-                  <b>
-                    ¥
-                    {entry.expenses
-                      .reduce((n, item) => n + item.amount, 0)
-                      .toFixed(2)}
-                  </b>
-                </span>
-                <span>
-                  收入{' '}
-                  <b>
-                    ¥
-                    {entry.incomes
-                      .reduce((n, item) => n + item.amount, 0)
-                      .toFixed(2)}
-                  </b>
-                </span>
-              </div>
               {entry.todos.length > 0 && (
                 <Section
                   compact={compact}
-                  title={`待办 · ${entry.todos.filter((item) => item.completed).length}/${entry.todos.length} 已完成`}
+                  title="待办"
+                  meta={`${entry.todos.filter((item) => item.completed).length}/${entry.todos.length}`}
                 >
-                  {entry.todos.length ? (
-                    entry.todos.map((item) => (
-                      <Row
-                        key={item.id}
-                        title={`${item.completed ? '✓' : '○'} ${item.title}`}
-                        meta={item.time}
-                      />
-                    ))
-                  ) : (
-                    <p className={styles.empty}>暂无待办</p>
-                  )}
+                  {entry.todos.map((item) => (
+                    <Row
+                      key={item.id}
+                      title={`${item.completed ? '✓' : '○'} ${item.title}`}
+                      meta={item.time ?? undefined}
+                    />
+                  ))}
                 </Section>
               )}
               {entry.schedules.length > 0 && (
-                <Section compact={compact} title="日程">
+                <Section compact={compact} title="日程" meta={`${entry.schedules.length} 项`}>
                   {entry.schedules.map((item) => (
                     <Row
                       key={item.id}
@@ -171,7 +199,8 @@ export function CalendarDayDetails({
               {entry.expenses.length + entry.incomes.length > 0 && (
                 <Section
                   compact={compact}
-                  title={`收支明细 · ${entry.expenses.length + entry.incomes.length} 笔`}
+                  title="收支明细"
+                  meta={`${entry.expenses.length + entry.incomes.length} 笔`}
                 >
                   {[
                     ...entry.expenses.map((item) => ({
@@ -187,14 +216,11 @@ export function CalendarDayDetails({
                   ].map((item) => (
                     <Row
                       key={item.id}
-                      title={`${item.category} · ${item.note || '无备注'}`}
-                      meta={`${item.sign}¥${item.amount.toFixed(2)} · ${item.time}`}
+                      title={`${item.category}${item.note ? ` · ${item.note}` : ''}`}
+                      meta={`${item.sign}¥${item.amount.toFixed(2)}`}
                       tone={item.tone}
                     />
                   ))}
-                  {!entry.expenses.length && !entry.incomes.length && (
-                    <p className={styles.empty}>暂无收支</p>
-                  )}
                 </Section>
               )}
             </>
@@ -202,38 +228,36 @@ export function CalendarDayDetails({
           {data.assets.status === 'fulfilled' && groups.size > 0 && (
             <Section
               compact={compact}
-              title={`资产变动 · ${groups.size} 个账户`}
+              title="资产变动"
+              meta={`${groups.size} 个账户`}
             >
-              {groups.size ? (
-                [...groups].map(([accountId, items]) => (
-                  <div key={accountId} className={styles.asset}>
-                    <strong>{items[0].accountName}</strong>
-                    {items.map((item) => (
-                      <Row
-                        key={item.id}
-                        title={`${LABELS[item.transactionType]} · ${item.note || item.category}`}
-                        meta={`${decreases.has(item.transactionType) ? '−' : '+'}${item.amount.toFixed(2)} ${item.currency}`}
-                        tone={
-                          decreases.has(item.transactionType)
-                            ? 'expense'
-                            : 'income'
-                        }
-                      />
-                    ))}
-                  </div>
-                ))
-              ) : (
-                <p className={styles.empty}>当天没有资产变动</p>
-              )}
+              {[...groups].map(([accountId, items]) => (
+                <div key={accountId} className={styles.asset}>
+                  <strong>{items[0].accountName}</strong>
+                  {items.map((item) => (
+                    <Row
+                      key={item.id}
+                      title={`${LABELS[item.transactionType]} · ${item.note || item.category}`}
+                      meta={`${decreases.has(item.transactionType) ? '−' : '+'}${item.amount.toFixed(2)} ${item.currency}`}
+                      tone={
+                        decreases.has(item.transactionType)
+                          ? 'expense'
+                          : 'income'
+                      }
+                    />
+                  ))}
+                </div>
+              ))}
             </Section>
           )}
-          <Section
-            compact={compact}
-            title={`学习时间${data.study.status === 'fulfilled' ? ` · ${formatStudyDuration(data.study.value.totalDurationSeconds)}` : ' · 暂不可用'}`}
-          >
-            {data.sessions.status === 'fulfilled' &&
-              (data.sessions.value.length ? (
-                data.sessions.value.map((item) => (
+          {showStudySection && (
+            <Section
+              compact={compact}
+              title="学习时间"
+              meta={data.study.status === 'fulfilled' ? formatStudyDuration(studySeconds) : '暂不可用'}
+            >
+              {studySessions.length ? (
+                studySessions.map((item) => (
                   <Row
                     key={item.id}
                     title={item.content}
@@ -242,62 +266,50 @@ export function CalendarDayDetails({
                 ))
               ) : (
                 <p className={styles.empty}>暂无学习记录</p>
+              )}
+            </Section>
+          )}
+          {records.length > 0 && (
+            <Section
+              compact={compact}
+              title="当天资料"
+              meta={`${records.length} 篇`}
+            >
+              {records.map((item) => (
+                <div className={styles.document} key={item.id}>
+                  <strong>{item.title || '无标题资料'}</strong>
+                  <p>
+                    {item.contentText.slice(0, 140) || '暂无正文'}
+                    {item.contentText.length > 140 ? '…' : ''}
+                  </p>
+                </div>
               ))}
-          </Section>
-          {data.records.status === 'fulfilled' &&
-            data.records.value.length > 0 && (
-              <Section
-                compact={compact}
-                title={`当天资料 · ${data.records.value.length} 篇`}
-              >
-                {data.records.value.length ? (
-                  data.records.value.map((item) => (
-                    <div className={styles.document} key={item.id}>
-                      <strong>{item.title || '无标题资料'}</strong>
-                      <p>
-                        {item.contentText.slice(0, 140) || '暂无正文'}
-                        {item.contentText.length > 140 ? '…' : ''}
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <p className={styles.empty}>暂无资料</p>
-                )}
-              </Section>
-            )}
-          <p className={styles.empty}>
-            {[
-              compact && entry && !entry.todos.length ? '无待办' : null,
-              compact &&
-              entry &&
-              !entry.expenses.length &&
-              !entry.incomes.length
-                ? '无收支'
-                : null,
-              data.assets.status === 'fulfilled' && !groups.size
-                ? '无资产变动'
-                : null,
-              data.records.status === 'fulfilled' && !data.records.value.length
-                ? '无资料'
-                : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-          {compact &&
-            entry?.journals?.some((item) => item.source !== 'record') && (
-              <Section compact={compact} title="手记">
-                {entry.journals
-                  .filter((item) => item.source !== 'record')
-                  .map((item) => (
-                    <Row
-                      key={item.id}
-                      title={item.title || item.excerpt.slice(0, 100)}
-                      meta={item.mood}
-                    />
-                  ))}
-              </Section>
-            )}
+            </Section>
+          )}
+          {compact && manualJournals.length > 0 && (
+            <Section compact={compact} title="手记" meta={`${manualJournals.length} 篇`}>
+              {manualJournals.map((item) => (
+                <Row
+                  key={item.id}
+                  title={item.title || item.excerpt.slice(0, 100)}
+                  meta={item.mood}
+                />
+              ))}
+            </Section>
+          )}
+          {compact && !hasAnyCompactSection && !failed && (
+            <p className={styles.compactEmpty}>当天暂无记录</p>
+          )}
+          {!compact && (
+            <p className={styles.empty}>
+              {[
+                data.assets.status === 'fulfilled' && !groups.size ? '无资产变动' : null,
+                data.records.status === 'fulfilled' && !records.length ? '无资料' : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
         </>
       )}
     </div>

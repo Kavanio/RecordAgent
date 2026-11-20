@@ -226,15 +226,17 @@ public class RecordRepository {
         }
     }
 
-    /** 查询范围内日历计数及周复盘完成标记。 */
+    /** 查询范围内日历计数、累计字数及周复盘完成标记。 */
     public List<DaySummary> summarizeDays(String ownerId, LocalDate from, LocalDate to) {
         return jdbcTemplate.query("""
                 SELECT record_date, COUNT(*) AS record_count,
-                       MAX(CASE WHEN record_type = 'weekly_review' THEN 1 ELSE 0 END) AS reviewed
+                       MAX(CASE WHEN record_type = 'weekly_review' THEN 1 ELSE 0 END) AS reviewed,
+                       COALESCE(SUM(LENGTH(REPLACE(REPLACE(REPLACE(COALESCE(content_text, ''), ' ', ''), char(10), ''), char(13), ''))), 0) AS char_count
                 FROM record_entry WHERE owner_id = ? AND record_date BETWEEN ? AND ?
                   AND trashed_at IS NULL AND archived = 0 GROUP BY record_date ORDER BY record_date
                 """, (rs, rowNum) -> new DaySummary(LocalDate.parse(rs.getString("record_date")),
-                rs.getInt("record_count"), rs.getBoolean("reviewed")), ownerId, from.toString(), to.toString());
+                rs.getInt("record_count"), rs.getBoolean("reviewed"), rs.getLong("char_count")),
+                ownerId, from.toString(), to.toString());
     }
 
     private List<String> findTags(String recordId) {

@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.DayOfWeek;
@@ -202,11 +203,18 @@ public class DailyEventService {
                         : new DailyDaySummary(date, current.eventCount() + day.financeExpenseCount(),
                         current.todoCount(), current.completedTodoCount(), current.scheduleCount(),
                         day.total(), current.headline())));
+        var dailyIncomes = expenseAnalyticsService.findDailyIncomeTotals(ownerId, from, to);
+        dailyIncomes.forEach((date, income) -> summaries.compute(date, (d, current) -> current == null
+                ? new DailyDaySummary(d, 0, 0, 0, 0, BigDecimal.ZERO, income, null, List.of())
+                : new DailyDaySummary(d, current.eventCount(), current.todoCount(), current.completedTodoCount(),
+                current.scheduleCount(), current.expenseTotal(), income, current.headline(), current.items())));
         var itemsByDate = repository.findCalendarItems(ownerId, from, to, LocalDate.now()).stream()
                 .collect(Collectors.groupingBy(CalendarItem::date));
         return summaries.values().stream().sorted(java.util.Comparator.comparing(DailyDaySummary::date))
                 .map(day -> new DailyDaySummary(day.date(), day.eventCount(), day.todoCount(), day.completedTodoCount(),
-                        day.scheduleCount(), day.expenseTotal(), day.headline(),
+                        day.scheduleCount(), day.expenseTotal(),
+                        day.incomeTotal() == null ? BigDecimal.ZERO : day.incomeTotal(),
+                        day.headline(),
                         itemsByDate.getOrDefault(day.date(), List.of()))).toList();
     }
 

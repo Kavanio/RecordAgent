@@ -188,6 +188,71 @@ enum AgentTimelineBuilder {
         return (blocks, "", true)
     }
 
+    /// 按阶段进展正文分段聚合展示时间线：
+    /// 两段正文之间连续的多轮思考与工具调用合并为单个阶段活动条，避免手机端堆满零散的思考与工具行；
+    /// 仅含思考而尚未出现工具的片段保留独立思考块，不修改原始 blocks。
+    static func groupTimelineBlocks(_ blocks: [AgentMessageBlock]) -> [AgentDisplayTimelineBlock] {
+        var result: [AgentDisplayTimelineBlock] = []
+        var pendingId = ""
+        var pendingTools: [AgentToolExecution] = []
+        var pendingThinking: [String] = []
+        var lastNonTextKind: AgentMessageBlockKind?
+
+        func flushPending() {
+            if !pendingTools.isEmpty {
+                result.append(AgentDisplayTimelineBlock(
+                    id: pendingId,
+                    kind: .toolGroup,
+                    content: "",
+                    tools: pendingTools,
+                    analyzingAfterTools: lastNonTextKind == .thinking
+                ))
+            } else if !pendingThinking.isEmpty {
+                result.append(AgentDisplayTimelineBlock(
+                    id: pendingId,
+                    kind: .thinking,
+                    content: pendingThinking.joined(separator: "\n"),
+                    tools: [],
+                    analyzingAfterTools: false
+                ))
+            }
+            pendingId = ""
+            pendingTools = []
+            pendingThinking = []
+            lastNonTextKind = nil
+        }
+
+        for block in blocks {
+            switch block.kind {
+            case .text:
+                if block.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    continue
+                }
+                flushPending()
+                result.append(AgentDisplayTimelineBlock(
+                    id: block.id,
+                    kind: .text,
+                    content: block.content,
+                    tools: [],
+                    analyzingAfterTools: false
+                ))
+            case .toolGroup:
+                guard !block.tools.isEmpty else { continue }
+                if pendingId.isEmpty { pendingId = block.id }
+                pendingTools.append(contentsOf: block.tools)
+                lastNonTextKind = .toolGroup
+            case .thinking:
+                let trimmed = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                if pendingId.isEmpty { pendingId = block.id }
+                pendingThinking.append(trimmed)
+                lastNonTextKind = .thinking
+            }
+        }
+        flushPending()
+        return result
+    }
+
     /// 统一构建消息块；历史消息无 `blocks` 时兼容回退为思考 + 工具组 + 正文。
     static func normalizedBlocks(for message: AgentChatMessage) -> [AgentMessageBlock] {
         if !message.blocks.isEmpty {

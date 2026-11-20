@@ -107,6 +107,18 @@ class PromptBuilderTest {
     }
 
     @Test
+    void bothPromptVariantsIncludeMilestoneProgressGuidance() {
+        for (String prompt : List.of(buildDefaultPrompt(),
+                PromptBuilder.buildProjectSystemPrompt("test-model", temporaryDirectory.toString()))) {
+            assertTrue(prompt.contains("# 阶段进展"));
+            assertTrue(prompt.contains("多步任务按阶段写正文"));
+            assertTrue(prompt.contains("起手说打算"));
+            assertTrue(prompt.contains("阶段后给结论"));
+            assertTrue(prompt.contains("勿逐工具报备"));
+        }
+    }
+
+    @Test
     void defaultPromptStaysWithinHardTokenBudget() {
         int tokens = new ApproximateTokenCounter().count(buildDefaultPrompt());
 
