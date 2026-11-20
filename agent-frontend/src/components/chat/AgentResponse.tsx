@@ -1,11 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronDown, Database, FileCode2, FileText, Search, Terminal } from 'lucide-react';
-import type { ChatMessage, MessageBlock, ToolDefinition, TraceNode, ToolExecution } from '../../types/chat';
+import type { ChatMessage, ToolDefinition, TraceNode, ToolExecution } from '../../types/chat';
 import {
   formatElapsedDuration,
+  groupTimelineBlocks,
+  resolveToolActionLabel,
   splitProcessAndFinalBlocks,
   splitReasoningSentences,
   toolExecutionToTraceNode,
+  type DisplayTimelineBlock,
 } from '../../features/chat/messageBlocks';
 import { MarkdownContent } from '../common/MarkdownContent';
 import { NestedReasoningBlock } from './NestedReasoningBlock';
@@ -52,7 +55,10 @@ export const DEFAULT_TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
 function resolveToolLabel(toolName: string): string | undefined {
   const toolDef = DEFAULT_TOOL_REGISTRY[toolName];
-  return typeof toolDef?.label === 'function' ? toolDef.label(undefined) : toolDef?.label;
+  if (toolDef) {
+    return typeof toolDef.label === 'function' ? toolDef.label(undefined) : toolDef.label;
+  }
+  return resolveToolActionLabel(toolName);
 }
 
 function toTraceNodes(
@@ -86,7 +92,7 @@ export interface AgentResponseProps {
 }
 
 function renderTimelineBlock(
-  block: MessageBlock,
+  block: DisplayTimelineBlock,
   index: number,
   options: {
     isLast: boolean;
@@ -120,6 +126,7 @@ function renderTimelineBlock(
         key={block.id || index}
         tools={block.tools}
         isGenerating={options.isGenerating}
+        isAnalyzing={options.isGenerating && options.isLast && Boolean(block.analyzingAfterTools)}
         resolveToolLabel={resolveToolLabel}
       />
     );
@@ -138,8 +145,8 @@ function renderTimelineBlock(
 }
 
 /**
- * Agent 响应过程区：流式进行中实时呈现 ReAct 交错时间线；输出完成后将思考与工具链统一折叠为
- * “用时 X 秒 >”，仅保留最终结论展示在下方（点击总耗时可展开查看完整交错过程）。
+ * Agent 响应过程区：流式进行中按阶段正文聚合呈现工作时间线（两段阶段结论间的连续思考与工具合并为
+ * 单行活动摘要）；输出完成后将前置过程统一折叠为“用时 X 秒 >”，仅保留最终总结展示在下方。
  */
 export const AgentResponse: React.FC<AgentResponseProps> = ({
   msg,
@@ -156,15 +163,15 @@ export const AgentResponse: React.FC<AgentResponseProps> = ({
   );
 
   if (hasBlocks && blocks) {
-    const thinkingCount = blocks.filter((b) => b.kind === 'thinking').length;
-    const thinkingDuration = thinkingCount === 1 ? elapsedSeconds : undefined;
-
     if (isGenerating) {
+      const displayBlocks = groupTimelineBlocks(blocks);
+      const thinkingCount = displayBlocks.filter((b) => b.kind === 'thinking').length;
+      const thinkingDuration = thinkingCount === 1 ? elapsedSeconds : undefined;
       return (
         <div className={styles.container}>
-          {blocks.map((block, index) =>
+          {displayBlocks.map((block, index) =>
             renderTimelineBlock(block, index, {
-              isLast: index === blocks.length - 1,
+              isLast: index === displayBlocks.length - 1,
               isGenerating: true,
               thinkingDurationSeconds: thinkingDuration,
               acceptanceReportClassName,
@@ -175,9 +182,12 @@ export const AgentResponse: React.FC<AgentResponseProps> = ({
     }
 
     const { processBlocks, finalTextBlock } = splitProcessAndFinalBlocks(blocks);
+    const displayProcessBlocks = groupTimelineBlocks(processBlocks);
+    const thinkingCount = displayProcessBlocks.filter((b) => b.kind === 'thinking').length;
+    const thinkingDuration = thinkingCount === 1 ? elapsedSeconds : undefined;
     return (
       <div className={styles.container}>
-        {processBlocks.length > 0 && (
+        {displayProcessBlocks.length > 0 && (
           <div className={thinkingStyles.container}>
             <button
               type="button"
@@ -198,8 +208,8 @@ export const AgentResponse: React.FC<AgentResponseProps> = ({
 
             <div className={`${thinkingStyles.channel} ${processExpanded ? thinkingStyles.channelOpen : ''}`}>
               <div className={thinkingStyles.channelInner}>
-                <div className={thinkingStyles.timeline}>
-                  {processBlocks.map((block, index) =>
+                <div className={`${thinkingStyles.timeline} ${styles.processTimeline}`}>
+                  {displayProcessBlocks.map((block, index) =>
                     renderTimelineBlock(block, index, {
                       isLast: false,
                       isGenerating: false,

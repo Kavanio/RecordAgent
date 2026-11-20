@@ -182,45 +182,12 @@ export function MaterialsPage({ existingSessionIds, onOpenSession }: MaterialsPa
       />
 
       <div className={styles.content}>
-        <section className={styles.summaryBar} aria-label="档案存储概览" aria-busy={loading}>
-          {loading && !summary ? (
-            <div className={styles.summaryLoading}>
-              <Skeleton variant="text" decorative />
-              <Skeleton variant="text" decorative />
-              <Skeleton variant="text" decorative />
-            </div>
-          ) : summary ? (
-            <>
-              <div className={styles.statCell}>
-                <strong>{summary.totalCount}</strong>
-                <span>已归档文件</span>
-              </div>
-              <div className={styles.statCell}>
-                <strong>{formatMaterialBytes(summary.totalBytes)}</strong>
-                <span>本地存储占用</span>
-              </div>
-              <div className={styles.statCell}>
-                <strong>{summary.byCategory.IMAGE ?? 0}</strong>
-                <span>图片资料</span>
-              </div>
-              <div className={styles.statCell}>
-                <strong>{summary.sessions.length}</strong>
-                <span>关联对话数</span>
-              </div>
-              <p className={styles.storageHint}>
-                按渠道 / 会话类型 / 会话 ID / 格式 / 日期自动分类归档于 <code>.butvan-agent/materials/</code>
-              </p>
-            </>
-          ) : (
-            <span className={styles.summaryUnavailable}>档案概览暂不可用</span>
-          )}
-        </section>
-
-        <section className={styles.filterBar} aria-label="档案筛选">
-          <div className={styles.filterGroup}>
+        <section className={styles.toolbar} aria-label="档案筛选与概览">
+          <div className={styles.filterGroup} aria-label="档案筛选">
             <Select
               aria-label="来源渠道"
               fieldSize="sm"
+              appearance="ghost"
               value={channel}
               onChange={(event) => setChannel(event.target.value)}
               options={[
@@ -232,6 +199,7 @@ export function MaterialsPage({ existingSessionIds, onOpenSession }: MaterialsPa
             <Select
               aria-label="会话类型"
               fieldSize="sm"
+              appearance="ghost"
               value={sessionKind}
               onChange={(event) => setSessionKind(event.target.value)}
               options={[
@@ -243,6 +211,7 @@ export function MaterialsPage({ existingSessionIds, onOpenSession }: MaterialsPa
             <Select
               aria-label="文件格式"
               fieldSize="sm"
+              appearance="ghost"
               value={subType}
               onChange={(event) => setSubType(event.target.value)}
               options={[
@@ -256,17 +225,35 @@ export function MaterialsPage({ existingSessionIds, onOpenSession }: MaterialsPa
             <Select
               aria-label="所属对话"
               fieldSize="sm"
+              appearance="ghost"
               value={sessionId}
               onChange={(event) => setSessionId(event.target.value)}
               options={sessionOptions}
             />
-          </div>
-          <div className={styles.filterRight}>
-            <span className={styles.countText}>共 {total} 项</span>
             {hasFilters && (
               <Button size="sm" variant="ghost" onClick={clearFilters}>
-                重置筛选
+                重置
               </Button>
+            )}
+          </div>
+
+          <div className={styles.summaryInline} aria-label="档案存储概览" aria-busy={loading}>
+            {loading && !summary ? (
+              <div className={styles.summaryLoading}>
+                <Skeleton variant="text" decorative />
+              </div>
+            ) : summary ? (
+              <>
+                <span className={styles.summaryMetric}>
+                  {hasFilters ? `${total} / ${summary.totalCount} 项` : `${summary.totalCount} 项`}
+                </span>
+                <span className={styles.summaryDivider} aria-hidden="true">·</span>
+                <span className={styles.summaryMetric}>{formatMaterialBytes(summary.totalBytes)}</span>
+                <span className={styles.summaryDivider} aria-hidden="true">·</span>
+                <span className={styles.summaryMetric}>{summary.sessions.length} 个对话</span>
+              </>
+            ) : (
+              <span className={styles.summaryMetric}>共 {total} 项</span>
             )}
           </div>
         </section>

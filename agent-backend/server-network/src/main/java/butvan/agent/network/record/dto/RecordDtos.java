@@ -35,7 +35,7 @@ public final class RecordDtos {
     }
 
     /** 日历单日摘要。 */
-    public record DaySummaryResponse(LocalDate date, int count, boolean weeklyReviewCompleted) {
+    public record DaySummaryResponse(LocalDate date, int count, boolean weeklyReviewCompleted, long charCount) {
     }
 
     /** 资料引用选择器响应，不暴露完整正文。 */
@@ -57,7 +57,7 @@ public final class RecordDtos {
     }
 
     public static DaySummaryResponse from(DaySummary summary) {
-        return new DaySummaryResponse(summary.date(), summary.count(), summary.weeklyReviewCompleted());
+        return new DaySummaryResponse(summary.date(), summary.count(), summary.weeklyReviewCompleted(), summary.charCount());
     }
 
     public static ReferenceResponse from(RecordReference reference) {

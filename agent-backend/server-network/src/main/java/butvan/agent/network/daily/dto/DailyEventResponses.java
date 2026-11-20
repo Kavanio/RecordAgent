@@ -48,6 +48,7 @@ public final class DailyEventResponses {
             int completedTodoCount,
             int scheduleCount,
             BigDecimal expenseTotal,
+            BigDecimal incomeTotal,
             String headline,
             List<CalendarItemResponse> items) {
     }
@@ -114,7 +115,9 @@ public final class DailyEventResponses {
     public static DaySummaryResponse from(DailyDaySummary summary) {
         return new DaySummaryResponse(
                 summary.date(), summary.eventCount(), summary.todoCount(), summary.completedTodoCount(),
-                summary.scheduleCount(), summary.expenseTotal(), summary.headline(),
+                summary.scheduleCount(), summary.expenseTotal(),
+                summary.incomeTotal() == null ? BigDecimal.ZERO : summary.incomeTotal(),
+                summary.headline(),
                 summary.items().stream().map(item -> new CalendarItemResponse(item.id(), item.type(), item.title())).toList());
     }
 

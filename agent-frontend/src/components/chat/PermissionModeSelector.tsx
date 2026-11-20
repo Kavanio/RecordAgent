@@ -85,8 +85,8 @@ export const PermissionModeSelector: React.FC<PermissionModeSelectorProps> = ({
         aria-controls={open ? listboxId : undefined}
         title={disabled ? '任务运行或等待确认时无法切换权限' : '切换会话权限模式'}
       >
-        <ActiveIcon size={14} aria-hidden="true" />
-        <span>{isSaving ? '保存中…' : active.label}</span>
+        <ActiveIcon size={14} className={styles.triggerIcon} aria-hidden="true" />
+        <span className={styles.triggerLabel}>{isSaving ? '保存中…' : active.label}</span>
       </button>
 
       {open && (

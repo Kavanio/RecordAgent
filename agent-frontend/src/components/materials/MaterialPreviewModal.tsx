@@ -1,7 +1,6 @@
 import { ArrowSquareOutIcon, CopyIcon, DownloadSimpleIcon, TrashIcon } from '@phosphor-icons/react';
 import { materialContentUrl } from '../../services/materialApi';
 import type { ChatMaterialItem } from '../../types/material';
-import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
 import { useMessage } from '../common/Message';
@@ -98,13 +97,14 @@ export function MaterialPreviewModal({
           </div>
         )}
 
-        <div className={styles.badges}>
-          <Badge variant="primary">{categoryLabel(item.category)}</Badge>
-          <Badge variant="default">{item.subType}</Badge>
-          <Badge variant={item.channel === 'FEISHU' ? 'purple' : 'success'}>
-            {channelLabel(item.channel)}
-          </Badge>
-          <Badge variant="default">{sessionKindLabel(item.sessionKind)}</Badge>
+        <div className={styles.summaryLine}>
+          <span>{categoryLabel(item.category)}</span>
+          <span className={styles.dot} aria-hidden="true">·</span>
+          <span>{item.subType}</span>
+          <span className={styles.dot} aria-hidden="true">·</span>
+          <span>{channelLabel(item.channel)}</span>
+          <span className={styles.dot} aria-hidden="true">·</span>
+          <span>{sessionKindLabel(item.sessionKind)}</span>
         </div>
 
         <dl className={styles.metaGrid}>

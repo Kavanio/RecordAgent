@@ -2,8 +2,11 @@
 
 .container {
   display: inline-flex;
+  flex: 0 1 auto;
   position: relative;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Trigger Button */
@@ -11,8 +14,11 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+  max-width: 100%;
   min-height: 28px;
   padding: 2px 4px;
+  overflow: hidden;
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -37,6 +43,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   max-width: 190px;
   overflow: hidden;
 }

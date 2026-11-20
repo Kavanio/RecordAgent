@@ -26,6 +26,7 @@ export interface RecordDaySummary {
   date: string;
   count: number;
   weeklyReviewCompleted: boolean;
+  charCount?: number;
 }
 
 export interface SaveRecordInput {

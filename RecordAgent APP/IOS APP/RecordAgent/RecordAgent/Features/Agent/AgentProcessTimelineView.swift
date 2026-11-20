@@ -1,8 +1,56 @@
 import SwiftUI
 
-/// 极简可折叠 ReAct 思考与工具时间线：顶层单行折叠，展开后按步骤紧凑呈现思考摘要与工具组。
+/// 流式进行中的阶段进展时间线：实时铺排各阶段正文与聚合后的活动条，结束后由 `AgentProcessTimelineView` 统一折叠。
+struct AgentLiveTimelineView: View {
+    let blocks: [AgentDisplayTimelineBlock]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(Array(blocks.enumerated()), id: \.element.id) { index, block in
+                let isLast = index == blocks.count - 1
+                switch block.kind {
+                case .thinking:
+                    let trimmed = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        if isLast {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .controlSize(.mini)
+                                    .tint(AppColors.primaryBlue)
+                                Text("agent.thinking.in_progress")
+                                    .font(.footnote.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 2)
+                        } else {
+                            AgentThinkingStepRow(content: trimmed)
+                        }
+                    }
+
+                case .text:
+                    let trimmed = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        AgentMarkdownView(text: block.content)
+                            .foregroundStyle(.primary)
+                    }
+
+                case .toolGroup:
+                    if !block.tools.isEmpty {
+                        AgentToolGroupStepRow(
+                            tools: block.tools,
+                            isStreaming: true,
+                            isAnalyzing: isLast && block.analyzingAfterTools
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 完成后可折叠的阶段进展时间线：顶层单行折叠为耗时摘要，展开后以左侧引导线清晰呈现阶段结论与聚合活动条。
 struct AgentProcessTimelineView: View {
-    let blocks: [AgentMessageBlock]
+    let blocks: [AgentDisplayTimelineBlock]
     let isStreaming: Bool
     let elapsedSeconds: Int?
     @State private var isExpanded = false
@@ -41,7 +89,7 @@ struct AgentProcessTimelineView: View {
                             .controlSize(.mini)
                             .tint(AppColors.primaryBlue)
                     }
-                    Text(summaryLabel)
+                    Text(verbatim: summaryLabel)
                         .font(.footnote.weight(.medium))
                         .foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
@@ -66,7 +114,7 @@ struct AgentProcessTimelineView: View {
                         .fill(Color(uiColor: .separator).opacity(0.35))
                         .frame(width: 1.5)
                 }
-                .padding(.top, 2)
+                .padding(.top, 4)
                 .padding(.bottom, 4)
             }
         }
@@ -79,6 +127,9 @@ struct AgentProcessTimelineView: View {
             }
             return activeSummaryText
         }
+        if let elapsedSeconds, elapsedSeconds > 0 {
+            return Self.formattedElapsedDuration(elapsedSeconds)
+        }
         var parts: [String] = []
         if hasThinking {
             parts.append(String(localized: "agent.trace.thought"))
@@ -86,14 +137,11 @@ struct AgentProcessTimelineView: View {
         if toolCount > 0 {
             parts.append(String(localized: "agent.trace.tools \(toolCount)"))
         }
-        if let elapsedSeconds, elapsedSeconds > 0 {
-            parts.append("\(elapsedSeconds)s")
-        }
         return parts.isEmpty ? String(localized: "agent.trace.thought") : parts.joined(separator: " · ")
     }
 
     @ViewBuilder
-    private func blockView(_ block: AgentMessageBlock) -> some View {
+    private func blockView(_ block: AgentDisplayTimelineBlock) -> some View {
         switch block.kind {
         case .thinking:
             let trimmed = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -104,25 +152,45 @@ struct AgentProcessTimelineView: View {
         case .text:
             let trimmed = block.content.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
-                AgentThinkingStepRow(content: trimmed, isIntermediateText: true)
+                AgentMarkdownView(text: block.content)
+                    .foregroundStyle(.primary)
             }
 
         case .toolGroup:
             if !block.tools.isEmpty {
-                AgentToolGroupStepRow(tools: block.tools, isStreaming: isStreaming)
+                AgentToolGroupStepRow(tools: block.tools, isStreaming: isStreaming, isAnalyzing: false)
             }
         }
+    }
+
+    static func formattedElapsedDuration(_ totalSeconds: Int) -> String {
+        let safe = max(0, totalSeconds)
+        if safe < 60 {
+            return String(localized: "agent.trace.elapsed_seconds \(safe)")
+        }
+        let hours = safe / 3600
+        let minutes = (safe % 3600) / 60
+        let seconds = safe % 60
+        if hours > 0 {
+            return minutes > 0
+                ? String(localized: "agent.trace.elapsed_hours_minutes \(hours) \(minutes)")
+                : String(localized: "agent.trace.elapsed_hours \(hours)")
+        }
+        return seconds > 0
+            ? String(localized: "agent.trace.elapsed_minutes_seconds \(minutes) \(seconds)")
+            : String(localized: "agent.trace.elapsed_minutes \(minutes)")
     }
 
     static func friendlyToolLabel(_ name: String) -> String {
         switch name {
         case "capture_screen": return String(localized: "agent.tool.capture_screen")
         case "web_image_search": return String(localized: "agent.tool.web_image_search")
-        case "read_file": return String(localized: "agent.tool.read_file")
-        case "write_file": return String(localized: "agent.tool.write_file")
-        case "edit_file": return String(localized: "agent.tool.edit_file")
+        case "read_file", "readFile": return String(localized: "agent.tool.read_file")
+        case "write_file", "writeFile": return String(localized: "agent.tool.write_file")
+        case "edit_file", "editFile": return String(localized: "agent.tool.edit_file")
         case "list_dir", "list_files": return String(localized: "agent.tool.list_dir")
-        case "search_files", "grep_search", "glob": return String(localized: "agent.tool.search_files")
+        case "search_files", "grep_search", "grepFiles", "glob", "globFiles":
+            return String(localized: "agent.tool.search_files")
         case "execute", "execute_command", "terminal", "custom_bash": return String(localized: "agent.tool.execute")
         case "web_search", "search_web": return String(localized: "agent.tool.web_search")
         case "web_fetch", "fetch_url": return String(localized: "agent.tool.web_fetch")
@@ -130,9 +198,18 @@ struct AgentProcessTimelineView: View {
         case "method_search": return String(localized: "agent.tool.method_search")
         case "reset_equipped_tools": return String(localized: "agent.tool.reset_equipped_tools")
         case "acceptance_report": return String(localized: "agent.tool.acceptance_report")
+        case "plan_enter": return String(localized: "agent.tool.plan_enter")
+        case "plan_write": return String(localized: "agent.tool.plan_write")
+        case "plan_exit": return String(localized: "agent.tool.plan_exit")
         case "session_recent", "session_list", "session_history", "session_search":
             return String(localized: "agent.tool.session_history")
-        default: return name
+        default:
+            if name.hasPrefix("calendar_") { return String(localized: "agent.tool.calendar") }
+            if name.hasPrefix("study_") { return String(localized: "agent.tool.study") }
+            if name.hasPrefix("finance_") { return String(localized: "agent.tool.finance") }
+            if name.hasPrefix("record_") { return String(localized: "agent.tool.record") }
+            if name.hasPrefix("desktop_") { return String(localized: "agent.tool.desktop") }
+            return name
         }
     }
 }
@@ -192,15 +269,20 @@ private struct AgentThinkingStepRow: View {
     }
 }
 
-/// 单步工具组折叠行：将同一步连续工具合并为“已网页搜索（2 次）”等单行摘要，点击展开可读参数详情。
+/// 阶段活动折叠行：将同一阶段内连续工具合并为单行摘要，支持流式态工具后“正在分析结果…”提示，点击展开参数与输出详情。
 private struct AgentToolGroupStepRow: View {
     let tools: [AgentToolExecution]
     let isStreaming: Bool
+    var isAnalyzing = false
     @State private var isExpanded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var hasRunning: Bool {
         isStreaming && tools.contains { $0.status == .running }
+    }
+
+    private var showAnalyzing: Bool {
+        isStreaming && !hasRunning && isAnalyzing
     }
 
     private var failedCount: Int {
@@ -213,7 +295,8 @@ private struct AgentToolGroupStepRow: View {
             let label = AgentProcessTimelineView.friendlyToolLabel(tool.toolName)
             if !names.contains(label) { names.append(label) }
         }
-        let head = names.prefix(2).joined(separator: "、")
+        let moreSuffix = names.count > 3 ? String(localized: "agent.trace.more_actions") : ""
+        let head = names.prefix(3).joined(separator: "、") + moreSuffix
         var text = tools.count > 1 ? "\(head)（\(tools.count)）" : head
         if tools.count == 1,
            let first = tools.first,
@@ -225,6 +308,9 @@ private struct AgentToolGroupStepRow: View {
         }
         if !hasRunning && failedCount > 0 {
             text += " · \(String(localized: "agent.trace.failed_count \(failedCount)"))"
+        }
+        if showAnalyzing {
+            text += " · \(String(localized: "agent.trace.analyzing_results"))"
         }
         return text
     }
@@ -267,7 +353,7 @@ private struct AgentToolGroupStepRow: View {
 
     @ViewBuilder
     private var groupStatusIcon: some View {
-        if hasRunning {
+        if hasRunning || showAnalyzing {
             ProgressView()
                 .controlSize(.mini)
                 .tint(AppColors.primaryBlue)

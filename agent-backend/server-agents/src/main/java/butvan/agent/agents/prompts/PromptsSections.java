@@ -160,8 +160,8 @@ public final class PromptsSections {
     // ── Priority 60: Output Efficiency ──────────────────────────────────
 
     static final String OUTPUT_EFFICIENCY_CONTENT = """
-            # 输出效率
-            工具前一句说明；只报关键进展，结束时 1-2 句总结改动与下一步。""";
+            # 阶段进展
+            多步任务按阶段写正文：起手说打算，阶段后给结论，收尾总结；勿逐工具报备。""";
 
 
     public static PromptSection outputEfficiencySection() {

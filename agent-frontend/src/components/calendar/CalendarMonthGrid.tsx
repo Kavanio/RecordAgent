@@ -13,8 +13,9 @@ interface Props {
   available: boolean;
   loading?: boolean;
   summaries: Record<string, DailyDaySummary>;
-  studyByDate: Map<string, number>;
   recordsByDate: Map<string, number>;
+  recordCharsByDate: Map<string, number>;
+  tokensByDate: Map<string, number>;
   onSelect: (date: Date) => void;
 }
 /** 月历仅维护一个浮层和一组定时器，快速跨日期移动不会堆叠预览。 */
@@ -26,8 +27,9 @@ export function CalendarMonthGrid({
   available,
   loading = false,
   summaries,
-  studyByDate,
   recordsByDate,
+  recordCharsByDate,
+  tokensByDate,
   onSelect,
 }: Props) {
   const [preview, setPreview] = useState<{
@@ -68,8 +70,9 @@ export function CalendarMonthGrid({
               available={available}
               loading={loading}
               summary={summaries[key]}
-              studySeconds={studyByDate.get(key)}
               recordCount={recordsByDate.get(key)}
+              recordChars={recordCharsByDate.get(key)}
+              tokenTotal={tokensByDate.get(key)}
               previewOpen={preview?.date === date}
               onLeave={leave}
               onSelect={() => {

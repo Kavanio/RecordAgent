@@ -37,9 +37,11 @@ import { CalendarDayDetails } from './CalendarDayDetails';
 import { CalendarStickyNotes } from './CalendarStickyNotes';
 import { fetchStudyStatistics } from '../../services/studyApi';
 import { fetchRecordDays } from '../../services/recordApi';
+import { fetchTokenUsageOverview } from '../../services/tokenUsageService';
 import { useStudyRealtime } from '../../context/studyRealtimeState';
 import type { StudyStatistics } from '../../types/study';
 import type { RecordDaySummary } from '../../types/record';
+import type { DailyTokenUsage } from '../../types/tokenUsage';
 import { CalendarQuickCreate } from './CalendarQuickCreate';
 import { DailyCashflowList } from './DailyCashflowList';
 import { DailyRecordDeleteButton } from './DailyRecordDeleteButton';
@@ -96,6 +98,7 @@ export const CalendarView: React.FC = () => {
   const { syncGeneration } = useStudyRealtime();
   const [studyStats, setStudyStats] = useState<StudyStatistics | null>(null);
   const [recordDays, setRecordDays] = useState<RecordDaySummary[]>([]);
+  const [dailyTokens, setDailyTokens] = useState<DailyTokenUsage[]>([]);
   const [cashflow, setCashflow] = useState<FinanceCashflowSummary | null>(null);
   const [recordsReady, setRecordsReady] = useState(false);
   const [summariesReady, setSummariesReady] = useState(false);
@@ -136,7 +139,7 @@ export const CalendarView: React.FC = () => {
 
   useEffect(() => {
     let active = true;
-    setStudyStats(null); setRecordDays([]); setOverviewError(''); setCashflow(null); setRecordsReady(false);
+    setStudyStats(null); setRecordDays([]); setDailyTokens([]); setOverviewError(''); setCashflow(null); setRecordsReady(false);
     setIsOverviewLoading(true);
     const from = formatLocalDate(new Date(cursor.getFullYear(), cursor.getMonth(), 1));
     const to = formatLocalDate(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0));
@@ -144,12 +147,14 @@ export const CalendarView: React.FC = () => {
       fetchStudyStatistics(from, to, Intl.DateTimeFormat().resolvedOptions().timeZone),
       fetchRecordDays(from, to),
       fetchFinanceCashflowSummary(from, to),
-    ]).then(([study, records, finances]) => {
+      fetchTokenUsageOverview({ from, to }),
+    ]).then(([study, records, finances, tokens]) => {
       if (!active) return;
       setIsOverviewLoading(false);
       if (study.status === 'fulfilled') setStudyStats(study.value);
       if (records.status === 'fulfilled') { setRecordDays(records.value); setRecordsReady(true); }
       if (finances.status === 'fulfilled') setCashflow(finances.value);
+      if (tokens.status === 'fulfilled' && Array.isArray(tokens.value?.daily)) setDailyTokens(tokens.value.daily);
       if ([study, records, finances].some(result => result.status === 'rejected')) setOverviewError('部分月度摘要读取失败');
     });
     return () => { active = false; };
@@ -160,8 +165,9 @@ export const CalendarView: React.FC = () => {
   const monthTodoRecords = monthRecords.filter((record) => record.date <= todayKey);
   const monthTodoTotal = monthTodoRecords.reduce((total, record) => total + record.todoCount, 0);
   const monthTodoCompleted = monthTodoRecords.reduce((total, record) => total + record.completedTodoCount, 0);
-  const studyByDate = new Map(studyStats?.days.map(day => [day.date, day.durationSeconds]));
   const recordsByDate = new Map(recordDays.map(day => [day.date, day.count]));
+  const recordCharsByDate = new Map(recordDays.map(day => [day.date, day.charCount ?? 0]));
+  const tokensByDate = new Map(dailyTokens.map(day => [day.date, day.totalTokens]));
   const monthRecordCount = recordDays.reduce((total, day) => total + day.count, 0);
 
   const selectedKey = formatLocalDate(selected);
@@ -411,13 +417,9 @@ export const CalendarView: React.FC = () => {
               <CalendarMonthGrid days={days} month={cursor.getMonth()} selectedKey={selectedKey} todayKey={todayKey}
                 available={summariesReady && recordsReady && studyStats !== null}
                 loading={isMonthLoading || isOverviewLoading}
-                summaries={summaries} studyByDate={studyByDate} recordsByDate={recordsByDate}
+                summaries={summaries} recordsByDate={recordsByDate}
+                recordCharsByDate={recordCharsByDate} tokensByDate={tokensByDate}
                 onSelect={date => setSelected(startOfDay(date))} />
-              <div className={styles.itemLegend} aria-label="事项类别">
-                <span><i className={styles.todoMarker} />待办</span><span><i className={styles.scheduleMarker} />日程</span>
-                <span><i className={styles.studyMarker} />学习</span><span><i className={styles.recordMarker} />资料</span>
-                <span><i className={styles.expenseMarker} />支出</span>
-              </div>
               <section className={styles.monthReview} aria-label="本月摘要">
                 <div className={styles.monthReviewHeading}><h3>本月摘要</h3><span>待办统计截至今天</span></div>
                 {(overviewError || monthError) && <p className={styles.monthReviewEmpty}>{monthError || overviewError} <button type="button" onClick={() => setOverviewRetry(value => value + 1)}>重试</button></p>}

@@ -9,6 +9,8 @@ let appendTextBlock,
   formatToolGroupSummary,
   formatElapsedDuration,
   splitProcessAndFinalBlocks,
+  groupTimelineBlocks,
+  resolveToolActionLabel,
   mapTranscriptMessages;
 
 before(async () => {
@@ -21,6 +23,8 @@ before(async () => {
     formatToolGroupSummary,
     formatElapsedDuration,
     splitProcessAndFinalBlocks,
+    groupTimelineBlocks,
+    resolveToolActionLabel,
   } = await loadModule('/src/features/chat/messageBlocks.ts'));
   ({ mapTranscriptMessages } = await loadModule('/src/features/chat/transcriptMessages.ts'));
 });
@@ -169,4 +173,56 @@ test('mapTranscriptMessages 兼容带 blocks 的新记录与无 blocks 的旧记
   assert.equal(withBlocks.blocks[2].tools[0].status, 'completed');
   assert.equal(legacy.blocks, undefined);
   assert.equal(legacy.reasoning, '旧思考');
+});
+
+test('groupTimelineBlocks 将两段阶段正文间的连续思考与工具合并为单个活动条，并识别工具后分析状态', () => {
+  const raw = [
+    { id: 'b0', kind: 'thinking', content: '先梳理需求。' },
+    { id: 'b1', kind: 'text', content: '我先排查后端配置，再处理前端页面。' },
+    { id: 'b2', kind: 'thinking', content: '读取配置文件' },
+    {
+      id: 'b3',
+      kind: 'tool_group',
+      tools: [{ toolCallId: 't1', toolName: 'readFile', command: 'a.java', status: 'completed' }],
+    },
+    { id: 'b4', kind: 'thinking', content: '再编辑并跑测试' },
+    {
+      id: 'b5',
+      kind: 'tool_group',
+      tools: [
+        { toolCallId: 't2', toolName: 'editFile', command: 'a.java', status: 'completed' },
+        { toolCallId: 't3', toolName: 'custom_bash', command: 'mvn test', status: 'completed' },
+      ],
+    },
+    { id: 'b6', kind: 'thinking', content: '测试通过，准备同步阶段结论' },
+    { id: 'b7', kind: 'text', content: '后端已完成并通过单测，接下来改前端展示。' },
+    {
+      id: 'b8',
+      kind: 'tool_group',
+      tools: [{ toolCallId: 't4', toolName: 'grepFiles', command: 'AgentResponse', status: 'completed' }],
+    },
+    { id: 'b9', kind: 'thinking', content: '分析 grep 结果' },
+  ];
+
+  const grouped = groupTimelineBlocks(raw);
+  assert.deepEqual(
+    grouped.map((b) => b.kind),
+    ['thinking', 'text', 'tool_group', 'text', 'tool_group'],
+  );
+  assert.equal(grouped[2].tools.length, 3);
+  assert.equal(grouped[2].analyzingAfterTools, true);
+  assert.equal(grouped[4].tools.length, 1);
+  assert.equal(grouped[4].analyzingAfterTools, true);
+
+  assert.equal(
+    formatToolGroupSummary(grouped[2].tools, false).label,
+    '已读取文件、编辑文件、运行命令（3 项）',
+  );
+  const analyzing = formatToolGroupSummary(grouped[4].tools, true, { analyzingAfterTools: true });
+  assert.equal(analyzing.label, '已搜索内容 · 正在分析结果…');
+  assert.equal(analyzing.running, true);
+
+  assert.equal(resolveToolActionLabel('readFile'), '读取文件');
+  assert.equal(resolveToolActionLabel('calendar_create'), '操作日历');
+  assert.equal(resolveToolActionLabel('study_start'), '记录学习');
 });
