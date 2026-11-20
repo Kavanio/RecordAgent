@@ -8,23 +8,26 @@ import styles from './ToolGroupBlock.module.css';
 export interface ToolGroupBlockProps {
   tools: ToolExecution[];
   isGenerating: boolean;
+  /** 同阶段工具执行完后仍在继续思考分析时为 true，展示“正在分析结果…”。 */
+  isAnalyzing?: boolean;
   defaultOpen?: boolean;
   resolveToolLabel?: (toolName: string) => string | undefined;
 }
 
 /**
- * 步进式工具组折叠条：默认收起为单行操作摘要（如“已网页搜索（6 次）”），点击展开查看各工具详情。
+ * 阶段活动折叠条：将同一工作阶段内连续的工具调用聚合为单行中文摘要（如“已读取文件、编辑文件、运行命令（5 项）”），点击展开查看各工具详情。
  */
 export const ToolGroupBlock: React.FC<ToolGroupBlockProps> = ({
   tools,
   isGenerating,
+  isAnalyzing = false,
   defaultOpen = false,
   resolveToolLabel,
 }) => {
   const [open, setOpen] = useState(defaultOpen);
   const summary = useMemo(
-    () => formatToolGroupSummary(tools, isGenerating),
-    [tools, isGenerating],
+    () => formatToolGroupSummary(tools, isGenerating, { analyzingAfterTools: isAnalyzing }),
+    [tools, isGenerating, isAnalyzing],
   );
 
   if (tools.length === 0) return null;

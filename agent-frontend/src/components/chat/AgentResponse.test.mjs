@@ -168,3 +168,50 @@ test('旧格式折叠面板同样默认收起并展示统一用时文案', async
   assert.ok(legacyTrigger);
   assert.equal(legacyTrigger.getAttribute('aria-expanded'), 'false');
 });
+
+test('多轮工具与思考夹杂时，两段阶段结论间合并为单条活动摘要并在分析结果时展示状态', async () => {
+  const phasedStreamingMsg = {
+    id: 'msg-phased-streaming',
+    role: 'assistant',
+    content: '我先排查后端配置。后端改好了，下面核对前端。',
+    createdAt: Date.now(),
+    startTime: Date.now(),
+    blocks: [
+      { id: 'b0', kind: 'text', content: '我先排查后端配置。' },
+      { id: 'b1', kind: 'thinking', content: '读文件' },
+      {
+        id: 'b2',
+        kind: 'tool_group',
+        tools: [{ toolCallId: 'c1', toolName: 'readFile', command: 'a.java', status: 'completed', output: 'ok' }],
+      },
+      { id: 'b3', kind: 'thinking', content: '改文件并测试' },
+      {
+        id: 'b4',
+        kind: 'tool_group',
+        tools: [
+          { toolCallId: 'c2', toolName: 'editFile', command: 'a.java', status: 'completed', output: 'ok' },
+          { toolCallId: 'c3', toolName: 'custom_bash', command: 'mvn test', status: 'completed', output: 'ok' },
+        ],
+      },
+      { id: 'b5', kind: 'text', content: '后端改好了，下面核对前端。' },
+      {
+        id: 'b6',
+        kind: 'tool_group',
+        tools: [{ toolCallId: 'c4', toolName: 'grepFiles', command: 'AgentResponse', status: 'completed', output: 'hit' }],
+      },
+      { id: 'b7', kind: 'thinking', content: '分析 grep 结果准备总结' },
+    ],
+  };
+
+  view = await mount(React.createElement(AssistantMessageItem, {
+    msg: phasedStreamingMsg,
+    tokenUsageActive: false,
+    onOpenTokenUsage() {},
+  }));
+
+  const buttons = [...document.querySelectorAll('button')];
+  assert.ok(buttons.some((btn) => btn.textContent?.includes('已读取文件、编辑文件、运行命令（3 项）')));
+  assert.ok(buttons.some((btn) => btn.textContent?.includes('已搜索内容 · 正在分析结果…')));
+  // 中间穿插的思考均已吸收到阶段活动条，不再出现孤立的“已思考”或“思考中…”按钮
+  assert.equal(buttons.some((btn) => btn.textContent?.includes('已思考') || btn.textContent?.includes('思考中')), false);
+});
