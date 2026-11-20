@@ -103,6 +103,27 @@ public class ExpenseAnalyticsService {
                 Instant.parse(resultSet.getString("created_at"))), ownerId, date.toString());
     }
 
+    /** 查询闭区间内每日财务收入与自动收益总额，供月历单日摘要使用。 */
+    @Transactional(readOnly = true)
+    public Map<LocalDate, BigDecimal> findDailyIncomeTotals(String ownerId, LocalDate from, LocalDate to) {
+        validate(ownerId, from, to);
+        Map<LocalDate, BigDecimal> totals = new LinkedHashMap<>();
+        jdbcTemplate.query("""
+                SELECT transaction_date, COALESCE(SUM(amount_minor), 0) AS income_minor
+                FROM finance_transaction
+                WHERE owner_id = ? AND transaction_type IN ('income', 'yield')
+                  AND transaction_date BETWEEN ? AND ?
+                GROUP BY transaction_date
+                ORDER BY transaction_date
+                """, rs -> {
+            long minor = rs.getLong("income_minor");
+            if (minor > 0) {
+                totals.put(LocalDate.parse(rs.getString("transaction_date")), BigDecimal.valueOf(minor, 2));
+            }
+        }, ownerId, from.toString(), to.toString());
+        return totals;
+    }
+
     /** 查询最近从旧日历入口记录的支出，供财务流水兼容展示。 */
     @Transactional(readOnly = true)
     public List<ExpenseEntry> findRecentCalendarExpenses(String ownerId, int limit) {

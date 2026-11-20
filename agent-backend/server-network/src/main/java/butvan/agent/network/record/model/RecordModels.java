@@ -44,7 +44,10 @@ public final class RecordModels {
     public record JournalFragment(String id, LocalDate recordDate, String text, Instant updatedAt, boolean truncated) {}
 
     /** 某日轻量聚合数据。 */
-    public record DaySummary(LocalDate date, int count, boolean weeklyReviewCompleted) {
+    public record DaySummary(LocalDate date, int count, boolean weeklyReviewCompleted, long charCount) {
+        public DaySummary(LocalDate date, int count, boolean weeklyReviewCompleted) {
+            this(date, count, weeklyReviewCompleted, 0L);
+        }
     }
 
     /** Slash Command 引用选择器使用的轻量资料信息，不包含完整正文和 HTML。 */
