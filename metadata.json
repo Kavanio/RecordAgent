@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7V6ZFCTY82XYQ48QY7R54K1",
+  "strategy": "manual-commit",
+  "branch": "desktop/agent-core-refactor",
+  "checkpoints_count": 5,
+  "files_touched": [
+    "UI COMPONENTS.md",
+    "agent-frontend/src/components/chat/AgentResponse.module.css",
+    "agent-frontend/src/components/chat/AgentResponse.test.mjs",
+    "agent-frontend/src/components/chat/AgentResponse.tsx",
+    "agent-frontend/src/components/chat/ToolGroupBlock.tsx",
+    "agent-frontend/src/features/chat/messageBlocks.test.mjs",
+    "agent-frontend/src/features/chat/messageBlocks.ts",
+    "agent-frontend/src/features/chat/messageTimeline.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "redaction": {
+    "replacements": 0,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}

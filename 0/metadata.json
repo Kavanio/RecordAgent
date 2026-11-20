@@ -1,0 +1,41 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7V6ZFCTY82XYQ48QY7R54K1",
+  "session_id": "a8ce3251-5a0e-4fcb-b5e9-ddb7320c1e9e",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-20T00:51:20.89955Z",
+  "branch": "desktop/agent-core-refactor",
+  "checkpoints_count": 5,
+  "files_touched": [
+    "UI COMPONENTS.md",
+    "agent-frontend/src/components/chat/AgentResponse.module.css",
+    "agent-frontend/src/components/chat/AgentResponse.test.mjs",
+    "agent-frontend/src/components/chat/AgentResponse.tsx",
+    "agent-frontend/src/components/chat/ToolGroupBlock.tsx",
+    "agent-frontend/src/features/chat/messageBlocks.test.mjs",
+    "agent-frontend/src/features/chat/messageBlocks.ts",
+    "agent-frontend/src/features/chat/messageTimeline.ts"
+  ],
+  "agent": "Antigravity",
+  "model": "gemini-4-hydrogen-high",
+  "turn_id": "05ec90810e10",
+  "checkpoint_transcript_start": 149,
+  "transcript_lines_at_start": 149,
+  "redaction": {
+    "replacements": 0,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 5
+  }
+}
