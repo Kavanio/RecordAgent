@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7V8N1H3TA56ESQQT7GEPWM3",
+  "strategy": "manual-commit",
+  "branch": "desktop/agent-core-refactor",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "agent-frontend/src/components/materials/MaterialCollectionView.tsx",
+    "agent-frontend/src/components/materials/MaterialPreviewModal.module.css",
+    "agent-frontend/src/components/materials/MaterialPreviewModal.tsx",
+    "agent-frontend/src/components/materials/MaterialsPage.module.css",
+    "agent-frontend/src/components/materials/MaterialsPage.test.mjs",
+    "agent-frontend/src/components/materials/MaterialsPage.tsx",
+    "agent-frontend/src/components/materials/materialsPresentation.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "redaction": {
+    "replacements": 0,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 0,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  }
+}
