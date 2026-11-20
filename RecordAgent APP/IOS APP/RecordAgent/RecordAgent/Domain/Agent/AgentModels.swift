@@ -332,6 +332,16 @@ struct AgentMessageBlock: Identifiable, Equatable, Sendable {
     var tools: [AgentToolExecution]
 }
 
+/// 按工作阶段聚合后的时间线展示块，不改动原始 `AgentMessageBlock` 持久化数据。
+struct AgentDisplayTimelineBlock: Identifiable, Equatable, Sendable {
+    let id: String
+    let kind: AgentMessageBlockKind
+    let content: String
+    let tools: [AgentToolExecution]
+    /// 同阶段工具完成后紧接着仍有思考增量时为 true，流式态用于提示“正在分析结果…”。
+    let analyzingAfterTools: Bool
+}
+
 struct AgentTranscriptBlockDTO: Codable, Equatable, Sendable {
     let kind: AgentMessageBlockKind
     let content: String?

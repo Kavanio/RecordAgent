@@ -87,6 +87,57 @@ final class AgentTests: XCTestCase {
         XCTAssertEqual(split.finalText, "今天共有两项待办。")
     }
 
+    func testGroupTimelineBlocksMergesPhaseActivitiesAndTracksAnalyzingState() {
+        let raw: [AgentMessageBlock] = [
+            AgentMessageBlock(id: "b0", kind: .thinking, content: "先理清整体方案。", tools: []),
+            AgentMessageBlock(id: "b1", kind: .text, content: "我先检查后端逻辑，再同步前端。", tools: []),
+            AgentMessageBlock(id: "b2", kind: .thinking, content: "读取文件", tools: []),
+            AgentMessageBlock(
+                id: "b3",
+                kind: .toolGroup,
+                content: "",
+                tools: [
+                    AgentToolExecution(toolCallId: "t1", toolName: "readFile", command: "a.java", output: "ok", status: .completed)
+                ]
+            ),
+            AgentMessageBlock(id: "b4", kind: .thinking, content: "再改文件并跑单测", tools: []),
+            AgentMessageBlock(
+                id: "b5",
+                kind: .toolGroup,
+                content: "",
+                tools: [
+                    AgentToolExecution(toolCallId: "t2", toolName: "editFile", command: "a.java", output: "ok", status: .completed),
+                    AgentToolExecution(toolCallId: "t3", toolName: "custom_bash", command: "mvn test", output: "ok", status: .completed)
+                ]
+            ),
+            AgentMessageBlock(id: "b6", kind: .thinking, content: "测试已通过，准备汇报阶段结论", tools: []),
+            AgentMessageBlock(id: "b7", kind: .text, content: "后端已完成，接下来核对前端。", tools: []),
+            AgentMessageBlock(
+                id: "b8",
+                kind: .toolGroup,
+                content: "",
+                tools: [
+                    AgentToolExecution(toolCallId: "t4", toolName: "grepFiles", command: "AgentResponse", output: "hit", status: .completed)
+                ]
+            ),
+            AgentMessageBlock(id: "b9", kind: .thinking, content: "分析搜索结果", tools: [])
+        ]
+
+        let grouped = AgentTimelineBuilder.groupTimelineBlocks(raw)
+        XCTAssertEqual(grouped.map(\.kind), [.thinking, .text, .toolGroup, .text, .toolGroup])
+        XCTAssertEqual(grouped[2].tools.count, 3)
+        XCTAssertTrue(grouped[2].analyzingAfterTools)
+        XCTAssertEqual(grouped[4].tools.count, 1)
+        XCTAssertTrue(grouped[4].analyzingAfterTools)
+
+        // 确认 camelCase 与业务域前缀工具都能映射为友好标签而非原样回退
+        XCTAssertNotEqual(AgentProcessTimelineView.friendlyToolLabel("readFile"), "readFile")
+        XCTAssertNotEqual(AgentProcessTimelineView.friendlyToolLabel("editFile"), "editFile")
+        XCTAssertNotEqual(AgentProcessTimelineView.friendlyToolLabel("grepFiles"), "grepFiles")
+        XCTAssertNotEqual(AgentProcessTimelineView.friendlyToolLabel("calendar_create"), "calendar_create")
+        XCTAssertNotEqual(AgentProcessTimelineView.friendlyToolLabel("study_start"), "study_start")
+    }
+
     func testAssistantReplyImageSurvivesHistoryDecoding() throws {
         let json = """
         {"id":"reply","role":"ASSISTANT","replyImages":[
