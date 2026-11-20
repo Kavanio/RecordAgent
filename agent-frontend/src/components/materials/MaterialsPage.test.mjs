@@ -102,6 +102,16 @@ test('档案页加载归档素材并支持查看详情与删除', async () => {
     await flushUi();
     assert.match(host.text(), /chat-image-2026-11-17-1\.png/);
     assert.match(host.text(), /接口联调排查/);
+    assert.match(host.text(), /11月17日/);
+    assert.match(host.text(), /1 项/);
+
+    // 切换列表视图并切回网格视图
+    const toggleViewBtn = document.body.querySelector('button[aria-label="切换列表视图"]');
+    assert.ok(toggleViewBtn);
+    await act(async () => toggleViewBtn.click());
+    await flushUi();
+    assert.match(host.text(), /PNG/);
+    assert.ok(document.body.querySelector('button[aria-label="切换网格视图"]'));
 
     await host.click(SAMPLE_ITEM.originalName);
     await flushUi();
