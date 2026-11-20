@@ -19,7 +19,7 @@
 
 .content {
   width: 100%;
-  max-width: 1180px;
+  max-width: 1380px;
   min-height: 100%;
   margin: 0 auto;
 }
@@ -27,14 +27,14 @@
 .calendarLayout {
   min-height: calc(100vh - 48px);
   display: grid;
-  grid-template-columns: minmax(520px, 1.2fr) minmax(390px, 0.8fr);
-  column-gap: 40px;
+  grid-template-columns: minmax(600px, 1.38fr) minmax(350px, 0.72fr);
+  column-gap: 28px;
   align-items: stretch;
 }
 
 .monthPanel {
   min-width: 0;
-  padding: 28px 32px 30px;
+  padding: 24px 20px 30px;
   background: var(--bg-app);
 }
 

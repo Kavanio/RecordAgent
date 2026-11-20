@@ -81,7 +81,9 @@ export function CalendarDateCell({
               {metrics.map((metric) => (
                 <span key={metric.id} className={styles.metricRow} title={metric.title}>
                   <span className={styles.metricLabel}>{metric.label}</span>
-                  <span className={styles.metricValue}>{metric.value}</span>
+                  <span className={`${styles.metricValue} ${styles[`tone_${metric.tone}`]}`}>
+                    {metric.value}
+                  </span>
                 </span>
               ))}
               {!available && <span className={styles.unavailable}>部分摘要暂不可用</span>}

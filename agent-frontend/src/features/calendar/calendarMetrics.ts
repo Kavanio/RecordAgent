@@ -1,10 +1,13 @@
 import type { DailyDaySummary } from '../../types/dailyEvent';
 
+export type CalendarMetricTone = 'todo' | 'todoDone' | 'income' | 'expense' | 'record' | 'token';
+
 export interface CalendarCellMetric {
-  id: 'todo' | 'finance' | 'record' | 'token';
+  id: 'todo' | 'income' | 'expense' | 'record' | 'token';
   label: string;
   value: string;
   title: string;
+  tone: CalendarMetricTone;
 }
 
 export function formatCompactMoney(amount: number): string {
@@ -39,7 +42,7 @@ export function formatCompactTokens(tokens: number): string {
   return String(Math.round(tokens));
 }
 
-/** 构造月历单格极简核心指标：待办、财务、资料累计与 Token 消耗。 */
+/** 构造月历单格极简核心指标：待办、收入、支出、资料累计与 Token 消耗。 */
 export function calendarCellMetrics(
   summary: DailyDaySummary | undefined,
   recordCount: number,
@@ -49,23 +52,35 @@ export function calendarCellMetrics(
   const metrics: CalendarCellMetric[] = [];
 
   if (summary && summary.todoCount > 0) {
+    const allDone = summary.completedTodoCount >= summary.todoCount;
     metrics.push({
       id: 'todo',
       label: '待办',
       value: `${summary.completedTodoCount}/${summary.todoCount}`,
       title: `待办：已完成 ${summary.completedTodoCount} / 共 ${summary.todoCount}`,
+      tone: allDone ? 'todoDone' : 'todo',
     });
   }
 
   const income = summary?.incomeTotal ?? 0;
-  const expense = summary?.expenseTotal ?? 0;
-  if (income > 0 || expense > 0) {
-    const formatted = `${formatCompactMoney(income)}/${formatCompactMoney(expense)}元`;
+  if (income > 0) {
     metrics.push({
-      id: 'finance',
-      label: '财务',
-      value: formatted,
-      title: `财务：收入 ¥${income.toFixed(2)} / 支出 ¥${expense.toFixed(2)}`,
+      id: 'income',
+      label: '收入',
+      value: `+${formatCompactMoney(income)}`,
+      title: `收入：¥${income.toFixed(2)}`,
+      tone: 'income',
+    });
+  }
+
+  const expense = summary?.expenseTotal ?? 0;
+  if (expense > 0) {
+    metrics.push({
+      id: 'expense',
+      label: '支出',
+      value: `-${formatCompactMoney(expense)}`,
+      title: `支出：¥${expense.toFixed(2)}`,
+      tone: 'expense',
     });
   }
 
@@ -78,6 +93,7 @@ export function calendarCellMetrics(
       title: recordChars > 0
         ? `资料累计：${Math.round(recordChars)}字（${recordCount}篇）`
         : `资料累计：${recordCount}篇`,
+      tone: 'record',
     });
   }
 
@@ -87,6 +103,7 @@ export function calendarCellMetrics(
       label: 'Token',
       value: formatCompactTokens(tokenTotal),
       title: `Token 累计消耗：${Math.round(tokenTotal).toLocaleString()}`,
+      tone: 'token',
     });
   }
 

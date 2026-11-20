@@ -7,7 +7,7 @@ import {
   formatCompactTokens,
 } from './calendarMetrics.ts';
 
-test('月历单格核心指标格式化与过滤零值', () => {
+test('月历单格核心指标格式化与语义色区分', () => {
   const metrics = calendarCellMetrics(
     {
       date: '2026-11-20',
@@ -15,7 +15,7 @@ test('月历单格核心指标格式化与过滤零值', () => {
       todoCount: 4,
       completedTodoCount: 3,
       scheduleCount: 0,
-      expenseTotal: 12,
+      expenseTotal: 505.12,
       incomeTotal: 30,
       headline: '',
     },
@@ -25,24 +25,25 @@ test('月历单格核心指标格式化与过滤零值', () => {
   );
 
   assert.deepEqual(
-    metrics.map((m) => [m.label, m.value]),
+    metrics.map((m) => [m.label, m.value, m.tone]),
     [
-      ['待办', '3/4'],
-      ['财务', '30/12元'],
-      ['资料', '1200字'],
-      ['Token', '1M'],
+      ['待办', '3/4', 'todo'],
+      ['收入', '+30', 'income'],
+      ['支出', '-505.12', 'expense'],
+      ['资料', '1200字', 'record'],
+      ['Token', '1M', 'token'],
     ],
   );
 });
 
-test('无数据日期不输出零值指标，且兼容旧后端缺失字数与收入字段', () => {
+test('无数据日期不输出零值指标，待办全完成标记 todoDone，且兼容旧后端', () => {
   assert.deepEqual(calendarCellMetrics(undefined, 0, 0, 0), []);
   const fallback = calendarCellMetrics(
     {
       date: '2026-11-18',
       eventCount: 1,
-      todoCount: 0,
-      completedTodoCount: 0,
+      todoCount: 2,
+      completedTodoCount: 2,
       scheduleCount: 0,
       expenseTotal: 27.5,
       headline: '',
@@ -52,11 +53,12 @@ test('无数据日期不输出零值指标，且兼容旧后端缺失字数与�
     4820,
   );
   assert.deepEqual(
-    fallback.map((m) => [m.label, m.value]),
+    fallback.map((m) => [m.label, m.value, m.tone]),
     [
-      ['财务', '0/27.5元'],
-      ['资料', '1篇'],
-      ['Token', '4.8K'],
+      ['待办', '2/2', 'todoDone'],
+      ['支出', '-27.5', 'expense'],
+      ['资料', '1篇', 'record'],
+      ['Token', '4.8K', 'token'],
     ],
   );
   assert.equal(formatCompactMoney(30.0), '30');

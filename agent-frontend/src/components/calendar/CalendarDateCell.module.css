@@ -3,8 +3,8 @@
   flex-direction: column;
   align-items: stretch;
   min-width: 0;
-  min-height: 112px;
-  padding: 10px 8px 9px;
+  min-height: 120px;
+  padding: 10px 9px 10px;
   border: 0;
   border-radius: 12px;
   background: transparent;
@@ -50,11 +50,11 @@
   align-items: center;
   justify-content: center;
   align-self: center;
-  width: 28px;
-  height: 28px;
-  margin-bottom: 9px;
+  width: 26px;
+  height: 26px;
+  margin-bottom: 8px;
   border-radius: 999px;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--text-primary, #111827);
   letter-spacing: -0.02em;
@@ -73,7 +73,7 @@
 .metrics {
   display: flex;
   flex-direction: column;
-  gap: 3.5px;
+  gap: 3px;
   min-width: 0;
   width: 100%;
 }
@@ -82,30 +82,51 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
-  font-size: 10px;
-  line-height: 1.35;
+  font-size: 10.5px;
+  line-height: 1.38;
 }
 
 .metricLabel {
   color: var(--text-muted, #9ca3af);
   font-weight: 450;
-  flex-shrink: 0;
-}
-
-.metricValue {
-  color: var(--text-secondary, #374151);
-  font-weight: 550;
-  text-align: right;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
 }
 
-.selected .metricValue {
-  color: #1e3a5f;
+.metricValue {
+  flex-shrink: 0;
+  font-weight: 550;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 语义色：克制低饱和，确保不同指标一眼区分 */
+.tone_todo {
+  color: #3b78c2;
+}
+
+.tone_todoDone {
+  color: #287d5c;
+}
+
+.tone_income {
+  color: #228658;
+}
+
+.tone_expense {
+  color: #c2413a;
+}
+
+.tone_record {
+  color: #9a6b2f;
+}
+
+.tone_token {
+  color: #6d5cae;
 }
 
 .unavailable {
