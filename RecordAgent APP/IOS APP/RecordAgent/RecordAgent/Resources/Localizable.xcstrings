@@ -1769,6 +1769,23 @@
         }
       }
     },
+    "agent.tool.calendar" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calendar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作日历"
+          }
+        }
+      }
+    },
     "agent.tool.capture_screen" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1782,6 +1799,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "截取电脑主屏幕"
+          }
+        }
+      }
+    },
+    "agent.tool.desktop" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desktop Control"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "桌面操作"
           }
         }
       }
@@ -1820,6 +1854,23 @@
         }
       }
     },
+    "agent.tool.finance" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查询财务"
+          }
+        }
+      }
+    },
     "agent.tool.list_dir" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1854,6 +1905,57 @@
         }
       }
     },
+    "agent.tool.plan_enter" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter Plan Mode"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "进入计划模式"
+          }
+        }
+      }
+    },
+    "agent.tool.plan_exit" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Submit Plan"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提交计划"
+          }
+        }
+      }
+    },
+    "agent.tool.plan_write" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update Plan"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新计划"
+          }
+        }
+      }
+    },
     "agent.tool.query_database" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1884,6 +1986,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "读取文件"
+          }
+        }
+      }
+    },
+    "agent.tool.record" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Records"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作资料"
           }
         }
       }
@@ -1935,6 +2054,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "查看历史会话"
+          }
+        }
+      }
+    },
+    "agent.tool.study" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Study"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记录学习"
           }
         }
       }
@@ -2007,135 +2143,8 @@
         }
       }
     },
-    "agent.tool.calendar" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Calendar"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "操作日历"
-          }
-        }
-      }
-    },
-    "agent.tool.desktop" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Desktop Control"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "桌面操作"
-          }
-        }
-      }
-    },
-    "agent.tool.finance" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Finance"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查询财务"
-          }
-        }
-      }
-    },
-    "agent.tool.plan_enter" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter Plan Mode"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "进入计划模式"
-          }
-        }
-      }
-    },
-    "agent.tool.plan_exit" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Submit Plan"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "提交计划"
-          }
-        }
-      }
-    },
-    "agent.tool.plan_write" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Update Plan"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新计划"
-          }
-        }
-      }
-    },
-    "agent.tool.record" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Records"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "操作资料"
-          }
-        }
-      }
-    },
-    "agent.tool.study" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Study"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "记录学习"
-          }
-        }
-      }
-    },
     "agent.trace.analyzing_results" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2152,6 +2161,7 @@
       }
     },
     "agent.trace.elapsed_hours %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2168,6 +2178,7 @@
       }
     },
     "agent.trace.elapsed_hours_minutes %lld %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2184,6 +2195,7 @@
       }
     },
     "agent.trace.elapsed_minutes %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2200,6 +2212,7 @@
       }
     },
     "agent.trace.elapsed_minutes_seconds %lld %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2216,6 +2229,7 @@
       }
     },
     "agent.trace.elapsed_seconds %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2227,22 +2241,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用时 %lld 秒"
-          }
-        }
-      }
-    },
-    "agent.trace.more_actions" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : " etc."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "等"
           }
         }
       }
@@ -2260,6 +2258,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 项失败"
+          }
+        }
+      }
+    },
+    "agent.trace.more_actions" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " etc."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等"
           }
         }
       }
