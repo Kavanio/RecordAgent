@@ -56,11 +56,12 @@ test('无数据日期不输出零值指标，且兼容旧后端缺失字数与�
     [
       ['财务', '0/27.5元'],
       ['资料', '1篇'],
-      ['Token', '4820'],
+      ['Token', '4.8K'],
     ],
   );
   assert.equal(formatCompactMoney(30.0), '30');
   assert.equal(formatCompactMoney(27.5), '27.5');
   assert.equal(formatCompactChars(12500), '1.3万字');
-  assert.equal(formatCompactTokens(25400), '25.4K');
+  assert.equal(formatCompactTokens(25400), '25K');
+  assert.equal(formatCompactTokens(850), '850');
 });

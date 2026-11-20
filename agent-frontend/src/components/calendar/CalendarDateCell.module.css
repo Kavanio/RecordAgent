@@ -3,47 +3,45 @@
   flex-direction: column;
   align-items: stretch;
   min-width: 0;
-  min-height: 114px;
-  padding: 11px 10px 10px;
+  min-height: 112px;
+  padding: 10px 8px 9px;
   border: 0;
   border-radius: 12px;
   background: transparent;
-  color: #0d0d0d;
+  color: var(--text-primary, #111827);
   text-align: left;
   cursor: pointer;
   font-variant-numeric: tabular-nums;
-  transition: background 150ms ease, box-shadow 150ms ease;
+  transition: background 150ms ease;
 }
 
 .hasData {
-  background: #f7f7f8;
+  background: #f7f8fa;
 }
 
 .cell:hover {
-  background: #f0f0f3;
+  background: #f0f2f6;
 }
 
 .cell:focus-visible {
-  outline: 2px solid #0d0d0d;
+  outline: 2px solid var(--accent-blue, #7ebefb);
   outline-offset: 1px;
 }
 
 .selected {
-  background: #ffffff;
-  box-shadow: inset 0 0 0 1.5px #0d0d0d;
+  background: #eaf3fe;
 }
 
 .selected:hover {
-  background: #fafafa;
+  background: #e1effe;
 }
 
 .outside {
   background: transparent;
-  pointer-events: auto;
 }
 
 .outside .number {
-  color: #8e8ea0;
+  color: var(--text-muted, #9ca3af);
   opacity: 0.32;
 }
 
@@ -54,24 +52,28 @@
   align-self: center;
   width: 28px;
   height: 28px;
-  margin-bottom: 10px;
+  margin-bottom: 9px;
   border-radius: 999px;
   font-size: 14px;
   font-weight: 600;
-  color: #0d0d0d;
+  color: var(--text-primary, #111827);
   letter-spacing: -0.02em;
   line-height: 1;
 }
 
+.selected .number:not(.today) {
+  color: #2563eb;
+}
+
 .today {
-  background: #0d0d0d;
+  background: var(--accent-blue-active, #54a0f3);
   color: #ffffff;
 }
 
 .metrics {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3.5px;
   min-width: 0;
   width: 100%;
 }
@@ -80,20 +82,20 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
-  font-size: 10.5px;
+  font-size: 10px;
   line-height: 1.35;
 }
 
 .metricLabel {
-  color: #8e8ea0;
+  color: var(--text-muted, #9ca3af);
   font-weight: 450;
   flex-shrink: 0;
 }
 
 .metricValue {
-  color: #1f2937;
+  color: var(--text-secondary, #374151);
   font-weight: 550;
   text-align: right;
   white-space: nowrap;
@@ -102,10 +104,14 @@
   min-width: 0;
 }
 
+.selected .metricValue {
+  color: #1e3a5f;
+}
+
 .unavailable {
   margin-top: 2px;
   font-size: 9.5px;
-  color: #8e8ea0;
+  color: var(--text-muted, #9ca3af);
   text-align: center;
 }
 

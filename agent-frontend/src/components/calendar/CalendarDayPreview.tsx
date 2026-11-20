@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { XIcon } from '@phosphor-icons/react';
 import { CalendarDayDetails } from './CalendarDayDetails';
 import styles from './CalendarDayPreview.module.css';
 interface CalendarDayPreviewProps {
@@ -77,15 +78,14 @@ export function CalendarDayPreview({
       }}
     >
       <header className={styles.heading}>
-        <div>
+        <div className={styles.titleGroup}>
           <strong>
-            {date.getMonth() + 1}月{date.getDate()}日 · 星期
-            {'日一二三四五六'[date.getDay()]}
+            {date.getMonth() + 1}月{date.getDate()}日
           </strong>
-          <small>当天记录</small>
+          <span>星期{'日一二三四五六'[date.getDay()]}</span>
         </div>
-        <button type="button" onClick={onClose} aria-label="关闭每日详情">
-          ×
+        <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="关闭每日详情">
+          <XIcon size={14} />
         </button>
       </header>
       <CalendarDayDetails date={date} compact />

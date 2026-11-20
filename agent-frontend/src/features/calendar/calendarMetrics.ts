@@ -30,6 +30,9 @@ export function formatCompactTokens(tokens: number): string {
     return `${millions}M`;
   }
   if (tokens >= 10_000) {
+    return `${Math.round(tokens / 1_000)}K`;
+  }
+  if (tokens >= 1_000) {
     const thousands = Math.round((tokens / 1_000) * 10) / 10;
     return `${thousands}K`;
   }
