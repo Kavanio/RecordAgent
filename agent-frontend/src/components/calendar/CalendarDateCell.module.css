@@ -1,169 +1,112 @@
 .cell {
-  position: relative;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   min-width: 0;
-  min-height: 106px;
-  padding: 8px 8px 9px;
+  min-height: 114px;
+  padding: 11px 10px 10px;
   border: 0;
-  border-right: 1px solid #eef0f4;
-  border-bottom: 1px solid #eef0f4;
-  background: #ffffff;
-  color: var(--text-secondary);
+  border-radius: 12px;
+  background: transparent;
+  color: #0d0d0d;
   text-align: left;
   cursor: pointer;
   font-variant-numeric: tabular-nums;
-  transition: background 140ms ease;
+  transition: background 150ms ease, box-shadow 150ms ease;
 }
 
-.weekend {
-  background: #fcfcfd;
+.hasData {
+  background: #f7f7f8;
 }
 
 .cell:hover {
-  background: #f8fafc;
+  background: #f0f0f3;
 }
 
 .cell:focus-visible {
-  z-index: 1;
-  outline: 2px solid #64748b;
-  outline-offset: -2px;
-}
-
-.todayCell {
-  background: #fdfefe;
+  outline: 2px solid #0d0d0d;
+  outline-offset: 1px;
 }
 
 .selected {
-  z-index: 1;
-  background: #f6f9fc;
-  box-shadow: inset 0 0 0 1.5px #475569;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1.5px #0d0d0d;
 }
 
 .selected:hover {
-  background: #f2f6fb;
+  background: #fafafa;
 }
 
 .outside {
-  background: #fafbfc;
-  color: var(--text-muted);
+  background: transparent;
+  pointer-events: auto;
 }
 
 .outside .number {
-  opacity: 0.36;
-}
-
-.cellHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-  width: 100%;
-  min-height: 22px;
-  margin-bottom: 6px;
+  color: #8e8ea0;
+  opacity: 0.32;
 }
 
 .number {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 4px;
+  align-self: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 10px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #1e293b;
-  letter-spacing: -0.01em;
-}
-
-.weekend .number {
-  color: #64748b;
-}
-
-.today {
-  background: #111827;
-  color: #ffffff !important;
+  font-size: 14px;
   font-weight: 600;
-}
-
-.moreBadge {
-  display: inline-flex;
-  align-items: center;
-  height: 16px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: #f1f4f8;
-  color: #64748b;
-  font-size: 9.5px;
-  font-weight: 550;
+  color: #0d0d0d;
+  letter-spacing: -0.02em;
   line-height: 1;
 }
 
-.items {
+.today {
+  background: #0d0d0d;
+  color: #ffffff;
+}
+
+.metrics {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
   width: 100%;
 }
 
-.item {
-  position: relative;
+.metricRow {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
   min-width: 0;
-  padding: 1.5px 2px;
-  border-radius: 4px;
-  font-size: 11px;
-  line-height: 1.4;
-  color: #334155;
+  font-size: 10.5px;
+  line-height: 1.35;
 }
 
-.item::before {
-  content: '';
-  width: 2.5px;
-  height: 11px;
-  border-radius: 999px;
+.metricLabel {
+  color: #8e8ea0;
+  font-weight: 450;
   flex-shrink: 0;
 }
 
-.itemText {
-  overflow: hidden;
+.metricValue {
+  color: #1f2937;
+  font-weight: 550;
+  text-align: right;
   white-space: nowrap;
+  overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
 }
 
-.todo::before {
-  background: #7c9bc4;
-}
-
-.schedule::before {
-  background: #a98bb8;
-}
-
-.study::before {
-  background: #6fa398;
-}
-
-.record::before {
-  background: #c7a667;
-}
-
-.expense {
-  color: #7c5144;
-}
-
-.expense::before {
-  background: #c88773;
-}
-
-.more {
-  padding: 1px 2px;
+.unavailable {
+  margin-top: 2px;
   font-size: 9.5px;
-  color: var(--text-muted);
+  color: #8e8ea0;
+  text-align: center;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,9 +1,5 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  border-top: 1px solid #eef0f4;
-  border-left: 1px solid #eef0f4;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #ffffff;
+  gap: 8px;
 }

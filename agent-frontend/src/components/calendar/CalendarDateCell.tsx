@@ -1,6 +1,5 @@
 import type { DailyDaySummary } from '../../types/dailyEvent';
-import { calendarCellItems } from '../../features/calendar/calendarItems';
-import { formatStudyDuration } from './calendarPresentation';
+import { calendarCellMetrics } from '../../features/calendar/calendarMetrics';
 import { Skeleton } from '../common/Skeleton';
 import styles from './CalendarDateCell.module.css';
 
@@ -14,13 +13,15 @@ interface Props {
   loading?: boolean;
   previewOpen: boolean;
   summary?: DailyDaySummary;
-  studySeconds?: number;
   recordCount?: number;
+  recordChars?: number;
+  tokenTotal?: number;
   onSelect: () => void;
   onPreview: (anchor: HTMLButtonElement, immediate: boolean) => void;
   onLeave: () => void;
 }
-/** 白底日期格展示简短事项标题，以低饱和色条区分来源。 */
+
+/** 极简无边框圆角日期面块：顶部居中日期数字，下方展示当日核心量化指标。 */
 export function CalendarDateCell({
   date,
   dateKey,
@@ -31,33 +32,23 @@ export function CalendarDateCell({
   loading = false,
   previewOpen,
   summary,
-  studySeconds = 0,
   recordCount = 0,
+  recordChars = 0,
+  tokenTotal = 0,
   onSelect,
   onPreview,
   onLeave,
 }: Props) {
-  const items = calendarCellItems(
-    summary,
-    studySeconds > 0 ? formatStudyDuration(studySeconds) : null,
-    recordCount,
-  );
-  const visibleItems = items.slice(0, 3);
-  const totalCount = Math.max(items.length, summary?.eventCount ?? 0);
-  const hasMore =
-    items.length > 3 ||
-    ((summary?.eventCount ?? 0) > (summary?.items?.length ?? 0) &&
-      items.length >= 3);
-  const extraCount = Math.max(1, totalCount - visibleItems.length);
-  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+  const metrics = calendarCellMetrics(summary, recordCount, recordChars, tokenTotal);
+  const hasData = inMonth && !loading && metrics.length > 0;
+
   return (
     <button
       type="button"
       className={[
         styles.cell,
         !inMonth ? styles.outside : '',
-        isWeekend ? styles.weekend : '',
-        today ? styles.todayCell : '',
+        hasData ? styles.hasData : '',
         selected ? styles.selected : '',
       ].filter(Boolean).join(' ')}
       onMouseEnter={(event) => onPreview(event.currentTarget, false)}
@@ -72,31 +63,30 @@ export function CalendarDateCell({
       aria-current={today ? 'date' : undefined}
       aria-expanded={previewOpen}
       aria-controls={previewOpen ? 'calendar-day-preview' : undefined}
-      aria-label={loading ? `${dateKey}，正在读取摘要` : `${dateKey}，${items.map((item) => item.title).join('，') || '暂无事项'}${!available ? '，部分摘要暂不可用' : ''}`}
+      aria-label={
+        loading
+          ? `${dateKey}，正在读取摘要`
+          : `${dateKey}，${metrics.map((metric) => metric.title).join('，') || '暂无记录'}${!available ? '，部分摘要暂不可用' : ''}`
+      }
     >
-      <span className={styles.cellHeader}>
-        <span className={`${styles.number} ${today ? styles.today : ''}`}>
-          {date.getDate()}
-        </span>
-        {inMonth && !loading && hasMore && (
-          <span className={styles.moreBadge} title={`还有 ${extraCount} 项事项`}>
-            +{extraCount}
-          </span>
-        )}
+      <span className={`${styles.number} ${today ? styles.today : ''}`}>
+        {date.getDate()}
       </span>
       {inMonth && (
-        <span className={styles.items}>
-          {loading ? <Skeleton variant="text" decorative /> : <>
-          {visibleItems.map((item) => (
-            <span
-              key={item.id}
-              className={`${styles.item} ${styles[item.tone]}`}
-            >
-              <span className={styles.itemText}>{item.title}</span>
-            </span>
-          ))}
-          {!available && <span className={styles.more}>部分摘要暂不可用</span>}
-          </>}
+        <span className={styles.metrics}>
+          {loading ? (
+            <Skeleton variant="text" decorative />
+          ) : (
+            <>
+              {metrics.map((metric) => (
+                <span key={metric.id} className={styles.metricRow} title={metric.title}>
+                  <span className={styles.metricLabel}>{metric.label}</span>
+                  <span className={styles.metricValue}>{metric.value}</span>
+                </span>
+              ))}
+              {!available && <span className={styles.unavailable}>部分摘要暂不可用</span>}
+            </>
+          )}
         </span>
       )}
     </button>
