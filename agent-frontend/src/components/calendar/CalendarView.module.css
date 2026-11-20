@@ -47,16 +47,16 @@
 }
 
 .monthTitleRow {
-  align-items: center;
-  margin-bottom: 22px;
+  align-items: baseline;
+  margin-bottom: 18px;
 }
 
 .monthTitleRow h2,
 .dayHeading h2 {
   color: var(--text-primary);
-  font-size: 16px;
-  font-weight: 650;
-  letter-spacing: -0.015em;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   line-height: 1.35;
 }
 
@@ -71,11 +71,11 @@
 }
 
 .weekHeader span {
-  padding: 0 8px 9px;
+  padding: 0 10px 8px;
   color: var(--text-muted);
   font-size: 11px;
-  font-weight: 550;
-  text-align: center;
+  font-weight: 500;
+  text-align: left;
 }
 
 .monthReview {
@@ -551,14 +551,14 @@
 
 .monthStats small { display: block; margin-top: 5px; color: var(--text-muted); font-size: 10px; }
 
- .itemLegend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; color: var(--text-muted); font-size: 10px; }
+ .itemLegend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; color: var(--text-muted); font-size: 10.5px; }
 .itemLegend span { display: inline-flex; align-items: center; gap: 5px; }
-.itemLegend i { display: inline-block; width: 3px; height: 9px; border-radius: 2px; }
-.todoMarker { background: #8fa9ce; }
-.scheduleMarker { background: #b69bc2; }
-.studyMarker { background: #91b6ad; }
-.recordMarker { background: #c9b17c; }
-.expenseMarker { background: #cda08e; }
+.itemLegend i { display: inline-block; width: 2.5px; height: 10px; border-radius: 999px; }
+.todoMarker { background: #7c9bc4; }
+.scheduleMarker { background: #a98bb8; }
+.studyMarker { background: #6fa398; }
+.recordMarker { background: #c7a667; }
+.expenseMarker { background: #c88773; }
 .monthStats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding-top: 16px; border-top: 1px solid #edf0ee; }
 .monthStats dd { font-size: 12px; font-weight: 550; }
 @media (max-width: 620px) { .monthStats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

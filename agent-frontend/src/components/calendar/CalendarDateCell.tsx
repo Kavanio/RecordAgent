@@ -43,18 +43,23 @@ export function CalendarDateCell({
     recordCount,
   );
   const visibleItems = items.slice(0, 3);
+  const totalCount = Math.max(items.length, summary?.eventCount ?? 0);
   const hasMore =
     items.length > 3 ||
     ((summary?.eventCount ?? 0) > (summary?.items?.length ?? 0) &&
       items.length >= 3);
+  const extraCount = Math.max(1, totalCount - visibleItems.length);
+  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
   return (
     <button
       type="button"
       className={[
         styles.cell,
         !inMonth ? styles.outside : '',
+        isWeekend ? styles.weekend : '',
+        today ? styles.todayCell : '',
         selected ? styles.selected : '',
-      ].join(' ')}
+      ].filter(Boolean).join(' ')}
       onMouseEnter={(event) => onPreview(event.currentTarget, false)}
       onMouseLeave={onLeave}
       onFocus={(event) => {
@@ -69,8 +74,15 @@ export function CalendarDateCell({
       aria-controls={previewOpen ? 'calendar-day-preview' : undefined}
       aria-label={loading ? `${dateKey}，正在读取摘要` : `${dateKey}，${items.map((item) => item.title).join('，') || '暂无事项'}${!available ? '，部分摘要暂不可用' : ''}`}
     >
-      <span className={`${styles.number} ${today ? styles.today : ''}`}>
-        {date.getDate()}
+      <span className={styles.cellHeader}>
+        <span className={`${styles.number} ${today ? styles.today : ''}`}>
+          {date.getDate()}
+        </span>
+        {inMonth && !loading && hasMore && (
+          <span className={styles.moreBadge} title={`还有 ${extraCount} 项事项`}>
+            +{extraCount}
+          </span>
+        )}
       </span>
       {inMonth && (
         <span className={styles.items}>
@@ -80,10 +92,9 @@ export function CalendarDateCell({
               key={item.id}
               className={`${styles.item} ${styles[item.tone]}`}
             >
-              {item.title}
+              <span className={styles.itemText}>{item.title}</span>
             </span>
           ))}
-          {hasMore && <span className={styles.more}>更多事项…</span>}
           {!available && <span className={styles.more}>部分摘要暂不可用</span>}
           </>}
         </span>
