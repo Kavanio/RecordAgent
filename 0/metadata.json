@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M7VC4AEFQ4ZQBZHGRK3YJYJ7",
+  "session_id": "5365e215-d51e-4481-89b8-a82ae14736e9",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-20T02:21:22.484626Z",
+  "branch": "desktop/agent-core-refactor",
+  "checkpoints_count": 2,
+  "save_step_count": 2,
+  "files_touched": [],
+  "agent": "Antigravity",
+  "model": "gemini-4-neon-medium",
+  "turn_id": "d71a01043784",
+  "checkpoint_transcript_start": 43,
+  "transcript_lines_at_start": 43,
+  "redaction": {
+    "replacements": 1,
+    "layers": {
+      "betterleaks": 0,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 0,
+      "entropy": 1,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 2
+  }
+}
